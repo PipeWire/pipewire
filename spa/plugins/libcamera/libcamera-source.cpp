@@ -8,6 +8,7 @@
 #include <deque>
 #include <limits>
 #include <optional>
+#include <utility>
 
 #include <sys/mman.h>
 
@@ -1209,6 +1210,19 @@ void impl::requestComplete(libcamera::Request *request)
 
 }
 
+int do_remove_source(struct spa_loop *loop,
+		     bool async,
+		     uint32_t seq,
+		     const void *data,
+		     size_t size,
+		     void *user_data)
+{
+	auto *impl = static_cast<struct impl *>(user_data);
+	if (impl->source.loop)
+		spa_loop_remove_source(loop, &impl->source);
+	return 0;
+}
+
 int spa_libcamera_stream_on(struct impl *impl)
 {
 	struct port *port = &impl->out_ports[0];
@@ -1222,54 +1236,45 @@ int spa_libcamera_stream_on(struct impl *impl)
 	if (impl->active)
 		return 0;
 
-	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
+	res = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (res < 0)
+		return res;
+
+	impl->source.fd = res;
+	impl->source.func = libcamera_on_fd_events;
+	impl->source.data = impl;
+	impl->source.mask = SPA_IO_IN | SPA_IO_ERR;
+	impl->source.rmask = 0;
+	res = spa_loop_add_source(impl->data_loop, &impl->source);
+	if (res < 0)
+		goto err_close_source;
 
 	spa_log_info(impl->log, "starting camera %s", impl->camera->id().c_str());
 	if ((res = impl->camera->start(&impl->initial_controls)) < 0)
-		goto error;
+		goto err_remove_source;
+
+	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
 
 	for (Request *req : impl->pendingRequests) {
 		if ((res = impl->camera->queueRequest(req)) < 0)
-			goto error_stop;
+			goto err_stop_camera;
 	}
 	impl->pendingRequests.clear();
 
 	impl->dll.bw = 0.0;
-
-	impl->source.func = libcamera_on_fd_events;
-	impl->source.data = impl;
-	impl->source.fd = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	impl->source.mask = SPA_IO_IN | SPA_IO_ERR;
-	impl->source.rmask = 0;
-	if (impl->source.fd < 0) {
-		spa_log_error(impl->log, "Failed to create eventfd: %s", spa_strerror(impl->source.fd));
-		res = impl->source.fd;
-		goto error_stop;
-	}
-	spa_loop_add_source(impl->data_loop, &impl->source);
-
 	impl->active = true;
 
 	return 0;
 
-error_stop:
+err_stop_camera:
 	impl->camera->stop();
-error:
 	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
-	return res == -EACCES ? -EBUSY : res;
-}
+err_remove_source:
+	spa_loop_invoke(impl->data_loop, do_remove_source, 0, nullptr, 0, true, impl);
+err_close_source:
+	spa_system_close(impl->system, std::exchange(impl->source.fd, -1));
 
-int do_remove_source(struct spa_loop *loop,
-		     bool async,
-		     uint32_t seq,
-		     const void *data,
-		     size_t size,
-		     void *user_data)
-{
-	auto *impl = static_cast<struct impl *>(user_data);
-	if (impl->source.loop)
-		spa_loop_remove_source(loop, &impl->source);
-	return 0;
+	return res == -EACCES ? -EBUSY : res;
 }
 
 int spa_libcamera_stream_off(struct impl *impl)

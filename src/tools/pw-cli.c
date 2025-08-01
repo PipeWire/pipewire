@@ -556,8 +556,8 @@ static void on_core_error(void *_data, uint32_t id, int seq, int res, const char
 	struct remote_data *rd = _data;
 	struct data *data = rd->data;
 
-	pw_log_error("remote %p: error id:%u seq:%d res:%d (%s): %s", rd,
-			id, seq, res, spa_strerror(res), message);
+	fprintf(stderr, "remote %" PRIu32 ": error id:%" PRIu32 " seq:%d res:%d (%s): %s\n",
+		rd->id, id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE && res == -EPIPE)
 		program_quit(data);

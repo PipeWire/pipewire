@@ -441,7 +441,7 @@ static bool check_override(struct pw_properties *conf, const char *name, int lev
 			continue;
 		if (sscanf(it->key, "override.%d.%d.config.name", &lev, &idx) != 2)
 			continue;
-		if (lev < level)
+		if (lev > level)
 			return false;
 	}
 	return true;

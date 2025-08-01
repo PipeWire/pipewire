@@ -105,9 +105,12 @@ SPA_API_POD_BODY int spa_pod_is_bool(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Bool, sizeof(int32_t));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_bool(const struct spa_pod *pod, const void *body, bool *value)
+SPA_API_POD_BODY int spa_pod_body_get_bool(const struct spa_pod *pod, const void *body, bool *value)
 {
+	if (!spa_pod_is_bool(pod))
+		return -EINVAL;
 	*value = !!*((int32_t*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_id(const struct spa_pod *pod)
@@ -115,9 +118,12 @@ SPA_API_POD_BODY int spa_pod_is_id(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Id, sizeof(uint32_t));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_id(const struct spa_pod *pod, const void *body, uint32_t *value)
+SPA_API_POD_BODY int spa_pod_body_get_id(const struct spa_pod *pod, const void *body, uint32_t *value)
 {
+	if (!spa_pod_is_id(pod))
+		return -EINVAL;
 	*value = *((uint32_t*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_int(const struct spa_pod *pod)
@@ -125,9 +131,12 @@ SPA_API_POD_BODY int spa_pod_is_int(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Int, sizeof(int32_t));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_int(const struct spa_pod *pod, const void *body, int32_t *value)
+SPA_API_POD_BODY int spa_pod_body_get_int(const struct spa_pod *pod, const void *body, int32_t *value)
 {
+	if (!spa_pod_is_int(pod))
+		return -EINVAL;
 	*value = *((int32_t*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_long(const struct spa_pod *pod)
@@ -135,9 +144,12 @@ SPA_API_POD_BODY int spa_pod_is_long(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Long, sizeof(int64_t));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_long(const struct spa_pod *pod, const void *body, int64_t *value)
+SPA_API_POD_BODY int spa_pod_body_get_long(const struct spa_pod *pod, const void *body, int64_t *value)
 {
+	if (!spa_pod_is_long(pod))
+		return -EINVAL;
 	*value = *((int64_t*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_float(const struct spa_pod *pod)
@@ -145,9 +157,12 @@ SPA_API_POD_BODY int spa_pod_is_float(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Float, sizeof(float));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_float(const struct spa_pod *pod, const void *body, float *value)
+SPA_API_POD_BODY int spa_pod_body_get_float(const struct spa_pod *pod, const void *body, float *value)
 {
+	if (!spa_pod_is_float(pod))
+		return -EINVAL;
 	*value = *((float*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_double(const struct spa_pod *pod)
@@ -155,9 +170,12 @@ SPA_API_POD_BODY int spa_pod_is_double(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Double, sizeof(double));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_double(const struct spa_pod *pod, const void *body, double *value)
+SPA_API_POD_BODY int spa_pod_body_get_double(const struct spa_pod *pod, const void *body, double *value)
 {
+	if (!spa_pod_is_double(pod))
+		return -EINVAL;
 	*value = *((double*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_string(const struct spa_pod *pod)
@@ -165,21 +183,24 @@ SPA_API_POD_BODY int spa_pod_is_string(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_String, 1);
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_string(const struct spa_pod *pod,
+SPA_API_POD_BODY int spa_pod_body_get_string(const struct spa_pod *pod,
 		const void *body, const char **value)
 {
-	const char *s = (const char *)body;
+	const char *s;
+	if (!spa_pod_is_string(pod))
+		return -EINVAL;
+	s = (const char *)body;
 	if (s[pod->size-1] != '\0')
-		s = NULL;
+		return -EINVAL;
 	*value = s;
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_body_copy_string(const struct spa_pod *pod, const void *body,
 		char *dest, size_t maxlen)
 {
 	const char *s;
-	spa_pod_body_get_string(pod, body, &s);
-	if (s == NULL || maxlen < 1)
+	if (spa_pod_body_get_string(pod, body, &s) < 0 || maxlen < 1)
 		return -EINVAL;
 	strncpy(dest, s, maxlen-1);
 	dest[maxlen-1]= '\0';
@@ -191,11 +212,14 @@ SPA_API_POD_BODY int spa_pod_is_bytes(const struct spa_pod *pod)
 	return SPA_POD_CHECK_TYPE(pod, SPA_TYPE_Bytes);
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_bytes(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_bytes(const struct spa_pod *pod, const void *body,
 		const void **value, uint32_t *len)
 {
+	if (!spa_pod_is_bytes(pod))
+		return -EINVAL;
 	*value = (const void *)body;
 	*len = pod->size;
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_pointer(const struct spa_pod *pod)
@@ -203,11 +227,14 @@ SPA_API_POD_BODY int spa_pod_is_pointer(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Pointer, sizeof(struct spa_pod_pointer_body));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_pointer(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_pointer(const struct spa_pod *pod, const void *body,
 		uint32_t *type, const void **value)
 {
+	if (!spa_pod_is_pointer(pod))
+		return -EINVAL;
 	*type = ((struct spa_pod_pointer_body*)body)->type;
 	*value = ((struct spa_pod_pointer_body*)body)->value;
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_fd(const struct spa_pod *pod)
@@ -215,10 +242,13 @@ SPA_API_POD_BODY int spa_pod_is_fd(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Fd, sizeof(int64_t));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_fd(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_fd(const struct spa_pod *pod, const void *body,
 		int64_t *value)
 {
+	if (!spa_pod_is_fd(pod))
+		return -EINVAL;
 	*value = *((int64_t*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_rectangle(const struct spa_pod *pod)
@@ -226,42 +256,54 @@ SPA_API_POD_BODY int spa_pod_is_rectangle(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Rectangle, sizeof(struct spa_rectangle));
 }
 
-SPA_API_POD_BODY void spa_pod_body_get_rectangle(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_rectangle(const struct spa_pod *pod, const void *body,
 		struct spa_rectangle *value)
 {
+	if (!spa_pod_is_rectangle(pod))
+		return -EINVAL;
 	*value = *((struct spa_rectangle*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_fraction(const struct spa_pod *pod)
 {
 	return SPA_POD_CHECK(pod, SPA_TYPE_Fraction, sizeof(struct spa_fraction));
 }
-SPA_API_POD_BODY void spa_pod_body_get_fraction(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_fraction(const struct spa_pod *pod, const void *body,
 		struct spa_fraction *value)
 {
+	if (!spa_pod_is_fraction(pod))
+		return -EINVAL;
 	*value = *((struct spa_fraction*)body);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_bitmap(const struct spa_pod *pod)
 {
 	return SPA_POD_CHECK(pod, SPA_TYPE_Bitmap, sizeof(uint8_t));
 }
-SPA_API_POD_BODY void spa_pod_body_get_bitmap(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_bitmap(const struct spa_pod *pod, const void *body,
 		const uint8_t **value)
 {
+	if (!spa_pod_is_bitmap(pod))
+		return -EINVAL;
 	*value = (const uint8_t *)body;
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_array(const struct spa_pod *pod)
 {
 	return SPA_POD_CHECK(pod, SPA_TYPE_Array, sizeof(struct spa_pod_array_body));
 }
-SPA_API_POD_BODY void spa_pod_body_get_array(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_array(const struct spa_pod *pod, const void *body,
 		struct spa_pod_array *arr, const void **arr_body)
 {
+	if (!spa_pod_is_array(pod))
+		return -EINVAL;
 	arr->pod = *pod;
 	memcpy(&arr->body, body, sizeof(struct spa_pod_array_body));
 	*arr_body = SPA_PTROFF(body, sizeof(struct spa_pod_array_body), void);
+	return 0;
 }
 SPA_API_POD_BODY const void *spa_pod_array_body_get_values(const struct spa_pod_array *arr,
 		const void *body, uint32_t *n_values, uint32_t *val_size, uint32_t *val_type)
@@ -277,7 +319,8 @@ SPA_API_POD_BODY const void *spa_pod_body_get_array_values(const struct spa_pod 
 		const void *body, uint32_t *n_values, uint32_t *val_size, uint32_t *val_type)
 {
 	struct spa_pod_array arr;
-	spa_pod_body_get_array(pod, body, &arr, &body);
+	if (spa_pod_body_get_array(pod, body, &arr, &body) < 0)
+		return NULL;
 	return spa_pod_array_body_get_values(&arr, body, n_values, val_size, val_type);
 }
 
@@ -285,12 +328,15 @@ SPA_API_POD_BODY int spa_pod_is_choice(const struct spa_pod *pod)
 {
 	return SPA_POD_CHECK(pod, SPA_TYPE_Choice, sizeof(struct spa_pod_choice_body));
 }
-SPA_API_POD_BODY void spa_pod_body_get_choice(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_choice(const struct spa_pod *pod, const void *body,
 		struct spa_pod_choice *choice, const void **choice_body)
 {
+	if (!spa_pod_is_choice(pod))
+		return -EINVAL;
 	choice->pod = *pod;
 	memcpy(&choice->body, body, sizeof(struct spa_pod_choice_body));
 	*choice_body = SPA_PTROFF(body, sizeof(struct spa_pod_choice_body), void);
+	return 0;
 }
 SPA_API_POD_BODY const void *spa_pod_choice_body_get_values(const struct spa_pod_choice *pod,
 		const void *body, uint32_t *n_values, uint32_t *choice,
@@ -315,24 +361,30 @@ SPA_API_POD_BODY int spa_pod_is_object(const struct spa_pod *pod)
 {
 	return SPA_POD_CHECK(pod, SPA_TYPE_Object, sizeof(struct spa_pod_object_body));
 }
-SPA_API_POD_BODY void spa_pod_body_get_object(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_object(const struct spa_pod *pod, const void *body,
 		struct spa_pod_object *object, const void **object_body)
 {
+	if (!spa_pod_is_object(pod))
+		return -EINVAL;
 	object->pod = *pod;
 	memcpy(&object->body, body, sizeof(struct spa_pod_object_body));
 	*object_body = SPA_PTROFF(body, sizeof(struct spa_pod_object_body), void);
+	return 0;
 }
 
 SPA_API_POD_BODY int spa_pod_is_sequence(const struct spa_pod *pod)
 {
 	return SPA_POD_CHECK(pod, SPA_TYPE_Sequence, sizeof(struct spa_pod_sequence_body));
 }
-SPA_API_POD_BODY void spa_pod_body_get_sequence(const struct spa_pod *pod, const void *body,
+SPA_API_POD_BODY int spa_pod_body_get_sequence(const struct spa_pod *pod, const void *body,
 		struct spa_pod_sequence *seq, const void **seq_body)
 {
+	if (!spa_pod_is_sequence(pod))
+		return -EINVAL;
 	seq->pod = *pod;
 	memcpy(&seq->body, body, sizeof(struct spa_pod_sequence_body));
 	*seq_body = SPA_PTROFF(body, sizeof(struct spa_pod_sequence_body), void);
+	return 0;
 }
 
 /**

@@ -498,6 +498,7 @@ SPA_API_POD_PARSER int spa_pod_parser_object_find_prop(struct spa_pod_parser *pa
 		if (prop->key == key)
 			return 0;
 	}
+	*body = NULL;
 	return -ENOENT;
 }
 
@@ -571,84 +572,93 @@ SPA_API_POD_PARSER bool spa_pod_parser_can_collect(const struct spa_pod *pod, ch
 	return spa_pod_parser_body_can_collect(pod, SPA_POD_BODY_CONST(pod), type);
 }
 
-#define SPA_POD_PARSER_COLLECT_BODY(pod,body,_type,args)				\
-do {											\
+#define SPA_POD_PARSER_COLLECT_BODY(_pod,_body,_type,args)				\
+({											\
+	int res = 0;									\
+	struct spa_pod_choice choice;							\
+	const struct spa_pod *_p = _pod;						\
+	const void *_b = _body;								\
+	if (_p->type == SPA_TYPE_Choice && _type != 'V' && _type != 'W') {		\
+		if (spa_pod_body_get_choice(_p, _b, &choice, &_b) >= 0 &&		\
+		    choice.body.type == SPA_CHOICE_None)				\
+			_p = &choice.body.child;					\
+	}										\
 	switch (_type) {								\
 	case 'b':									\
 	{										\
 		bool *val = va_arg(args, bool*);					\
-		spa_pod_body_get_bool(pod, body, val);					\
+		res = spa_pod_body_get_bool(_p, _b, val);				\
 		break;									\
 	}										\
 	case 'I':									\
 	{										\
 		uint32_t *val = va_arg(args, uint32_t*);				\
-		spa_pod_body_get_id(pod, body, val);					\
+		res = spa_pod_body_get_id(_p, _b, val);					\
 		break;									\
 	}										\
 	case 'i':									\
 	{										\
 		int32_t *val = va_arg(args, int32_t*);					\
-		spa_pod_body_get_int(pod, body, val);					\
+		res = spa_pod_body_get_int(_p, _b, val);				\
 		break;									\
 	}										\
 	case 'l':									\
 	{										\
 		int64_t *val = va_arg(args, int64_t*);					\
-		spa_pod_body_get_long(pod, body, val);					\
+		res = spa_pod_body_get_long(_p, _b, val);				\
 		break;									\
 	}										\
 	case 'f':									\
 	{										\
 		float *val = va_arg(args, float*);					\
-		spa_pod_body_get_float(pod, body, val);					\
+		res = spa_pod_body_get_float(_p, _b, val);				\
 		break;									\
 	}										\
 	case 'd':									\
 	{										\
 		double *val = va_arg(args, double*);					\
-		spa_pod_body_get_double(pod, body, val);				\
+		res = spa_pod_body_get_double(_p, _b, val);				\
 		break;									\
 	}										\
 	case 's':									\
 	{										\
 		const char **dest = va_arg(args, const char**);				\
-		if ((pod)->type == SPA_TYPE_None)					\
+		if (_p->type == SPA_TYPE_None)					\
 			*dest = NULL;							\
 		else									\
-			spa_pod_body_get_string(pod, body, dest);			\
+			res = spa_pod_body_get_string(_p, _b, dest);			\
 		break;									\
 	}										\
 	case 'S':									\
 	{										\
 		char *dest = va_arg(args, char*);					\
 		uint32_t maxlen = va_arg(args, uint32_t);				\
-		spa_pod_body_copy_string(pod, body, dest, maxlen);			\
+		res = spa_pod_body_copy_string(_p, _b, dest, maxlen);		\
 		break;									\
 	}										\
 	case 'y':									\
 	{										\
 		const void **value = va_arg(args, const void**);			\
 		uint32_t *len = va_arg(args, uint32_t*);				\
-		spa_pod_body_get_bytes(pod, body, value, len);				\
+		res = spa_pod_body_get_bytes(_p, _b, value, len);			\
 		break;									\
 	}										\
 	case 'R':									\
 	{										\
 		struct spa_rectangle *val = va_arg(args, struct spa_rectangle*);	\
-		spa_pod_body_get_rectangle(pod, body, val);				\
+		res = spa_pod_body_get_rectangle(_p, _b, val);			\
 		break;									\
 	}										\
 	case 'F':									\
 	{										\
 		struct spa_fraction *val = va_arg(args, struct spa_fraction*);		\
-		spa_pod_body_get_fraction(pod, body, val);				\
+		res = spa_pod_body_get_fraction(_p, _b, val);			\
 		break;									\
 	}										\
 	case 'B':									\
 	{										\
 		const uint8_t **val = va_arg(args, const uint8_t**);			\
-		spa_pod_body_get_bitmap(pod, body, val);				\
+		res = spa_pod_body_get_bitmap(_p, _b, val);				\
 		break;									\
 	}										\
 	case 'a':									\
@@ -657,49 +667,79 @@ do {											\
 		uint32_t *val_type = va_arg(args, uint32_t*);				\
 		uint32_t *n_values = va_arg(args, uint32_t*);				\
 		const void **arr_body = va_arg(args, const void**);			\
-		*arr_body = spa_pod_body_get_array_values(pod, body,			\
+		*arr_body = spa_pod_body_get_array_values(_p, _b,			\
 				n_values, val_size, val_type);				\
+		if (*arr_body == NULL)							\
+			res = -EINVAL;							\
 		break;									\
 	}										\
 	case 'p':									\
 	{										\
 		uint32_t *type = va_arg(args, uint32_t*);				\
 		const void **value = va_arg(args, const void**);			\
-		spa_pod_body_get_pointer(pod, body, type, value);			\
+		res = spa_pod_body_get_pointer(_p, _b, type, value);			\
 		break;									\
 	}										\
 	case 'h':									\
 	{										\
 		int64_t *val = va_arg(args, int64_t*);					\
-		spa_pod_body_get_fd(pod, body, val);					\
-		break;									\
-	}										\
-	case 'P':									\
-	case 'T':									\
-	case 'O':									\
-	case 'V':									\
-	{										\
-		const struct spa_pod **d = va_arg(args, const struct spa_pod**);	\
-		if (d)									\
-			*d = ((pod)->type == SPA_TYPE_None) ?				\
-			NULL : SPA_PTROFF((body), -sizeof(struct spa_pod), const struct spa_pod);	\
-		break;									\
-	}										\
-	case 'Q':									\
-	case 'U':									\
-	case 'N':									\
-	case 'W':									\
-	{										\
-		struct spa_pod *p = va_arg(args, struct spa_pod*);			\
-		const void **v = va_arg(args, const void **);				\
-		*p = *pod;								\
-		*v = body;								\
+		res = spa_pod_body_get_fd(_p, _b, val);					\
 		break;									\
 	}										\
 	default:									\
+	{										\
+		bool valid = false, do_body = false;					\
+		switch (_type) {							\
+		case 'Q':								\
+			do_body = true;							\
+			SPA_FALLTHROUGH;						\
+		case 'P':								\
+			valid = true;							\
+			break;								\
+		case 'U':								\
+			do_body = true;							\
+			SPA_FALLTHROUGH;						\
+		case 'T':								\
+			valid = spa_pod_is_struct(_p) || spa_pod_is_none(_p);		\
+			break;								\
+		case 'N':								\
+			do_body = true;							\
+			SPA_FALLTHROUGH;						\
+		case 'O':								\
+			valid = spa_pod_is_object(_p) || spa_pod_is_none(_p);		\
+			break;								\
+		case 'W':								\
+			do_body = true;							\
+			SPA_FALLTHROUGH;						\
+		case 'V':								\
+			valid = spa_pod_is_choice(_p) || spa_pod_is_none(_p);		\
+			break;								\
+		default:								\
+			res = -EINVAL;							\
+			break;								\
+		}									\
+		if (res >= 0 && do_body) {						\
+			struct spa_pod *p = va_arg(args, struct spa_pod*);		\
+			const void **v = va_arg(args, const void **);			\
+			if (valid && p && v) {						\
+				*p = *_p;						\
+				*v = _b;						\
+			}								\
+		} else if (res >= 0) {							\
+			const struct spa_pod **d = va_arg(args, const struct spa_pod**);\
+			if (valid && d)							\
+				*d = (_p->type == SPA_TYPE_None) ?			\
+					NULL :						\
+					SPA_PTROFF((_b), -sizeof(struct spa_pod),	\
+						const struct spa_pod);			\
+		}									\
+		if (!valid)								\
+			res = -EINVAL;							\
 		break;									\
 	}										\
-} while(false)
+	}										\
+	res;										\
+})
 
 #define SPA_POD_PARSER_COLLECT(pod,_type,args)						\
 	SPA_POD_PARSER_COLLECT_BODY(pod, SPA_POD_BODY_CONST(pod),_type,args)
@@ -752,8 +792,8 @@ SPA_API_POD_PARSER int spa_pod_parser_getv(struct spa_pod_parser *parser, va_lis
 		return -EINVAL;
 
 	do {
-		bool optional, have_pod = false;
-		struct spa_pod pod;
+		bool optional;
+		struct spa_pod pod = (struct spa_pod) { 0, SPA_TYPE_None };
 		const void *body = NULL;
 		const char *format;
 		struct spa_pod_prop prop;
@@ -764,41 +804,26 @@ SPA_API_POD_PARSER int spa_pod_parser_getv(struct spa_pod_parser *parser, va_lis
 			if (key == 0)
 				break;
 
-			if (spa_pod_parser_object_find_prop(parser, key, &prop, &body) >= 0) {
+			if (spa_pod_parser_object_find_prop(parser, key, &prop, &body) >= 0)
 				pod = prop.value;
-				have_pod = true;
-			}
 		}
 
 		if ((format = va_arg(args, char *)) == NULL)
 			break;
 
 		if (f->pod.type == SPA_TYPE_Struct)
-			if (spa_pod_parser_next_body(parser, &pod, &body) >= 0)
-				have_pod = true;
+			spa_pod_parser_next_body(parser, &pod, &body);
 
 		if ((optional = (*format == '?')))
 			format++;
 
-		if (!have_pod || !spa_pod_parser_body_can_collect(&pod, body, *format)) {
-			if (!optional) {
-				if (!have_pod)
-					return -ESRCH;
-				else
-					return -EPROTO;
-			}
-			SPA_POD_PARSER_SKIP(*format, args);
-		} else {
-			struct spa_pod_choice choice;
-
-			if (pod.type == SPA_TYPE_Choice && *format != 'V') {
-				if (spa_pod_body_get_choice(&pod, body, &choice, &body) < 0)
-					return -EINVAL;
-				pod = choice.body.child;
-			}
-
-			SPA_POD_PARSER_COLLECT_BODY(&pod, body, *format, args);
+		if (SPA_POD_PARSER_COLLECT_BODY(&pod, body, *format, args) >= 0) {
 			count++;
+		} else if (!optional) {
+			if (body == NULL)
+				return -ESRCH;
+			else
+				return -EPROTO;
 		}
 	} while (true);
 

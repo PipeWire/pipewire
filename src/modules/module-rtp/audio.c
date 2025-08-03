@@ -506,21 +506,9 @@ static void rtp_audio_process_capture(void *data)
 		quantum = 0;
 	}
 
-	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
-				actual_timestamp, impl->seq, impl->ts_offset, impl->ssrc);
-		impl->ring.readindex = impl->ring.writeindex = actual_timestamp;
-		memset(impl->buffer, 0, BUFFER_SIZE);
-		impl->have_sync = true;
-		expected_timestamp = actual_timestamp;
-		filled = 0;
+	/* First do the synchronization checks (if the sender is in sync already.) */
 
-		if (impl->separate_sender) {
-			/* the sender should know that the sync state has changed, and that it should
-			 * refill the buffer */
-			impl->refilling = true;
-		}
-	} else {
+	if (impl->have_sync) {
 		if (SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_DISCONT)) {
 			pw_log_info("IO clock reports discontinuity; resynchronizing");
 			impl->have_sync = false;
@@ -539,6 +527,25 @@ static void rtp_audio_process_capture(void *data)
 					impl->target_buffer * 8, BUFFER_SIZE / stride);
 			impl->have_sync = false;
 			filled = 0;
+		}
+	}
+
+	/* Next, (re)synchronize. If the sender was in sync, but the checks above detected
+	 * that resynchronization is needed, then this will be done immediately below. */
+
+	if (!impl->have_sync) {
+		pw_log_info("(re)sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
+				actual_timestamp, impl->seq, impl->ts_offset, impl->ssrc);
+		impl->ring.readindex = impl->ring.writeindex = actual_timestamp;
+		memset(impl->buffer, 0, BUFFER_SIZE);
+		impl->have_sync = true;
+		expected_timestamp = actual_timestamp;
+		filled = 0;
+
+		if (impl->separate_sender) {
+			/* the sender should know that the sync state has changed, and that it should
+			 * refill the buffer */
+			impl->refilling = true;
 		}
 	}
 

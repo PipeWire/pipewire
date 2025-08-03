@@ -62,10 +62,10 @@ data loop assigned to the driver node.
 
 As mentioned above, the \ref spa_io_clock::position field is the _ideal_ position
 of the graph cycle, in samples. This contrasts with \ref spa_io_clock::nsec, which
-is the moment in monotonic clock time when the cycle _actually_ happens. This is
-an important distinction when driver is run by a clock that is different to the monotonic
-cloc. In that case, the \ref spa_io_clock::nsec timestamps are adjusted to match the pace
-of that different clock (explained in the section below). In such a case,
+is the moment in monotonic clock time when the cycle _actually_ happens. This is an
+important distinction when driver is run by a clock that is different to the monotonic
+clock. In that case, the \ref spa_io_clock::nsec timestamps are adjusted to match the
+pace of that different clock (explained in the section below). In such a case,
 \ref spa_io_clock::position still is incremented by the duration in samples. This
 is important, since nodes and modules may use this field as an offset within their own
 internal ring buffers or similar structures, using the position field as an offset within
@@ -77,15 +77,15 @@ By incrementing by the duration, this requirement is met.
 As mentioned earlier, the driver may be run by an internal clock that is different
 to the monotonic clock. If that other clock can be directly used for scheduling
 graph cycle initiations, then it is sufficient to compute the offset between that
-clock and the monotonic clock (that is, offset = other_clock_time - monotonic_clock_time)
+clock and the monotonic clock (that is, offset = monotonic_clock_time - other_clock_time)
 at each cycle and use that offset to translate that other clock's time to the monotonic
 clock time. This is accomplished by adding that offset to the \ref spa_io_clock::nsec
 and \ref spa_io_clock::next_nsec fields. For example, when the driver uses the realtime
 system clock instead of the monotonic system clock, then that realtime clock can still
-be used with \c timerfd to schedule callback invocations within the data loop. Then, computing
-the (realtime_clock_time - monotonic_clock_time) offset is sufficient, as mentioned,
-to fulfill the requirements of the \ref spa_io_clock::nsec and \ref spa_io_clock::next_nsec
-fields that their timestamps must be given in monotonic clock time.
+be used with \c timerfd to schedule callback invocations within the data loop. Then,
+computing the (monotonic_clock_time - realtime_clock_time) offset is sufficient, as
+mentioned, to be able to translate clock's time to monotonic time for \ref spa_io_clock::nsec
+and \ref spa_io_clock::next_nsec (which require monotonic clock timestamps).
 
 If however that other clock cannot be used for scheduling graph cycle initiations directly
 (for example, because the API of that clock has no functionality to trigger callbacks),

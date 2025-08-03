@@ -62,6 +62,7 @@ struct impl {
 
 	uint32_t rate;
 	uint32_t stride;
+	uint32_t actual_max_buffer_size;
 	uint8_t payload;
 	uint32_t ssrc;
 	uint16_t seq;
@@ -422,6 +423,46 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		spa_assert_not_reached();
 		break;
 	}
+
+	/* Limit the actual maximum buffer size to the maximum integer multiple
+	 * amount of impl->stride that fits within BUFFER_SIZE. This is important
+	 * to prevent corner cases where the read pointer wrapped around at the
+	 * same time when the IO clock experiences a discontinuity.
+	 *
+	 * If the BUFFER_SIZE constant is not an integer multiple of impl->stride,
+	 * pointer wrap-arounds will result in positions that exhibit a nonzero
+	 * impl->stride division rest. Also, the write and read pointers are normally
+	 * increased monotonically and contiguously. But, if a discontinuity is
+	 * detected, these pointers may be resynchronized. Importantly, sometimes
+	 * only one of them may be resynchronized, while the other retains its existing
+	 * synchronization. (For example, the read and write side may use different
+	 * discontinuity thresholds.)
+	 *
+	 * What then can happen is that the resynchronized pointer exhibits a _different_
+	 * impl->stride division than the other pointer. Once the resynchronization takes
+	 * place, that pointer is again monotonically increased from then on, so those
+	 * division rests will stay different. This then means that the read and write
+	 * operations will not be aligned properly. For example, a write operation might
+	 * write to position 20 in the ring buffer, but the read operation might read
+	 * from position 22, and doing so with a stride value of 6. The end result is
+	 * invalid data.
+	 *
+	 * One way to visualize this is to think of the ring buffer as a grid. The grid
+	 * cell size equals impl->stride. If BUFFER_SIZE is not an integer multiple of
+	 * impl->stride, it means that the very last grid cell will have a size that is
+	 * smaller than impl->stride. The unaligned read/write operations mean that the
+	 * operations will not be done at the same grid cell boundaries, so for example
+	 * the read operation might think that a cell starts at byte 2, while the write
+	 * operation might think that the same cell starts at byte 4.
+	 *
+	 * By limiting the actual maximum buffer size to the maximum integer multiple
+	 * amount of impl->stride that fits within BUFFER_SIZE, this is avoided, since
+	 * then, all grid cells are guaranteed to have the size impl->stride, so the
+	 * aforementioned division rest will always be zero.
+	 */
+	impl->actual_max_buffer_size = SPA_ROUND_DOWN(BUFFER_SIZE, impl->stride);
+	pw_log_debug("possible / actual max buffer size: %" PRIu32 " / %" PRIu32,
+			(uint32_t)BUFFER_SIZE, impl->actual_max_buffer_size);
 
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 

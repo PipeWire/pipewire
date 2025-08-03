@@ -55,7 +55,7 @@ static void rtp_audio_process_playback(void *data)
 	 * ring buffer at a position X" is mentioned. To be exact, that buffer is actually
 	 * impl->buffer. And since X can be a timestamp whose value is far higher than the
 	 * buffer size (and the fact that impl->buffer is a _ring_ buffer), reads and writes
-	 * actually first apply BUFFER_MASK to the position to implement a ring buffer
+	 * actually first do a modulo operation to the position to implement a ring buffer
 	 * index wrap-around. (Wrap-around when reading / writing the data bytes is
 	 * handled by the spa_ringbuffer code; this is about the wrap around of the
 	 * read or write index itself.) */
@@ -114,8 +114,8 @@ static void rtp_audio_process_playback(void *data)
 
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer,
-				BUFFER_SIZE,
-				(timestamp * stride) & BUFFER_MASK,
+				impl->actual_max_buffer_size,
+				(timestamp * stride) % impl->actual_max_buffer_size,
 				d[0].data, wanted * stride);
 
 		/* Clear the bytes that were just retrieved. Since the fill level
@@ -126,8 +126,8 @@ static void rtp_audio_process_playback(void *data)
 		 * region of the retrieved data with null bytes. */
 		ringbuffer_clear(&impl->ring,
 				impl->buffer,
-				BUFFER_SIZE,
-				(timestamp * stride) & BUFFER_MASK,
+				impl->actual_max_buffer_size,
+				(timestamp * stride) % impl->actual_max_buffer_size,
 				wanted * stride);
 
 		if (!impl->io_position) {
@@ -215,8 +215,8 @@ static void rtp_audio_process_playback(void *data)
 
 			spa_ringbuffer_read_data(&impl->ring,
 					impl->buffer,
-					BUFFER_SIZE,
-					(timestamp * stride) & BUFFER_MASK,
+					impl->actual_max_buffer_size,
+					(timestamp * stride) % impl->actual_max_buffer_size,
 					d[0].data, wanted * stride);
 
 			timestamp += wanted;
@@ -314,8 +314,8 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 		pw_log_trace("got samples:%u", samples);
 		spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer,
-				BUFFER_SIZE,
-				(write * stride) & BUFFER_MASK,
+				impl->actual_max_buffer_size,
+				(write * stride) % impl->actual_max_buffer_size,
 				&buffer[hlen], (samples * stride));
 
 		/* Only update the write index if data was actually _appended_.
@@ -418,8 +418,8 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 		header.timestamp = htonl(impl->ts_offset + (set_timestamp ? set_timestamp : timestamp));
 
 		set_iovec(&impl->ring,
-			impl->buffer, BUFFER_SIZE,
-			(timestamp * stride) & BUFFER_MASK,
+			impl->buffer, impl->actual_max_buffer_size,
+			(timestamp * stride) % impl->actual_max_buffer_size,
 			&iov[1], tosend * stride);
 
 		pw_log_trace("sending %d packet:%d ts_offset:%d timestamp:%d",
@@ -553,8 +553,8 @@ static void rtp_audio_process_capture(void *data)
 
 	spa_ringbuffer_write_data(&impl->ring,
 			impl->buffer,
-			BUFFER_SIZE,
-			(expected_timestamp * stride) & BUFFER_MASK,
+			impl->actual_max_buffer_size,
+			(expected_timestamp * stride) % impl->actual_max_buffer_size,
 			SPA_PTROFF(d[0].data, offs, void), wanted * stride);
 	expected_timestamp += wanted;
 	spa_ringbuffer_write_update(&impl->ring, expected_timestamp);

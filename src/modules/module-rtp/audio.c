@@ -462,7 +462,7 @@ static void rtp_audio_process_capture(void *data)
 	struct impl *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
-	uint32_t offs, size, timestamp, expected_timestamp, stride;
+	uint32_t offs, size, actual_timestamp, expected_timestamp, stride;
 	int32_t filled, wanted;
 	uint32_t pending, num_queued;
 	struct spa_io_position *pos;
@@ -489,7 +489,7 @@ static void rtp_audio_process_capture(void *data)
 	pos = impl->io_position;
 	if (SPA_LIKELY(pos)) {
 		uint32_t rate = pos->clock.rate.denom;
-		timestamp = pos->clock.position * impl->rate / rate;
+		actual_timestamp = pos->clock.position * impl->rate / rate;
 		next_nsec = pos->clock.next_nsec;
 		quantum = (uint64_t)(pos->clock.duration * SPA_NSEC_PER_SEC / (rate * pos->clock.rate_diff));
 
@@ -501,18 +501,18 @@ static void rtp_audio_process_capture(void *data)
 			impl->sink_quantum = (uint64_t)(pos->clock.duration * SPA_NSEC_PER_SEC / rate);
 		}
 	} else {
-		timestamp = expected_timestamp;
+		actual_timestamp = expected_timestamp;
 		next_nsec = 0;
 		quantum = 0;
 	}
 
 	if (!impl->have_sync) {
 		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
-				timestamp, impl->seq, impl->ts_offset, impl->ssrc);
-		impl->ring.readindex = impl->ring.writeindex = timestamp;
+				actual_timestamp, impl->seq, impl->ts_offset, impl->ssrc);
+		impl->ring.readindex = impl->ring.writeindex = actual_timestamp;
 		memset(impl->buffer, 0, BUFFER_SIZE);
 		impl->have_sync = true;
-		expected_timestamp = timestamp;
+		expected_timestamp = actual_timestamp;
 		filled = 0;
 
 		if (impl->separate_sender) {
@@ -521,8 +521,8 @@ static void rtp_audio_process_capture(void *data)
 			impl->refilling = true;
 		}
 	} else {
-		if (SPA_ABS((int)expected_timestamp - (int)timestamp) > (int)quantum) {
-			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
+		if (SPA_ABS((int)expected_timestamp - (int)actual_timestamp) > (int)quantum) {
+			pw_log_warn("timestamp: expected %u != actual %u", expected_timestamp, actual_timestamp);
 			impl->have_sync = false;
 		} else if (filled + wanted > (int32_t)SPA_MIN(impl->target_buffer * 8, BUFFER_SIZE / stride)) {
 			pw_log_warn("sender write overrun %u + %u > %u/%u", filled, wanted,

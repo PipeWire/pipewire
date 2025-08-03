@@ -19,6 +19,8 @@ extern "C" {
 #define SPA_ATOMIC_DEC(s)		__atomic_sub_fetch(&(s), 1, __ATOMIC_SEQ_CST)
 #define SPA_ATOMIC_INC(s)		__atomic_add_fetch(&(s), 1, __ATOMIC_SEQ_CST)
 #define SPA_ATOMIC_LOAD(s)		__atomic_load_n(&(s), __ATOMIC_SEQ_CST)
+#define SPA_LOAD_ONCE(s)		__atomic_load_n((s), __ATOMIC_RELAXED)
+#define SPA_STORE_ONCE(s)		__atomic_store_n((s), __ATOMIC_RELAXED)
 #define SPA_ATOMIC_STORE(s,v)		__atomic_store_n(&(s), (v), __ATOMIC_SEQ_CST)
 #define SPA_ATOMIC_XCHG(s,v)		__atomic_exchange_n(&(s), (v), __ATOMIC_SEQ_CST)
 

@@ -4,7 +4,7 @@ project('pipewire', ['c' ],
   meson_version : '>= 0.61.1',
   default_options : [ 'warning_level=3',
                       'c_std=gnu11',
-                      'cpp_std=c++17',
+                      'cpp_std=c++20',
                       'b_pie=true',
                       #'b_sanitize=address,undefined',
                       'buildtype=debugoptimized' ])

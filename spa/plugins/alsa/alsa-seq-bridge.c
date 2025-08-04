@@ -389,11 +389,11 @@ static void free_port(struct seq_state *state, struct seq_stream *stream, struct
 {
 	stream->ports[port->id] = NULL;
 	spa_list_remove(&port->link);
-	spa_list_append(&state->free_list, &port->link);
 
 	spa_node_emit_port_info(&state->hooks,
 			port->direction, port->id, NULL);
 	spa_zero(*port);
+	spa_list_append(&state->free_list, &port->link);
 }
 
 static void init_port(struct seq_state *state, struct seq_port *port, const snd_seq_addr_t *addr,

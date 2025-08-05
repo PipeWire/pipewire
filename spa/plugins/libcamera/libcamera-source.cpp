@@ -33,6 +33,7 @@
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/control/control.h>
+#include <spa/pod/dynamic.h>
 #include <spa/pod/filter.h>
 
 #include <libcamera/camera.h>
@@ -882,8 +883,9 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 		       const struct spa_pod *filter)
 {
 	const ControlInfoMap &info = impl->camera->controls();
-	uint8_t buffer[1024];
-	struct spa_pod_builder b = { 0 };
+	spa_auto(spa_pod_dynamic_builder) b = {};
+	spa_pod_builder_state state;
+	uint8_t buffer[4096];
 	spa_result_node_params result = {
 		.id = SPA_PARAM_PropInfo,
 	};
@@ -892,18 +894,21 @@ spa_libcamera_enum_controls(struct impl *impl, struct port *port, int seq,
 	for (auto skip = start - offset; skip && it != info.end(); skip--)
 		it++;
 
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_pod_builder_get_state(&b.b, &state);
+
 	for (result.index = start; num > 0 && it != info.end(); ++it, result.index++) {
 		spa_log_debug(impl->log, "%p: controls[%" PRIu32 "]: %s::%s",
 				impl, result.index, it->first->vendor().c_str(),
 				it->first->name().c_str());
 
-		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		spa_pod_builder_reset(&b.b, &state);
 
-		const auto *ctrl = control_details_to_pod(b, *it->first, it->second);
+		const auto *ctrl = control_details_to_pod(b.b, *it->first, it->second);
 		if (!ctrl)
 			continue;
 
-		if (spa_pod_filter(&b, &result.param, ctrl, filter) < 0)
+		if (spa_pod_filter(&b.b, &result.param, ctrl, filter) < 0)
 			continue;
 
 		result.next = result.index + 1;

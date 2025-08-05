@@ -337,7 +337,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 		 *
 		 * (Note that this write index update is only important if
 		 * the constant delay mode is active, or if no spa_io_position
-		 * was provided yet. See the rtp_audio_process_playback()
+		 * was not provided yet. See the rtp_audio_process_playback()
 		 * code for more about this.) */
 		if (expected_write < (write + samples)) {
 			write += samples;

@@ -104,6 +104,13 @@ struct impl {
 	bool timer_running;
 
 	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len);
+	/* Used for resetting the ring buffer before the stream starts, to prevent
+	 * reading from uninitialized memory. This can otherwise happen in direct
+	 * timestamp mode when the read index is set to an uninitialized location.
+	 * This is a function pointer to allow customizations in case resetting
+	 * requires filling the ring buffer with something other than nullbytes
+	 * (this can happen with DSD for example). */
+	void (*reset_ringbuffer)(struct impl *impl);
 	void (*flush_timeout)(struct impl *impl, uint64_t expirations);
 	void (*deinit)(struct impl *impl, enum spa_direction direction);
 
@@ -187,6 +194,8 @@ static int stream_start(struct impl *impl)
 		return 0;
 
 	impl->first = true;
+
+	impl->reset_ringbuffer(impl);
 
 	rtp_stream_emit_state_changed(impl, true, NULL);
 
@@ -306,6 +315,11 @@ static void on_flush_timeout(void *d, uint64_t expirations)
 	impl->flush_timeout(d, expirations);
 }
 
+static void default_reset_ringbuffer(struct impl *impl)
+{
+	spa_memzero(impl->buffer, sizeof(impl->buffer));
+}
+
 struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		enum spa_direction direction, struct pw_properties *props,
 		const struct rtp_stream_events *events, void *data)
@@ -340,6 +354,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		pw_log_error("can't create timer");
 		goto out;
 	}
+
+	impl->reset_ringbuffer = default_reset_ringbuffer;
 
 	if ((str = pw_properties_get(props, "sess.media")) == NULL)
 		str = "audio";

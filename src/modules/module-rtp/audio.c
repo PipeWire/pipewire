@@ -450,6 +450,11 @@ done:
 	}
 }
 
+static void rtp_audio_stop_timer(struct impl *impl)
+{
+	set_timer(impl, 0, 0);
+}
+
 static void rtp_audio_flush_timeout(struct impl *impl, uint64_t expirations)
 {
 	if (expirations > 1)
@@ -785,6 +790,7 @@ static int rtp_audio_init(struct impl *impl, struct pw_core *core, enum spa_dire
 		impl->stream_events.process = rtp_audio_process_playback;
 
 	impl->receive_rtp = rtp_audio_receive;
+	impl->stop_timer = rtp_audio_stop_timer;
 	impl->flush_timeout = rtp_audio_flush_timeout;
 
 	setup_ptp_sender(impl, core, direction, ptp_driver);

@@ -111,6 +111,7 @@ struct impl {
 	 * requires filling the ring buffer with something other than nullbytes
 	 * (this can happen with DSD for example). */
 	void (*reset_ringbuffer)(struct impl *impl);
+	void (*stop_timer)(struct impl *impl);
 	void (*flush_timeout)(struct impl *impl, uint64_t expirations);
 	void (*deinit)(struct impl *impl, enum spa_direction direction);
 
@@ -194,6 +195,14 @@ static int stream_start(struct impl *impl)
 		return 0;
 
 	impl->first = true;
+
+	/* Stop the timer now (if the timer is used). Any lingering timer
+	 * will try to send data that is stale at this point, especially
+	 * after the ring buffer contents get reset. Worse, the timer might
+	 * emit a "stopped" state change after a "started" state change
+	 * is emitted here, causing undefined behavior. */
+	if (impl->stop_timer)
+		impl->stop_timer(impl);
 
 	impl->reset_ringbuffer(impl);
 

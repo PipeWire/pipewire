@@ -1619,6 +1619,8 @@ static int impl_activate(void *object, const struct spa_dict *props)
 					if ((res = port_ensure_data(link->output, i, max_samples)) < 0)
 						goto error;
 					data = link->output->audio_data[i];
+				} else if (SPA_FGA_SUPPORTS_NULL_DATA(d->ports[port->p].flags)) {
+					data = NULL;
 				} else {
 					data = sd;
 				}
@@ -1629,9 +1631,13 @@ static int impl_activate(void *object, const struct spa_dict *props)
 			for (j = 0; j < desc->n_output; j++) {
 				port = &node->output_port[j];
 				if (port->audio_data[i] == NULL) {
+					if (SPA_FGA_SUPPORTS_NULL_DATA(d->ports[port->p].flags))
+						data = NULL;
+					else
+						data = dd;
 					spa_log_info(impl->log, "connect output port %s[%d]:%s %p",
-						node->name, i, d->ports[port->p].name, dd);
-					d->connect_port(node->hndl[i], port->p, dd);
+						node->name, i, d->ports[port->p].name, data);
+					d->connect_port(node->hndl[i], port->p, data);
 				}
 			}
 			for (j = 0; j < desc->n_control; j++) {

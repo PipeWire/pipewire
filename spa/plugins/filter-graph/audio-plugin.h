@@ -27,10 +27,11 @@ struct spa_fga_plugin_methods {
 struct spa_fga_port {
 	uint32_t index;
 	const char *name;
-#define SPA_FGA_PORT_INPUT	(1ULL << 0)
-#define SPA_FGA_PORT_OUTPUT	(1ULL << 1)
-#define SPA_FGA_PORT_CONTROL	(1ULL << 2)
-#define SPA_FGA_PORT_AUDIO	(1ULL << 3)
+#define SPA_FGA_PORT_INPUT		(1ULL << 0)
+#define SPA_FGA_PORT_OUTPUT		(1ULL << 1)
+#define SPA_FGA_PORT_CONTROL		(1ULL << 2)
+#define SPA_FGA_PORT_AUDIO		(1ULL << 3)
+#define SPA_FGA_PORT_SUPPORTS_NULL_DATA (1ULL << 4)
 	uint64_t flags;
 
 #define SPA_FGA_HINT_BOOLEAN		(1ULL << 0)
@@ -47,6 +48,7 @@ struct spa_fga_port {
 #define SPA_FGA_IS_PORT_OUTPUT(x)	((x) & SPA_FGA_PORT_OUTPUT)
 #define SPA_FGA_IS_PORT_CONTROL(x)	((x) & SPA_FGA_PORT_CONTROL)
 #define SPA_FGA_IS_PORT_AUDIO(x)	((x) & SPA_FGA_PORT_AUDIO)
+#define SPA_FGA_SUPPORTS_NULL_DATA(x)	((x) & SPA_FGA_PORT_SUPPORTS_NULL_DATA)
 
 struct spa_fga_descriptor {
 	const char *name;

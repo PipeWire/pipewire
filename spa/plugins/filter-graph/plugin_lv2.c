@@ -550,6 +550,8 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 			fp->flags |= SPA_FGA_PORT_CONTROL;
 		if (lilv_port_is_a(p->p, port, c->lv2_AudioPort))
 			fp->flags |= SPA_FGA_PORT_AUDIO;
+		if (lilv_port_has_property(p->p, port, c->lv2_Optional))
+			fp->flags |= SPA_FGA_PORT_SUPPORTS_NULL_DATA;
 
 		fp->hint = 0;
 		if (latent && latency_index == i)

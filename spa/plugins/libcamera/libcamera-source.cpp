@@ -363,7 +363,6 @@ int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 	}
 
 	port->n_buffers = 0;
-	impl->completed_requests_rb = SPA_RINGBUFFER_INIT();
 
 	return 0;
 }
@@ -1390,6 +1389,7 @@ int spa_libcamera_stream_off(struct impl *impl)
 		impl->source.fd = -1;
 	}
 
+	impl->completed_requests_rb = SPA_RINGBUFFER_INIT();
 	spa_list_init(&port->queue);
 
 	return 0;

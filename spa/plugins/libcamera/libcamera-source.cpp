@@ -1895,6 +1895,9 @@ int port_set_format(struct impl *impl, struct port *port,
 			port->current_format = info;
 	}
 
+	if (try_only)
+		return 0;
+
 	impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->current_format) {

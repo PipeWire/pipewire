@@ -257,13 +257,6 @@ int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t 
 		return -EINVAL;
 	}
 	Request *request = impl->requestPool[buffer_id].get();
-	Stream *stream = port->streamConfig.stream();
-	FrameBuffer *buffer = impl->allocator->buffers(stream)[buffer_id].get();
-	if ((res = request->addBuffer(stream, buffer)) < 0) {
-		spa_log_warn(impl->log, "can't add buffer %u for request: %s",
-				buffer_id, spa_strerror(res));
-		return -ENOMEM;
-	}
 	if (!impl->active) {
 		impl->pendingRequests.push_back(request);
 		return 0;
@@ -325,6 +318,11 @@ int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 			res = -ENOMEM;
 			goto err;
 		}
+
+		res = request->addBuffer(stream, bufs[i].get());
+		if (res < 0)
+			goto err;
+
 		impl->requestPool.push_back(std::move(request));
 	}
 
@@ -1252,7 +1250,7 @@ void impl::requestComplete(libcamera::Request *request)
 
 	if ((request->status() == Request::RequestCancelled)) {
 		spa_log_debug(impl->log, "Request was cancelled");
-		request->reuse();
+		request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
 		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
 		spa_libcamera_buffer_recycle(impl, port, b->id);
 		return;
@@ -1299,7 +1297,7 @@ void impl::requestComplete(libcamera::Request *request)
 		b->h->pts = fmd.timestamp;
 		b->h->dts_offset = 0;
 	}
-	request->reuse();
+	request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
 
 	spa_ringbuffer_get_write_index(&port->ring, &index);
 	port->ring_ids[index & MASK_BUFFERS] = buffer_id;
@@ -1384,7 +1382,7 @@ int spa_libcamera_stream_off(struct impl *impl)
 
 	if (!impl->active) {
 		for (std::unique_ptr<Request> &req : impl->requestPool)
-			req->reuse();
+			req->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
 		return 0;
 	}
 

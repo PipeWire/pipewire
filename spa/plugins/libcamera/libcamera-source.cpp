@@ -1836,16 +1836,16 @@ int port_set_format(struct impl *impl, struct port *port,
 {
 	const bool try_only = SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_TEST_ONLY);
 
-	if (format == nullptr) {
-		if (try_only || !port->current_format)
-			return 0;
-
+	if (!try_only) {
 		spa_libcamera_stream_off(impl);
 		spa_libcamera_clear_buffers(impl, port);
 		freeBuffers(impl, port);
 		port->current_format.reset();
+	}
 
-		spa_libcamera_close(impl);
+	if (format == nullptr) {
+		if (!try_only)
+			spa_libcamera_close(impl);
 	} else {
 		spa_video_info info;
 		int res;
@@ -1880,11 +1880,6 @@ int port_set_format(struct impl *impl, struct port *port,
 			break;
 		default:
 			return -EINVAL;
-		}
-
-		if (port->current_format && !try_only) {
-			spa_libcamera_use_buffers(impl, port, nullptr, 0);
-			port->current_format.reset();
 		}
 
 		res = spa_libcamera_set_format(impl, port, &info, try_only);

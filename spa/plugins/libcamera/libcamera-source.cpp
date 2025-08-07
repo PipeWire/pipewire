@@ -1847,6 +1847,8 @@ next:
 int port_set_format(struct impl *impl, struct port *port,
 		    uint32_t flags, const struct spa_pod *format)
 {
+	const bool try_only = SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_TEST_ONLY);
+
 	if (format == nullptr) {
 		if (!port->current_format)
 			return 0;
@@ -1893,18 +1895,17 @@ int port_set_format(struct impl *impl, struct port *port,
 			return -EINVAL;
 		}
 
-		if (port->current_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
+		if (port->current_format && !try_only) {
 			spa_libcamera_use_buffers(impl, port, nullptr, 0);
 			port->current_format.reset();
 		}
 
-		res = spa_libcamera_set_format(impl, port, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY);
+		res = spa_libcamera_set_format(impl, port, &info, try_only);
 		if (res < 0)
 			return res;
 
-		if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
+		if (!try_only)
 			port->current_format = info;
-		}
 	}
 
 	impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;

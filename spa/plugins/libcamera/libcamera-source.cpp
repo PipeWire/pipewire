@@ -6,7 +6,6 @@
 
 #include <array>
 #include <cstddef>
-#include <deque>
 #include <limits>
 #include <optional>
 #include <type_traits>
@@ -156,7 +155,6 @@ struct impl {
 
 	FrameBufferAllocator *allocator = nullptr;
 	std::vector<std::unique_ptr<libcamera::Request>> requestPool;
-	std::deque<libcamera::Request *> pendingRequests;
 
 	void requestComplete(libcamera::Request *request);
 
@@ -256,10 +254,7 @@ int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t 
 		return -EINVAL;
 	}
 	Request *request = impl->requestPool[buffer_id].get();
-	if (!impl->active) {
-		impl->pendingRequests.push_back(request);
-		return 0;
-	} else {
+	if (impl->active) {
 		request->controls().merge(impl->ctrls);
 		impl->ctrls.clear();
 		if ((res = impl->camera->queueRequest(request)) < 0) {
@@ -358,10 +353,6 @@ int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 		b = &port->buffers[i];
 		d = b->outbuf->datas;
 
-		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING)) {
-			spa_log_debug(impl->log, "queueing outstanding buffer %p", b);
-			spa_libcamera_buffer_recycle(impl, port, i);
-		}
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			munmap(SPA_PTROFF(b->ptr, -d[0].mapoffset, void),
 					d[0].maxsize - d[0].mapoffset);
@@ -370,7 +361,6 @@ int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 		d[0].type = SPA_ID_INVALID;
 	}
 
-	impl->pendingRequests.clear();
 	port->n_buffers = 0;
 	port->ring = SPA_RINGBUFFER_INIT();
 
@@ -1149,7 +1139,7 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 		b = &port->buffers[i];
 		b->id = i;
 		b->outbuf = buffers[i];
-		b->flags = BUFFER_FLAG_OUTSTANDING;
+		b->flags = 0;
 		b->h = (struct spa_meta_header*)spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 
 		b->videotransform = (struct spa_meta_videotransform*)spa_buffer_find_meta_data(
@@ -1222,8 +1212,6 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 				return -EIO;
 			}
 		}
-
-		spa_libcamera_buffer_recycle(impl, port, i);
 	}
 
 	port->n_buffers = n_buffers;
@@ -1351,11 +1339,12 @@ int spa_libcamera_stream_on(struct impl *impl)
 
 	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
 
-	for (Request *req : impl->pendingRequests) {
-		if ((res = impl->camera->queueRequest(req)) < 0)
+	for (auto& req : impl->requestPool) {
+		req->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
+
+		if ((res = impl->camera->queueRequest(req.get())) < 0)
 			goto err_stop_camera;
 	}
-	impl->pendingRequests.clear();
 
 	impl->dll.bw = 0.0;
 	impl->active = true;
@@ -1378,15 +1367,11 @@ int spa_libcamera_stream_off(struct impl *impl)
 	struct port *port = &impl->out_ports[0];
 	int res;
 
-	if (!impl->active) {
-		for (std::unique_ptr<Request> &req : impl->requestPool)
-			req->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
+	if (!impl->active)
 		return 0;
-	}
 
 	impl->active = false;
 	spa_log_info(impl->log, "stopping camera %s", impl->camera->id().c_str());
-	impl->pendingRequests.clear();
 
 	if ((res = impl->camera->stop()) < 0) {
 		spa_log_warn(impl->log, "error stopping camera %s: %s",

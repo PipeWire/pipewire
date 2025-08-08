@@ -279,18 +279,42 @@ int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t 
 	return 0;
 }
 
+void freeBuffers(struct impl *impl, struct port *port)
+{
+	impl->requestPool.clear();
+	std::ignore = impl->allocator->free(port->streamConfig.stream());
+}
+
+[[nodiscard]]
+std::size_t count_unique_fds(libcamera::Span<const libcamera::FrameBuffer::Plane> planes)
+{
+	std::size_t c = 0;
+	int fd = -1;
+
+	for (const auto& plane : planes) {
+		const int current_fd = plane.fd.get();
+		if (current_fd >= 0 && current_fd != fd) {
+			c += 1;
+			fd = current_fd;
+		}
+	}
+
+	return c;
+}
+
 int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 {
+	libcamera::Stream *stream = port->streamConfig.stream();
 	int res;
 
-	if ((res = impl->allocator->allocate(port->streamConfig.stream())) < 0)
+	if ((res = impl->allocator->allocate(stream)) < 0)
 		return res;
 
 	for (unsigned int i = 0; i < count; i++) {
 		std::unique_ptr<Request> request = impl->camera->createRequest(i);
 		if (!request) {
-			impl->requestPool.clear();
-			return -ENOMEM;
+			res = -ENOMEM;
+			goto err;
 		}
 		impl->requestPool.push_back(std::move(request));
 	}
@@ -300,31 +324,18 @@ int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 	 * video frame has to be addressed using more than one memory.
 	 * address. Therefore, need calculate the number of discontiguous
 	 * memory and allocate the specified amount of memory */
-	Stream *stream = impl->config->at(0).stream();
-	const std::vector<std::unique_ptr<FrameBuffer>> &bufs =
-			impl->allocator->buffers(stream);
-	const std::vector<libcamera::FrameBuffer::Plane> &planes = bufs[0]->planes();
-	int fd = -1;
-	uint32_t buffers_blocks = 0;
-
-	for (const FrameBuffer::Plane &plane : planes) {
-		const int current_fd = plane.fd.get();
-		if (current_fd >= 0 && current_fd != fd) {
-			buffers_blocks += 1;
-			fd = current_fd;
-		}
+	port->buffers_blocks = count_unique_fds(impl->allocator->buffers(stream).front()->planes());
+	if (port->buffers_blocks <= 0) {
+		res = -ENOBUFS;
+		goto err;
 	}
 
-	if (buffers_blocks > 0) {
-		port->buffers_blocks = buffers_blocks;
-	}
+	return 0;
+
+err:
+	freeBuffers(impl, port);
+
 	return res;
-}
-
-void freeBuffers(struct impl *impl, struct port *port)
-{
-	impl->requestPool.clear();
-	impl->allocator->free(port->streamConfig.stream());
 }
 
 int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)

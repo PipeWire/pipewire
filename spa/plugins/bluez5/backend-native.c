@@ -2437,6 +2437,9 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			default:
 				break;
 			}
+		} else {
+			/* reset state in case of an error reply */
+			rfcomm->hfp_hf_in_progress = false;
 		}
 
 		rfcomm_send_next_cmd(rfcomm);

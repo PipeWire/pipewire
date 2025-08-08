@@ -151,7 +151,7 @@ struct impl {
 	std::shared_ptr<Camera> camera;
 	const std::unique_ptr<CameraConfiguration> config;
 
-	FrameBufferAllocator *allocator = nullptr;
+	FrameBufferAllocator allocator;
 	std::vector<std::unique_ptr<libcamera::Request>> requestPool;
 	spa_ringbuffer completed_requests_rb = SPA_RINGBUFFER_INIT();
 	std::array<libcamera::Request *, MAX_BUFFERS> completed_requests;
@@ -211,7 +211,7 @@ int spa_libcamera_open(struct impl *impl)
 	if (int res = impl->camera->acquire(); res < 0)
 		return res;
 
-	impl->allocator = new FrameBufferAllocator(impl->camera);
+	spa_assert(!impl->allocator.allocated());
 
 	const ControlInfoMap &controls = impl->camera->controls();
 	setup_initial_controls(controls, impl->initial_controls);
@@ -229,8 +229,8 @@ int spa_libcamera_close(struct impl *impl)
 		return 0;
 
 	spa_log_info(impl->log, "close camera %s", impl->camera->id().c_str());
-	delete impl->allocator;
-	impl->allocator = nullptr;
+
+	spa_assert(!impl->allocator.allocated());
 
 	impl->camera->release();
 
@@ -269,7 +269,7 @@ int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t 
 void freeBuffers(struct impl *impl, struct port *port)
 {
 	impl->requestPool.clear();
-	std::ignore = impl->allocator->free(port->streamConfig.stream());
+	std::ignore = impl->allocator.free(port->streamConfig.stream());
 }
 
 [[nodiscard]]
@@ -297,10 +297,10 @@ int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 	if (!impl->requestPool.empty())
 		return -EBUSY;
 
-	if ((res = impl->allocator->allocate(stream)) < 0)
+	if ((res = impl->allocator.allocate(stream)) < 0)
 		return res;
 
-	const auto& bufs = impl->allocator->buffers(stream);
+	const auto& bufs = impl->allocator.buffers(stream);
 	if (bufs.empty() || bufs.size() != count) {
 		res = -ENOBUFS;
 		goto err;
@@ -1181,7 +1181,7 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 
 	Stream *stream = impl->config->at(0).stream();
 	const std::vector<std::unique_ptr<FrameBuffer>> &bufs =
-			impl->allocator->buffers(stream);
+			impl->allocator.buffers(stream);
 
 	if (n_buffers > 0) {
 		if (bufs.size() != n_buffers)
@@ -2136,7 +2136,8 @@ impl::impl(spa_log *log, spa_loop *data_loop, spa_system *system,
 	  out_ports{{this}},
 	  manager(std::move(manager)),
 	  camera(std::move(camera)),
-	  config(std::move(config))
+	  config(std::move(config)),
+	  allocator(this->camera)
 {
 	libcamera_log_topic_init(log);
 

@@ -323,7 +323,6 @@ int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 
 void freeBuffers(struct impl *impl, struct port *port)
 {
-	impl->pendingRequests.clear();
 	impl->requestPool.clear();
 	impl->allocator->free(port->streamConfig.stream());
 }
@@ -354,6 +353,7 @@ int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 		d[0].type = SPA_ID_INVALID;
 	}
 
+	impl->pendingRequests.clear();
 	freeBuffers(impl, port);
 	port->n_buffers = 0;
 	port->ring = SPA_RINGBUFFER_INIT();

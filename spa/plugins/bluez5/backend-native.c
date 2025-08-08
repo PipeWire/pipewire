@@ -1911,6 +1911,12 @@ static const struct spa_bt_telephony_ag_callbacks telephony_ag_callbacks = {
 	.set_microphone_volume = hfp_hf_set_microphone_volume,
 };
 
+#define hfp_hf_set_call_state(log, obj, new_state) \
+({ \
+	spa_log_debug(log, "call id: %u, %u -> %u", obj->id, obj->state, new_state); \
+	obj->state = new_state; \
+})
+
 static void hfp_hf_remove_disconnected_calls(struct rfcomm *rfcomm)
 {
 	struct impl *backend = rfcomm->backend;
@@ -1930,7 +1936,7 @@ static void hfp_hf_remove_disconnected_calls(struct rfcomm *rfcomm)
 		spa_log_debug(backend->log, "call %d -> %s", call->id, found ? "updated" : "disconnected");
 
 		if (!found) {
-			call->state = CALL_STATE_DISCONNECTED;
+			hfp_hf_set_call_state(backend->log, call, CALL_STATE_DISCONNECTED);
 			telephony_call_notify_updated_props(call);
 			telephony_call_destroy(call);
 		}
@@ -2057,7 +2063,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_DIALING || call->state == CALL_STATE_ALERTING ||
 						    call->state == CALL_STATE_INCOMING || call->state == CALL_STATE_WAITING) {
-							call->state = CALL_STATE_DISCONNECTED;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_DISCONNECTED);
 							telephony_call_notify_updated_props(call);
 							telephony_call_destroy(call);
 						}
@@ -2101,7 +2107,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					struct spa_bt_telephony_call *call;
 					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_DIALING) {
-							call->state = CALL_STATE_ALERTING;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_ALERTING);
 							telephony_call_notify_updated_props(call);
 						}
 					}
@@ -2118,7 +2124,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					struct spa_bt_telephony_call *call, *tcall;
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_ACTIVE) {
-							call->state = CALL_STATE_DISCONNECTED;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_DISCONNECTED);
 							telephony_call_notify_updated_props(call);
 							telephony_call_destroy(call);
 						}
@@ -2128,7 +2134,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_DIALING || call->state == CALL_STATE_ALERTING ||
 						    call->state == CALL_STATE_INCOMING) {
-							call->state = CALL_STATE_ACTIVE;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_ACTIVE);
 							telephony_call_notify_updated_props(call);
 						}
 					}
@@ -2146,7 +2152,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					bool found_waiting = false;
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_WAITING) {
-							call->state = CALL_STATE_DISCONNECTED;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_DISCONNECTED);
 							telephony_call_notify_updated_props(call);
 							telephony_call_destroy(call);
 							found_waiting = true;
@@ -2156,7 +2162,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					if (!found_waiting) {
 						spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 							if (call->state == CALL_STATE_HELD) {
-								call->state = CALL_STATE_DISCONNECTED;
+								hfp_hf_set_call_state(backend->log, call, CALL_STATE_DISCONNECTED);
 								telephony_call_notify_updated_props(call);
 								telephony_call_destroy(call);
 							}
@@ -2167,10 +2173,10 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 						bool changed = false;
 						if (call->state == CALL_STATE_ACTIVE) {
-							call->state = CALL_STATE_HELD;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_HELD);
 							changed = true;
 						} else if (call->state == CALL_STATE_HELD) {
-							call->state = CALL_STATE_ACTIVE;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_ACTIVE);
 							changed = true;
 						}
 
@@ -2182,7 +2188,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 						bool changed = false;
 						if (call->state == CALL_STATE_ACTIVE || call->state == CALL_STATE_WAITING) {
-							call->state = CALL_STATE_HELD;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_HELD);
 							changed = true;
 						}
 
@@ -2431,14 +2437,14 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					struct spa_bt_telephony_call *call, *tcall;
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_ACTIVE) {
-							call->state = CALL_STATE_DISCONNECTED;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_DISCONNECTED);
 							telephony_call_notify_updated_props(call);
 							telephony_call_destroy(call);
 						}
 					}
 					spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_HELD) {
-							call->state = CALL_STATE_ACTIVE;
+							hfp_hf_set_call_state(backend->log, call, CALL_STATE_ACTIVE);
 							telephony_call_notify_updated_props(call);
 						}
 					}

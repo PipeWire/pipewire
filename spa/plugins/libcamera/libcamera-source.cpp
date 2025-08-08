@@ -354,7 +354,6 @@ int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
 	}
 
 	impl->pendingRequests.clear();
-	freeBuffers(impl, port);
 	port->n_buffers = 0;
 	port->ring = SPA_RINGBUFFER_INIT();
 
@@ -1831,6 +1830,7 @@ int port_set_format(struct impl *impl, struct port *port,
 
 		spa_libcamera_stream_off(impl);
 		spa_libcamera_clear_buffers(impl, port);
+		freeBuffers(impl, port);
 		port->current_format.reset();
 
 		spa_libcamera_close(impl);

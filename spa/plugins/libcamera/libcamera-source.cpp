@@ -1881,8 +1881,9 @@ int port_set_format(struct impl *impl, struct port *port,
 			port->current_format.reset();
 		}
 
-		if (spa_libcamera_set_format(impl, port, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
-			return -EINVAL;
+		res = spa_libcamera_set_format(impl, port, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY);
+		if (res < 0)
+			return res;
 
 		if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
 			port->current_format = info;

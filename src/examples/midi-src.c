@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 			PW_FILTER_PORT_FLAG_MAP_BUFFERS,
 			sizeof(struct port),
 			pw_properties_new(
-				PW_KEY_FORMAT_DSP, "8 bit raw midi",
+				PW_KEY_FORMAT_DSP, "32 bit raw UMP",
 				PW_KEY_PORT_NAME, "output",
 				NULL),
 			NULL, 0);

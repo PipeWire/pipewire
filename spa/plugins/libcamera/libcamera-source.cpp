@@ -307,10 +307,19 @@ int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 	libcamera::Stream *stream = port->streamConfig.stream();
 	int res;
 
+	if (!impl->requestPool.empty())
+		return -EBUSY;
+
 	if ((res = impl->allocator->allocate(stream)) < 0)
 		return res;
 
-	for (unsigned int i = 0; i < count; i++) {
+	const auto& bufs = impl->allocator->buffers(stream);
+	if (bufs.empty() || bufs.size() != count) {
+		res = -ENOBUFS;
+		goto err;
+	}
+
+	for (std::size_t i = 0; i < bufs.size(); i++) {
 		std::unique_ptr<Request> request = impl->camera->createRequest(i);
 		if (!request) {
 			res = -ENOMEM;
@@ -324,7 +333,7 @@ int allocBuffers(struct impl *impl, struct port *port, unsigned int count)
 	 * video frame has to be addressed using more than one memory.
 	 * address. Therefore, need calculate the number of discontiguous
 	 * memory and allocate the specified amount of memory */
-	port->buffers_blocks = count_unique_fds(impl->allocator->buffers(stream).front()->planes());
+	port->buffers_blocks = count_unique_fds(bufs.front()->planes());
 	if (port->buffers_blocks <= 0) {
 		res = -ENOBUFS;
 		goto err;

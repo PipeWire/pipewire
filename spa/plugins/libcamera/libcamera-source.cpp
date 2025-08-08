@@ -1077,6 +1077,15 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 		b->h->dts_offset = 0;
 	}
 
+	for (std::size_t i = 0; i < b->outbuf->n_datas; i++) {
+		auto *d = &b->outbuf->datas[i];
+
+		d->chunk->flags = 0;
+
+		if (fmd.status != libcamera::FrameMetadata::Status::FrameSuccess)
+			d->chunk->flags |= SPA_CHUNK_FLAG_CORRUPTED;
+	}
+
 	request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
 
 	spa_list_append(&port->queue, &b->link);

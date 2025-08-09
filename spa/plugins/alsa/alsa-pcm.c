@@ -3883,7 +3883,7 @@ void spa_alsa_emit_node_info(struct state *state, bool full)
 			snprintf(nperiods, sizeof(nperiods), "%lu",
 					state->period_frames != 0 ? state->buffer_frames / state->period_frames : 0);
 		else if (state->default_period_num)
-			snprintf(nperiods, sizeof(nperiods), "%u", state->default_period_size);
+			snprintf(nperiods, sizeof(nperiods), "%u", state->default_period_num);
 		items[n_items++] = SPA_DICT_ITEM_INIT("api.alsa.period-num", nperiods[0] ? nperiods : NULL);
 
 		if (state->have_format)

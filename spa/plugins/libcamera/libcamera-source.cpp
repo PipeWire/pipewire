@@ -1350,7 +1350,16 @@ int spa_libcamera_stream_on(struct impl *impl)
 	impl->source.data = impl;
 	impl->source.mask = SPA_IO_IN | SPA_IO_ERR;
 	impl->source.rmask = 0;
-	res = spa_loop_add_source(impl->data_loop, &impl->source);
+
+	res = spa_loop_locked(
+		impl->data_loop,
+		[](spa_loop *, bool, uint32_t, const void *, size_t, void *user_data)
+		{
+			auto *impl = static_cast<struct impl *>(user_data);
+			return spa_loop_add_source(impl->data_loop, &impl->source);
+		},
+		0, nullptr, 0, impl
+	);
 	if (res < 0)
 		goto err_close_source;
 

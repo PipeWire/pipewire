@@ -1825,9 +1825,6 @@ next:
 int port_set_format(struct impl *impl, struct port *port,
 		    uint32_t flags, const struct spa_pod *format)
 {
-	struct spa_video_info info;
-	int res;
-
 	if (format == nullptr) {
 		if (!port->current_format)
 			return 0;
@@ -1837,9 +1834,12 @@ int port_set_format(struct impl *impl, struct port *port,
 		port->current_format.reset();
 
 		spa_libcamera_close(impl);
-		goto done;
 	} else {
+		spa_video_info info;
+		int res;
+
 		spa_zero(info);
+
 		if ((res = spa_format_parse(format, &info.media_type, &info.media_subtype)) < 0)
 			return res;
 
@@ -1888,21 +1888,20 @@ int port_set_format(struct impl *impl, struct port *port,
 		default:
 			return -EINVAL;
 		}
+
+		if (port->current_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
+			spa_libcamera_use_buffers(impl, port, nullptr, 0);
+			port->current_format.reset();
+		}
+
+		if (spa_libcamera_set_format(impl, port, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
+			return -EINVAL;
+
+		if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
+			port->current_format = info;
+		}
 	}
 
-	if (port->current_format && !(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
-		spa_libcamera_use_buffers(impl, port, nullptr, 0);
-		port->current_format.reset();
-	}
-
-	if (spa_libcamera_set_format(impl, port, &info, flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) < 0)
-		return -EINVAL;
-
-	if (!(flags & SPA_NODE_PARAM_FLAG_TEST_ONLY)) {
-		port->current_format = info;
-	}
-
-    done:
 	impl->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	if (port->current_format) {

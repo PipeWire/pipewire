@@ -171,6 +171,38 @@ struct impl {
 	     std::unique_ptr<CameraConfiguration> config);
 
 	struct spa_dll dll;
+
+	void stop()
+	{
+		spa_loop_locked(
+			data_loop,
+			[](spa_loop *, bool, uint32_t, const void *, size_t, void *user_data) {
+				auto *self = static_cast<impl *>(user_data);
+
+				if (self->source.loop)
+					spa_loop_remove_source(self->data_loop, &self->source);
+
+				return 0;
+			},
+			0, nullptr, 0, this
+		);
+
+		if (source.fd >= 0)
+			spa_system_close(system, std::exchange(source.fd, -1));
+
+		camera->requestCompleted.disconnect(this, &impl::requestComplete);
+
+		if (int res = camera->stop(); res < 0) {
+			spa_log_warn(log, "failed to stop camera %s: %s",
+					 camera->id().c_str(), spa_strerror(res));
+		}
+
+		completed_requests_rb = SPA_RINGBUFFER_INIT();
+		active = false;
+
+		for (auto& p : out_ports)
+			spa_list_init(&p.queue);
+	}
 };
 
 #define CHECK_PORT(impl,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
@@ -1315,19 +1347,6 @@ void impl::requestComplete(libcamera::Request *request)
 
 }
 
-int do_remove_source(struct spa_loop *loop,
-		     bool async,
-		     uint32_t seq,
-		     const void *data,
-		     size_t size,
-		     void *user_data)
-{
-	auto *impl = static_cast<struct impl *>(user_data);
-	if (impl->source.loop)
-		spa_loop_remove_source(loop, &impl->source);
-	return 0;
-}
-
 int spa_libcamera_stream_on(struct impl *impl)
 {
 	struct port *port = &impl->out_ports[0];
@@ -1341,15 +1360,31 @@ int spa_libcamera_stream_on(struct impl *impl)
 	if (impl->active)
 		return 0;
 
+	spa_log_info(impl->log, "starting camera %s", impl->camera->id().c_str());
+	if ((res = impl->camera->start(&impl->initial_controls)) < 0)
+		return res == -EACCES ? -EBUSY : res;
+
+	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
+
 	res = spa_system_eventfd_create(impl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	if (res < 0)
-		return res;
+		goto err_stop;
 
 	impl->source.fd = res;
 	impl->source.func = libcamera_on_fd_events;
 	impl->source.data = impl;
 	impl->source.mask = SPA_IO_IN | SPA_IO_ERR;
 	impl->source.rmask = 0;
+
+	for (auto& req : impl->requestPool) {
+		req->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
+
+		if ((res = impl->camera->queueRequest(req.get())) < 0)
+			goto err_stop;
+	}
+
+	impl->dll.bw = 0.0;
+	impl->active = true;
 
 	res = spa_loop_locked(
 		impl->data_loop,
@@ -1361,63 +1396,24 @@ int spa_libcamera_stream_on(struct impl *impl)
 		0, nullptr, 0, impl
 	);
 	if (res < 0)
-		goto err_close_source;
-
-	spa_log_info(impl->log, "starting camera %s", impl->camera->id().c_str());
-	if ((res = impl->camera->start(&impl->initial_controls)) < 0)
-		goto err_remove_source;
-
-	impl->camera->requestCompleted.connect(impl, &impl::requestComplete);
-
-	for (auto& req : impl->requestPool) {
-		req->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
-
-		if ((res = impl->camera->queueRequest(req.get())) < 0)
-			goto err_stop_camera;
-	}
-
-	impl->dll.bw = 0.0;
-	impl->active = true;
+		goto err_stop;
 
 	return 0;
 
-err_stop_camera:
-	impl->camera->stop();
-	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
-err_remove_source:
-	spa_loop_locked(impl->data_loop, do_remove_source, 0, nullptr, 0, impl);
-err_close_source:
-	spa_system_close(impl->system, std::exchange(impl->source.fd, -1));
+err_stop:
+	impl->stop();
 
-	return res == -EACCES ? -EBUSY : res;
+	return res;
 }
 
 int spa_libcamera_stream_off(struct impl *impl)
 {
-	struct port *port = &impl->out_ports[0];
-	int res;
-
 	if (!impl->active)
 		return 0;
 
-	impl->active = false;
 	spa_log_info(impl->log, "stopping camera %s", impl->camera->id().c_str());
 
-	if ((res = impl->camera->stop()) < 0) {
-		spa_log_warn(impl->log, "error stopping camera %s: %s",
-				impl->camera->id().c_str(), spa_strerror(res));
-	}
-
-	impl->camera->requestCompleted.disconnect(impl, &impl::requestComplete);
-
-	spa_loop_locked(impl->data_loop, do_remove_source, 0, nullptr, 0, impl);
-	if (impl->source.fd >= 0)  {
-		spa_system_close(impl->system, impl->source.fd);
-		impl->source.fd = -1;
-	}
-
-	impl->completed_requests_rb = SPA_RINGBUFFER_INIT();
-	spa_list_init(&port->queue);
+	impl->stop();
 
 	return 0;
 }

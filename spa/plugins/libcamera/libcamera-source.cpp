@@ -1850,7 +1850,7 @@ int port_set_format(struct impl *impl, struct port *port,
 	const bool try_only = SPA_FLAG_IS_SET(flags, SPA_NODE_PARAM_FLAG_TEST_ONLY);
 
 	if (format == nullptr) {
-		if (!port->current_format)
+		if (try_only || !port->current_format)
 			return 0;
 
 		spa_libcamera_stream_off(impl);

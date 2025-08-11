@@ -411,10 +411,21 @@ static void volume_sync_stop_timer(struct rfcomm *rfcomm);
 static void rfcomm_free(struct rfcomm *rfcomm)
 {
 	struct updated_call *updated_call;
+	struct rfcomm_cmd *cmd;
 
 	spa_list_consume(updated_call, &rfcomm->updated_call_list, link) {
 		spa_list_remove(&updated_call->link);
 		free(updated_call);
+	}
+
+	spa_list_consume(cmd, &rfcomm->cmd_send_queue, link) {
+		if (cmd->msg) {
+			telephony_send_dbus_method_reply(rfcomm->backend->telephony, cmd->msg, BT_TELEPHONY_ERROR_FAILED, 0);
+			spa_clear_ptr(cmd->msg, dbus_message_unref);
+		}
+
+		spa_list_remove(&cmd->link);
+		free(cmd);
 	}
 
 	codec_switch_stop_timer(rfcomm);

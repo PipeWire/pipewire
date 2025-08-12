@@ -49,7 +49,7 @@
  * ## Module Options
  *
  * - `jack.library`: the libjack to load, by default libjack.so.0 is searched in
- *			JACK_PATH directories and then some standard library paths.
+ *			LIBJACK_PATH directories and then some standard library paths.
  *			Can be an absolute path.
  * - `jack.server`: the name of the JACK server to tunnel to.
  * - `jack.client-name`: the name of the JACK client.

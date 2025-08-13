@@ -339,14 +339,9 @@ err:
 	return res;
 }
 
-int spa_libcamera_clear_buffers(struct impl *impl, struct port *port)
+int spa_libcamera_clear_buffers(struct port *port)
 {
-	uint32_t i;
-
-	if (port->n_buffers == 0)
-		return 0;
-
-	for (i = 0; i < port->n_buffers; i++) {
+	for (std::size_t i = 0; i < port->n_buffers; i++) {
 		struct buffer *b;
 		struct spa_data *d;
 
@@ -1838,7 +1833,7 @@ int port_set_format(struct impl *impl, struct port *port,
 
 	if (!try_only) {
 		spa_libcamera_stream_off(impl);
-		spa_libcamera_clear_buffers(impl, port);
+		spa_libcamera_clear_buffers(port);
 		freeBuffers(impl, port);
 		port->current_format.reset();
 	}
@@ -1952,7 +1947,7 @@ int impl_node_port_use_buffers(void *object,
 
 	if (port->n_buffers) {
 		spa_libcamera_stream_off(impl);
-		if ((res = spa_libcamera_clear_buffers(impl, port)) < 0)
+		if ((res = spa_libcamera_clear_buffers(port)) < 0)
 			return res;
 	}
 	if (n_buffers > 0 && !port->current_format)

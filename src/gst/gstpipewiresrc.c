@@ -1206,7 +1206,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   gst_pipewire_clock_reset (GST_PIPEWIRE_CLOCK (pwsrc->stream->clock), 0);
 
-  GST_DEBUG_OBJECT (pwsrc, "set format %" GST_PTR_FORMAT, negotiated_caps);
+  GST_INFO_OBJECT (pwsrc, "set format %" GST_PTR_FORMAT, negotiated_caps);
   result = gst_base_src_set_caps (GST_BASE_SRC (pwsrc), negotiated_caps);
   if (!result)
     goto no_caps;

@@ -374,13 +374,18 @@ err:
 int spa_libcamera_clear_buffers(struct port *port)
 {
 	for (std::size_t i = 0; i < port->n_buffers; i++) {
-		struct buffer *b;
-		struct spa_data *d;
+		buffer *b = &port->buffers[i];
+		spa_buffer *sb = b->outbuf;
 
-		b = &port->buffers[i];
-		d = b->outbuf->datas;
+		for (std::size_t j = 0; j < sb->n_datas; j++) {
+			auto *d = &sb->datas[j];
 
-		d[0].type = SPA_ID_INVALID;
+			d->type = SPA_ID_INVALID;
+			d->data = nullptr;
+			d->fd = -1;
+		}
+
+		*b = {};
 	}
 
 	port->n_buffers = 0;

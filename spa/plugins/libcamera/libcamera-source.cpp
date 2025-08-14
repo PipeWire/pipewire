@@ -665,7 +665,6 @@ int spa_libcamera_set_format(struct impl *impl, struct port *port,
 	const struct format_info *info = nullptr;
 	uint32_t video_format;
 	struct spa_rectangle *size = nullptr;
-	struct spa_fraction *framerate = nullptr;
 	CameraConfiguration::Status validation;
 	int res;
 
@@ -673,18 +672,15 @@ int spa_libcamera_set_format(struct impl *impl, struct port *port,
 	case SPA_MEDIA_SUBTYPE_raw:
 		video_format = format->info.raw.format;
 		size = &format->info.raw.size;
-		framerate = &format->info.raw.framerate;
 		break;
 	case SPA_MEDIA_SUBTYPE_mjpg:
 	case SPA_MEDIA_SUBTYPE_jpeg:
 		video_format = SPA_VIDEO_FORMAT_ENCODED;
 		size = &format->info.mjpg.size;
-		framerate = &format->info.mjpg.framerate;
 		break;
 	case SPA_MEDIA_SUBTYPE_h264:
 		video_format = SPA_VIDEO_FORMAT_ENCODED;
 		size = &format->info.h264.size;
-		framerate = &format->info.h264.framerate;
 		break;
 	default:
 		video_format = SPA_VIDEO_FORMAT_ENCODED;
@@ -693,7 +689,7 @@ int spa_libcamera_set_format(struct impl *impl, struct port *port,
 
 	info = find_format_info_by_media_type(format->media_type,
 					      format->media_subtype, video_format);
-	if (info == nullptr || size == nullptr || framerate == nullptr) {
+	if (info == nullptr || size == nullptr) {
 		spa_log_error(impl->log, "unknown media type %d %d %d", format->media_type,
 			      format->media_subtype, video_format);
 		return -EINVAL;
@@ -1423,20 +1419,17 @@ int port_get_format(struct impl *impl, struct port *port,
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_format,    SPA_POD_Id(port->current_format->info.raw.format),
 			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format->info.raw.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format->info.raw.framerate),
 			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_mjpg:
 	case SPA_MEDIA_SUBTYPE_jpeg:
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format->info.mjpg.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format->info.mjpg.framerate),
 			0);
 		break;
 	case SPA_MEDIA_SUBTYPE_h264:
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format->info.h264.size),
-			SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&port->current_format->info.h264.framerate),
 			0);
 		break;
 	default:

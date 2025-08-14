@@ -449,8 +449,7 @@ const struct format_info *find_format_info_by_media_type(
 	uint32_t type, uint32_t subtype, uint32_t format)
 {
 	for (const auto& f : format_info) {
-		if (f.media_type == type && f.media_subtype == subtype
-		    && (f.format == SPA_VIDEO_FORMAT_UNKNOWN || f.format == format))
+		if (f.media_type == type && f.media_subtype == subtype && f.format == format)
 			return &f;
 	}
 

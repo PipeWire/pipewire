@@ -626,5 +626,6 @@ devenv.prepend('LD_LIBRARY_PATH', builddir / 'pipewire-jack' / 'src')
 
 devenv.set('PIPEWIRE_LOG_SYSTEMD', 'false')
 devenv.set('PW_UNINSTALLED', '1')
+devenv.set('PW_BUILDDIR', meson.project_build_root())
 
 meson.add_devenv(devenv)

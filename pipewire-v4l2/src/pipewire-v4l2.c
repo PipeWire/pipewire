@@ -1400,7 +1400,6 @@ static int vidioc_enum_framesizes(struct file *file, struct v4l2_frmsizeenum *ar
 	spa_list_for_each(p, &g->param_list, link) {
 		const struct format_info *fi;
 		uint32_t media_type, media_subtype, format;
-		struct spa_rectangle size;
 
 		if (p->id != SPA_PARAM_EnumFormat || p->param == NULL)
 			continue;
@@ -1424,22 +1423,96 @@ static int vidioc_enum_framesizes(struct file *file, struct v4l2_frmsizeenum *ar
 
 		if (fi->fourcc != arg->pixel_format)
 			continue;
-		if (spa_pod_parse_object(p->param,
-				SPA_TYPE_OBJECT_Format, NULL,
-				SPA_FORMAT_VIDEO_size, SPA_POD_Rectangle(&size)) < 0)
+
+		const struct spa_pod_prop *size_prop = spa_pod_find_prop(p->param, NULL, SPA_FORMAT_VIDEO_size);
+		if (!size_prop)
 			continue;
 
-		arg->type = V4L2_FRMSIZE_TYPE_DISCRETE;
-		arg->discrete.width = size.width;
-		arg->discrete.height = size.height;
+		uint32_t n_sizes, choice;
+		const struct spa_pod *size_pods = spa_pod_get_values(&size_prop->value, &n_sizes, &choice);
+		if (!size_pods || n_sizes <= 0)
+			continue;
 
-		pw_log_debug("count:%d %.4s %dx%d", count, (char*)&fi->fourcc,
-				size.width, size.height);
-		if (count == arg->index) {
-			found = true;
+		const struct spa_rectangle *sizes = SPA_POD_BODY_CONST(size_pods);
+		if (size_pods->type != SPA_TYPE_Rectangle || size_pods->size != sizeof(*sizes))
+			continue;
+
+		switch (choice) {
+		case SPA_CHOICE_Enum:
+			n_sizes -= 1;
+			sizes += 1;
+			SPA_FALLTHROUGH;
+		case SPA_CHOICE_None:
+			arg->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+
+			for (size_t i = 0; i < n_sizes; i++, count++) {
+				arg->discrete.width = sizes[i].width;
+				arg->discrete.height = sizes[i].height;
+
+				pw_log_debug("count:%u %.4s %ux%u", count, (char*)&fi->fourcc,
+						arg->discrete.width, arg->discrete.height);
+
+				if (count == arg->index) {
+					found = true;
+					break;
+				}
+			}
+
 			break;
+		case SPA_CHOICE_Range:
+			if (n_sizes < 3)
+				continue;
+
+			arg->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+			arg->stepwise.min_width = sizes[1].width;
+			arg->stepwise.min_height = sizes[1].height;
+			arg->stepwise.max_width = sizes[2].width;
+			arg->stepwise.max_height = sizes[2].height;
+			arg->stepwise.step_width = arg->stepwise.step_height = 1;
+
+			pw_log_debug("count:%u %.4s (%ux%u)-(%ux%u)", count, (char*)&fi->fourcc,
+					arg->stepwise.min_width, arg->stepwise.min_height,
+					arg->stepwise.max_width, arg->stepwise.max_height);
+
+			if (count == arg->index) {
+				found = true;
+				break;
+			}
+
+			count++;
+
+			break;
+		case SPA_CHOICE_Step:
+			if (n_sizes < 4)
+				continue;
+
+			arg->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+			arg->stepwise.min_width = sizes[1].width;
+			arg->stepwise.min_height = sizes[1].height;
+			arg->stepwise.max_width = sizes[2].width;
+			arg->stepwise.max_height = sizes[2].height;
+			arg->stepwise.step_width = sizes[3].width;
+			arg->stepwise.step_height = sizes[3].height;
+
+			pw_log_debug("count:%u %.4s (%ux%u)-(%ux%u)/(+%u,%u)", count, (char*)&fi->fourcc,
+					arg->stepwise.min_width, arg->stepwise.min_height,
+					arg->stepwise.min_width, arg->stepwise.min_height,
+					arg->stepwise.step_width, arg->stepwise.step_height);
+
+			if (count == arg->index) {
+				found = true;
+				break;
+			}
+
+			count++;
+
+			break;
+		default:
+			continue;
 		}
-		count++;
+
+		if (found)
+			break;
 	}
 	pw_thread_loop_unlock(file->loop);
 

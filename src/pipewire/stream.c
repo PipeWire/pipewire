@@ -719,6 +719,7 @@ static int impl_send_command(void *object, const struct spa_command *command)
 					impl->io->status = SPA_STATUS_NEED_DATA;
 			}
 			copy_position(impl, impl->queued.incount);
+			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);
 		}
 		break;
 	default:
@@ -1451,10 +1452,6 @@ static void node_state_changed(void *data, enum pw_node_state old,
 	struct pw_stream *stream = data;
 
 	switch (state) {
-	case PW_NODE_STATE_RUNNING:
-		if (stream->state == PW_STREAM_STATE_PAUSED)
-			stream_set_state(stream, PW_STREAM_STATE_STREAMING, 0, NULL);
-		break;
 	case PW_NODE_STATE_ERROR:
 		stream_set_state(stream, PW_STREAM_STATE_ERROR, -EIO, error);
 		break;

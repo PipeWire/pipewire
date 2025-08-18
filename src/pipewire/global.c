@@ -237,8 +237,6 @@ SPA_EXPORT
 int pw_global_update_keys(struct pw_global *global,
 		     const struct spa_dict *dict, const char * const keys[])
 {
-	if (global->registered)
-		return -EINVAL;
 	return pw_properties_update_keys(global->properties, dict, keys);
 }
 

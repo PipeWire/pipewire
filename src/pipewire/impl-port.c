@@ -463,6 +463,29 @@ static int update_properties(struct pw_impl_port *port, const struct spa_dict *d
 	int changed;
 
 	changed = pw_properties_update_ignore(port->properties, dict, filter ? ignored : NULL);
+
+	if (changed) {
+		const char *name, *alias;
+		name = spa_dict_lookup(dict, PW_KEY_PORT_NAME);
+		alias = spa_dict_lookup(dict, PW_KEY_PORT_ALIAS);
+
+		if (alias != NULL) {
+			/* alias was explicitly updated, don't generate one from
+			 * the port.name */
+			port->alias_port_name = false;
+		}
+		else if (name != NULL && port->alias_port_name) {
+			const struct pw_properties *nprops = pw_impl_node_get_properties(port->node);
+			const char *node_desc = pw_properties_get(nprops, PW_KEY_NODE_DESCRIPTION);
+			const char *node_nick = pw_properties_get(nprops, PW_KEY_NODE_NICK);
+			const char *node_name = pw_properties_get(nprops, PW_KEY_NODE_NAME);
+			const char *str;
+
+			if ((str = node_nick) == NULL && (str = node_desc) == NULL && (str = node_name) == NULL)
+				str = "node";
+			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s", str, name);
+		}
+	}
 	port->info.props = &port->properties->dict;
 
 	if (changed) {
@@ -1315,9 +1338,11 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 		if (is_control)
 			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
 				str, prefix);
-		else
+		else {
 			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
 				str, pw_properties_get(port->properties, PW_KEY_PORT_NAME));
+			port->alias_port_name = true;
+		}
 	}
 
 	port->info.props = &port->properties->dict;

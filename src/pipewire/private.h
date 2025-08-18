@@ -957,6 +957,7 @@ struct pw_impl_port {
 	} rt;					/**< data only accessed from the data thread */
 	unsigned int destroying:1;
 	unsigned int passive:1;
+	unsigned int alias_port_name:1;
 	int busy_count;
 
 	struct spa_latency_info latency[2];	/**< latencies */

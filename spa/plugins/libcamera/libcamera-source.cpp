@@ -1251,7 +1251,9 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 
 		}
 
+		const auto& planes = bufs[i]->planes();
 		spa_data *d = buffers[i]->datas;
+
 		for(uint32_t j = 0; j < buffers[i]->n_datas; ++j) {
 			d[j].type = port->memtype;
 			d[j].flags = SPA_DATA_FLAG_READABLE;
@@ -1259,23 +1261,23 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 			d[j].chunk->stride = port->streamConfig.stride;
 			d[j].chunk->flags = 0;
 			/* Update parameters according to the plane information */
-			unsigned int numPlanes = bufs[i]->planes().size();
+			unsigned int numPlanes = planes.size();
 			if (buffers[i]->n_datas < numPlanes) {
 				if (j < buffers[i]->n_datas - 1) {
-					d[j].maxsize = bufs[i]->planes()[j].length;
-					d[j].chunk->offset = bufs[i]->planes()[j].offset;
-					d[j].chunk->size = bufs[i]->planes()[j].length;
+					d[j].maxsize = planes[j].length;
+					d[j].chunk->offset = planes[j].offset;
+					d[j].chunk->size = planes[j].length;
 				} else {
-					d[j].chunk->offset = bufs[i]->planes()[j].offset;
+					d[j].chunk->offset = planes[j].offset;
 					for (uint8_t k = j; k < numPlanes; k++) {
-						d[j].maxsize += bufs[i]->planes()[k].length;
-						d[j].chunk->size += bufs[i]->planes()[k].length;
+						d[j].maxsize += planes[k].length;
+						d[j].chunk->size += planes[k].length;
 					}
 				}
 			} else if (buffers[i]->n_datas == numPlanes) {
-				d[j].maxsize = bufs[i]->planes()[j].length;
-				d[j].chunk->offset = bufs[i]->planes()[j].offset;
-				d[j].chunk->size = bufs[i]->planes()[j].length;
+				d[j].maxsize = planes[j].length;
+				d[j].chunk->offset = planes[j].offset;
+				d[j].chunk->size = planes[j].length;
 			} else {
 				spa_log_warn(impl->log, "buffer index: i: %d, data member "
 					"numbers: %d is greater than plane number: %d",
@@ -1288,7 +1290,7 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 			if (port->memtype == SPA_DATA_DmaBuf ||
 			    port->memtype == SPA_DATA_MemFd) {
 				d[j].flags |= SPA_DATA_FLAG_MAPPABLE;
-				d[j].fd = bufs[i]->planes()[j].fd.get();
+				d[j].fd = planes[j].fd.get();
 				spa_log_debug(impl->log, "Got fd = %" PRId64 " for buffer: #%d", d[j].fd, i);
 				d[j].data = nullptr;
 			} else {

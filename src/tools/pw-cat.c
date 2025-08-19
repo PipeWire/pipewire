@@ -1192,14 +1192,20 @@ static int midi_record(struct data *d, void *src, unsigned int n_frames, bool *n
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		struct midi_event ev;
 
-		if (c.type != SPA_CONTROL_UMP)
+		switch (c.type) {
+		case SPA_CONTROL_UMP:
+			ev.type = MIDI_EVENT_TYPE_UMP;
+			break;
+		case SPA_CONTROL_Midi:
+			ev.type = MIDI_EVENT_TYPE_MIDI1;
+			break;
+		default:
 			continue;
-
+		}
 		ev.track = 0;
 		ev.sec = (offset + c.offset) / (float) d->position->clock.rate.denom;
 		ev.data = (uint8_t*)c_body;
 		ev.size = c.value.size;
-		ev.type = MIDI_EVENT_TYPE_UMP;
 
 		if (d->verbose)
 			midi_file_dump_event(stderr, &ev);

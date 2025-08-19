@@ -58,6 +58,17 @@ static inline uint32_t parse_be32(const uint8_t *in)
 	return (in[0] << 24) | (in[1] << 16) | (in[2] << 8) | in[3];
 }
 
+static inline int mf_seek(struct midi_file *mf, long offs)
+{
+	int res;
+	if (mf->pos == offs)
+		return 0;
+	if ((res = fseek(mf->file, offs, SEEK_SET)) != 0)
+		return -errno;
+	mf->pos = offs;
+	return 0;
+}
+
 static inline int mf_read(struct midi_file *mf, void *data, size_t size)
 {
 	if (fread(data, size, 1, mf->file) != 1)
@@ -178,10 +189,8 @@ static int open_read(struct midi_file *mf, const char *filename, struct midi_fil
 		tr->id = i;
 
 		if (i + 1 < mf->info.ntracks &&
-		    fseek(mf->file, tr->start + tr->size, SEEK_SET) != 0) {
-			res = -errno;
+		    (res = mf_seek(mf, tr->start + tr->size)) < 0)
 			goto exit_close;
-		}
 	}
 	mf->mode = 1;
 	*info = mf->info;
@@ -218,7 +227,7 @@ static int write_headers(struct midi_file *mf)
 	struct midi_track *tr = &mf->tracks[0];
 	int res;
 
-	fseek(mf->file, 0, SEEK_SET);
+	mf_seek(mf, 0);
 
 	mf->length = 6;
 	CHECK_RES(write_n(mf->file, "MThd", 4));
@@ -351,7 +360,6 @@ int midi_file_read_event(struct midi_file *mf, struct midi_event *event)
 	uint32_t size;
 	uint8_t status, meta;
 	int res, running;
-	long offs;
 
 	event->data = NULL;
 
@@ -360,11 +368,8 @@ int midi_file_read_event(struct midi_file *mf, struct midi_event *event)
 
 	tr = &mf->tracks[event->track];
 
-	offs = tr->pos;
-	if (offs != mf->pos) {
-		if (fseek(mf->file, offs, SEEK_SET) != 0)
-			return -errno;
-	}
+	if ((res = mf_seek(mf, tr->pos)) < 0)
+		return res;
 
 	mf_read(mf, &status, 1);
 

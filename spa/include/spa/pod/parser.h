@@ -192,11 +192,12 @@ SPA_API_POD_PARSER void spa_pod_parser_unpush(struct spa_pod_parser *parser,
 	parser->state.frame = frame->parent;
 }
 
-SPA_API_POD_PARSER void spa_pod_parser_pop(struct spa_pod_parser *parser,
+SPA_API_POD_PARSER int spa_pod_parser_pop(struct spa_pod_parser *parser,
 		      struct spa_pod_frame *frame)
 {
 	spa_pod_parser_unpush(parser, frame);
 	spa_pod_parser_advance(parser, &frame->pod);
+	return 0;
 }
 
 SPA_API_POD_PARSER int spa_pod_parser_get_bool(struct spa_pod_parser *parser, bool *value)

@@ -142,6 +142,10 @@ struct data {
 	struct {
 		struct midi_file *file;
 		struct midi_file_info info;
+#define MIDI_FORCE_NONE		0
+#define MIDI_FORCE_UMP		1
+#define MIDI_FORCE_MIDI1	2
+		int force_type;
 	} midi;
 	struct {
 		struct dsf_file *file;
@@ -1030,6 +1034,7 @@ static const struct option long_options[] = {
 	{ "volume",		required_argument, NULL, OPT_VOLUME },
 	{ "quality",		required_argument, NULL, 'q' },
 	{ "raw",		no_argument, NULL, 'a' },
+	{ "force-midi",		required_argument, NULL, 'M' },
 
 	{ NULL, 0, NULL, 0 }
 };
@@ -1075,6 +1080,7 @@ static void show_usage(const char *name, bool is_error)
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
 	     "  -a, --raw                             RAW mode\n"
+	     "  -M, --force-midi                      Force midi format, one of \"midi\" or \"ump\", (default ump)\n"
 	     "\n"),
 	     DEFAULT_RATE,
 	     DEFAULT_CHANNELS,
@@ -1116,6 +1122,8 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 	while (1) {
 		uint32_t frame;
 		struct midi_event ev;
+		uint64_t state = 0;
+		size_t size;
 
 		res = midi_file_next_time(d->midi.file, &ev.sec);
 		if (res <= 0) {
@@ -1137,30 +1145,46 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 		if (d->verbose)
 			midi_file_dump_event(stderr, &ev);
 
-		if (ev.type == MIDI_EVENT_TYPE_MIDI1) {
-			size_t size;
-			uint8_t *data;
-			uint64_t state = 0;
+		size = ev.size;
 
-			if (ev.data[0] == 0xff)
+		if (ev.type == MIDI_EVENT_TYPE_MIDI1) {
+
+			if (size < 1 || ev.data[0] == 0xff)
 				continue;
 
-			data = ev.data;
-			size = ev.size;
+			if (d->midi.force_type == MIDI_FORCE_UMP) {
+				uint8_t *data = ev.data;
+				while (size > 0) {
+					uint32_t ump[4];
+					int ump_size = spa_ump_from_midi(&data, &size,
+							ump, sizeof(ump), 0, &state);
+					if (ump_size <= 0)
+						break;
 
-			while (size > 0) {
-				uint32_t ump[4];
-				int ump_size = spa_ump_from_midi(&data, &size,
-						ump, sizeof(ump), 0, &state);
-				if (ump_size <= 0)
-					break;
-
-				spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
-				spa_pod_builder_bytes(&b, ump, ump_size);
+					spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
+					spa_pod_builder_bytes(&b, ump, ump_size);
+				}
+			} else {
+				spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
+				spa_pod_builder_bytes(&b, ev.data, ev.size);
 			}
 		} else if (ev.type == MIDI_EVENT_TYPE_UMP) {
-			spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
-			spa_pod_builder_bytes(&b, ev.data, ev.size);
+			if (d->midi.force_type == MIDI_FORCE_MIDI1) {
+				const uint32_t *data = (const uint32_t*)ev.data;
+				while (size > 0) {
+					uint8_t ev[16];
+					int ev_size = spa_ump_to_midi(&data, &size,
+							ev, sizeof(ev), &state);
+					if (ev_size <= 0)
+						break;
+
+					spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
+					spa_pod_builder_bytes(&b, ev, ev_size);
+				}
+			} else {
+				spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
+				spa_pod_builder_bytes(&b, ev.data, ev.size);
+			}
 		}
 		else
 			continue;
@@ -1811,6 +1835,7 @@ int main(int argc, char *argv[])
 	/* negative means no volume adjustment */
 	data.volume = -1.0;
 	data.quality = -1;
+	data.midi.force_type = MIDI_FORCE_UMP;
 	data.props = pw_properties_new(
 			PW_KEY_APP_NAME, prog,
 			PW_KEY_NODE_NAME, prog,
@@ -1822,9 +1847,9 @@ int main(int argc, char *argv[])
 	}
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:a", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:aM:", long_options, NULL)) != -1) {
 #else
-	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:a", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:aM:", long_options, NULL)) != -1) {
 #endif
 
 		switch (c) {
@@ -1881,6 +1906,17 @@ int main(int argc, char *argv[])
 
 		case 'a':
 			data.raw = true;
+			break;
+
+		case 'M':
+			if (spa_streq(optarg, "midi"))
+				data.midi.force_type = MIDI_FORCE_MIDI1;
+			else if (spa_streq(optarg, "ump"))
+				data.midi.force_type = MIDI_FORCE_UMP;
+			else {
+				fprintf(stderr, "error: bad force-midi %s\n", optarg);
+				goto error_usage;
+			}
 			break;
 
 		case OPT_MEDIA_TYPE:

@@ -32,6 +32,7 @@ struct data {
 	struct pw_filter *filter;
 	struct port *in_port;
 	int64_t clock_time;
+	bool opt_midi1;
 };
 
 static int dump_file(const char *filename)
@@ -90,14 +91,20 @@ static void on_process(void *_data, struct spa_io_position *position)
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		struct midi_event ev;
 
-		if (c.type != SPA_CONTROL_UMP)
+		switch (c.type) {
+		case SPA_CONTROL_UMP:
+			ev.type = MIDI_EVENT_TYPE_UMP;
+			break;
+		case SPA_CONTROL_Midi:
+			ev.type = MIDI_EVENT_TYPE_MIDI1;
+			break;
+		default:
 			continue;
-
+		}
 		ev.track = 0;
 		ev.sec = (offset + c.offset) / (float) position->clock.rate.denom;
 		ev.data = (uint8_t*)c_body;
 		ev.size = c.value.size;
-		ev.type = MIDI_EVENT_TYPE_UMP;
 
 		fprintf(stdout, "%4d: ", c.offset);
 		midi_file_dump_event(stdout, &ev);
@@ -144,7 +151,7 @@ static int dump_filter(struct data *data)
 			PW_FILTER_PORT_FLAG_MAP_BUFFERS,
 			sizeof(struct port),
 			pw_properties_new(
-				PW_KEY_FORMAT_DSP, "32 bit raw UMP",
+				PW_KEY_FORMAT_DSP, data->opt_midi1 ? "8 bit raw midi" : "32 bit raw UMP",
 				PW_KEY_PORT_NAME, "input",
 				NULL),
 			NULL, 0);
@@ -167,7 +174,8 @@ static void show_help(const char *name, bool error)
 	fprintf(error ? stderr : stdout, "%s [options] [FILE]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
-		"  -r, --remote                          Remote daemon name\n",
+		"  -r, --remote                          Remote daemon name\n"
+		"  -m, --midi1                           Dump as MIDI 1.0\n",
 		name);
 }
 
@@ -179,6 +187,7 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "remote",	required_argument,	NULL, 'r' },
+		{ "midi1",	no_argument,		NULL, 'm' },
 		{ NULL,	0, NULL, 0}
 	};
 
@@ -187,7 +196,7 @@ int main(int argc, char *argv[])
 
 	setlinebuf(stdout);
 
-	while ((c = getopt_long(argc, argv, "hVr:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:m", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -202,6 +211,9 @@ int main(int argc, char *argv[])
 			return 0;
 		case 'r':
 			data.opt_remote = optarg;
+			break;
+		case 'm':
+			data.opt_midi1 = true;
 			break;
 		default:
 			show_help(argv[0], true);

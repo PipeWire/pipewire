@@ -210,53 +210,51 @@ static void init_ports(struct seq_state *state)
 	}
 }
 
-static void debug_event(struct seq_state *state, snd_seq_event_t *ev)
+static void debug_event(struct seq_state *state, const char *prefix, snd_seq_event_t *ev)
 {
-	if (SPA_LIKELY(!spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE)))
+	enum spa_log_level lev = SPA_LOG_LEVEL_TRACE;
+
+	if (SPA_LIKELY(!spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, lev)))
 		return;
 
-	spa_log_trace(state->log, "event type:%d flags:0x%x", ev->type, ev->flags);
+	spa_log_lev(state->log, lev, "%s: event type:%d flags:0x%x", prefix, ev->type, ev->flags);
 	switch (ev->flags & SND_SEQ_TIME_STAMP_MASK) {
 	case SND_SEQ_TIME_STAMP_TICK:
-		spa_log_trace(state->log, " time: %d ticks", ev->time.tick);
+		spa_log_lev(state->log, lev, "%s:  time: %d ticks", prefix, ev->time.tick);
 		break;
 	case SND_SEQ_TIME_STAMP_REAL:
-		spa_log_trace(state->log, " time = %d.%09d",
+		spa_log_lev(state->log, lev, "%s:  time = %d.%09d", prefix,
 			(int)ev->time.time.tv_sec,
 			(int)ev->time.time.tv_nsec);
 		break;
 	}
-	spa_log_trace(state->log, " source:%d.%d dest:%d.%d queue:%d",
-		ev->source.client,
-		ev->source.port,
-		ev->dest.client,
-		ev->dest.port,
-		ev->queue);
+	spa_log_lev(state->log, lev, "%s:  source:%d.%d dest:%d.%d queue:%d", prefix,
+			ev->source.client, ev->source.port, ev->dest.client,
+			ev->dest.port, ev->queue);
 }
 
 #ifdef HAVE_ALSA_UMP
-static void debug_ump_event(struct seq_state *state, snd_seq_ump_event_t *ev)
+static void debug_ump_event(struct seq_state *state, const char *prefix, snd_seq_ump_event_t *ev)
 {
-	if (SPA_LIKELY(!spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_TRACE)))
+	enum spa_log_level lev = SPA_LOG_LEVEL_TRACE;
+
+	if (SPA_LIKELY(!spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, lev)))
 		return;
 
-	spa_log_trace(state->log, "event type:%d flags:0x%x", ev->type, ev->flags);
+	spa_log_lev(state->log, lev, "%s: event type:%d flags:0x%x", prefix, ev->type, ev->flags);
 	switch (ev->flags & SND_SEQ_TIME_STAMP_MASK) {
 	case SND_SEQ_TIME_STAMP_TICK:
-		spa_log_trace(state->log, " time: %d ticks", ev->time.tick);
+		spa_log_lev(state->log, lev, "%s:  time: %d ticks", prefix, ev->time.tick);
 		break;
 	case SND_SEQ_TIME_STAMP_REAL:
-		spa_log_trace(state->log, " time = %d.%09d",
+		spa_log_lev(state->log, lev, "%s:  time = %d.%09d", prefix,
 			(int)ev->time.time.tv_sec,
 			(int)ev->time.time.tv_nsec);
 		break;
 	}
-	spa_log_trace(state->log, " source:%d.%d dest:%d.%d queue:%d",
-		ev->source.client,
-		ev->source.port,
-		ev->dest.client,
-		ev->dest.port,
-		ev->queue);
+	spa_log_lev(state->log, lev, "%s:  source:%d.%d dest:%d.%d queue:%d %08x",
+			prefix, ev->source.client, ev->source.port, ev->dest.client,
+			ev->dest.port, ev->queue, ev->ump[0]);
 }
 #endif
 
@@ -278,7 +276,7 @@ static void alsa_seq_on_sys(struct spa_source *source)
 			if (res <= 0)
 				break;
 
-			debug_ump_event(state, ev);
+			debug_ump_event(state, "sys", ev);
 
 			addr = &ev->data.addr;
 			type = ev->type;
@@ -292,7 +290,7 @@ static void alsa_seq_on_sys(struct spa_source *source)
 			if (res <= 0)
 				break;
 
-			debug_event(state, ev);
+			debug_event(state, "sys", ev);
 
 			addr = &ev->data.addr;
 			type = ev->type;
@@ -648,7 +646,7 @@ static int process_read(struct seq_state *state)
 			if (res <= 0)
 				break;
 
-			debug_ump_event(state, ev);
+			debug_ump_event(state, "read", ev);
 
 			event = ev;
 			addr = &ev->source;
@@ -664,7 +662,7 @@ static int process_read(struct seq_state *state)
 			if (res <= 0)
 				break;
 
-			debug_event(state, ev);
+			debug_event(state, "read", ev);
 
 			event = ev;
 			addr = &ev->source;
@@ -868,6 +866,8 @@ static int process_write(struct seq_state *state)
 				snd_seq_ev_set_source(&ev, state->event.addr.port);
 				snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
 				snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
+
+				debug_ump_event(state, "send", &ev);
 
 				if ((err = snd_seq_ump_event_output(state->event.hndl, &ev)) < 0) {
 					spa_log_warn(state->log, "failed to output event: %s",

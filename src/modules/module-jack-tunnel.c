@@ -273,29 +273,34 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		int size;
+		size_t c_size = c.value.size;
+		uint64_t state = 0;
 
 		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
-		size = spa_ump_to_midi(c_body, c.value.size, &tmp[tmp_size], sizeof(tmp) - tmp_size);
-		if (size <= 0)
-			continue;
+		while (c_size > 0) {
+			size = spa_ump_to_midi((const uint32_t**)&c_body, &c_size,
+					&tmp[tmp_size], sizeof(tmp) - tmp_size, &state);
+			if (size <= 0)
+				break;
 
-		if (impl->fix_midi)
-			fix_midi_event(&tmp[tmp_size], size);
+			if (impl->fix_midi)
+				fix_midi_event(&tmp[tmp_size], size);
 
-		if (!in_sysex && tmp[tmp_size] == 0xf0)
-			in_sysex = true;
+			if (!in_sysex && tmp[tmp_size] == 0xf0)
+				in_sysex = true;
 
-		tmp_size += size;
-		if (in_sysex && tmp[tmp_size-1] == 0xf7)
-			in_sysex = false;
+			tmp_size += size;
+			if (in_sysex && tmp[tmp_size-1] == 0xf7)
+				in_sysex = false;
 
-		if (!in_sysex) {
-			if ((res = jack.midi_event_write(dst, c.offset, tmp, tmp_size)) < 0)
-				pw_log_warn("midi %p: can't write event: %s", dst,
-						spa_strerror(res));
-			tmp_size = 0;
+			if (!in_sysex) {
+				if ((res = jack.midi_event_write(dst, c.offset, tmp, tmp_size)) < 0)
+					pw_log_warn("midi %p: can't write event: %s", dst,
+							spa_strerror(res));
+				tmp_size = 0;
+			}
 		}
 	}
 }

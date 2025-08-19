@@ -1824,18 +1824,20 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 static int apply_midi(struct impl *this, const struct spa_pod *value)
 {
 	struct props *p = &this->props;
-	uint8_t data[8];
-	int size;
+	uint8_t ev[8];
+	int ev_size;
+	const uint32_t *body = SPA_POD_BODY_CONST(value);
+	size_t size = SPA_POD_BODY_SIZE(value);
+	uint64_t state = 0;
 
-	size = spa_ump_to_midi(SPA_POD_BODY(value), SPA_POD_BODY_SIZE(value),
-			data, sizeof(data));
-	if (size < 3)
+	ev_size = spa_ump_to_midi(&body, &size, ev, sizeof(ev), &state);
+	if (ev_size < 3)
 		return -EINVAL;
 
-	if ((data[0] & 0xf0) != 0xb0 || data[1] != 7)
+	if ((ev[0] & 0xf0) != 0xb0 || ev[1] != 7)
 		return 0;
 
-	p->volume = data[2] / 127.0f;
+	p->volume = ev[2] / 127.0f;
 	set_volume(this);
 	return 1;
 }

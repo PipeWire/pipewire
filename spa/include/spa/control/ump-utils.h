@@ -48,72 +48,98 @@ SPA_API_CONTROL_UMP_UTILS size_t spa_ump_message_size(uint8_t message_type)
 	return ump_sizes[message_type & 0xf];
 }
 
-SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(const uint32_t *ump, size_t ump_size,
-		uint8_t *midi, size_t midi_maxsize)
+SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(const uint32_t **ump, size_t *ump_size,
+		uint8_t *midi, size_t midi_maxsize, uint64_t *state)
 {
 	int size = 0;
+	uint32_t to_consume = 0;
+	const uint32_t *u = *ump;
 
-	if (ump_size < 4)
-		return 0;
+	if (*ump_size < 4 ||
+	    (to_consume = (spa_ump_message_size(u[0]>>28) * 4)) > *ump_size) {
+		to_consume = *ump_size;
+		goto done;
+	}
 	if (midi_maxsize < 8)
 		return -ENOSPC;
 
-	switch (ump[0] >> 28) {
+	switch (u[0] >> 28) {
 	case 0x1: /* System Real Time and System Common Messages (except System Exclusive) */
-		midi[size++] = (ump[0] >> 16) & 0xff;
+		midi[size++] = (u[0] >> 16) & 0xff;
 		if (midi[0] >= 0xf1 && midi[0] <= 0xf3) {
-			midi[size++] = (ump[0] >> 8) & 0x7f;
+			midi[size++] = (u[0] >> 8) & 0x7f;
 			if (midi[0] == 0xf2)
-				midi[size++] = ump[0] & 0x7f;
+				midi[size++] = u[0] & 0x7f;
 		}
 		break;
 	case 0x2: /* MIDI 1.0 Channel Voice Messages */
-		midi[size++] = (ump[0] >> 16);
-		midi[size++] = (ump[0] >> 8);
+		midi[size++] = (u[0] >> 16);
+		midi[size++] = (u[0] >> 8);
 		if (midi[0] < 0xc0 || midi[0] > 0xdf)
-			midi[size++] = (ump[0]);
+			midi[size++] = (u[0]);
 		break;
 	case 0x3: /* Data Messages (including System Exclusive) */
 	{
 		uint8_t status, i, bytes;
 
-		if (ump_size < 8)
-			return 0;
-
-		status = (ump[0] >> 20) & 0xf;
-		bytes = SPA_CLAMP((ump[0] >> 16) & 0xf, 0u, 6u);
+		status = (u[0] >> 20) & 0xf;
+		bytes = SPA_CLAMP((u[0] >> 16) & 0xf, 0u, 6u);
 
 		if (status == 0 || status == 1)
 			midi[size++] = 0xf0;
 		for (i = 0 ; i < bytes; i++)
-			/* ump[0] >> 8 | ump[0] | ump[1] >> 24 | ump[1] >>16 ... */
-			midi[size++] = ump[(i+2)/4] >> ((5-i)%4 * 8);
+			/* u[0] >> 8 | u[0] | u[1] >> 24 | u[1] >>16 ... */
+			midi[size++] = u[(i+2)/4] >> ((5-i)%4 * 8);
 		if (status == 0 || status == 3)
 			midi[size++] = 0xf7;
 		break;
 	}
 	case 0x4: /* MIDI 2.0 Channel Voice Messages */
-		if (ump_size < 8)
-			return 0;
-		midi[size++] = (ump[0] >> 16) | 0x80;
-		switch (midi[0] & 0xf0) {
+	{
+		uint8_t status = (u[0] >> 16) | 0x80;
+		switch (status & 0xf0) {
 		case 0xc0:
-			midi[size++] = (ump[1] >> 24);
+			/* program/bank change */
+			if (!(u[0] & 1))
+				*state = 2;
+			if (*state == 0) {
+				midi[size++] = (status & 0xf) | 0xb0;
+				midi[size++] = 0;
+				midi[size++] = (u[1] >> 8);
+				to_consume = 0;
+				*state = 1;
+			}
+			else if (*state == 1) {
+				midi[size++] = (status & 0xf) | 0xb0;
+				midi[size++] = 32;
+				midi[size++] = u[1];
+				to_consume = 0;
+				*state = 2;
+			}
+			else if (*state == 2) {
+				midi[size++] = status;
+				midi[size++] = (u[1] >> 24);
+				*state = 0;
+			}
 			break;
 		default:
-			midi[size++] = (ump[0] >> 8) & 0x7f;
+			midi[size++] = status;
+			midi[size++] = (u[0] >> 8) & 0x7f;
 			SPA_FALLTHROUGH;
 		case 0xd0:
-			midi[size++] = (ump[1] >> 25);
+			midi[size++] = (u[1] >> 25);
 			break;
 		}
 		break;
-
+	}
 	case 0x0: /* Utility Messages */
 	case 0x5: /* Data Messages */
 	default:
-		return 0;
+		break;
 	}
+done:
+	(*ump_size) -= to_consume;
+	(*ump) = SPA_PTROFF(*ump, to_consume, uint32_t);
 	return size;
 }
 

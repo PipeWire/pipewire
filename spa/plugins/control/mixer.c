@@ -826,11 +826,15 @@ static int impl_node_process(void *object)
 			case SPA_CONTROL_UMP:
 			{
 				uint8_t ev[8];
-				int ev_size = spa_ump_to_midi((uint32_t*)body, size, ev, sizeof(ev));
-				if (ev_size <= 0)
-					break;
-				spa_pod_builder_control(&builder, control->offset, SPA_CONTROL_Midi);
-				spa_pod_builder_bytes(&builder, ev, ev_size);
+				const uint32_t *ump = (const uint32_t*)body;
+				uint64_t state = 0;
+				while (size > 0) {
+					int ev_size = spa_ump_to_midi(&ump, &size, ev, sizeof(ev), &state);
+					if (ev_size <= 0)
+						break;
+					spa_pod_builder_control(&builder, control->offset, SPA_CONTROL_Midi);
+					spa_pod_builder_bytes(&builder, ev, ev_size);
+				}
 				break;
 			}
 			}

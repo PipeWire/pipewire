@@ -123,6 +123,7 @@ static int do_ump_to_midi_test(char *ump, char *midi)
 	size_t m_size, u_size, m_offs = 0;
 	uint8_t *m_data = alloca(strlen(midi) / 2);
 	uint32_t *u_data = alloca(strlen(ump) / 2);
+	uint64_t state = 0;
 
 	u_size = parse_ump(ump, u_data, sizeof(u_data));
 	m_size = parse_midi(midi, m_data, sizeof(m_data));
@@ -133,8 +134,9 @@ static int do_ump_to_midi_test(char *ump, char *midi)
 	while (u_size > 0) {
 		uint8_t midi[32];
 		fprintf(stdout, "%zd %08x\n", u_size, *u_data);
-		int midi_size = spa_ump_to_midi(u_data, u_size,
-				midi, sizeof(midi));
+
+		int midi_size = spa_ump_to_midi((const uint32_t**)&u_data, &u_size,
+				midi, sizeof(midi), &state);
 		if (midi_size <= 0)
 			return midi_size;
 
@@ -145,8 +147,6 @@ static int do_ump_to_midi_test(char *ump, char *midi)
 			fprintf(stdout, "%08x %08x\n", m_data[m_offs], midi[i]);
 			spa_assert(m_data[m_offs++] == midi[i]);
 		}
-		u_size -= spa_ump_message_size(*u_data >> 28) * 4;
-		u_data += spa_ump_message_size(*u_data >> 28);
 	}
 	return 0;
 }
@@ -160,6 +160,11 @@ PWTEST(control_ump_to_midi)
 
 	spa_assert(do_ump_to_midi_test("30160102 03040506 30260708 09101112 30311300 00000000",
 				"f0 01 02 03 04 05 06 07 08 09 10 11 12 13 f7") >= 0);
+
+	spa_assert(do_ump_to_midi_test("40cf0000 11000000", "cf 11") >= 0);
+
+	spa_assert(do_ump_to_midi_test("40cf0001 11002233", "bf 00 22 bf 20 33 cf 11") >= 0);
+
 	return PWTEST_PASS;
 }
 

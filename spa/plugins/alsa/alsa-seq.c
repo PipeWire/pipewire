@@ -880,34 +880,41 @@ static int process_write(struct seq_state *state)
 				snd_seq_event_t ev;
 				uint8_t data[MAX_EVENT_SIZE];
 				int size;
+				uint64_t st = 0;
 
-				if ((size = spa_ump_to_midi((uint32_t *)body, body_size, data, sizeof(data))) <= 0)
-					continue;
+				while (body_size > 0) {
+					if ((size = spa_ump_to_midi((const uint32_t **)&body, &body_size,
+									data, sizeof(data), &st)) <= 0)
+						break;
 
-				if (first)
-					snd_seq_ev_clear(&ev);
+					if (first)
+						snd_seq_ev_clear(&ev);
 
-				if ((size = snd_midi_event_encode(stream->codec, data, size, &ev)) < 0) {
-					spa_log_warn(state->log, "failed to encode event: %s", snd_strerror(size));
-					snd_midi_event_reset_encode(stream->codec);
+					if ((size = snd_midi_event_encode(stream->codec, data, size, &ev)) < 0) {
+						spa_log_warn(state->log, "failed to encode event: %s",
+								snd_strerror(size));
+						snd_midi_event_reset_encode(stream->codec);
+						first = true;
+						continue;
+					}
+					first = false;
+					if (ev.type == SND_SEQ_EVENT_NONE)
+						/* this can happen when the event is not complete yet, like
+						 * a sysex message and we need to encode some more data. */
+						continue;
+
+					snd_seq_ev_set_source(&ev, state->event.addr.port);
+					snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
+					snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
+
+					debug_event(state, "send", &ev);
+
+					if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
+						spa_log_warn(state->log, "failed to output event: %s",
+								snd_strerror(err));
+					}
 					first = true;
-					continue;
 				}
-				first = false;
-				if (ev.type == SND_SEQ_EVENT_NONE)
-					/* this can happen when the event is not complete yet, like
-					 * a sysex message and we need to encode some more data. */
-					continue;
-
-				snd_seq_ev_set_source(&ev, state->event.addr.port);
-				snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
-				snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
-
-				if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
-					spa_log_warn(state->log, "failed to output event: %s",
-							snd_strerror(err));
-				}
-				first = true;
 			}
 		}
 	}

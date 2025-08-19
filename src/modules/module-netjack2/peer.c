@@ -333,32 +333,36 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 		int size;
 		uint8_t data[16];
 		bool was_sysex = in_sysex;
+		size_t c_size = c.value.size;
+		uint64_t state = 0;
 
 		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
-		size = spa_ump_to_midi(c_body, c.value.size, data, sizeof(data));
-		if (size <= 0)
-			continue;
+		while (c_size > 0) {
+			size = spa_ump_to_midi((const uint32_t**)&c_body, &c_size, data, sizeof(data), &state);
+			if (size <= 0)
+				break;
 
-		if (c.offset >= n_samples) {
-			buf->lost_events++;
-			continue;
+			if (c.offset >= n_samples) {
+				buf->lost_events++;
+				continue;
+			}
+
+			if (!in_sysex && data[0] == 0xf0)
+				in_sysex = true;
+
+			if (!in_sysex && peer->fix_midi)
+				fix_midi_event(data, size);
+
+			if (in_sysex && data[size-1] == 0xf7)
+				in_sysex = false;
+
+			if (was_sysex)
+				n2j_midi_buffer_append(buf, data, size);
+			else
+				n2j_midi_buffer_write(buf, c.offset, data, size);
 		}
-
-		if (!in_sysex && data[0] == 0xf0)
-			in_sysex = true;
-
-		if (!in_sysex && peer->fix_midi)
-			fix_midi_event(data, size);
-
-		if (in_sysex && data[size-1] == 0xf7)
-			in_sysex = false;
-
-		if (was_sysex)
-			n2j_midi_buffer_append(buf, data, size);
-		else
-			n2j_midi_buffer_write(buf, c.offset, data, size);
 	}
 	if (buf->write_pos > 0)
 		memmove(SPA_PTROFF(buf, sizeof(*buf) + buf->event_count * sizeof(struct nj2_midi_event), void),

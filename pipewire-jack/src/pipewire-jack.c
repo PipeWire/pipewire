@@ -1610,7 +1610,6 @@ static inline int midi_event_write(void *port_buffer,
 
 static void convert_to_event(struct mix_info **mix, uint32_t n_mix, void *midi, bool fix, uint32_t type)
 {
-	uint64_t state = 0;
 	uint32_t i;
 	int res = 0;
 	bool in_sysex = false;
@@ -1621,6 +1620,7 @@ static void convert_to_event(struct mix_info **mix, uint32_t n_mix, void *midi, 
 		struct spa_pod_control *control;
 		size_t size;
 		uint8_t *data;
+		uint64_t state = 0;
 
 		for (i = 0; i < n_mix; i++) {
 			struct mix_info *m = mix[i];
@@ -1664,34 +1664,36 @@ static void convert_to_event(struct mix_info **mix, uint32_t n_mix, void *midi, 
 		}
 		case SPA_CONTROL_UMP:
 		{
-			uint8_t ev[32];
-			bool was_sysex = in_sysex;
-
 			if (type == TYPE_ID_MIDI) {
-				uint32_t *d = (uint32_t*)data;
-				int ev_size = spa_ump_to_midi(d, size, ev, sizeof(ev));
-				if (ev_size <= 0)
-					break;
+				uint8_t ev[32];
+				const uint32_t *d = (uint32_t*)data;
 
-				size = ev_size;
-				data = ev;
+				while (size > 0) {
+					bool was_sysex = in_sysex;
+					int ev_size = spa_ump_to_midi(&d, &size, ev, sizeof(ev), &state);
+					if (ev_size <= 0)
+						break;
 
-				if (!in_sysex && ev[0] == 0xf0)
-					in_sysex = true;
-				if (in_sysex && ev[ev_size-1] == 0xf7)
-					in_sysex = false;
+					if (!in_sysex && ev[0] == 0xf0)
+						in_sysex = true;
+					if (in_sysex && ev[ev_size-1] == 0xf7)
+						in_sysex = false;
 
-			} else if (type != TYPE_ID_UMP)
-				break;
+					if (was_sysex)
+						res = midi_event_append(midi, ev, ev_size);
+					else
+						res = midi_event_write(midi, control->offset, ev, ev_size, fix);
+					if (res < 0)
+						break;
 
-			if (was_sysex)
-				res = midi_event_append(midi, data, size);
-			else
+				}
+			} else if (type == TYPE_ID_UMP) {
 				res = midi_event_write(midi, control->offset, data, size, fix);
-
+			}
 			if (res < 0)
 				pw_log_warn("midi %p: can't write event: %s", midi,
 						spa_strerror(res));
+			break;
 		}
 		}
 		if (spa_pod_parser_get_control_body(&next->parser,

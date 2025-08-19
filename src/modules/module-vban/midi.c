@@ -239,27 +239,32 @@ static void vban_midi_flush_packets(struct impl *impl,
 	while (spa_pod_parser_get_control_body(parser, &c, &c_body) >= 0) {
 		int size;
 		uint8_t event[16];
+		uint64_t state = 0;
+		size_t c_size = c.value.size;
 
 		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
-		size = spa_ump_to_midi(c_body, c.value.size, event, sizeof(event));
-		if (size <= 0)
-			continue;
+		while (c_size > 0) {
+			size = spa_ump_to_midi((const uint32_t**)&c_body,
+					&c_size, event, sizeof(event), &state);
+			if (size <= 0)
+				break;
 
-		if (len == 0) {
-			/* start new packet */
-			header.n_frames++;
-		} else if (len + size > impl->mtu) {
-			/* flush packet when we have one and when it's too large */
-			iov[1].iov_len = len;
+			if (len == 0) {
+				/* start new packet */
+				header.n_frames++;
+			} else if (len + size > impl->mtu) {
+				/* flush packet when we have one and when it's too large */
+				iov[1].iov_len = len;
 
-			pw_log_debug("sending %d", len);
-			vban_stream_emit_send_packet(impl, iov, 2);
-			len = 0;
+				pw_log_debug("sending %d", len);
+				vban_stream_emit_send_packet(impl, iov, 2);
+				len = 0;
+			}
+			memcpy(&impl->buffer[len], event, size);
+			len += size;
 		}
-		memcpy(&impl->buffer[len], event, size);
-		len += size;
 	}
 	if (len > 0) {
 		/* flush last packet */

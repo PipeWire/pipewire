@@ -496,41 +496,46 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 {
 	struct midi_track *tr;
 	uint32_t tick;
-	void *data;
+	void *data, *ev_data;
 	size_t size;
-	int res;
+	int res, ev_size;
 	uint8_t ev[32];
+	uint64_t state = 0;
 
 	spa_return_val_if_fail(event != NULL, -EINVAL);
 	spa_return_val_if_fail(mf != NULL, -EINVAL);
 	spa_return_val_if_fail(event->track == 0, -EINVAL);
 	spa_return_val_if_fail(event->size > 1, -EINVAL);
 
-	switch (event->type) {
-	case MIDI_EVENT_TYPE_MIDI1:
-		data = event->data;
-		size = event->size;
-		break;
-	case MIDI_EVENT_TYPE_UMP:
-		data = ev;
-		size = spa_ump_to_midi((uint32_t*)event->data, event->size, ev, sizeof(ev));
-		if (size == 0)
-			return 0;
-		break;
-	default:
-		return -EINVAL;
-	}
+	data = event->data;
+	size = event->size;
 
 	tr = &mf->tracks[event->track];
-
 	tick = (uint32_t)(event->sec * (1000000.0 * mf->info.division) / (double)mf->tempo);
 
-	CHECK_RES(write_varlen(mf, tr, tick - tr->tick));
-	tr->tick = tick;
+	while (size > 0) {
+		switch (event->type) {
+		case MIDI_EVENT_TYPE_MIDI1:
+			ev_data = data;
+			ev_size = size;
+			size = 0;
+			break;
+		case MIDI_EVENT_TYPE_UMP:
+			ev_size = spa_ump_to_midi((const uint32_t**)&data, &size, ev, sizeof(ev), &state);
+			if (ev_size <= 0)
+				return ev_size;
+			ev_data = ev;
+			break;
+		default:
+			return -EINVAL;
+		}
 
-	CHECK_RES(write_n(mf->file, data, size));
-	tr->size += size;
+		CHECK_RES(write_varlen(mf, tr, tick - tr->tick));
+		tr->tick = tick;
 
+		CHECK_RES(write_n(mf->file, ev_data, ev_size));
+		tr->size += ev_size;
+	}
 	return 0;
 }
 

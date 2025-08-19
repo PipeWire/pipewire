@@ -788,30 +788,35 @@ static int write_data(struct impl *this, struct spa_data *d)
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		int size;
 		uint8_t event[32];
+		const uint32_t *ump = c_body;
+		size_t ump_size = c.value.size;
+		uint64_t state = 0;
 
 		if (c.type != SPA_CONTROL_UMP)
 			continue;
 
 		time = SPA_MAX(time, this->current_time + c.offset * SPA_NSEC_PER_SEC / this->rate);
 
-		size = spa_ump_to_midi(c_body, c.value.size, event, sizeof(event));
-		if (size <= 0)
-			continue;
+		while (ump_size > 0) {
+			size = spa_ump_to_midi(&ump, &ump_size, event, sizeof(event), &state);
+			if (size <= 0)
+				break;
 
-		spa_log_trace(this->log, "%p: output event:0x%x time:%"PRIu64, this,
-				(size > 0) ? event[0] : 0, time);
+			spa_log_trace(this->log, "%p: output event:0x%x time:%"PRIu64, this,
+					(size > 0) ? event[0] : 0, time);
 
-		do {
-			res = spa_bt_midi_writer_write(&this->writer,
-					time, event, size);
-			if (res < 0) {
-				return res;
-			} else if (res) {
-				int res2;
-				if ((res2 = flush_packet(this)) < 0)
-					return res2;
-			}
-		} while (res);
+			do {
+				res = spa_bt_midi_writer_write(&this->writer,
+						time, event, size);
+				if (res < 0) {
+					return res;
+				} else if (res) {
+					int res2;
+					if ((res2 = flush_packet(this)) < 0)
+						return res2;
+				}
+			} while (res);
+		}
 	}
 
 	if ((res = flush_packet(this)) < 0)

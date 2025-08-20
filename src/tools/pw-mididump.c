@@ -175,7 +175,7 @@ static void show_help(const char *name, bool error)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
-		"  -m, --midi1                           Dump as MIDI 1.0\n",
+	        "  -M, --force-midi                      Force midi format, one of \"midi\" or \"ump\",(default ump)\n",
 		name);
 }
 
@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
 		{ "remote",	required_argument,	NULL, 'r' },
-		{ "midi1",	no_argument,		NULL, 'm' },
+		{ "force-midi",	required_argument,	NULL, 'M' },
 		{ NULL,	0, NULL, 0}
 	};
 
@@ -196,7 +196,7 @@ int main(int argc, char *argv[])
 
 	setlinebuf(stdout);
 
-	while ((c = getopt_long(argc, argv, "hVr:m", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:M:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -212,9 +212,19 @@ int main(int argc, char *argv[])
 		case 'r':
 			data.opt_remote = optarg;
 			break;
-		case 'm':
-			data.opt_midi1 = true;
+
+		case 'M':
+			if (spa_streq(optarg, "midi"))
+				data.opt_midi1 = true;
+			else if (spa_streq(optarg, "ump"))
+				data.opt_midi1 = false;
+			else {
+				fprintf(stderr, "error: bad force-midi %s\n", optarg);
+				show_help(argv[0], true);
+				return 0;
+			}
 			break;
+
 		default:
 			show_help(argv[0], true);
 			return -1;

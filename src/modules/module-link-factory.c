@@ -193,8 +193,7 @@ static const struct pw_resource_events resource_events = {
 static void global_destroy(void *data)
 {
 	struct link_data *ld = data;
-	struct factory_data *d = ld->data;
-	pw_work_queue_cancel(d->work, ld, SPA_ID_INVALID);
+
 	spa_hook_remove(&ld->global_listener);
 	ld->global = NULL;
 }
@@ -213,6 +212,7 @@ static void link_destroy(void *data)
 		spa_hook_remove(&ld->global_listener);
 	if (ld->resource)
 		spa_hook_remove(&ld->resource_listener);
+	pw_work_queue_cancel(ld->data->work, ld, SPA_ID_INVALID);
 }
 
 static void link_initialized(void *data)

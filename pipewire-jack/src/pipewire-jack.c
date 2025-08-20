@@ -1086,7 +1086,7 @@ static void on_notify_event(void *data, uint64_t count)
 					c->portregistration_arg);
 			break;
 		case NOTIFY_TYPE_PORT_RENAME:
-			if (o->registered == notify->arg1)
+			if (o->registered != notify->arg1)
 				break;
 			pw_log_debug("%p: port rename %u %s->%s", c, o->serial,
 					o->port.old_name, o->port.name);

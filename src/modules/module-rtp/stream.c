@@ -34,10 +34,17 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 #define BUFFER_SIZE2			(BUFFER_SIZE>>1)
 #define BUFFER_MASK2			(BUFFER_SIZE2-1)
 
+/* IMPORTANT: When using calls that have return values, like
+ * rtp_stream_emit_open_connection, callers must set the variables
+ * that receive the return values to a default value, because in
+ * cases where the callback is not actually set, no call is made,
+ * and thus, uninitialized return variables remain uninitialized.*/
 #define rtp_stream_emit(s,m,v,...)		spa_hook_list_call(&s->listener_list, \
 							struct rtp_stream_events, m, v, ##__VA_ARGS__)
 #define rtp_stream_emit_destroy(s)		rtp_stream_emit(s, destroy, 0)
-#define rtp_stream_emit_state_changed(s,n,e)	rtp_stream_emit(s, state_changed,0,n,e)
+#define rtp_stream_emit_report_error(s,e)	rtp_stream_emit(s, report_error, 0,e)
+#define rtp_stream_emit_open_connection(s,r)	rtp_stream_emit(s, open_connection, 0,r)
+#define rtp_stream_emit_close_connection(s,r)	rtp_stream_emit(s, close_connection, 0,r)
 #define rtp_stream_emit_param_changed(s,i,p)	rtp_stream_emit(s, param_changed,0,i,p)
 #define rtp_stream_emit_send_packet(s,i,l)	rtp_stream_emit(s, send_packet,0,i,l)
 #define rtp_stream_emit_send_feedback(s,seq)	rtp_stream_emit(s, send_feedback,0,seq)
@@ -140,9 +147,14 @@ struct impl {
 static int do_emit_state_changed(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct impl *impl = user_data;
-	bool *started = (bool *)data;
+	bool started = *((bool *)data);
 
-	rtp_stream_emit_state_changed(impl, *started, NULL);
+	if (started) {
+		rtp_stream_emit_open_connection(impl, NULL);
+	} else {
+		rtp_stream_emit_close_connection(impl, NULL);
+	}
+
 	return 0;
 }
 
@@ -191,6 +203,8 @@ static void stream_destroy(void *d)
 
 static int stream_start(struct impl *impl)
 {
+	int res;
+
 	if (impl->started)
 		return 0;
 
@@ -206,7 +220,14 @@ static int stream_start(struct impl *impl)
 
 	impl->reset_ringbuffer(impl);
 
-	rtp_stream_emit_state_changed(impl, true, NULL);
+	res = 0;
+	rtp_stream_emit_open_connection(impl, &res);
+	if (res > 0) {
+		pw_log_debug("opened new connection");
+	} else if (res < 0) {
+		pw_log_error("could not open connection: %s", spa_strerror(res));
+		return res;
+	}
 
 	if (impl->separate_sender) {
 		struct spa_dict_item items[1];
@@ -230,7 +251,7 @@ static int stream_stop(struct impl *impl)
 
 	/* if timer is running, the state changed event must be emitted by the timer after all packets have been sent */
 	if (!impl->timer_running)
-		rtp_stream_emit_state_changed(impl, false, NULL);
+		rtp_stream_emit_close_connection(impl, NULL);
 
 	if (impl->separate_sender) {
 		struct spa_dict_item items[1];

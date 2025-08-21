@@ -478,18 +478,23 @@ static void send_destroy(void *data)
 {
 }
 
-static void send_state_changed(void *data, bool started, const char *error)
+static void send_open_connection(void *data, int *result)
 {
 	struct session *sess = data;
+	sess->sending = true;
+	if (result)
+		*result = 1;
+	session_establish(sess);
+}
 
-	if (started) {
-		sess->sending = true;
-		session_establish(sess);
-	} else {
-		sess->sending = false;
-		if (!sess->receiving)
-			session_stop(sess);
-	}
+static void send_close_connection(void *data, int *result)
+{
+	struct session *sess = data;
+	sess->sending = false;
+	if (result)
+		*result = 1;
+	if (!sess->receiving)
+		session_stop(sess);
 }
 
 static void send_send_packet(void *data, struct iovec *iov, size_t iovlen)
@@ -516,17 +521,24 @@ static void send_send_packet(void *data, struct iovec *iov, size_t iovlen)
 static void recv_destroy(void *data)
 {
 }
-static void recv_state_changed(void *data, bool started, const char *error)
+
+static void recv_open_connection(void *data, int *result)
 {
 	struct session *sess = data;
-	if (started) {
-		sess->receiving = true;
-		session_establish(sess);
-	} else {
-		sess->receiving = false;
-		if (!sess->sending)
-			session_stop(sess);
-	}
+	sess->receiving = true;
+	if (result)
+		*result = 1;
+	session_establish(sess);
+}
+
+static void recv_close_connection(void *data, int *result)
+{
+	struct session *sess = data;
+	sess->receiving = false;
+	if (result)
+		*result = 1;
+	if (!sess->sending)
+		session_stop(sess);
 }
 
 static void recv_send_feedback(void *data, uint32_t seqnum)
@@ -560,14 +572,16 @@ static void recv_send_feedback(void *data, uint32_t seqnum)
 static const struct rtp_stream_events send_stream_events = {
 	RTP_VERSION_STREAM_EVENTS,
 	.destroy = send_destroy,
-	.state_changed = send_state_changed,
+	.open_connection = send_open_connection,
+	.close_connection = send_close_connection,
 	.send_packet = send_send_packet,
 };
 
 static const struct rtp_stream_events recv_stream_events = {
 	RTP_VERSION_STREAM_EVENTS,
 	.destroy = recv_destroy,
-	.state_changed = recv_state_changed,
+	.open_connection = recv_open_connection,
+	.close_connection = recv_close_connection,
 	.send_feedback = recv_send_feedback,
 };
 

@@ -35,7 +35,17 @@ struct rtp_stream_events {
 
 	void (*destroy) (void *data);
 
-	void (*state_changed) (void *data, bool started, const char *error);
+	void (*report_error) (void *data, const char *error);
+
+	/* Requests the network connection to be opened. If result is non-NULL,
+	 * the call sets it to >0 in case of success, and a negative errno error
+	 * code in case of failure. (Result value 0 is unused.) */
+	void (*open_connection) (void *data, int *result);
+
+	/* Requests the network connection to be closed. If result is non-NULL,
+	 * the call sets it to >0 in case of success, 0 if the connection was
+	 * already closed, and a negative errno error code in case of failure. */
+	void (*close_connection) (void *data, int *result);
 
 	void (*param_changed) (void *data, uint32_t id, const struct spa_pod *param);
 

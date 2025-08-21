@@ -1545,14 +1545,12 @@ static void stream_destroy(void *d)
 	impl->stream = NULL;
 }
 
-static void stream_state_changed(void *data, bool started, const char *error)
+static void stream_report_error(void *data, const char *error)
 {
 	struct impl *impl = data;
-
 	if (error) {
 		pw_log_error("stream error: %s", error);
 		pw_impl_module_schedule_destroy(impl->module);
-		return;
 	}
 }
 
@@ -1726,7 +1724,7 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 static const struct rtp_stream_events stream_events = {
 	RTP_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
-	.state_changed = stream_state_changed,
+	.report_error = stream_report_error,
 	.param_changed = stream_param_changed,
 	.send_packet = stream_send_packet
 };

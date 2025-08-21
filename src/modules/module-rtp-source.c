@@ -385,13 +385,13 @@ error:
 	return res;
 }
 
-static int stream_start(struct impl *impl);
+static void stream_open_connection(void *data, int *result);
 
-static void on_stream_start_retry_timer_event(void *data, uint64_t expirations)
+static void on_open_connection_retry_timer_event(void *data, uint64_t expirations)
 {
 	struct impl *impl = data;
-	pw_log_debug("trying again to start RTP listener after previous attempt failed with ENODEV");
-	stream_start(impl);
+	pw_log_debug("trying again to open connection after previous attempt failed with ENODEV");
+	stream_open_connection(impl, NULL);
 }
 
 static void destroy_stream_start_retry_timer(struct impl *impl)
@@ -402,12 +402,23 @@ static void destroy_stream_start_retry_timer(struct impl *impl)
 	}
 }
 
-static int stream_start(struct impl *impl)
+static void stream_report_error(void *data, const char *error)
 {
+	struct impl *impl = data;
+	if (error) {
+		pw_log_error("stream error: %s", error);
+		pw_impl_module_schedule_destroy(impl->module);
+	}
+}
+
+static void stream_open_connection(void *data, int *result)
+{
+	int res = 0;
 	int fd;
+	struct impl *impl = data;
 
 	if (impl->source != NULL)
-		return 0;
+		goto finish;
 
 	pw_log_info("starting RTP listener");
 
@@ -431,7 +442,7 @@ static int stream_start(struct impl *impl)
 				struct timespec value, interval;
 
 				impl->stream_start_retry_timer = pw_loop_add_timer(impl->main_loop,
-						on_stream_start_retry_timer_event, impl);
+						on_open_connection_retry_timer_event, impl);
 				/* Use a 1-second retry interval. The network interfaces
 				 * are likely to be up and running then. */
 				value.tv_sec = 1;
@@ -445,14 +456,16 @@ static int stream_start(struct impl *impl)
 
 			/* It is important to return 0 in this case. Otherwise, the nonzero return
 			 * value will later be propagated through the core as an error. */
-			return 0;
+			res = 0;
+			goto finish;
 		} else {
 			pw_log_error("failed to create socket: %m");
 			/* If ENODEV was returned earlier, and the stream_start_retry_timer
 			 * was consequently created, but then a non-ENODEV error occurred,
 			 * the timer must be stopped and removed. */
 			destroy_stream_start_retry_timer(impl);
-			return -errno;
+			res = -errno;
+			goto finish;
 		}
 	}
 
@@ -465,13 +478,27 @@ static int stream_start(struct impl *impl)
 	if (impl->source == NULL) {
 		pw_log_error("can't create io source: %m");
 		close(fd);
-		return -errno;
+		res = -errno;
+		goto finish;
 	}
-	return 0;
+
+finish:
+	if (res != 0) {
+		pw_log_error("failed to start RTP stream: %s", spa_strerror(res));
+		rtp_stream_set_error(impl->stream, res, "Can't start RTP stream");
+	}
+
+	if (result)
+		*result = res;
 }
 
-static void stream_stop(struct impl *impl)
+static void stream_close_connection(void *data, int *result)
 {
+	struct impl *impl = data;
+
+	if (result)
+		*result = 0;
+
 	if (!impl->source)
 		return;
 
@@ -487,25 +514,6 @@ static void stream_destroy(void *d)
 {
 	struct impl *impl = d;
 	impl->stream = NULL;
-}
-
-static void stream_state_changed(void *data, bool started, const char *error)
-{
-	struct impl *impl = data;
-	int res;
-
-	if (error) {
-		pw_log_error("stream error: %s", error);
-		pw_impl_module_schedule_destroy(impl->module);
-	} else if (started) {
-		if ((res = stream_start(impl)) < 0) {
-			pw_log_error("failed to start RTP stream: %s", spa_strerror(res));
-			rtp_stream_set_error(impl->stream, res, "Can't start RTP stream");
-		}
-	} else {
-		if (!impl->always_process && !impl->standby)
-			stream_stop(impl);
-	}
 }
 
 static void stream_props_changed(struct impl *impl, uint32_t id, const struct spa_pod *param)
@@ -572,7 +580,9 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 static const struct rtp_stream_events stream_events = {
 	RTP_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
-	.state_changed = stream_state_changed,
+	.report_error = stream_report_error,
+	.open_connection = stream_open_connection,
+	.close_connection = stream_close_connection,
 	.param_changed = stream_param_changed,
 };
 

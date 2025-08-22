@@ -385,19 +385,31 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 	uint32_t stride, timestamp;
 	struct iovec iov[3];
 	struct rtp_header header;
+	bool insufficient_data;
 
 	avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
 	tosend = impl->psamples;
-	if (avail < tosend)
-		if (impl->started)
+	insufficient_data = (avail < tosend);
+	if (insufficient_data) {
+		/* There is insufficient data for even a single full packet.
+		 * Handle this depending on the current state. */
+
+		if (get_internal_stream_state(impl) == RTP_STREAM_INTERNAL_STATE_STARTED) {
+			/* If the stream is started, just try again later,
+			 * when more data comes in. Enough data for covering
+			 * the psamples amount might be available by then. */
 			goto done;
-		else {
-			/* send last packet before emitting state_changed */
+		} else {
+			/* There is not enough data for a full packet, but the
+			 * stream is no longer in the started state, so the
+			 * remaining data needs to be flushed out now. */
 			tosend = avail;
 			num_packets = 1;
 		}
-	else
+	} else {
+		/* There is sufficient data for one or more full packets. */
 		num_packets = SPA_MIN(num_packets, (uint32_t)(avail / tosend));
+	}
 
 	stride = impl->stride;
 
@@ -434,18 +446,30 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 		num_packets--;
 	}
 	spa_ringbuffer_read_update(&impl->ring, timestamp);
+
 done:
 	if (impl->timer_running) {
-		if (impl->started) {
-			if (avail < tosend) {
+		if (get_internal_stream_state(impl) != RTP_STREAM_INTERNAL_STATE_STOPPING) {
+			/* If the stream isn't being stopped, and instead is running,
+			 * keep the timer running if there was sufficient data to
+			 * produce at least one packet. That's because by the time
+			 * the next timer expiration happens, there might be enough
+			 * data available for even more packets. However, if there
+			 * wasn't sufficient data for even one packet, stop the
+			 * timer, since it is likely then that input has ceased
+			 * (at least for now). */
+			if (insufficient_data) {
 				set_timer(impl, 0, 0);
 			}
 		} else if (avail <= 0) {
-			bool started = false;
-
-			/* the stream has been stopped and all packets have been sent */
+			/* All packets were sent, and the stream is in the stopping
+			 * state. This means that stream_stop() was called while this
+			 * timer was still sending out remaining packets, and thus,
+			 * stream_stop() could not immediately change the stream to the
+			 * stopping state. Now that all packets have gone out, finish
+			 * the stopping state change. */
 			set_timer(impl, 0, 0);
-			pw_loop_invoke(impl->main_loop, do_emit_state_changed, SPA_ID_INVALID, &started, sizeof started, false, impl);
+			pw_loop_invoke(impl->main_loop, do_finish_stopping_state, SPA_ID_INVALID, NULL, 0, false, impl);
 		}
 	}
 }

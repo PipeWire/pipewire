@@ -376,7 +376,7 @@ static void set_timer(struct impl *impl, uint64_t time, uint64_t itime)
 	ts.it_interval.tv_nsec = itime % SPA_NSEC_PER_SEC;
 	spa_system_timerfd_settime(impl->data_loop->system,
 			impl->timer->fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
-	impl->timer_running = time != 0 && itime != 0;
+	set_timer_running(impl, time != 0 && itime != 0);
 }
 
 static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uint64_t set_timestamp)
@@ -448,7 +448,7 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 	spa_ringbuffer_read_update(&impl->ring, timestamp);
 
 done:
-	if (impl->timer_running) {
+	if (is_timer_running(impl)) {
 		if (get_internal_stream_state(impl) != RTP_STREAM_INTERNAL_STATE_STOPPING) {
 			/* If the stream isn't being stopped, and instead is running,
 			 * keep the timer running if there was sufficient data to

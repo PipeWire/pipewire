@@ -1135,15 +1135,23 @@ static void emit_node_info(struct impl *this, bool full)
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Source/Internal" :
 		  this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
-		{ SPA_KEY_NODE_LATENCY, this->is_input ? "" : latency },
 		{ "media.name", media_name },
-		{ "node.rate", this->is_input ? "" : rate },
 		{ SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
 		{ SPA_KEY_MEDIA_ROLE, media_role },
+
+		/* reserved for latency and rate; see below */
+		{ NULL, NULL },
+		{ NULL, NULL }
 	};
 
-	spa_scnprintf(latency, sizeof(latency), "%u/%u", this->node_latency, port->current_format.info.raw.rate);
-	spa_scnprintf(rate, sizeof(rate), "1/%u", port->current_format.info.raw.rate);
+	if (!this->is_input && this->node_latency != 0) {
+		node_info_items[SPA_N_ELEMENTS(node_info_items) - 2].key = SPA_KEY_NODE_LATENCY;
+		node_info_items[SPA_N_ELEMENTS(node_info_items) - 2].value = latency;
+		node_info_items[SPA_N_ELEMENTS(node_info_items) - 1].key = "node.rate";
+		node_info_items[SPA_N_ELEMENTS(node_info_items) - 1].value = rate;
+		spa_scnprintf(latency, sizeof(latency), "%u/%u", this->node_latency, port->current_format.info.raw.rate);
+		spa_scnprintf(rate, sizeof(rate), "1/%u", port->current_format.info.raw.rate);
+	}
 
 	if (full)
 		this->info.change_mask = this->info_all;
@@ -2074,7 +2082,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
-	this->node_latency = 512;
+	this->node_latency = 0;
 
 	set_latency(this, false);
 

@@ -57,7 +57,7 @@ pool_data_destroy (gpointer user_data)
   GstPipeWirePoolData *data = user_data;
 
   gst_object_unref (data->pool);
-  g_slice_free (GstPipeWirePoolData, data);
+  g_free (data);
 }
 
 void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
@@ -73,7 +73,7 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
 
   GST_DEBUG_OBJECT (pool, "wrap buffer, datas:%d", b->buffer->n_datas);
 
-  data = g_slice_new (GstPipeWirePoolData);
+  data = g_new0 (GstPipeWirePoolData, 1);
 
   buf = gst_buffer_new ();
 

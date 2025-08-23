@@ -179,7 +179,7 @@ A client requests to bind to the registry object and list the available objects
 on the server.
 
 Like with all bindings, first the client allocates a new proxy id and puts this
-as the new_id field. Methods and Events can then be sent and received on the 
+as the new_id field. Methods and Events can then be sent and received on the
 new_id (in the message Id field).
 
 ```
@@ -237,7 +237,7 @@ Core::Done event.
 Create a new object from a factory of a certain type.
 
 The client allocates a new_id for the proxy. The server will allocate a new
-resource with the same new_id and from then on, Methods and Events will be 
+resource with the same new_id and from then on, Methods and Events will be
 exchanged between the new object of the given type.
 
 ```
@@ -290,7 +290,7 @@ server.
       String: version
       String: name
       Long: change_mask
-      Struct( 
+      Struct(
          Int: n_items
 	 (String: key
 	  String: value)*
@@ -434,7 +434,7 @@ registry.
    Struct(
       Int: id
       Int: global_id
-      Struct( 
+      Struct(
          Int: n_items
 	 (String: key
 	  String: value)*
@@ -498,7 +498,7 @@ Notify a client about a new global object.
       Int: permissions
       String: type
       Int: version
-      Struct( 
+      Struct(
          Int: n_items
 	 (String: key
 	  String: value)*
@@ -556,7 +556,7 @@ Is used to update the properties of a client.
 
 ```
    Struct(
-      Struct( 
+      Struct(
          Int: n_items
 	 (String: key
 	  String: value)*
@@ -610,7 +610,7 @@ when the client info is updated later.
    Struct(
       Int: id
       Long: change_mask
-      Struct( 
+      Struct(
          Int: n_items
 	 (String: key
 	  String: value)*
@@ -628,7 +628,7 @@ Emitted as the reply of the GetPermissions method.
 ```
    Struct(
       Int: index
-      Struct( 
+      Struct(
          Int: n_permissions
 	 (Int: id
 	  Int: permission)*
@@ -705,15 +705,15 @@ The info event is emitted when binding or when the device information changed.
    Struct(
       Int: id
       Long: change_mask
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
       ): props
-      Struct( 
+      Struct(
          Int: n_params
 	 ( Int: id
-	   Int: flags )* 
+	   Int: flags )*
       ): param_info
    )
 ```
@@ -741,7 +741,7 @@ Emitted as a result of EnumParams or SubscribeParams.
 ```
 - seq: the sequence number send by the client EnumParams or server generated
      in the SubscribeParams case.
-- id: the param id that is reported, see enum spa_param_type 
+- id: the param id that is reported, see enum spa_param_type
 - index: the index of the parameter
 - next: the index of the next parameter
 - param: the parameter. The object type depends on the id
@@ -768,7 +768,7 @@ Info is emitted when binding to the factory global or when the information chang
       String: type
       Int: version
       Long: change_mask
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
@@ -808,7 +808,7 @@ Info is emitted when binding to the link global or when the information changed.
       Int: state
       String: error
       Pod: format
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
@@ -850,7 +850,7 @@ Info is emitted when binding to the module global or when the information change
       String: filename
       String: args
       Long: change_mask
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
@@ -926,7 +926,7 @@ Send a Command to the node.
       Pod: command
    )
 ```
-- command: the command to send. See enum spa_node_command 
+- command: the command to send. See enum spa_node_command
 
 ## Node events
 
@@ -944,15 +944,15 @@ The info event is emitted when binding or when the node information changed.
       Int: n_output_ports
       Id: state
       String: error
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
       ): props
-      Struct( 
+      Struct(
          Int: n_params
 	 ( Int: id
-	   Int: flags )* 
+	   Int: flags )*
       ): param_info
    )
 ```
@@ -987,7 +987,7 @@ Emitted as a result of EnumParams or SubscribeParams.
 ```
 - seq: the sequence number send by the client EnumParams or server generated
      in the SubscribeParams case.
-- id: the param id that is reported, see enum spa_param_type 
+- id: the param id that is reported, see enum spa_param_type
 - index: the index of the parameter
 - next: the index of the next parameter
 - param: the parameter. The object type depends on the id
@@ -1040,15 +1040,15 @@ The info event is emitted when binding or when the port information changed.
       Int: id
       Int: direction
       Long: change_mask
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
       ): props
-      Struct( 
+      Struct(
          Int: n_params
 	 ( Int: id
-	   Int: flags )* 
+	   Int: flags )*
       ): param_info
    )
 ```
@@ -1077,7 +1077,7 @@ Emitted as a result of EnumParams or SubscribeParams.
 ```
 - seq: the sequence number send by the client EnumParams or server generated
      in the SubscribeParams case.
-- id: the param id that is reported, see enum spa_param_type 
+- id: the param id that is reported, see enum spa_param_type
 - index: the index of the parameter
 - next: the index of the next parameter
 
@@ -1404,7 +1404,7 @@ Add a new port to the node
    Struct(
       Int: direction
       Int: port_id
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
@@ -1557,7 +1557,7 @@ ports of a node.
       Int: port_id
       Int: mix_id
       Int: peer_id
-      Struct( 
+      Struct(
          Int: n_items
 	 ( String: key
 	   String: value )*
@@ -1641,7 +1641,7 @@ The profiler has no methods
       Pod: object
    )
 ```
-- object: a SPA_TYPE_OBJECT_Profiler object. See enum spa_profiler 
+- object: a SPA_TYPE_OBJECT_Profiler object. See enum spa_profiler
 
 
 # Footer {#native-protocol-footer}

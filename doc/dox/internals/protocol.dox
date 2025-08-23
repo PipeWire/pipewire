@@ -712,7 +712,7 @@ The info event is emitted when binding or when the device information changed.
       ): props
       Struct(
          Int: n_params
-	 ( Int: id
+	 ( Id: id
 	   Int: flags )*
       ): param_info
    )

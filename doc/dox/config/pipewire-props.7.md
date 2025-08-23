@@ -1196,6 +1196,11 @@ this instance. Available values:
   - input: appear as source node.
 \endparblock
 
+@PAR@ node-prop  bluez5.decode-buffer.latency   # integer
+Applies on media source nodes and defines the target amount
+of samples to be buffered on the output of the decoder.
+Default: 0, which means it is automatically determined.
+
 @PAR@ node-prop  node.latency-offset-msec   # string
 Applies only for BLE MIDI nodes.
 Latency adjustment to apply on the node. Larger values add a

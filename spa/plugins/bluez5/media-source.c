@@ -141,6 +141,8 @@ struct impl {
 	unsigned int is_duplex:1;
 	unsigned int is_internal:1;
 
+	unsigned int decode_buffer_target;
+
 	unsigned int node_latency;
 
 	int fd;
@@ -884,6 +886,8 @@ static int transport_start(struct impl *this)
 			port->frame_size, port->current_format.info.raw.rate,
 			this->quantum_limit, this->quantum_limit)) < 0)
 		return res;
+
+	spa_bt_decode_buffer_set_target_latency(&port->buffer, (int32_t) this->decode_buffer_target);
 
 	if (this->codec->kind == MEDIA_CODEC_HFP) {
 		/* 40 ms max buffer (on top of duration) */
@@ -2057,6 +2061,9 @@ impl_init(const struct spa_handle_factory *factory,
 			this->is_duplex = spa_atob(str);
 		if ((str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
 			this->is_internal = spa_atob(str);
+		if ((str = spa_dict_lookup(info, "bluez5.decode-buffer.latency")) != NULL) {
+			spa_atou32(str, &this->decode_buffer_target, 0);
+		}
 	}
 
 	if (this->is_duplex) {

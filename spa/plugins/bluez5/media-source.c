@@ -47,6 +47,10 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.source.media");
 
 struct props {
 	char clock_name[64];
+	char latency[64];
+	bool has_latency;
+	char rate[64];
+	bool has_rate;
 };
 
 #define MAX_BUFFERS 32
@@ -184,6 +188,10 @@ struct impl {
 static void reset_props(struct props *props)
 {
 	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
+	spa_zero(props->latency);
+	props->has_latency = false;
+	spa_zero(props->rate);
+	props->has_rate = false;
 }
 
 static int impl_node_enum_params(void *object, int seq,
@@ -1135,32 +1143,44 @@ static void emit_node_info(struct impl *this, bool full)
 			(this->transport->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY))
 		media_role = "Communication";
 
-	struct spa_dict_item node_info_items[] = {
+	struct spa_dict_item node_info_items[7] = {
 		{ SPA_KEY_DEVICE_API, "bluez5" },
 		{ SPA_KEY_MEDIA_CLASS, this->is_internal ? "Audio/Source/Internal" :
 		  this->is_input ? "Audio/Source" : "Stream/Output/Audio" },
 		{ "media.name", media_name },
 		{ SPA_KEY_NODE_DRIVER, this->is_input ? "true" : "false" },
 		{ SPA_KEY_MEDIA_ROLE, media_role },
-
-		/* reserved for latency and rate; see below */
-		{ NULL, NULL },
-		{ NULL, NULL }
 	};
+	size_t n_items = 5;
 
-	if (!this->is_input && this->node_latency != 0) {
-		node_info_items[SPA_N_ELEMENTS(node_info_items) - 2].key = SPA_KEY_NODE_LATENCY;
-		node_info_items[SPA_N_ELEMENTS(node_info_items) - 2].value = latency;
-		node_info_items[SPA_N_ELEMENTS(node_info_items) - 1].key = "node.rate";
-		node_info_items[SPA_N_ELEMENTS(node_info_items) - 1].value = rate;
+	spa_assert(n_items + 2 <= SPA_N_ELEMENTS(node_info_items));
+
+	if (this->props.has_latency) {
+		node_info_items[n_items].key = SPA_KEY_NODE_LATENCY;
+		node_info_items[n_items].value = this->props.latency;
+		n_items++;
+	} else if (!this->is_input && this->node_latency != 0) {
 		spa_scnprintf(latency, sizeof(latency), "%u/%u", this->node_latency, port->current_format.info.raw.rate);
+		node_info_items[n_items].key = SPA_KEY_NODE_LATENCY;
+		node_info_items[n_items].value = latency;
+		n_items++;
+	}
+
+	if (this->props.has_rate) {
+		node_info_items[n_items].key = "node.rate";
+		node_info_items[n_items].value = this->props.rate;
+		n_items++;
+	} else if (!this->is_input && this->node_latency != 0) {
 		spa_scnprintf(rate, sizeof(rate), "1/%u", port->current_format.info.raw.rate);
+		node_info_items[n_items].key = "node.rate";
+		node_info_items[n_items].value = rate;
+		n_items++;
 	}
 
 	if (full)
 		this->info.change_mask = this->info_all;
 	if (this->info.change_mask) {
-		this->info.props = &SPA_DICT_INIT_ARRAY(node_info_items);
+		this->info.props = &SPA_DICT_INIT(node_info_items, n_items);
 		spa_node_emit_info(&this->hooks, &this->info);
 		this->info.change_mask = old;
 	}
@@ -2061,8 +2081,15 @@ impl_init(const struct spa_handle_factory *factory,
 			this->is_duplex = spa_atob(str);
 		if ((str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
 			this->is_internal = spa_atob(str);
-		if ((str = spa_dict_lookup(info, "bluez5.decode-buffer.latency")) != NULL) {
+		if ((str = spa_dict_lookup(info, "bluez5.decode-buffer.latency")) != NULL)
 			spa_atou32(str, &this->decode_buffer_target, 0);
+		if ((str = spa_dict_lookup(info, SPA_KEY_NODE_LATENCY)) != NULL) {
+			spa_scnprintf(this->props.latency, sizeof(this->props.latency), "%s", str);
+			this->props.has_latency = true;
+		}
+		if ((str = spa_dict_lookup(info, "node.rate")) != NULL) {
+			spa_scnprintf(this->props.rate, sizeof(this->props.rate), "%s", str);
+			this->props.has_rate = true;
 		}
 	}
 
@@ -2089,7 +2116,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 
-	this->node_latency = 0;
+	this->node_latency = 512;
 
 	set_latency(this, false);
 

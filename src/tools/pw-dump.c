@@ -1541,7 +1541,7 @@ int main(int argc, char *argv[])
 		colors = true;
 	setlinebuf(data.out);
 
-	while ((c = getopt_long(argc, argv, "hVr:mNC", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:mNC::", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0], false);

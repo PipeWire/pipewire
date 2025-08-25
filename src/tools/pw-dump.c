@@ -1600,7 +1600,7 @@ int main(int argc, char *argv[])
 	data.keysep_char = ":";
 	data.indent = INDENT;
 
-	while ((c = getopt_long(argc, argv, "hVr:mNCRi:s", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:mNC::Ri:s", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0], false);

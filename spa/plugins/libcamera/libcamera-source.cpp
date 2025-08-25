@@ -61,7 +61,6 @@ struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_meta_header *h;
 	struct spa_meta_videotransform *videotransform;
-	void *ptr;
 };
 
 struct port {

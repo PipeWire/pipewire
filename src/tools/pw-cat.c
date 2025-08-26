@@ -1485,6 +1485,11 @@ static int setup_sndfile(struct data *data)
 	if (!data->file) {
 		fprintf(stderr, "sndfile: failed to open audio file \"%s\": %s\n",
 				data->filename, sf_strerror(NULL));
+		if (data->verbose) {
+			char loginfo[4096];
+			if (sf_command(NULL, SFC_GET_LOG_INFO, &loginfo, sizeof(loginfo)) > 0)
+				fprintf(stderr, "%s\n", loginfo);
+		}
 		return -EIO;
 	}
 

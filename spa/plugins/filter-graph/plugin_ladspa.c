@@ -153,7 +153,7 @@ static const struct spa_fga_descriptor *ladspa_plugin_make_desc(void *plugin, co
 
 	desc->desc.instantiate = ladspa_instantiate;
 	desc->desc.cleanup = d->cleanup;
-	desc->desc.connect_port = d->connect_port;
+	desc->desc.connect_port = (__typeof__(desc->desc.connect_port))d->connect_port;
 	desc->desc.activate = d->activate;
 	desc->desc.deactivate = d->deactivate;
 	desc->desc.run = d->run;

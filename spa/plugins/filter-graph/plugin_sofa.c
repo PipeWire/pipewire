@@ -316,7 +316,7 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 }
 
 static void spatializer_connect_port(void * Instance, unsigned long Port,
-                        float * DataLocation)
+                        void * DataLocation)
 {
 	struct spatializer_impl *impl = Instance;
 	impl->port[Port] = DataLocation;

@@ -9,7 +9,6 @@
 #include <stddef.h>
 
 #include <spa/utils/defs.h>
-#include <spa/utils/hook.h>
 #include <spa/support/plugin.h>
 
 #define SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioPlugin	SPA_TYPE_INFO_INTERFACE_BASE "FilterGraph:AudioPlugin"
@@ -32,6 +31,7 @@ struct spa_fga_port {
 #define SPA_FGA_PORT_CONTROL		(1ULL << 2)
 #define SPA_FGA_PORT_AUDIO		(1ULL << 3)
 #define SPA_FGA_PORT_SUPPORTS_NULL_DATA (1ULL << 4)
+#define SPA_FGA_PORT_SEQUENCE		(1ULL << 5)
 	uint64_t flags;
 
 #define SPA_FGA_HINT_BOOLEAN		(1ULL << 0)
@@ -49,6 +49,7 @@ struct spa_fga_port {
 #define SPA_FGA_IS_PORT_CONTROL(x)	((x) & SPA_FGA_PORT_CONTROL)
 #define SPA_FGA_IS_PORT_AUDIO(x)	((x) & SPA_FGA_PORT_AUDIO)
 #define SPA_FGA_SUPPORTS_NULL_DATA(x)	((x) & SPA_FGA_PORT_SUPPORTS_NULL_DATA)
+#define SPA_FGA_IS_PORT_SEQUENCE(x)	((x) & SPA_FGA_PORT_SEQUENCE)
 
 struct spa_fga_descriptor {
 	const char *name;
@@ -66,7 +67,7 @@ struct spa_fga_descriptor {
 
 	void (*cleanup) (void *instance);
 
-	void (*connect_port) (void *instance, unsigned long port, float *data);
+	void (*connect_port) (void *instance, unsigned long port, void *data);
 	void (*control_changed) (void *instance);
 
 	void (*activate) (void *instance);

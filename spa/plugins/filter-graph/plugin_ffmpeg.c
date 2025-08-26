@@ -188,7 +188,7 @@ static void ffmpeg_free(const struct spa_fga_descriptor *desc)
 	free(d);
 }
 
-static void ffmpeg_connect_port(void *instance, unsigned long port, float *data)
+static void ffmpeg_connect_port(void *instance, unsigned long port, void *data)
 {
 	struct instance *i = instance;
 	i->data[port] = data;

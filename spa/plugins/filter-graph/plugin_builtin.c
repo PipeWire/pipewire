@@ -83,7 +83,7 @@ static void *builtin_instantiate(const struct spa_fga_plugin *plugin, const stru
 	return impl;
 }
 
-static void builtin_connect_port(void *Instance, unsigned long Port, float * DataLocation)
+static void builtin_connect_port(void *Instance, unsigned long Port, void * DataLocation)
 {
 	struct builtin *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -1103,7 +1103,7 @@ error:
 }
 
 static void convolver_connect_port(void * Instance, unsigned long Port,
-                        float * DataLocation)
+                        void * DataLocation)
 {
 	struct convolver_impl *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -1259,7 +1259,7 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 }
 
 static void delay_connect_port(void * Instance, unsigned long Port,
-                        float * DataLocation)
+                        void * DataLocation)
 {
 	struct delay_impl *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -2057,7 +2057,7 @@ error:
 }
 
 static void param_eq_connect_port(void * Instance, unsigned long Port,
-                        float * DataLocation)
+                        void * DataLocation)
 {
 	struct param_eq_impl *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -2276,7 +2276,7 @@ static void dcblock_run(void * Instance, unsigned long SampleCount)
 }
 
 static void dcblock_connect_port(void * Instance, unsigned long Port,
-                        float * DataLocation)
+                        void * DataLocation)
 {
 	struct dcblock_impl *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -2736,7 +2736,7 @@ static void *pipe_instantiate(const struct spa_fga_plugin *plugin, const struct 
 	return impl;
 }
 
-static void pipe_connect_port(void *Instance, unsigned long Port, float * DataLocation)
+static void pipe_connect_port(void *Instance, unsigned long Port, void * DataLocation)
 {
 	struct pipe_impl *impl = Instance;
 	impl->port[Port] = DataLocation;

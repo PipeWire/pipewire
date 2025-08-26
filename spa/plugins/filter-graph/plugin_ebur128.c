@@ -219,7 +219,7 @@ static void ebur128_run(void * Instance, unsigned long SampleCount)
 }
 
 static void ebur128_connect_port(void * Instance, unsigned long Port,
-                        float * DataLocation)
+                        void * DataLocation)
 {
 	struct ebur128_impl *impl = Instance;
 	impl->port[Port] = DataLocation;
@@ -442,7 +442,7 @@ static void * lufs2gain_instantiate(const struct spa_fga_plugin *plugin, const s
 }
 
 static void lufs2gain_connect_port(void * Instance, unsigned long Port,
-                        float * DataLocation)
+                        void * DataLocation)
 {
 	struct lufs2gain_impl *impl = Instance;
 	impl->port[Port] = DataLocation;

@@ -457,7 +457,7 @@ static void lv2_cleanup(void *instance)
 	free(i);
 }
 
-static void lv2_connect_port(void *instance, unsigned long port, float *data)
+static void lv2_connect_port(void *instance, unsigned long port, void *data)
 {
 	struct instance *i = instance;
 	lilv_instance_connect_port(i->instance, port, data);

@@ -137,8 +137,13 @@ ATTRS{idVendor}=="9886", ATTRS{idProduct}=="002c", ENV{ACP_PROFILE_SET}="usb-gam
 ATTRS{idVendor}=="9886", ATTRS{idProduct}=="0038", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 9886:0045 is for the Astro A20 Gen2
 ATTRS{idVendor}=="9886", ATTRS{idProduct}=="0045", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+
 # ID 1532:0520 is for the Razer Kraken Tournament Edition
 ATTRS{idVendor}=="1532", ATTRS{idProduct}=="0520", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# ID 1532:0579 is Razer BlackShark v3 (usb direct to headset)
+ATTRS{idVendor}=="1532", ATTRS{idProduct}=="0579", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+# ID 1532:057a is Razer BlackShark v3 (2.4GHz dongle)
+ATTRS{idVendor}=="1532", ATTRS{idProduct}=="057a", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 
 
 # ID 1038:1250 is for the Arctis 5

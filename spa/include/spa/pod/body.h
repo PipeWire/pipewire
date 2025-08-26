@@ -106,8 +106,8 @@ SPA_API_POD_BODY int spa_pod_is_bool(const struct spa_pod *pod)
 	return SPA_POD_CHECK(pod, SPA_TYPE_Bool, sizeof(int32_t));
 }
 
-#define SPA_POD_BODY_LOAD_ONCE(a, b) (*(a) = SPA_LOAD_ONCE((const volatile __typeof__(a))(b)))
-#define SPA_POD_BODY_LOAD_FIELD_ONCE(a, b, field) ((a)->field = SPA_LOAD_ONCE(&((const volatile __typeof__(a))(b))->field))
+#define SPA_POD_BODY_LOAD_ONCE(a, b) (*(a) = SPA_LOAD_ONCE((__typeof__(a))(b)))
+#define SPA_POD_BODY_LOAD_FIELD_ONCE(a, b, field) ((a)->field = SPA_LOAD_ONCE(&((__typeof__(a))(b))->field))
 
 SPA_API_POD_BODY int spa_pod_body_get_bool(const struct spa_pod *pod, const void *body, bool *value)
 {

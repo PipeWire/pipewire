@@ -548,8 +548,13 @@ error:
 
 static bool update_ts_refclk(struct impl *impl)
 {
-	if (!impl->ptp_mgmt_socket || impl->ptp_fd < 0)
+	if (!impl->ptp_mgmt_socket)
 		return false;
+	if (impl->ptp_fd < 0) {
+		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket);
+		if (impl->ptp_fd < 0)
+			return false;
+	}
 
 	// Read if something is left in the socket
 	int avail;
@@ -581,6 +586,12 @@ static bool update_ts_refclk(struct impl *impl)
 
 	if (write(impl->ptp_fd, &req, sizeof(req)) == -1) {
 		pw_log_warn("Failed to send PTP management request: %m");
+		if (errno != ENOTCONN)
+			return false;
+		close(impl->ptp_fd);
+		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket);
+		if (impl->ptp_fd > -1)
+			pw_log_info("Reopened PTP management socket");
 		return false;
 	}
 

@@ -1744,6 +1744,9 @@ error:
 
 static void unsetup_graph(struct graph *graph)
 {
+	struct node *node;
+	uint32_t i;
+
 	free(graph->input);
 	graph->input = NULL;
 	free(graph->output);
@@ -1751,7 +1754,19 @@ static void unsetup_graph(struct graph *graph)
 	free(graph->hndl);
 	graph->hndl = NULL;
 
+	spa_list_for_each(node, &graph->node_list, link) {
+		struct descriptor *desc = node->desc;
+		for (i = 0; i < desc->n_input; i++) {
+			struct port *port = &node->input_port[i];
+			port->external = SPA_ID_INVALID;
+		}
+		for (i = 0; i < desc->n_output; i++) {
+			struct port *port = &node->output_port[i];
+			port->external = SPA_ID_INVALID;
+		}
+	}
 }
+
 static int setup_graph(struct graph *graph)
 {
 	struct impl *impl = graph->impl;

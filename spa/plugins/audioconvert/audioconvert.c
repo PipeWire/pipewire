@@ -1155,7 +1155,7 @@ static int setup_filter_graph(struct impl *this, struct filter_graph *g,
 	char rate_str[64], in_ports[64];
 	struct dir *dir;
 
-	if (g == NULL || g->graph == NULL || g->setup)
+	if (g->graph == NULL || g->setup)
 		return 0;
 
 	dir = &this->dir[SPA_DIRECTION_REVERSE(this->direction)];
@@ -1259,7 +1259,7 @@ static int ensure_tmp(struct impl *this)
 }
 
 
-static int setup_filter_graphs(struct impl *impl)
+static int setup_filter_graphs(struct impl *impl, bool force)
 {
 	int res;
 	uint32_t channels, *position;
@@ -1276,6 +1276,8 @@ static int setup_filter_graphs(struct impl *impl)
 	spa_list_for_each_safe(g, t, &impl->active_graphs, link) {
 		if (g->removing)
 			continue;
+		if (force)
+			g->setup = false;
 		if ((res = setup_filter_graph(impl, g, channels, position)) < 0) {
 			g->removing = true;
 			spa_log_warn(impl->log, "failed to activate graph %d: %s", g->order,
@@ -1393,7 +1395,8 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 
 		spa_log_info(impl->log, "loading filter-graph order:%d", order);
 	}
-	res = setup_filter_graphs(impl);
+	if (impl->setup)
+		res = setup_filter_graphs(impl, false);
 
 	spa_loop_locked(impl->data_loop, do_sync_filter_graph, 0, NULL, 0, impl);
 
@@ -1517,7 +1520,8 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 	}
 	if (changed) {
 		this->props.filter_graph_disabled = filter_graph_disabled;
-		channelmix_init(&this->mix);
+		if (this->setup)
+			channelmix_init(&this->mix);
 	}
 	return changed;
 }
@@ -2490,7 +2494,7 @@ static int setup_convert(struct impl *this)
 
 	if ((res = setup_in_convert(this)) < 0)
 		return res;
-	if ((res = setup_filter_graphs(this)) < 0)
+	if ((res = setup_filter_graphs(this, true)) < 0)
 		return res;
 	if ((res = setup_resample(this)) < 0)
 		return res;
@@ -2549,6 +2553,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = true;
 		break;
 	case SPA_NODE_COMMAND_Suspend:
+		reset_node(this);
 		this->setup = false;
 		SPA_FALLTHROUGH;
 	case SPA_NODE_COMMAND_Pause:

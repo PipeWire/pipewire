@@ -170,6 +170,9 @@ struct data {
 	struct {
 		FILE *file;
 	} sysex;
+
+	uint64_t sample_limit;         /* 0 means unlimited */
+	uint64_t samples_processed;
 };
 
 #define STR_FMTS "(ulaw|alaw|u8|s8|s16|s32|f32|f64)"
@@ -905,7 +908,19 @@ static void on_process(void *userdata)
 		 * fill callback actually returns number of bytes, not frames, since
 		 * this is encoded data. However, the calculations below still work
 		 * out because the stride is set to 1 in setup_encodedfile(). */
+		if (data->sample_limit > 0) {
+			uint64_t samples_left = data->sample_limit - data->samples_processed;
+			if (samples_left == 0) {
+				pw_main_loop_quit(data->loop);
+				return;
+			}
+			n_frames = SPA_MIN(n_frames, (int)samples_left);
+		}
+
 		n_fill_frames = data->fill(data, p, n_frames, &null_frame);
+
+		if (data->sample_limit > 0 && n_fill_frames > 0)
+			data->samples_processed += n_fill_frames;
 
 		if (null_frame) {
 			/* A null frame is not to be confused with the drain scenario.
@@ -938,7 +953,19 @@ static void on_process(void *userdata)
 
 		n_frames = size / data->stride;
 
+		if (data->sample_limit > 0) {
+			uint64_t samples_left = data->sample_limit - data->samples_processed;
+			if (samples_left == 0) {
+				pw_main_loop_quit(data->loop);
+				return;
+			}
+			n_frames = SPA_MIN(n_frames, (int)samples_left);
+		}
+
 		n_fill_frames = data->fill(data, p, n_frames, &null_frame);
+
+		if (data->sample_limit > 0 && n_fill_frames > 0)
+			data->samples_processed += n_fill_frames;
 
 		have_data = true;
 	}
@@ -1035,6 +1062,7 @@ static const struct option long_options[] = {
 	{ "quality",		required_argument, NULL, 'q' },
 	{ "raw",		no_argument, NULL, 'a' },
 	{ "force-midi",		required_argument, NULL, 'M' },
+	{ "sample-count",	required_argument, NULL, 'n' },
 
 	{ NULL, 0, NULL, 0 }
 };
@@ -1081,6 +1109,7 @@ static void show_usage(const char *name, bool is_error)
 	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
 	     "  -a, --raw                             RAW mode\n"
 	     "  -M, --force-midi                      Force midi format, one of \"midi\" or \"ump\", (default ump)\n"
+	     "  -n, --sample-count COUNT              Stop after COUNT samples\n"
 	     "\n"),
 	     DEFAULT_RATE,
 	     DEFAULT_CHANNELS,
@@ -1852,9 +1881,9 @@ int main(int argc, char *argv[])
 	}
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:aM:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:aM:n:", long_options, NULL)) != -1) {
 #else
-	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:aM:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:aM:n:", long_options, NULL)) != -1) {
 #endif
 
 		switch (c) {
@@ -1986,6 +2015,9 @@ int main(int argc, char *argv[])
 		case OPT_VOLUME:
 			if (!spa_atof(optarg, &data.volume))
 				data.volume = (float)atof(optarg);
+			break;
+		case 'n':
+			data.sample_limit = strtoull(optarg, NULL, 10);
 			break;
 		default:
 			goto error_usage;

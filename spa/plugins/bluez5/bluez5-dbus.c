@@ -191,7 +191,6 @@ struct spa_bt_big {
 	struct spa_list link;
 	char broadcast_code[BROADCAST_CODE_LEN];
 	bool encryption;
-	int presentation_delay;
 	struct spa_list bis_list;
 	int big_id;
 	int sync_factor;
@@ -5781,7 +5780,6 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	uint8_t metadata [METADATA_MAX_LEN];
 	uint8_t caps_size, metadata_size = 0;
 	struct bap_codec_qos qos;
-	int presentation_delay;
 	struct spa_bt_metadata *metadata_entry;
 	struct spa_dict settings;
 	struct spa_dict_item setting_items[2];
@@ -5863,7 +5861,7 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	append_basic_variant_dict_entry(&qos_dict, "SDU", DBUS_TYPE_UINT16, "q", &qos.sdu);
 	append_basic_variant_dict_entry(&qos_dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &qos.retransmission);
 	append_basic_variant_dict_entry(&qos_dict, "Latency", DBUS_TYPE_UINT16, "q", &qos.latency);
-	append_basic_variant_dict_entry(&qos_dict, "PresentationDelay", DBUS_TYPE_UINT32, "u", &presentation_delay);
+	append_basic_variant_dict_entry(&qos_dict, "PresentationDelay", DBUS_TYPE_UINT32, "u", &qos.delay);
 
 	dbus_message_iter_close_container(&variant, &qos_dict);
 	dbus_message_iter_close_container(&entry, &variant);

@@ -6,26 +6,9 @@
 
 #include <spa/utils/defs.h>
 
-struct midi_file;
+#include "midievent.h"
 
-struct midi_event {
-#define MIDI_EVENT_TYPE_MIDI1		0
-#define MIDI_EVENT_TYPE_UMP		1
-	uint32_t type;
-	uint32_t track;
-	double sec;
-	uint8_t *data;
-	uint32_t size;
-	struct {
-		uint32_t offset;
-		uint32_t size;
-		union {
-			struct {
-				uint32_t uspqn; /* microseconds per quarter note */
-			} tempo;
-		} parsed;
-	} meta;
-};
+struct midi_file;
 
 struct midi_file_info {
 	uint16_t format;
@@ -43,5 +26,3 @@ int midi_file_next_time(struct midi_file *mf, double *sec);
 int midi_file_read_event(struct midi_file *mf, struct midi_event *event);
 
 int midi_file_write_event(struct midi_file *mf, const struct midi_event *event);
-
-int midi_file_dump_event(FILE *out, const struct midi_event *event);

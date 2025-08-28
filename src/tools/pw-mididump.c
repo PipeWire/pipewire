@@ -50,7 +50,7 @@ static int dump_file(const char *filename)
 	printf("opened %s format:%u ntracks:%u division:%u\n", filename, info.format, info.ntracks, info.division);
 
 	while (midi_file_read_event(file, &ev) == 1) {
-		midi_file_dump_event(stdout, &ev);
+		midi_event_dump(stdout, &ev);
 	}
 	midi_file_close(file);
 
@@ -107,7 +107,7 @@ static void on_process(void *_data, struct spa_io_position *position)
 		ev.size = c.value.size;
 
 		fprintf(stdout, "%4d: ", c.offset);
-		midi_file_dump_event(stdout, &ev);
+		midi_event_dump(stdout, &ev);
 	}
 
 done:

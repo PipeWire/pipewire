@@ -1172,7 +1172,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 		midi_file_read_event(d->midi.file, &ev);
 
 		if (d->verbose)
-			midi_file_dump_event(stderr, &ev);
+			midi_event_dump(stderr, &ev);
 
 		size = ev.size;
 
@@ -1261,7 +1261,7 @@ static int midi_record(struct data *d, void *src, unsigned int n_frames, bool *n
 		ev.size = c.value.size;
 
 		if (d->verbose)
-			midi_file_dump_event(stderr, &ev);
+			midi_event_dump(stderr, &ev);
 
 		midi_file_write_event(d->midi.file, &ev);
 	}

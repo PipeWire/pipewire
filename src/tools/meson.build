@@ -5,7 +5,7 @@ tools_sources = [
   [ 'pw-dot', [ 'pw-dot.c' ] ],
   [ 'pw-dump', [ 'pw-dump.c' ] ],
   [ 'pw-profiler', [ 'pw-profiler.c' ] ],
-  [ 'pw-mididump', [ 'pw-mididump.c', 'midifile.c' ] ],
+  [ 'pw-mididump', [ 'pw-mididump.c', 'midifile.c', 'midievent.c' ] ],
   [ 'pw-metadata', [ 'pw-metadata.c' ] ],
   [ 'pw-loopback', [ 'pw-loopback.c' ] ],
   [ 'pw-link', [ 'pw-link.c' ] ],
@@ -48,6 +48,7 @@ if get_option('pw-cat').allowed() and sndfile_dep.found()
   pwcat_sources = [
     'pw-cat.c',
     'midifile.c',
+    'midievent.c',
     'dfffile.c',
     'dsffile.c',
   ]

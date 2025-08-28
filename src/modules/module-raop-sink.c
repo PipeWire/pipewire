@@ -443,6 +443,7 @@ static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
 		bit_writer(&bp, &bpos, *(d + 2), 8);
 		d += 4;
 	}
+	bit_writer(&bp, &bpos, 7, 3); /* end tag */
 	return bp - b + 1;
 }
 

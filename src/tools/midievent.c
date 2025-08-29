@@ -422,7 +422,22 @@ static int dump_event_ump(FILE *out, const struct midi_event *ev)
 
 	switch (mt) {
 	case 0x0:
-		dump_mem(out, "Utility", ev->data, ev->size);
+		switch ((d[0] >> 20) & 0xf) {
+		case 0x1:
+			fprintf(out, "JR clock: value %d", d[0] & 0xffff);
+			break;
+		case 0x2:
+			fprintf(out, "JR timestamp: value %d", d[0] & 0xffff);
+			break;
+		case 0x3:
+			fprintf(out, "DCTPQ: value %d", d[0] & 0xffff);
+			break;
+		case 0x4:
+			fprintf(out, "DC: value %d", d[0] & 0xfffff);
+			break;
+		default:
+			dump_mem(out, "Utility unkown", ev->data, ev->size);
+		}
 		break;
 	case 0x1:
 	{

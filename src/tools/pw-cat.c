@@ -43,6 +43,7 @@
 #endif
 
 #include "midifile.h"
+#include "midiclip.h"
 #include "dfffile.h"
 #include "dsffile.h"
 
@@ -104,6 +105,7 @@ struct data {
 #define TYPE_ENCODED    3
 #endif
 #define TYPE_SYSEX	4
+#define TYPE_MIDI2	5
 	int data_type;
 	bool raw;
 	const char *remote_name;
@@ -147,6 +149,10 @@ struct data {
 #define MIDI_FORCE_MIDI1	2
 		int force_type;
 	} midi;
+	struct {
+		struct midi_clip *file;
+		struct midi_clip_info info;
+	} clip;
 	struct {
 		struct dsf_file *file;
 		struct dsf_file_info info;
@@ -1063,6 +1069,7 @@ static const struct option long_options[] = {
 	{ "raw",		no_argument, NULL, 'a' },
 	{ "force-midi",		required_argument, NULL, 'M' },
 	{ "sample-count",	required_argument, NULL, 'n' },
+	{ "midi-clip",		no_argument, NULL, 'c' },
 
 	{ NULL, 0, NULL, 0 }
 };
@@ -1127,6 +1134,7 @@ static void show_usage(const char *name, bool is_error)
 		     "  -o, --encoded                         Encoded mode\n"
 #endif
 		     "  -s, --sysex                           SysEx mode\n"
+		     "  -c, --midi-clip                       MIDI clip mode\n"
 		     "\n"), fp);
 	}
 }
@@ -1292,6 +1300,143 @@ static int setup_midifile(struct data *data)
 				data->midi.info.division);
 
 	data->fill = data->mode == mode_playback ?  midi_play : midi_record;
+	data->stride = 1;
+
+	return 0;
+}
+
+static int clip_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+{
+	int res;
+	struct spa_pod_builder b;
+	struct spa_pod_frame f;
+	uint32_t first_frame, last_frame;
+	bool have_data = false;
+
+	spa_zero(b);
+	spa_pod_builder_init(&b, src, n_frames);
+
+	spa_pod_builder_push_sequence(&b, &f, 0);
+
+	first_frame = d->clock_time;
+	last_frame = first_frame + d->position->clock.duration;
+	d->clock_time = last_frame;
+
+	while (1) {
+		uint32_t frame;
+		struct midi_event ev;
+		uint64_t state = 0;
+		size_t size;
+
+		res = midi_clip_next_time(d->clip.file, &ev.sec);
+		if (res <= 0) {
+			if (have_data)
+				break;
+			return res;
+		}
+
+		frame = (uint32_t)(ev.sec * d->position->clock.rate.denom);
+		if (frame < first_frame)
+			frame = 0;
+		else if (frame < last_frame)
+			frame -= first_frame;
+		else
+			break;
+
+		midi_clip_read_event(d->clip.file, &ev);
+
+		if (d->verbose)
+			midi_event_dump(stderr, &ev);
+
+		size = ev.size;
+
+		if (d->midi.force_type == MIDI_FORCE_MIDI1) {
+			const uint32_t *data = (const uint32_t*)ev.data;
+			while (size > 0) {
+				uint8_t ev[16];
+				int ev_size = spa_ump_to_midi(&data, &size,
+						ev, sizeof(ev), &state);
+				if (ev_size <= 0)
+					break;
+
+				spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
+				spa_pod_builder_bytes(&b, ev, ev_size);
+			}
+		} else {
+			spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
+			spa_pod_builder_bytes(&b, ev.data, ev.size);
+		}
+		have_data = true;
+	}
+	spa_pod_builder_pop(&b, &f);
+
+	return b.state.offset;
+}
+
+static int clip_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+{
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	const void *seq_body, *c_body;
+	struct spa_pod_control c;
+	uint32_t offset;
+
+	offset = d->clock_time;
+	d->clock_time += d->position->clock.duration;
+
+	spa_pod_parser_init_from_data(&parser, src, n_frames, 0, n_frames);
+
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
+		return 0;
+
+	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
+		struct midi_event ev;
+
+		switch (c.type) {
+		case SPA_CONTROL_UMP:
+			ev.type = MIDI_EVENT_TYPE_UMP;
+			break;
+		case SPA_CONTROL_Midi:
+			ev.type = MIDI_EVENT_TYPE_MIDI1;
+			break;
+		default:
+			continue;
+		}
+		ev.track = 0;
+		ev.sec = (offset + c.offset) / (float) d->position->clock.rate.denom;
+		ev.data = (uint8_t*)c_body;
+		ev.size = c.value.size;
+
+		if (d->verbose)
+			midi_event_dump(stderr, &ev);
+
+		midi_clip_write_event(d->clip.file, &ev);
+	}
+	return 0;
+}
+
+static int setup_midiclip(struct data *data)
+{
+	if (data->mode == mode_record) {
+		spa_zero(data->clip.info);
+		data->clip.info.format = 0;
+	}
+
+	data->clip.file = midi_clip_open(data->filename,
+			data->mode == mode_playback ? "r" : "w",
+			&data->clip.info);
+	if (data->clip.file == NULL) {
+		fprintf(stderr, "midiclip: can't read midi file '%s': %m\n", data->filename);
+		return -errno;
+	}
+
+	if (data->verbose)
+		fprintf(stderr, "midifile: opened file \"%s\" format %08x div:%d\n",
+				data->filename,
+				data->clip.info.format, data->clip.info.division);
+
+	data->fill = data->mode == mode_playback ?  clip_play : clip_record;
 	data->stride = 1;
 
 	return 0;
@@ -1881,9 +2026,9 @@ int main(int argc, char *argv[])
 	}
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:aM:n:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:aM:n:c", long_options, NULL)) != -1) {
 #else
-	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:aM:n:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:aM:n:c", long_options, NULL)) != -1) {
 #endif
 
 		switch (c) {
@@ -2019,6 +2164,9 @@ int main(int argc, char *argv[])
 		case 'n':
 			data.sample_limit = strtoull(optarg, NULL, 10);
 			break;
+		case 'c':
+			data.data_type = TYPE_MIDI2;
+			break;
 		default:
 			goto error_usage;
 		}
@@ -2032,6 +2180,7 @@ int main(int argc, char *argv[])
 	if (!data.media_type) {
 		switch (data.data_type) {
 		case TYPE_MIDI:
+		case TYPE_MIDI2:
 		case TYPE_SYSEX:
 			data.media_type = DEFAULT_MIDI_MEDIA_TYPE;
 			break;
@@ -2112,6 +2261,9 @@ int main(int argc, char *argv[])
 		case TYPE_MIDI:
 			ret = setup_midifile(&data);
 			break;
+		case TYPE_MIDI2:
+			ret = setup_midiclip(&data);
+			break;
 		case TYPE_DSD:
 			ret = setup_dsdfile(&data);
 			break;
@@ -2185,6 +2337,7 @@ int main(int argc, char *argv[])
 		break;
 	}
 	case TYPE_MIDI:
+	case TYPE_MIDI2:
 	case TYPE_SYSEX:
 		params[n_params++] = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
@@ -2307,6 +2460,8 @@ error_no_main_loop:
 		sf_close(data.file);
 	if (data.midi.file)
 		midi_file_close(data.midi.file);
+	if (data.clip.file)
+		midi_clip_close(data.clip.file);
 	if (data.dsf.file)
 		dsf_file_close(data.dsf.file);
 	if (data.dff.file)

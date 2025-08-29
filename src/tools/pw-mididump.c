@@ -19,6 +19,7 @@
 #include <pipewire/filter.h>
 
 #include "midifile.h"
+#include "midiclip.h"
 
 struct data;
 
@@ -35,6 +36,29 @@ struct data {
 	bool opt_midi1;
 };
 
+
+static int dump_clip(const char *filename)
+{
+	struct midi_clip *file;
+	struct midi_clip_info info;
+	struct midi_event ev;
+
+	file = midi_clip_open(filename, "r", &info);
+	if (file == NULL) {
+		fprintf(stderr, "error opening %s: %m\n", filename);
+		return -1;
+	}
+
+	printf("opened %s format:%u division:%u\n", filename, info.format, info.division);
+
+	while (midi_clip_read_event(file, &ev) == 1)
+		midi_event_dump(stdout, &ev);
+
+	midi_clip_close(file);
+
+	return 0;
+}
+
 static int dump_file(const char *filename)
 {
 	struct midi_file *file;
@@ -43,15 +67,14 @@ static int dump_file(const char *filename)
 
 	file = midi_file_open(filename, "r", &info);
 	if (file == NULL) {
-		fprintf(stderr, "error opening %s: %m\n", filename);
-		return -1;
+		return dump_clip(filename);
 	}
 
 	printf("opened %s format:%u ntracks:%u division:%u\n", filename, info.format, info.ntracks, info.division);
 
-	while (midi_file_read_event(file, &ev) == 1) {
+	while (midi_file_read_event(file, &ev) == 1)
 		midi_event_dump(stdout, &ev);
-	}
+
 	midi_file_close(file);
 
 	return 0;

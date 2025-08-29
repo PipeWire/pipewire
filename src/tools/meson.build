@@ -59,6 +59,8 @@ if get_option('pw-cat').allowed() and sndfile_dep.found()
     'pw-record',
     'pw-midiplay',
     'pw-midirecord',
+    'pw-midi2play',
+    'pw-midi2record',
     'pw-dsdplay',
     'pw-encplay',
     'pw-sysex',

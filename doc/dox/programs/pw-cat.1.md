@@ -14,6 +14,10 @@ Play and record media with PipeWire
 
 **pw-midirecord** \[*options*\] \[*FILE* \| -\]
 
+**pw-midi2play** \[*options*\] \[*FILE* \| -\]
+
+**pw-midi2record** \[*options*\] \[*FILE* \| -\]
+
 **pw-dsdplay** \[*options*\] \[*FILE* \| -\]
 
 # DESCRIPTION
@@ -24,10 +28,10 @@ supported by `libsndfile` for PCM capture and playback. When capturing
 PCM, the filename extension is used to guess the file format with the
 WAV file format as the default.
 
-It understands standard MIDI files for playback and recording. This tool
-will not render MIDI files, it will simply make the MIDI events
-available to the graph. You need a MIDI renderer such as qsynth,
-timidity or a hardware MIDI rendered to hear the MIDI.
+It understands standard MIDI files and MIDI 2.0 clip files for playback
+and recording. This tool will not render MIDI files, it will simply make
+the MIDI events available to the graph. You need a MIDI renderer such as
+qsynth, timidity or a hardware MIDI renderer to hear the MIDI.
 
 DSD playback is supported with the DSF file format. This tool will only
 work with native DSD capable hardware and will produce an error when no
@@ -53,13 +57,13 @@ connection is made to the default PipeWire instance.
 
 \par -p | \--playback
 Playback mode. Read data from the specified file, and play it back. If
-the tool is called under the name **pw-play** or **pw-midiplay** this is
-the default.
+the tool is called under the name **pw-play**, **pw-midiplay** or
+**pw-midi2play** this is the default.
 
 \par -r | \--record
 Recording mode. Capture data and write it to the specified file. If the
-tool is called under the name **pw-record** or **pw-midirecord** this is
-the default.
+tool is called under the name **pw-record**, **pw-midirecord** or
+**pw-midi2record** this is the default.
 
 \par -m | \--midi
 MIDI mode. *FILE* is a MIDI file. If the tool is called under the name
@@ -68,6 +72,14 @@ program will *not* render the MIDI events into audible samples, it will
 simply provide the MIDI events in the graph. You need a separate MIDI
 renderer such as qsynth, timidity or a hardware renderer to hear the
 MIDI.
+
+\par -c | \--midi-clip
+MIDI 2.0 clip mode. *FILE* is a MIDI 2.0 clip file. If the tool is called
+under the name **pw-midi2play** or **pw-midi2record** this is the default.
+Note that this program will *not* render the MIDI events into audible
+samples, it will simply provide the MIDI events in the graph. You need a
+separate MIDI renderer such as qsynth, timidity or a hardware renderer to
+hear the MIDI.
 
 \par -d | \--dsd
 DSD mode. *FILE* is a DSF file. If the tool is called under the name

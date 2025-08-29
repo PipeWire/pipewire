@@ -1997,6 +1997,12 @@ int main(int argc, char *argv[])
 	} else if (spa_streq(prog, "pw-midirecord")) {
 		data.mode = mode_record;
 		data.data_type = TYPE_MIDI;
+	} else if (spa_streq(prog, "pw-midi2play")) {
+		data.mode = mode_playback;
+		data.data_type = TYPE_MIDI2;
+	} else if (spa_streq(prog, "pw-midi2record")) {
+		data.mode = mode_record;
+		data.data_type = TYPE_MIDI2;
 	} else if (spa_streq(prog, "pw-sysex")) {
 		data.mode = mode_playback;
 		data.data_type = TYPE_SYSEX;

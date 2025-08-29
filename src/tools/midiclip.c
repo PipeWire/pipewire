@@ -9,6 +9,8 @@
 #include <fcntl.h>
 #include <math.h>
 
+#include <arpa/inet.h>
+
 #include <spa/utils/string.h>
 #include <spa/control/ump-utils.h>
 
@@ -54,7 +56,7 @@ static inline int read_word(struct midi_clip *mc, uint32_t *val)
 	uint32_t v;
 	if (fread(&v, 4, 1, mc->file) != 1)
 		return 0;
-	*val = be32toh(v);
+	*val = ntohl(v);
 	return 1;
 }
 
@@ -148,8 +150,8 @@ static inline int write_n(FILE *file, const void *buf, int count)
 
 static inline int write_be32(FILE *file, uint32_t val)
 {
-	uint8_t buf[4] = { val >> 24, val >> 16, val >> 8, val };
-	return write_n(file, buf, 4);
+	uint32_t v = htonl(val);
+	return write_n(file, &v, 4);
 }
 
 #define CHECK_RES(expr) if ((res = (expr)) < 0) return res

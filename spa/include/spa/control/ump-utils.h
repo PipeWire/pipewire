@@ -197,15 +197,15 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_from_midi(uint8_t **midi, size_t *midi_siz
 			break;
 		case 0xf2:
 			to_consume = 3;
-			prefix = 0x10000000;
+			prefix |= 0x10000000;
 			break;
 		case 0xf1: case 0xf3:
 			to_consume = 2;
-			prefix = 0x10000000;
+			prefix |= 0x10000000;
 			break;
 		case 0xf4 ... 0xff:
 			to_consume = 1;
-			prefix = 0x10000000;
+			prefix |= 0x10000000;
 			break;
 		default:
 			return -EIO;

@@ -311,7 +311,7 @@ int midi_file_close(struct midi_file *mf)
 		CHECK_RES(write_n(mf->file, buf, 4));
 		mf->tracks[0].size += 4;
 		CHECK_RES(write_headers(mf));
-	} else
+	} else if (mf->mode != 1)
 		return -EINVAL;
 
 	if (mf->close)

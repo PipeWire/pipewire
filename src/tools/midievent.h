@@ -2,6 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2020 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#ifndef MIDI_EVENT_H
+#define MIDI_EVENT_H
+
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
@@ -26,3 +29,5 @@ struct midi_event {
 };
 
 int midi_event_dump(FILE *out, const struct midi_event *event);
+
+#endif /* MIDI_EVENT_H */

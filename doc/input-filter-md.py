@@ -25,7 +25,7 @@ Assumes BUILD_DIR environment variable is set.
 
     containing all index items from the specified section.
 
-# Section title    @IDX@ <section>
+# Section title    @IDX@ <section> [<alternative index name>]
 
    Adds the section title to the index, and expands to an anchor
 
@@ -51,7 +51,7 @@ def index_key(section, name):
 
 BUILD_DIR = os.environ["BUILD_DIR"]
 PAR_RE = r"^@PAR@\s+([^\s]*)[ \t]+(\S+)(.*)$"
-IDX_RE = r"^(#+)(.*)@IDX@[ \t]+(\S+)[ \t]*$"
+IDX_RE = r"^(#+)(.*)@IDX@[ \t]+(\S+)([ \t]+\S+)?[ \t]*$"
 SECREF_RE = r"^@SECREF@[ \t]+([^\n]*)[ \t]*$"
 
 
@@ -71,10 +71,16 @@ def main(args):
         level = m.group(1)
         title = name = m.group(2).strip()
         section = m.group(3)
+        alt = m.group(4)
         if title == title.upper():
             name = name.capitalize()
         key = index_key(section, name)
-        return f"{level} {title} {{#{key}}}"
+        text = f"{level} {title} {{#{key}}}"
+        if alt and alt.strip():
+            alt_key = index_key(section, alt.strip())
+            if alt_key != key:
+                text += f"\n\\anchor {alt_key}"
+        return text
 
     def secref(m):
         import os
@@ -148,9 +154,12 @@ def load_index(sections, text):
     def idx(m):
         name = m.group(2).strip()
         section = m.group(3)
+        alt = m.group(4)
         if name == name.upper():
             name = name.capitalize()
         sections.setdefault(section, []).append(name)
+        if alt and alt.strip():
+            sections.setdefault(section, []).append(alt.strip())
         return ""
 
     text = re.sub(PAR_RE, par, text, flags=re.M)

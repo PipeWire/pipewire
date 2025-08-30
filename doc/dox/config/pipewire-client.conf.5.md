@@ -48,7 +48,7 @@ ALSA client match rules.
 In addition, the PipeWire context configuration sections 
 may also be specified, see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 
-# STREAM PROPERTIES  @IDX@ client.conf
+# STREAM PROPERTIES  @IDX@ client.conf stream.properties
 
 The client configuration files contain a stream.properties section that configures the options for client streams:
 ```css
@@ -93,7 +93,7 @@ A list of object properties that can be applied to streams can be found in
 and
 \ref props__audio_converter_properties "pipewire-props(7) Audio Adapter Properties"
 
-# STREAM RULES  @IDX@ client.conf
+# STREAM RULES  @IDX@ client.conf stream.rules
 
 You can add \ref pipewire_conf__match_rules "match rules, see pipewire(1)"
 to set properties for certain streams and filters.
@@ -127,7 +127,7 @@ stream.rules = [
 
 Will set the node.name of Firefox to "My Name".
 
-# ALSA CLIENT PROPERTIES  @IDX@ client.conf
+# ALSA CLIENT PROPERTIES  @IDX@ client.conf alsa.properties
 
 An `alsa.properties` section can be added to configure client applications
 that connect via the PipeWire ALSA plugin.
@@ -169,7 +169,7 @@ The number of bytes in the alsa buffer. The default is 0, which is to allow any 
 This controls the volume curve used on the ALSA mixer. Possible values are `cubic` and
 `linear`. The default is to use `cubic`.
 
-# ALSA CLIENT RULES  @IDX@ client.conf
+# ALSA CLIENT RULES  @IDX@ client.conf alsa.rules
 
 It is possible to set ALSA client specific properties by using
 \ref pipewire_conf__match_rules "Match rules, see pipewire(1)". You can

@@ -38,7 +38,7 @@ JACK client match rules.
 In addition, the PipeWire context configuration sections 
 may also be specified, see \ref page_man_pipewire_conf_5 "pipewire.conf(5)".
 
-# JACK PROPERTIES  @IDX@ jack.conf
+# JACK PROPERTIES  @IDX@ jack.conf jack.properties
 
 The configuration file can contain an extra JACK specific section called `jack.properties` like this:
 ```css
@@ -206,7 +206,7 @@ JACK apps don't know about this flag yet and refuse to show the port.
 Set this to true for applications that know how to handle MIDI2 ports.
 \endparblock
 
-# MATCH RULES  @IDX@ jack.conf
+# MATCH RULES  @IDX@ jack.conf jack.rules
 
 `jack.rules` provides an `update-props` action that takes an object with properties that are updated
 on the client and node object of the jack client.

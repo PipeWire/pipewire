@@ -140,7 +140,7 @@ Array of dictionaries. Match rules for modifying device properties
 on the server.
 
 
-# CONTEXT PROPERTIES  @IDX@ pipewire.conf
+# CONTEXT PROPERTIES  @IDX@ pipewire.conf context.properties
 
 Available PipeWire properties in `context.properties` and possible
 default values.
@@ -302,7 +302,7 @@ the `context.modules` and `context.objects` sections can declare
 additional conditions that control whether a module or object is loaded
 depending on what properties are present.
 
-# SPA LIBRARIES  @IDX@ pipewire.conf
+# SPA LIBRARIES  @IDX@ pipewire.conf context.spa-libs
 
 SPA plugins are loaded based on their factory-name. This is a well
 known name that uniquely describes the features that the plugin should
@@ -331,7 +331,7 @@ context.spa-libs = {
 }
 ```
 
-# MODULES  @IDX@ pipewire.conf
+# MODULES  @IDX@ pipewire.conf context.modules
 
 PipeWire modules to be loaded. See
 \ref page_man_libpipewire-modules_7 "libpipewire-modules(7)".
@@ -364,7 +364,7 @@ A \ref pipewire_conf__match_rules "match rule" `matches` condition.
 The module is loaded only if one of the expressions in the array matches
 to a context property.
 
-# CONTEXT OBJECTS  @IDX@ pipewire.conf
+# CONTEXT OBJECTS  @IDX@ pipewire.conf context.objects
 
 The `context.objects` section allows you to make some objects from factories (usually created
 by loading modules in `context.modules`).
@@ -417,7 +417,7 @@ context.objects = [
 ]
 ```
 
-# COMMAND EXECUTION  @IDX@ pipewire.conf
+# COMMAND EXECUTION  @IDX@ pipewire.conf context.exec
 
 The `context.exec` section can be used to start arbitrary commands as
 part of the initialization of the PipeWire program.
@@ -590,7 +590,7 @@ matches = [
 ```
 
 
-# CONTEXT PROPERTIES RULES  @IDX@ pipewire.conf
+# CONTEXT PROPERTIES RULES  @IDX@ pipewire.conf context.properties.rules
 
 `context.properties.rules` can be used to dynamically update the properties
 based on other properties.
@@ -614,7 +614,7 @@ context.properties.rules = [
 }
 ```
 
-# NODE RULES  @IDX@ pipewire.conf
+# NODE RULES  @IDX@ pipewire.conf node.rules
 
 The node.rules are evaluated every time the properties on a node are set
 or updated. This can be used on the server side to override client set
@@ -647,7 +647,7 @@ node.rules = [
 
 Will set the `node.force-quantum` property of `jack_simple_client` to 512.
 
-# DEVICE RULES  @IDX@ pipewire.conf
+# DEVICE RULES  @IDX@ pipewire.conf device.rules
 
 The device.rules are evaluated every time the properties on a device are set
 or updated. This can be used on the server side to override client set

@@ -41,32 +41,19 @@ objects.
 Usually, all device properties are configured in the session manager
 configuration, see the session manager documentation.
 Application properties are configured in
-``client.conf`` (for native PipeWire and ALSA applications), and
-``pipewire-pulse.conf`` (for Pulseaudio applications).
+``client.conf`` (for native PipeWire and ALSA applications),
+``pipewire-pulse.conf`` (for Pulseaudio applications), and
+``jack.conf`` (for JACK applications).
 
 In minimal PipeWire setups without a session manager,
 the device properties can be configured via
 \ref pipewire_conf__context_objects "context.objects in pipewire.conf(5)"
 when creating the devices.
 
-\see [WirePlumber configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
-
 ## Examples
 
-Client configuration (requires client application restart to apply)
-```css
-# ~/.config/pipewire/client.conf/custom-props.conf
-
-stream.rules = [
-  {
-    matches = [ { application.name = "pw-play" } ]
-    actions = { update-props = { node.description = "Some pw-cat stream" } }
-  }
-]
-```
-\see \ref client_conf__stream_rules "pipewire-client.conf(5)", \ref client_conf__stream_rules "pipewire-pulse.conf(5)"
-
-Device configuration (using WirePlumber; requires WirePlumber restart to apply):
+Device configuration using WirePlumber (requires WirePlumber restart to apply).
+See [WirePlumber configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
 ```css
 # ~/.config/wireplumber/wireplumber.conf.d/custom-props.conf
 
@@ -77,13 +64,17 @@ monitor.alsa.properties = {
 monitor.alsa.rules = [
   {
     matches = [ { device.name = "~alsa_card.pci-.*" } ],
-    actions = { update-props = { api.alsa.soft-mixer = true } ]
+    actions = { update-props = { api.alsa.soft-mixer = true } }
   },
   {
     matches = [ { node.name = "alsa_output.pci-0000_03_00.1.hdmi-stereo-extra3" } ]
-    actions = { update-props = { node.description = "Main Audio" } ]
+    actions = { update-props = { node.description = "Main Audio" } }
   }
 ]
+
+monitor.alsa-midi.properties = {
+  api.alsa.seq.ump = true
+}
 
 monitor.bluez.properties = {
   bluez5.hfphsp-backend = ofono
@@ -92,12 +83,49 @@ monitor.bluez.properties = {
 monitor.bluez.rules = [
   {
     matches = [ { device.name = "~bluez_card.*" } ],
-    actions = { update-props = { bluez5.dummy-avrcp player = true } ]
+    actions = { update-props = { bluez5.dummy-avrcp player = true } }
   }
 ]
 ```
 
-\see [WirePlumber configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
+Native client configuration (requires client application restart to apply).
+See \ref client_conf__stream_rules "pipewire-client.conf(5)"
+```css
+# ~/.config/pipewire/client.conf/custom-props.conf
+
+stream.rules = [
+  {
+    matches = [ { application.name = "pw-play" } ]
+    actions = { update-props = { node.description = "Some pw-cat stream" } }
+  }
+]
+```
+
+Pulseaudio client configuration (requires \ref page_man_pipewire-pulse_1 "pipewire-pulse(1)" restart to apply).
+See \ref pipewire-pulse_conf__stream_rules "pipewire-pulse.conf(5)"
+```css
+# ~/.config/pipewire/pipewire-pulse.conf/custom-props.conf
+
+stream.rules = [
+  {
+    matches = [ { application.name = "paplay" } ]
+    actions = { update-props = { node.description = "Some paplay stream" } }
+  }
+]
+```
+
+JACK client configuration (requires client restart to apply).
+See \ref jack_conf__match_rules "pipewire-jack.conf(5)"
+```css
+# ~/.config/pipewire/jack.conf/custom-props.conf
+
+jack.rules = [
+  {
+    matches = [ { client.name = "jack_delay" } ]
+    actions = { update-props = { node.description = "Some JACK node" } }
+  }
+]
+```
 
 # COMMON DEVICE PROPERTIES  @IDX@ props
 
@@ -105,9 +133,6 @@ These are common properties for devices.
 
 @PAR@ device-prop  device.name    # string
 A (unique) name for the device. It can be used by command-line and other tools to identify the device.
-
-@PAR@ device-prop  device.nick    # string
-A short name for the device.
 
 @PAR@ device-prop  device.param.PARAM = { ... }   # JSON
 \parblock
@@ -900,6 +925,29 @@ Informative property.
 Informative property.
 \endparblock
 
+
+# ALSA MIDI PROPERTIES  @IDX@ props
+
+## Node properties
+
+For ALSA MIDI in Wireplumber, MIDI bridge node properties are
+configured in the monitor properties.
+
+@PAR@ monitor-prop  api.alsa.seq.ump = true         # boolean
+Use MIDI 2.0 if possible.
+
+@PAR@ monitor-prop  api.alsa.seq.min-pool = 500     # integer
+
+@PAR@ monitor-prop  api.alsa.seq.max-pool = 2000    # integer
+
+@PAR@ monitor-prop  clock.name = "clock.system.monotonic"  # string
+Clock to follow.
+
+@PAR@ monitor-prop  api.alsa.path = "default"   # string
+Sequencer device to use.
+
+@PAR@ monitor-prop  api.alsa.disable-longname = true  # boolean
+If card long name should not be passed to MIDI port.
 
 # BLUETOOTH PROPERTIES  @IDX@ props
 

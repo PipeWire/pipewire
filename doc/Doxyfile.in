@@ -38,6 +38,7 @@ IGNORE_PREFIX          = pw_ \
                          spa_ \
                          SPA_
 GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
 SEARCHENGINE           = YES
 GENERATE_LATEX         = NO
 

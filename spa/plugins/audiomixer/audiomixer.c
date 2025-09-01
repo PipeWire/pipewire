@@ -921,7 +921,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	for (i = 0; i < MAX_PORTS; i++)
 		free(this->in_ports[i]);
-	mix_ops_free(&this->ops);
+	if (this->ops.free)
+		mix_ops_free(&this->ops);
 	return 0;
 }
 

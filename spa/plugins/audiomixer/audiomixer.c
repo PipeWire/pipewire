@@ -931,7 +931,8 @@ static int impl_clear(struct spa_handle *handle)
 		free(port);
 	}
 	spa_list_init(&this->mix_list);
-	mix_ops_free(&this->ops);
+	if (this->ops.free)
+		mix_ops_free(&this->ops);
 	return 0;
 }
 

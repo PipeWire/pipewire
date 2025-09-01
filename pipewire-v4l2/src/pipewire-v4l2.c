@@ -772,6 +772,19 @@ static int v4l2_dup(int oldfd)
 	return do_dup(oldfd, FD_MAP_DUP);
 }
 
+/* Deferred PipeWire init (called on first device access) */
+static void pipewire_init_func(void)
+{
+	pw_init(NULL, NULL);
+	PW_LOG_TOPIC_INIT(v4l2_log_topic);
+}
+
+static void ensure_pipewire_init(void)
+{
+	static pthread_once_t pipewire_once = PTHREAD_ONCE_INIT;
+	pthread_once(&pipewire_once, pipewire_init_func);
+}
+
 static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 {
 	int res, flags;
@@ -794,6 +807,8 @@ static int v4l2_openat(int dirfd, const char *path, int oflag, mode_t mode)
 
 	if (passthrough)
 		return globals.old_fops.openat(dirfd, path, oflag, mode);
+
+	ensure_pipewire_init();
 
 	pw_log_info("path:%s oflag:%d mode:%d", path, oflag, mode);
 
@@ -2565,10 +2580,14 @@ static void initialize(void)
 	globals.old_fops.ioctl = dlsym(RTLD_NEXT, "ioctl");
 	globals.old_fops.mmap = dlsym(RTLD_NEXT, "mmap64");
 	globals.old_fops.munmap = dlsym(RTLD_NEXT, "munmap");
-
-	pw_init(NULL, NULL);
-	PW_LOG_TOPIC_INIT(v4l2_log_topic);
-
+	/* NOTE:
+	 * We avoid calling pw_init() here (constructor/early init path) because
+	 * that can deadlock in certain host processes (e.g. Zoom >= 5.0) when
+	 * the preload causes PipeWire initialisation to run too early.
+	 *
+	 * PipeWire initialisation (pw_init + PW_LOG_TOPIC_INIT) is deferred
+	 * to ensure it runs on-demand in the first actual V4L2 open call.
+	 */
 	pthread_mutex_init(&globals.lock, NULL);
 	pw_array_init(&globals.file_maps, 1024);
 	pw_array_init(&globals.fd_maps, 256);

@@ -1132,7 +1132,7 @@ static struct {
 	{ V4L2_CID_SATURATION, SPA_PROP_saturation },
 	{ V4L2_CID_HUE, SPA_PROP_hue },
 	{ V4L2_CID_GAMMA, SPA_PROP_gamma },
-	{ V4L2_CID_EXPOSURE, SPA_PROP_exposure },
+	{ V4L2_CID_EXPOSURE_ABSOLUTE, SPA_PROP_exposure },
 	{ V4L2_CID_GAIN, SPA_PROP_gain },
 	{ V4L2_CID_SHARPNESS, SPA_PROP_sharpness },
 };

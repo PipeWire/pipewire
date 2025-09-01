@@ -98,6 +98,8 @@ struct stream {
 	unsigned int pending:1;
 	unsigned int is_idle:1;
 	unsigned int is_paused:1;
+	unsigned int fail_on_suspend:1;
+	unsigned int is_suspended:1;
 };
 
 struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,

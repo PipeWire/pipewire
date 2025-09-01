@@ -321,8 +321,8 @@ int stream_send_suspended(struct stream *stream, bool suspended)
 	struct message *reply;
 	uint32_t command;
 
-	pw_log_debug("client %p [%s]: stream %p SUSPENDED channel:%u",
-		     client, client->name, stream, stream->channel);
+	pw_log_debug("client %p [%s]: stream %p SUSPENDED %d channel:%u",
+		     client, client->name, stream, suspended, stream->channel);
 
 	command = stream->direction == PW_DIRECTION_OUTPUT ?
 		COMMAND_PLAYBACK_STREAM_SUSPENDED :

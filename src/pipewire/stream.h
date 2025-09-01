@@ -269,7 +269,7 @@ struct pw_buffer {
 					  *  suggested amount of data to provide. For audio
 					  *  streams this will be the amount of frames
 					  *  required by the resampler. This field is 0
-					  *  when no suggestion is provided. Since 0.3.49 */
+					  *  when no suggestion is provided. Since 0.3.50 */
 	uint64_t time;			/**< For capture streams, this field contains the
 					  *  cycle time in nanoseconds when this buffer was
 					  *  queued in the stream. It can be compared against

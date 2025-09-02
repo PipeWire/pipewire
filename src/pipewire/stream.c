@@ -39,7 +39,8 @@ struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_MAPPED	(1 << 0)
 #define BUFFER_FLAG_QUEUED	(1 << 1)
-#define BUFFER_FLAG_ADDED	(1 << 2)
+#define BUFFER_FLAG_DEQUEUED	(1 << 2)
+#define BUFFER_FLAG_ADDED	(1 << 3)
 	uint32_t flags;
 	struct spa_meta_busy *busy;
 };
@@ -2478,6 +2479,9 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 			return NULL;
 		}
 	}
+
+	SPA_FLAG_SET(b->flags, BUFFER_FLAG_DEQUEUED);
+
 	return &b->this;
 }
 
@@ -2487,6 +2491,13 @@ int pw_stream_queue_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
 	struct buffer *b = SPA_CONTAINER_OF(buffer, struct buffer, this);
 	int res;
+
+	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_DEQUEUED)) {
+		pw_log_warn("%p: tried to queue cleared buffer %d", stream, b->id);
+		return -EINVAL;
+	}
+
+	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_DEQUEUED);
 
 	if (b->busy)
 		SPA_ATOMIC_DEC(b->busy->count);

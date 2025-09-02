@@ -2340,8 +2340,12 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			/* period number given use that */
 			periods = state->default_period_num;
 		else
-			/* IRQ mode, use 2 periods or 3 for batch */
-			periods = state->is_batch ? 3 : 2;
+			/* IRQ mode, use 3 periods. This is a bit of a workaround
+			 * for Firewire devices, which seem to only work with 3 periods.
+			 * For PipeWire it does not actually matter how many periods
+			 * are used, we will always keep 1 filled, so we can work fine
+			 * with anything from 2 periods to MAX. */
+			periods = 3;
 		CHECK(snd_pcm_hw_params_set_periods_near(hndl, params, &periods, &dir), "set_periods");
 		state->buffer_frames = period_size * periods;
 	} else {

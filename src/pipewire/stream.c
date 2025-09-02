@@ -39,9 +39,8 @@ struct buffer {
 	struct pw_buffer this;
 	uint32_t id;
 #define BUFFER_FLAG_MAPPED	(1 << 0)
-#define BUFFER_FLAG_QUEUED	(1 << 1)
-#define BUFFER_FLAG_DEQUEUED	(1 << 2)
-#define BUFFER_FLAG_ADDED	(1 << 3)
+#define BUFFER_FLAG_DEQUEUED	(1 << 1)
+#define BUFFER_FLAG_ADDED	(1 << 2)
 	uint32_t flags;
 	struct spa_meta_busy *busy;
 };
@@ -358,11 +357,9 @@ static inline int queue_push(struct stream *stream, struct queue *queue, struct 
 {
 	uint32_t index;
 
-	if (SPA_FLAG_IS_SET(buffer->flags, BUFFER_FLAG_QUEUED) ||
-	    buffer->id >= stream->n_buffers)
+	if (buffer->id >= stream->n_buffers)
 		return -EINVAL;
 
-	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
 	queue->incount += buffer->this.size;
 
 	spa_ringbuffer_get_write_index(&queue->ring, &index);
@@ -393,7 +390,6 @@ static inline struct buffer *queue_pop(struct stream *stream, struct queue *queu
 
 	buffer = &stream->buffers[id];
 	queue->outcount += buffer->this.size;
-	SPA_FLAG_CLEAR(buffer->flags, BUFFER_FLAG_QUEUED);
 
 	return buffer;
 }
@@ -2563,7 +2559,6 @@ static inline int queue_push_front(struct stream *stream, struct queue *queue, s
 	index -= 1;
 	queue->ids[index & MASK_BUFFERS] = buffer->id;
 	queue->outcount -= buffer->this.size;
-	SPA_FLAG_SET(buffer->flags, BUFFER_FLAG_QUEUED);
 	spa_ringbuffer_read_update(&queue->ring, index);
 
 	return ret;

@@ -2337,8 +2337,13 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	state->period_frames = period_size;
 
-	if (state->default_period_num != 0) {
-		periods = state->default_period_num;
+	if (state->default_period_num != 0 || state->disable_tsched) {
+		if (state->default_period_num != 0)
+			/* period number given use that */
+			periods = state->default_period_num;
+		else
+			/* IRQ mode, use 2 periods or 3 for batch */
+			periods = state->is_batch ? 3 : 2;
 		CHECK(snd_pcm_hw_params_set_periods_near(hndl, params, &periods, &dir), "set_periods");
 		state->buffer_frames = period_size * periods;
 	} else {

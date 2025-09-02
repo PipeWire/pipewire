@@ -744,6 +744,9 @@ See \ref spa_param_port_config for the meaning.
 Use \ref monitor-prop__alsa_card_profiles "ALSA Card Profiles" (ACP) for device configuration.
 This autodetects available ALSA devices and configures port and hardware mixers.
 
+@PAR@ monitor-prop  alsa.use-ucm             # boolean
+Enable or disable UCM for all devices. Default: unset.
+
 @PAR@ monitor-prop  alsa.udev.expose-busy    # boolean
 Expose the ALSA card even if it is busy/in use. Default false. This can be useful when some
 of the PCMs are in use by other applications but the other free PCMs should still be exposed.
@@ -898,10 +901,16 @@ Static set the device systemic latency, in nanoseconds.
 @PAR@ node-prop  api.alsa.path    # string
 UNDOCUMENTED
 
+@PAR@ node-prop  api.alsa.pcm.card  # integer
+Card index to open. Usually determined from `api.alsa.path`.
+
 @PAR@ node-prop  api.alsa.open.ucm    # boolean
 Open device using UCM.
 
 @PAR@ node-prop  api.alsa.bind-ctls    # boolean
+UNDOCUMENTED
+
+@PAR@ node-prop  api.alsa.bind-ctl.NAME   # boolean
 UNDOCUMENTED
 
 @PAR@ node-prop  iec958.codecs    # JSON array of string
@@ -925,6 +934,9 @@ Informative property.
 Informative property.
 \endparblock
 
+@PAR@ node-prop  api.alsa.dsd-lsb = false  # boolean
+Use LSB bit order for DSD audio output.
+
 
 # ALSA MIDI PROPERTIES  @IDX@ props
 
@@ -937,8 +949,10 @@ configured in the monitor properties.
 Use MIDI 2.0 if possible.
 
 @PAR@ monitor-prop  api.alsa.seq.min-pool = 500     # integer
+UNDOCUMENTED
 
 @PAR@ monitor-prop  api.alsa.seq.max-pool = 2000    # integer
+UNDOCUMENTED
 
 @PAR@ monitor-prop  clock.name = "clock.system.monotonic"  # string
 Clock to follow.

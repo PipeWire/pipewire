@@ -3875,7 +3875,7 @@ void spa_alsa_emit_node_info(struct state *state, bool full)
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_MEDIA_CLASS, state->props.media_class);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_DRIVER, "true");
 
-		if (state->have_format)
+		if (state->have_format && !state->disable_tsched)
 			snprintf(latency, sizeof(latency), "%lu/%d",
 					state->buffer_frames / (2 * state->frame_scale), state->rate);
 		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_NODE_MAX_LATENCY, latency[0] ? latency : NULL);

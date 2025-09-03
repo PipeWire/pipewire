@@ -2709,6 +2709,19 @@ error:
 	return SPA_ID_INVALID;
 }
 
+SPA_EXPORT
+struct pw_impl_port *pw_impl_node_get_free_port(struct pw_impl_node *node, enum pw_direction direction)
+{
+	uint32_t port_id = pw_impl_node_get_free_port_id(node, direction);
+	if (port_id == SPA_ID_INVALID)
+		return NULL;
+
+	spa_node_add_port(node->node, direction, port_id, NULL);
+
+	return pw_impl_node_find_port(node, direction, port_id);
+}
+
+
 static void on_state_complete(void *obj, void *data, int res, uint32_t seq)
 {
 	struct pw_impl_node *node = obj;

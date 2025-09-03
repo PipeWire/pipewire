@@ -279,28 +279,12 @@ static const struct pw_impl_link_events link_events = {
 static struct pw_impl_port *get_port(struct pw_impl_node *node, enum spa_direction direction)
 {
 	struct pw_impl_port *p;
-	struct pw_context *context = pw_impl_node_get_context(node);
-	int res;
 
 	p = pw_impl_node_find_port(node, direction, PW_ID_ANY);
 
-	if (p == NULL || pw_impl_port_is_linked(p)) {
-		uint32_t port_id;
+	if (p == NULL || pw_impl_port_is_linked(p))
+		p = pw_impl_node_get_free_port(node, direction);
 
-		port_id = pw_impl_node_get_free_port_id(node, direction);
-		if (port_id == SPA_ID_INVALID)
-			return NULL;
-
-		p = pw_context_create_port(context, direction, port_id, NULL, 0);
-		if (p == NULL)
-			return NULL;
-
-		if ((res = pw_impl_port_add(p, node)) < 0) {
-			pw_log_warn("can't add port: %s", spa_strerror(res));
-			errno = -res;
-			return NULL;
-		}
-	}
 	return p;
 }
 

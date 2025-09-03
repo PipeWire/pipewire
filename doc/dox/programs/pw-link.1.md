@@ -4,7 +4,7 @@ The PipeWire Link Command
 
 # SYNOPSIS
 
-**pw-link** \[*options*\] -o-l \[*out-pattern*\] \[*in-pattern*\]
+**pw-link** \[*options*\] -o|-i|-l|-t \[*out-pattern*\] \[*in-pattern*\]
 
 **pw-link** \[*options*\] *output* *input*
 
@@ -41,6 +41,9 @@ List input ports
 
 \par -l | \--links
 List links
+
+\par -t | \--latency
+List port latencies
 
 \par -m | \--monitor
 Monitor links and ports. **pw-link** will not exit but monitor and print

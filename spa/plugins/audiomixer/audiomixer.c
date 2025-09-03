@@ -998,6 +998,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.max_output_ports = 1;
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_FLAGS;
 	this->info.flags = SPA_NODE_FLAG_RT | SPA_NODE_FLAG_IN_DYNAMIC_PORTS;
+	this->info_all = this->info.change_mask;
 
 	port = GET_OUT_PORT(this, 0);
 	port->direction = SPA_DIRECTION_OUTPUT;
@@ -1006,6 +1007,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS;
 	port->info.flags = SPA_PORT_FLAG_DYNAMIC_DATA;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port->info_all = port->info.change_mask;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

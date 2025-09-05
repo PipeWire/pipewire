@@ -2075,7 +2075,7 @@ int impl_node_process(void *object)
 	if (port->control)
 		process_control(impl, &port->control->sequence, port->control_size);
 
-	spa_log_trace(impl->log, "%p; status %d", impl, io->status);
+	spa_log_trace(impl->log, "%p: status %d", impl, io->status);
 
 	if (io->status == SPA_STATUS_HAVE_DATA) {
 		return SPA_STATUS_HAVE_DATA;

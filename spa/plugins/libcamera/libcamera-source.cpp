@@ -71,7 +71,6 @@ struct port {
 	struct spa_fraction rate = {};
 	StreamConfiguration streamConfig;
 
-	spa_data_type memtype = SPA_DATA_Invalid;
 	uint32_t buffers_blocks = 1;
 
 	struct buffer buffers[MAX_BUFFERS];
@@ -1209,21 +1208,17 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 	const std::vector<std::unique_ptr<FrameBuffer>> &bufs =
 			impl->allocator.buffers(stream);
 
-	if (n_buffers > 0) {
-		if (bufs.size() != n_buffers)
-			return -EINVAL;
+	if (n_buffers > 0 && bufs.size() != n_buffers)
+		return -EINVAL;
 
-		spa_data *d = buffers[0]->datas;
+	const auto choose_memtype = [](uint32_t t) {
+		if (t != SPA_ID_INVALID && t & (1u << SPA_DATA_DmaBuf))
+			return SPA_DATA_DmaBuf;
+		if (t & (1u << SPA_DATA_MemFd))
+			return SPA_DATA_MemFd;
 
-		if (d[0].type != SPA_ID_INVALID && d[0].type & (1u << SPA_DATA_DmaBuf)) {
-			port->memtype = SPA_DATA_DmaBuf;
-		} else if (d[0].type & (1u << SPA_DATA_MemFd)) {
-			port->memtype = SPA_DATA_MemFd;
-		} else {
-			spa_log_error(impl->log, "can't use buffers of type %d", d[0].type);
-			return -EINVAL;
-		}
-	}
+		return SPA_DATA_Invalid;
+	};
 
 	for (uint32_t i = 0; i < n_buffers; i++) {
 		struct buffer *b;
@@ -1253,9 +1248,17 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 		spa_data *d = buffers[i]->datas;
 
 		for(uint32_t j = 0; j < buffers[i]->n_datas; ++j) {
-			d[j].type = port->memtype;
+			const auto memtype = choose_memtype(d[j].type);
+			if (memtype == SPA_DATA_Invalid) {
+				spa_log_error(impl->log, "can't use buffers of type %" PRIu32, d[j].type);
+				return -EINVAL;
+			}
+
+			d[j].type = memtype;
 			d[j].flags = SPA_DATA_FLAG_READABLE;
+			d[j].fd = -1;
 			d[j].mapoffset = 0;
+			d[j].data = nullptr;
 			d[j].chunk->stride = port->streamConfig.stride;
 			d[j].chunk->flags = 0;
 			/* Update parameters according to the plane information */
@@ -1285,15 +1288,16 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 				d[j].chunk->size = port->streamConfig.frameSize;
 			}
 
-			if (port->memtype == SPA_DATA_DmaBuf ||
-			    port->memtype == SPA_DATA_MemFd) {
+			switch (memtype) {
+			case SPA_DATA_DmaBuf:
+			case SPA_DATA_MemFd:
 				d[j].flags |= SPA_DATA_FLAG_MAPPABLE;
 				d[j].fd = planes[j].fd.get();
 				spa_log_debug(impl->log, "Got fd = %" PRId64 " for buffer: #%d", d[j].fd, i);
-				d[j].data = nullptr;
-			} else {
-				spa_log_error(impl->log, "invalid buffer type");
-				return -EIO;
+				break;
+			default:
+				spa_assert_not_reached();
+				break;
 			}
 		}
 	}

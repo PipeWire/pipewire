@@ -1,3 +1,201 @@
+# PipeWire 1.5.81 (2025-10-16)
+
+This is the first 1.6 release candidate that is API and ABI
+compatible with previous 1.4.x, 1.2.x and 1.0.x releases.
+
+In addition to all the changes backported to 1.4.x, this release
+also contains some new features:
+
+## Highlights
+  - The link negotiation code was refactored and improved.
+    Applications now have more options for selecting the default
+    values and restricting the available options. The default
+    negotiation code will now attempt to better match the application
+    suggested values.
+  - The loop now has support for locking with priority inversion. Most
+    of the code was updated to use the locks instead of invoke to
+    get proper concurrent updates with the loop. The Thread loop
+    functionality of locks, signal and wait was moved to the SPA loop.
+    This guarantees better real-time behaviour because inter-thread
+    synchronization does not have to pass eventfd/epoll.
+  - The control stream parser was rewritten to be safe against concurrent
+    updates while parsing, which can occur when parsing shared memory.
+    It also has extra checks to avoid integer overflows and undefined
+    behaviour.
+  - MIDI 2.0 clip support was added to the tools.
+  - Bluetooth ASHA (Audio Streaming for Hearing Aid) support was added.
+  - The ALSA node setup was tweaked to provide low latency with the ALSA
+    Firewire driver.
+  - Better support for explicit sync. It is now possible to negotiate
+    extra features to know if a consumer will signal the sync objects and
+    implement a fallback using a reliable transport.
+  - Many bug fixes and improvements.
+
+
+## PipeWire
+  - Avoid process calls in disconnect in pw-stream. (#3314)
+  - Disable PipeWire services for root.
+  - The link negotiation was refactored and improved. Drivers now
+    always have a lower priority in deciding the final format.
+  - Backwards compatibility with the v0 protocol was removed.
+  - pw-stream and pw-filter will now refuse to queue a buffer that
+    was not dequeued before.
+  - Object properties will now be updated on the global as well.
+  - The priority of config overrides is correct now. (#4816)
+  - Async links now correctly report 1 extra quantum of latency.
+  - node.exclusive and the new port.exclusive flag are now enforced
+    by PipeWire itself.
+  - A new timer-queue helper was added to schedule timeouts.
+  - node.terminal and node.physical properties are now copied to the
+    ports to make it possible to create virtual sources and sinks
+    for JACK applications.
+  - Port properties will now be dynamically updated when the node
+    properties they depend on are updated.
+  - Passive leaf nodes are now handled better. Now they will also
+    run when the peer is active. (#4915)
+  - Reliable transport has been added for output ports. This can be
+    used in some cases if the producer wants to ensure buffers are
+    consumed by a consumer. (#4885)
+  - Context properties now support rlimit.<resource> properties to
+    configure rlimits. (#4047)
+
+## Modules
+  - Close SyncObj fds.
+  - module-combine-stream has better Latency reporting.
+  - The JACK tunnel can now optionally connect ports.
+  - module-loopback has better Latency reporting.
+  - A Dolby Surround and Dolby Pro Logic II example filter config 
+    was added.
+  - Filter-chain can now resample to a specific rate before running the
+    filters. This is useful when the filter-graph needs to run at a
+    specific rate.
+  - Avahi-poll now uses the timer-queue to schedule timeouts.
+  - Modules are ported to timer-queue instead of using timerfd directly
+    for non-realtime timers.
+
+## SPA
+  - The loop now has support for locking with priority inversion. Most
+    of the code was updated to use the locks instead of invoke to
+    get proper concurrent updates with the loop. The Thread loop
+    functionality of locks, signal and wait was moved to the SPA loop.
+  - UMP to Midi 1.0 conversion was improved, some UMP events are now
+    converted to multiple Midi 1.0 messages. (#4839)
+  - The POD filter was refactored and improved. It is now possible to
+    use the default value of the output by specifying an invalid input
+    default value.
+  - The POD parser was made safe for concurrent updates of the memory
+    it is parsing. This is important when the POD is in shared memory
+    and the parser should not access invalid memory.
+  - Some hardcoded channel limits were removed and now use the global
+    channel limit. More things can dynamically adapt to this global
+    limit. The max number of channels was then bumped to 128.
+  - The POD builder is safe to use on shared memory now and tries to
+    avoid many integer overflows.
+  - Most debug functions are safe to be used on shared memory.
+  - User specified Commands and Events are now possible.
+  - The SPA_IO_CLOCK_FLAG_DISCONT was added to spa_io_clock to signal
+    a discont in the clock due to clock change.
+  - AC3, DTS, EAC3, TRUEHD and MPEGH now have helper parser functions.
+  - H265 was added as a video format. (#4674)
+  - SPA_PARAM_PeerFormats was added to let a port know about its peer
+    formats in order to better filter possible conversions.
+  - More color matrices, transfer functions and color primaries.
+  - The echo-canceler is enabled now.
+  - Pro-Audio mode now uses 3 periods by default. This lowers the
+    latency on some drivers (Firewire). The latency of Firewire is
+    also reported correctly now.
+  - The ALSA DLL bandwidth is configurable now.
+  - The resampler now uses fixed point for the phases and is a little
+    faster when updating adaptive rates.
+  - The convolver is a little faster by swapping buffers instead of
+    copying samples.
+  - Latency and ProcessLatency support was added to filter-graph.
+    (#4678)
+  - Audio channel position support was added to filter-graph.
+  - A new ffmpeg avfilter plugin was added to filter-graph.
+  - A new ONNX filter was added to filter-graph.
+  - A debug, pipe, zeroramp and noisegate filter was added to the
+    filter-graph. (#4745)
+  - The filter-graph lv2 plugin now supports options and state.
+  - videoconvert was greatly improved.
+  - The v4l2 plugin can negotiate DMABUF with modifiers.
+  - Colorimetry information was added to v4l2 and libcamera.
+  - Audioconvert can handle empty buffers more efficiently.
+  - Improve the POD compare functions for Rectangle.
+  - There is now a SPA_POD_PROP_FLAG_DROP flag to drop the property when
+    the property is missing from one side.
+  - A new FEATURE choice was added that is basically a flags choice with
+    a FLAG_DROP property.
+  - Metadata features were added. This is a way to negotiate new features
+    for the metadata. (#4885)
+  - DSD playback with pw-cat has been improved.
+  - Compatibility and xrun prevention for the SOF driver has been
+    improved. (#4489)
+  - The filter-graph max plugin can now have 8 input channels.
+  - Buffer Negotiation between the mixer port and the node ports is much
+    improved. (#4918)
+  - An offline AEC benchmark was added.
+  - Channel positions are now read from HDMI ELD when possible.
+  - Audioconvert and filter-graph now also support properties of Long
+    and String types.
+
+## ACP
+  - It's possible to disable the pro-audio profile.
+  - Support for Logitech Z407 PC Speakers was improved.
+  - Support for Razer BlackShark v3.
+  - Fix volume rounding down causing mute. (#4890)
+
+## Tools
+  - pw-cat can now play and record MIDI 2.0 Clips, which is the
+    official format for storing MIDI 2.0 UMP data. pw-midi2play
+    and pw-midi2record were added as aliases.
+  - pw-cat can now upload sysex files. The pw-sysex alias was
+    added for this.
+  - The pw-link tool now has a -t option to list port latencies.
+    It also has better monitor support.
+  - pw-top can now clear the ERR column with the c key.
+  - pw-cli now keeps the types of the variables it stores and avoid
+    using wrongly typed variables that can crash things. It can now
+    also list the available variables.
+  - pw-dump can now output raw JSON and SPA JSON.
+  - pw-dump has configurable indentation level.
+  - pw-mididump can be forced to output MIDI 1.0 messages.
+  - pw-profiler now uses doubles for extra precision.
+  - pw-top now marks the async nodes with =.
+
+## Bluetooth
+  - Telephony improvements.
+  - ASHA support was added.
+  - Add packet loss correction with spandsp for some codecs.
+  - Synchronisation between ISO streams in the same group.
+
+## Pulse-server
+  - The SUSPEND event is now correctly generated. fail-on-suspend is
+    now implemented.
+  - PA_STREAM_DONT_INHIBIT_AUTO_SUSPEND is now implemented. (#4255)
+    (#4726)
+  - RTP streams now have stream.properties for extra configuration.
+  - Timed out streams are now destroyed instead of lingering. (#4901)
+  - A new help and pipewire-pulse:list-modules core message was added.
+
+## JACK
+  - Port rename callbacks are now emitted correctly.
+  - Use safe POD parsing for the control sequences.
+
+## V4l2
+  - The wrapper now avoids a race while initializing PipeWire. (#4859)
+
+## GStreamer
+  - Colorimetry support was added.
+  - Cursor metadata is now exposed as ROI metadata.
+  - Many more updates.
+
+## Docs
+  - Document the client-node flow a bit more.
+
+
+Older versions:
+
 # PipeWire 1.4.0 (2025-03-06)
 
 This is the 1.4 release that is API and ABI compatible with previous
@@ -98,9 +296,6 @@ the 1.2 release last year, including:
 
 ## JACK
   - Add an option to disable the MIDI2 port flags. (#4584)
-
-
-Older versions:
 
 # PipeWire 1.3.83 (2025-02-20)
 

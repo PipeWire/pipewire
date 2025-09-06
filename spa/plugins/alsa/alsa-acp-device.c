@@ -160,7 +160,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	char codecs[512];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
-	const char *stream, *card_id;
+	const char *stream, *card_id, *bus;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
@@ -175,7 +175,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	items = alloca((dev->props.n_items + 11) * sizeof(*items));
+	items = alloca((dev->props.n_items + 12) * sizeof(*items));
 	n_items = 0;
 
 	snprintf(card_index, sizeof(card_index), "%d", card->index);
@@ -193,6 +193,8 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_PCM_STREAM, stream);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_PORT_GROUP, stream);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_ICON_NAME, "audio-card-analog");
+	bus = acp_dict_lookup(&card->props, SPA_KEY_DEVICE_BUS);
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_BUS, bus);
 
 	snprintf(channels, sizeof(channels), "%d", dev->format.channels);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);

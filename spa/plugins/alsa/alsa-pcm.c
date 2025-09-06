@@ -2328,6 +2328,35 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		}
 	}
 
+	if (state->default_period_num != 0) {
+		/* period number given use that */
+		periods = state->default_period_num;
+	} else if (state->disable_tsched) {
+		/* IRQ mode, use 3 periods. This is a bit of a workaround
+		 * for Firewire devices, which seem to only work with 3 periods.
+		 * For PipeWire it does not actually matter how many periods
+		 * are used, we will always keep 1 filled, so we can work fine
+		 * with anything from 2 periods to MAX. */
+		periods = 3;
+	} else {
+		periods = UINT_MAX;
+	}
+
+	if (state->default_period_size == 0) {
+		/* Some devices (FireWire) don't produce audio if period number is too
+		 * small, so force a minimum. This will restrict possible period sizes if
+		 * the device has small buffer (like FireWire), so force it only if
+		 * period size was not set manually.
+		 */
+		snd_pcm_uframes_t period_size_max;
+		unsigned int periods_min = (periods == UINT_MAX) ? 3 : periods;
+
+		CHECK(snd_pcm_hw_params_set_periods_min(hndl, params, &periods_min, &dir), "set_periods_min");
+		CHECK(snd_pcm_hw_params_get_period_size_max(params, &period_size_max, &dir), "get_period_size_max");
+		if (period_size > period_size_max)
+			period_size = SPA_MIN(period_size, flp2(period_size_max));
+	}
+
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");
 
 	if (period_size == 0) {
@@ -2337,17 +2366,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	state->period_frames = period_size;
 
-	if (state->default_period_num != 0 || state->disable_tsched) {
-		if (state->default_period_num != 0)
-			/* period number given use that */
-			periods = state->default_period_num;
-		else
-			/* IRQ mode, use 3 periods. This is a bit of a workaround
-			 * for Firewire devices, which seem to only work with 3 periods.
-			 * For PipeWire it does not actually matter how many periods
-			 * are used, we will always keep 1 filled, so we can work fine
-			 * with anything from 2 periods to MAX. */
-			periods = 3;
+	if (periods != UINT_MAX) {
 		CHECK(snd_pcm_hw_params_set_periods_near(hndl, params, &periods, &dir), "set_periods");
 		state->buffer_frames = period_size * periods;
 	} else {

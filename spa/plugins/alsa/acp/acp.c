@@ -465,7 +465,14 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	}
 	snd_ctl_close(ctl_hndl);
 
-	if (n_capture == 1 && n_playback == 1) {
+	/* FireWire ALSA driver latency is determined by the buffer size and not the
+	 * period. Timer-based scheduling is then not really useful on these devices as
+	 * the latency is fixed. Enable IRQ scheduling unconditionally for these devices,
+	 * so that controlling the latency works properly.
+	 */
+	bool is_firewire = spa_streq(pa_proplist_gets(impl->proplist, "device.bus"), "firewire");
+
+	if ((n_capture == 1 && n_playback == 1) || is_firewire) {
 		PA_IDXSET_FOREACH(m, ap->output_mappings, idx) {
 			pa_proplist_setf(m->output_proplist, "node.group", "pro-audio-%u", index);
 			pa_proplist_setf(m->output_proplist, "node.link-group", "pro-audio-%u", index);

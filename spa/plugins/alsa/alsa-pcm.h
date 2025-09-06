@@ -154,6 +154,7 @@ struct state {
 	unsigned int disable_batch:1;
 	unsigned int disable_tsched:1;
 	unsigned int is_split_parent:1;
+	unsigned int is_firewire:1;
 	char clock_name[64];
 	uint32_t quantum_limit;
 

@@ -1012,6 +1012,8 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 			state->num_bind_ctls = i;
 
 			/* We'll do the actual binding after checking the card exists */
+		} else if (spa_streq(k, SPA_KEY_DEVICE_BUS)) {
+			state->is_firewire = spa_streq(s, "firewire");
 		} else {
 			alsa_set_param(state, k, s);
 		}
@@ -2053,6 +2055,13 @@ static void recalc_headroom(struct state *state)
 	latency = SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
 	if (rate != 0 && state->rate != 0)
 		latency = SPA_SCALE32_UP(latency, rate, state->rate);
+
+	if (state->is_firewire) {
+		/* XXX: For ALSA FireWire drivers, unlike for other ALSA drivers, buffer size
+		 * XXX: contributes extra latency (as of kernel 6.16).
+		 */
+		latency += state->buffer_frames;
+	}
 
 	state->latency[state->port_direction].min_rate =
 		state->latency[state->port_direction].max_rate = latency;

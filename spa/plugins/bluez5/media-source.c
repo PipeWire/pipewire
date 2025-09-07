@@ -1622,7 +1622,7 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return 0;
 }
 
-static uint32_t get_samples(struct impl *this, uint32_t *result_duration)
+static uint32_t get_samples(struct impl *this, int64_t *duration_ns)
 {
 	struct port *port = &this->port;
 	uint32_t samples, rate_denom;
@@ -1636,12 +1636,12 @@ static uint32_t get_samples(struct impl *this, uint32_t *result_duration)
 		rate_denom = port->current_format.info.raw.rate;
 	}
 
-	*result_duration = duration * port->current_format.info.raw.rate / rate_denom;
+	*duration_ns = duration * SPA_NSEC_PER_SEC / rate_denom;
 
 	if (SPA_LIKELY(port->rate_match) && this->resampling) {
 		samples = port->rate_match->size;
 	} else {
-		samples = *result_duration;
+		samples = duration;
 	}
 	return samples;
 }
@@ -1649,7 +1649,7 @@ static uint32_t get_samples(struct impl *this, uint32_t *result_duration)
 static void update_target_latency(struct impl *this)
 {
 	struct port *port = &this->port;
-	uint32_t samples, duration, latency;
+	uint32_t samples, latency;
 	int64_t delay_sink;
 
 	if (this->transport == NULL || !port->have_format)
@@ -1668,8 +1668,6 @@ static void update_target_latency(struct impl *this)
 
 	if (this->transport->delay_us == SPA_BT_UNKNOWN_DELAY)
 		return;
-
-	get_samples(this, &duration);
 
 	/* Presentation delay for BAP server
 	 *
@@ -1708,8 +1706,8 @@ static void update_target_latency(struct impl *this)
 static void process_buffering(struct impl *this)
 {
 	struct port *port = &this->port;
-	uint32_t duration;
-	const uint32_t samples = get_samples(this, &duration);
+	int64_t duration_ns;
+	const uint32_t samples = get_samples(this, &duration_ns);
 	uint32_t data_size  = samples * port->frame_size;
 	uint32_t avail;
 
@@ -1726,9 +1724,11 @@ static void process_buffering(struct impl *this)
 
 	setup_matching(this);
 
-	spa_bt_decode_buffer_process(&port->buffer, samples, duration,
+	spa_bt_decode_buffer_process(&port->buffer, samples, duration_ns,
 			this->position ? this->position->clock.rate_diff : 1.0,
-			this->position ? this->position->clock.next_nsec : 0);
+			this->position ? this->position->clock.next_nsec : 0,
+			this->resampling ? this->port.rate_match->delay : 0,
+			this->resampling ? this->port.rate_match->delay_frac : 0);
 
 	/* copy data to buffers */
 	if (!spa_list_is_empty(&port->free)) {
@@ -1780,6 +1780,7 @@ static void process_buffering(struct impl *this)
 	if (this->update_delay_event) {
 		int32_t target = spa_bt_decode_buffer_get_target_latency(&port->buffer);
 		uint32_t decoder_delay = 0;
+		uint32_t duration = this->position ? this->position->clock.duration : 1024;
 
 		if (this->codec->get_delay)
 			this->codec->get_delay(this->codec_data, NULL, &decoder_delay);

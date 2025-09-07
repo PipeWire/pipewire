@@ -5,8 +5,13 @@
 #include <math.h>
 
 #include <spa/utils/defs.h>
+#include <spa/support/log.h>
 
 #include "resample.h"
+
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &resample_log_topic
+extern struct spa_log_topic resample_log_topic;
 
 typedef void (*resample_func_t)(struct resample *r,
         const void * SPA_RESTRICT src[], uint32_t ioffs, uint32_t *in_len,

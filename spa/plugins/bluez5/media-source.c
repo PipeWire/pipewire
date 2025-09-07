@@ -620,8 +620,12 @@ static void handle_errqueue(struct impl *this)
 	}
 
 	this->errqueue_count = 0;
-	res = recv(this->fd, NULL, 0, MSG_ERRQUEUE | MSG_TRUNC);
-	spa_log_trace(this->log, "%p: ignoring errqueue data (%d)", this, res);
+	do {
+		char buf[512];
+
+		res = recv(this->fd, buf, sizeof(buf), MSG_ERRQUEUE | MSG_TRUNC | MSG_DONTWAIT);
+		spa_log_trace(this->log, "%p: ignoring errqueue data (%d)", this, res);
+	} while (res > 0);
 }
 
 static void media_on_ready_read(struct spa_source *source)

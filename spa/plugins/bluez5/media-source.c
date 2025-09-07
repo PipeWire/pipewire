@@ -572,6 +572,9 @@ static void add_data(struct impl *this, uint8_t *src, uint32_t src_size, uint64_
 
 	spa_log_trace(this->log, "%p: read socket data size:%d", this, src_size);
 
+	if (this->transport->iso_io)
+		now = spa_bt_iso_io_recv(this->transport->iso_io, now);
+
 	do {
 		int32_t consumed;
 		uint32_t avail;
@@ -674,8 +677,10 @@ stop:
 	this->io_error = true;
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
-	if (this->transport && this->transport->iso_io)
+	if (this->transport && this->transport->iso_io) {
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
+		spa_bt_iso_io_set_source_buffer(this->transport->iso_io, NULL);
+	}
 }
 
 static int media_sco_pull(void *userdata, uint8_t *buffer_read, int size_read, uint64_t now)
@@ -931,6 +936,8 @@ static int transport_start(struct impl *this)
 	if (this->codec->kind != MEDIA_CODEC_HFP) {
 		spa_bt_recvmsg_init(&this->recv, this->fd, this->data_system, this->log);
 
+		spa_loop_locked(this->data_loop, do_start_sco_iso_io, 0, NULL, 0, this);
+
 		this->source.data = this;
 
 		this->source.fd = this->fd;
@@ -944,10 +951,8 @@ static int transport_start(struct impl *this)
 		spa_zero(this->source);
 		if (spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system) < 0)
 			goto fail;
-	}
-
-	if (this->transport->iso_io || this->transport->sco_io)
 		spa_loop_locked(this->data_loop, do_start_sco_iso_io, 0, NULL, 0, this);
+	}
 
 	this->transport_started = true;
 
@@ -1045,8 +1050,10 @@ static int do_remove_transport_source(struct spa_loop *loop,
 
 	if (this->source.loop)
 		spa_loop_remove_source(this->data_loop, &this->source);
-	if (this->transport->iso_io)
+	if (this->transport->iso_io) {
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
+		spa_bt_iso_io_set_source_buffer(this->transport->iso_io, NULL);
+	}
 	if (this->transport->sco_io)
 		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
 
@@ -1661,8 +1668,11 @@ static void update_target_latency(struct impl *this)
 		/* BAP Client. Should use same buffer size for all streams in the same
 		 * group, so that capture is in sync.
 		 */
-		if (this->transport->iso_io)
-			spa_bt_iso_io_update_source_latency(this->transport->iso_io);
+		if (this->transport->iso_io) {
+			int32_t target = spa_bt_iso_io_get_source_target_latency(this->transport->iso_io);
+
+			spa_bt_decode_buffer_set_target_latency(&port->buffer, target);
+		}
 		return;
 	}
 
@@ -1776,6 +1786,9 @@ static void process_buffering(struct impl *this)
 		spa_log_trace(this->log, "queue %d frames:%d", buffer->id, (int)samples);
 		spa_list_append(&port->ready, &buffer->link);
 	}
+
+	if (this->transport->iso_io && this->position)
+		spa_bt_iso_io_check_rx_sync(this->transport->iso_io, this->position->clock.position);
 
 	if (this->update_delay_event) {
 		int32_t target = spa_bt_decode_buffer_get_target_latency(&port->buffer);

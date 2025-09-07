@@ -48,6 +48,8 @@ void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *io, spa_bt_iso_io_pull_t pull, v
 int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *io);
 
 void spa_bt_iso_io_set_source_buffer(struct spa_bt_iso_io *io, struct spa_bt_decode_buffer *buffer);
-void spa_bt_iso_io_update_source_latency(struct spa_bt_iso_io *io);
+int32_t spa_bt_iso_io_get_source_target_latency(struct spa_bt_iso_io *io);
+void spa_bt_iso_io_check_rx_sync(struct spa_bt_iso_io *io, uint64_t position);
+int64_t spa_bt_iso_io_recv(struct spa_bt_iso_io *io, int64_t now);
 
 #endif

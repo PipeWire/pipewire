@@ -6,6 +6,11 @@
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
+#include <spa/support/log.h>
+
+#undef SPA_LOG_TOPIC_DEFAULT
+#define SPA_LOG_TOPIC_DEFAULT &resample_log_topic
+extern struct spa_log_topic resample_log_topic;
 
 struct peaks {
 	uint32_t cpu_flags;

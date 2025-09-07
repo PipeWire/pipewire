@@ -11,6 +11,8 @@
 #include "resample-native-precomp.h"
 #endif
 
+SPA_LOG_TOPIC_DEFINE(resample_log_topic, "spa.resample");
+
 struct quality {
 	uint32_t n_taps;
 	double cutoff;

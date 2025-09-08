@@ -7,6 +7,8 @@
 
 #include <pipewire/properties.h>
 
+struct spa_hook;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

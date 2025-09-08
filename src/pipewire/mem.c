@@ -393,7 +393,6 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 	struct mempool *p = SPA_CONTAINER_OF(block->pool, struct mempool, this);
 	struct mapping *m;
 	struct memmap *mm;
-	struct pw_map_range range;
 	struct stat sb;
 
 	if (b->this.fd == -1) {
@@ -418,13 +417,15 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 		return NULL;
 	}
 
-	pw_map_range_init(&range, offset, size, p->pagesize);
-
 	m = memblock_find_mapping(b, flags, offset, size);
-	if (m == NULL)
+	if (m == NULL) {
+		struct pw_map_range range;
+		pw_map_range_init(&range, offset, size, p->pagesize);
+
 		m = memblock_map(b, flags, range.offset, range.size);
-	if (m == NULL)
-		return NULL;
+		if (m == NULL)
+			return NULL;
+	}
 
 	mm = calloc(1, sizeof(struct memmap));
 	if (mm == NULL) {
@@ -439,7 +440,7 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 	mm->this.flags = flags;
 	mm->this.offset = offset;
 	mm->this.size = size;
-	mm->this.ptr = SPA_PTROFF(m->ptr, range.start, void);
+	mm->this.ptr = SPA_PTROFF(m->ptr, offset - m->offset, void);
 
         pw_log_debug("%p: map:%p block:%p fd:%d flags:%08x ptr:%p (%u %u) mapping:%p ref:%d", p,
 			&mm->this, b, b->this.fd, b->this.flags, mm->this.ptr, offset, size, m, m->ref);

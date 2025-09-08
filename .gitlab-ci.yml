@@ -687,6 +687,3 @@ pages:
       - public
   rules:
     - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_BRANCH == '1.0'
-    - if: $CI_COMMIT_BRANCH == '1.2'
-    - if: $CI_COMMIT_BRANCH == '1.4'

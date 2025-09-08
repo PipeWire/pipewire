@@ -167,7 +167,7 @@ struct pw_mempool *pw_mempool_new(struct pw_properties *props)
 
 	impl->pagesize = sysconf(_SC_PAGESIZE);
 
-	pw_log_debug("%p: new", this);
+	pw_log_debug("%p: new pagesize:%" PRIu32 "", this, impl->pagesize);
 
 	spa_hook_list_init(&impl->listener_list);
 	pw_map_init(&impl->map, 64, 64);

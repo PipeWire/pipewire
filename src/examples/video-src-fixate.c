@@ -24,7 +24,7 @@
 
 #include <pipewire/pipewire.h>
 
-#define BPP		3
+#define BPP		4
 #define CURSOR_WIDTH	64
 #define CURSOR_HEIGHT	64
 #define CURSOR_BPP	4
@@ -414,11 +414,11 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 				modifier = modifiers[rand()%n_modifiers];
 			}
 
-			params[0] = fixate_format(&b, SPA_VIDEO_FORMAT_RGB, &modifier);
+			params[0] = fixate_format(&b, SPA_VIDEO_FORMAT_RGBA, &modifier);
 
-			params[1] = build_format(&b, SPA_VIDEO_FORMAT_RGB,
+			params[1] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
 					supported_modifiers, sizeof(supported_modifiers)/sizeof(supported_modifiers[0]));
-			params[2] = build_format(&b, SPA_VIDEO_FORMAT_RGB,
+			params[2] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
 					NULL, 0);
 
 			printf("announcing fixated EnumFormats\n");
@@ -540,9 +540,9 @@ int main(int argc, char *argv[])
 	 * The server will select a format that matches and informs us about this
 	 * in the stream param_changed event.
 	 */
-	params[0] = build_format(&b, SPA_VIDEO_FORMAT_RGB,
+	params[0] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
 			supported_modifiers, sizeof(supported_modifiers)/sizeof(supported_modifiers[0]));
-	params[1] = build_format(&b, SPA_VIDEO_FORMAT_RGB, NULL, 0);
+	params[1] = build_format(&b, SPA_VIDEO_FORMAT_RGBA, NULL, 0);
 
 	printf("announcing starting EnumFormats\n");
 	for (unsigned int i=0; i < 2; i++) {

@@ -22,7 +22,7 @@
 
 #include <pipewire/pipewire.h>
 
-#define BPP		3
+#define BPP		4
 #define CURSOR_WIDTH	64
 #define CURSOR_HEIGHT	64
 #define CURSOR_BPP	4
@@ -373,7 +373,7 @@ static void on_reneg_timeout(void *userdata, uint64_t expirations)
 		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 		SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
 		SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-		SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGB),
+		SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA),
 		SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&SPA_RECTANGLE(width, height)),
 		SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION(25, 1)));
 
@@ -398,7 +398,7 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	/* create a thread loop and start it */
-	data.loop = pw_thread_loop_new("video-src-alloc", NULL);
+	data.loop = pw_thread_loop_new("video-src-reneg", NULL);
 
 	/* take the lock around all PipeWire functions. In callbacks, the lock
 	 * is already taken for you but it's ok to lock again because the lock is
@@ -449,7 +449,7 @@ int main(int argc, char *argv[])
 		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 		SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
 		SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-		SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGB),
+		SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA),
 		SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
 						&SPA_RECTANGLE(320, 240),
 						&SPA_RECTANGLE(1, 1),

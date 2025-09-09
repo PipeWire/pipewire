@@ -16,10 +16,11 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/tag-utils.h>
 #include <spa/debug/pod.h>
+#include <spa/debug/format.h>
 
 #include <pipewire/pipewire.h>
 
-#define BPP		3
+#define BPP		4
 #define CURSOR_WIDTH	64
 #define CURSOR_HEIGHT	64
 #define CURSOR_BPP	4
@@ -224,6 +225,9 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
+	fprintf(stderr, "got format:\n");
+	spa_debug_format(2, NULL, param);
+
 	spa_format_video_raw_parse(param, &data->format);
 
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
@@ -317,7 +321,7 @@ int main(int argc, char *argv[])
 		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 		SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
 		SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-		SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_RGB),
+		SPA_FORMAT_VIDEO_format,    SPA_POD_Id(SPA_VIDEO_FORMAT_BGRA),
 		SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
 						&SPA_RECTANGLE(320, 240),
 						&SPA_RECTANGLE(1, 1),

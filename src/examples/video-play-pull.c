@@ -171,14 +171,15 @@ on_process(void *_data)
 	/* copy video image in texture */
 	if (data->is_yuv) {
 		sstride = data->stride;
-		SDL_UpdateYUVTexture(data->texture,
-				NULL,
-				sdata,
-				sstride,
-				SPA_PTROFF(sdata, sstride * data->size.height, void),
-				sstride / 2,
-				SPA_PTROFF(sdata, 5 * (sstride * data->size.height) / 4, void),
-				sstride / 2);
+		if (buf->n_datas == 1) {
+			SDL_UpdateTexture(data->texture, NULL,
+					sdata, sstride);
+		} else {
+			SDL_UpdateYUVTexture(data->texture, NULL,
+					sdata, sstride,
+					buf->datas[1].data, sstride / 2,
+					buf->datas[2].data, sstride / 2);
+		}
 	}
 	else {
 		if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
@@ -331,7 +332,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	const struct spa_pod *params[5];
 	Uint32 sdl_format;
 	void *d;
-	int32_t mult, size;
+	int32_t mult, size, blocks;
 
 	/* NULL means to clear the format */
 	if (param == NULL || id != SPA_PARAM_Format)
@@ -383,20 +384,29 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 					  SDL_TEXTUREACCESS_STREAMING,
 					  data->size.width,
 					  data->size.height);
-	if (SDL_LockTexture(data->texture, NULL, &d, &data->stride) < 0) {
-		pw_stream_set_error(stream, -EINVAL, "invalid texture format");
-		return;
-	}
-	SDL_UnlockTexture(data->texture);
 
 	switch(sdl_format) {
 	case SDL_PIXELFORMAT_YV12:
 	case SDL_PIXELFORMAT_IYUV:
+		data->stride = data->size.width;
 		size = (data->stride * data->size.height) * 3 / 2;
 		data->is_yuv = true;
+		blocks = 3;
+		break;
+	case SDL_PIXELFORMAT_YUY2:
+		data->stride = data->size.width * 2;
+		size = data->stride * data->size.height;
+		data->is_yuv = true;
+		blocks = 1;
 		break;
 	default:
+		if (SDL_LockTexture(data->texture, NULL, &d, &data->stride) < 0) {
+			data->stride = data->size.width * 2;
+		}
+		else
+			SDL_UnlockTexture(data->texture);
 		size = data->stride * data->size.height;
+		blocks = 1;
 		break;
 	}
 
@@ -410,7 +420,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	params[0] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
 		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(size * mult),
 		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(data->stride * mult),
 		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_MemPtr)));

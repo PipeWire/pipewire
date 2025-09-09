@@ -172,7 +172,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old, enum 
 {
 	struct data *data = _data;
 
-	printf("stream state: \"%s\"\n", pw_stream_state_as_string(state));
+	printf("stream state: \"%s\" %s\n", pw_stream_state_as_string(state), error ? error : "");
 
 	switch (state) {
 	case PW_STREAM_STATE_ERROR:

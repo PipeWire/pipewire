@@ -181,23 +181,21 @@ on_process(void *_data)
 		void *datas[4];
 		sstride = data->stride;
 		if (buf->n_datas == 1) {
-			datas[0] = sdata;
-			datas[1] = SPA_PTROFF(sdata, sstride * data->size.height, void);
-			datas[2] = SPA_PTROFF(sdata, 5 * (sstride * data->size.height) / 4, void);
+			SDL_UpdateTexture(data->texture, NULL,
+					sdata, sstride);
 		} else {
 			datas[0] = sdata;
 			datas[1] = buf->datas[1].data;
 			datas[2] = buf->datas[2].data;
+			SDL_UpdateYUVTexture(data->texture, NULL,
+					datas[0], sstride,
+					datas[1], sstride / 2,
+					datas[2], sstride / 2);
 		}
-		SDL_UpdateYUVTexture(data->texture, NULL,
-				datas[0], sstride,
-				datas[1], sstride / 2,
-				datas[2], sstride / 2);
 	}
 	else {
 		if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
 			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-			goto done;
 		}
 
 		sstride = buf->datas[0].chunk->stride;
@@ -355,21 +353,26 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 					  SDL_TEXTUREACCESS_STREAMING,
 					  data->size.width,
 					  data->size.height);
-	if (SDL_LockTexture(data->texture, NULL, &d, &data->stride) < 0) {
-		fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
-		pw_stream_set_error(stream, -EINVAL, "invalid format");
-		return;
-	}
-	SDL_UnlockTexture(data->texture);
-
 	switch(sdl_format) {
 	case SDL_PIXELFORMAT_YV12:
 	case SDL_PIXELFORMAT_IYUV:
+		data->stride = data->size.width;
 		size = (data->stride * data->size.height) * 3 / 2;
 		data->is_yuv = true;
 		blocks = 3;
 		break;
+	case SDL_PIXELFORMAT_YUY2:
+		data->is_yuv = true;
+		data->stride = data->size.width * 2;
+		size = (data->stride * data->size.height);
+		blocks = 1;
+		break;
 	default:
+		if (SDL_LockTexture(data->texture, NULL, &d, &data->stride) < 0) {
+			fprintf(stderr, "Couldn't lock texture: %s\n", SDL_GetError());
+			data->stride = data->size.width * 2;
+		} else
+			SDL_UnlockTexture(data->texture);
 		size = data->stride * data->size.height;
 		blocks = 1;
 		break;

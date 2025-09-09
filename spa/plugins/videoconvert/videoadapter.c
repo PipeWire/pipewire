@@ -94,6 +94,7 @@ struct impl {
 	struct spa_callbacks callbacks;
 
 	unsigned int add_listener:1;
+	unsigned int have_rate_match:1;
 	unsigned int have_format:1;
 	unsigned int recheck_format:1;
 	unsigned int started:1;
@@ -284,7 +285,7 @@ static int link_io(struct impl *this)
 	spa_zero(this->io_rate_match);
 	this->io_rate_match.rate = 1.0;
 
-	if (this->follower == this->target) {
+	if (this->follower == this->target || !this->have_rate_match) {
 		rate_match = NULL;
 		rate_match_size = 0;
 	} else {

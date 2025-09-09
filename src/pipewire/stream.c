@@ -97,6 +97,7 @@ struct stream {
 	struct spa_io_buffers *io;
 	struct spa_io_rate_match *rate_match;
 	uint32_t rate_queued;
+	uint32_t have_requested;
 	uint64_t rate_size;
 
 	uint64_t port_change_mask_all;
@@ -449,9 +450,10 @@ static inline uint32_t update_requested(struct stream *impl)
 	buffer = &impl->buffers[id];
 	buffer->this.requested = impl->rate_size;
 
-	pw_log_trace_fp("%p: update buffer:%u req:%"PRIu64, impl, id, buffer->this.requested);
+	pw_log_trace_fp("%p: update buffer:%u req:%"PRIu64" %p", impl, id, buffer->this.requested,
+			impl->rate_match);
 
-	return buffer->this.requested > 0 ? 1 : 0;
+	return impl->have_requested;
 }
 
 static inline void call_process(struct stream *impl)
@@ -681,9 +683,11 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 	if (SPA_LIKELY(impl->rate_match != NULL)) {
 		impl->rate_queued = impl->rate_match->delay;
 		impl->rate_size = impl->rate_match->size;
+		impl->have_requested = impl->rate_size != 0;
 	} else {
 		impl->rate_queued = 0;
 		impl->rate_size = impl->quantum;
+		impl->have_requested = 1;
 	}
 	SPA_SEQ_WRITE(impl->seq);
 }

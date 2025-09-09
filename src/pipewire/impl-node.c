@@ -219,17 +219,21 @@ do_node_unprepare(struct spa_loop *loop, bool async, uint32_t seq,
 {
 	struct pw_impl_node *this = user_data;
 	struct pw_node_target *t;
-	int old_state;
+	int old_state, new_state;
 	uint64_t trigger = 0;
 
 	pw_log_trace("%p: unprepare %d remote:%d exported:%d", this, this->rt.prepared,
 			this->remote, this->exported);
 
-	/* We mark ourself as finished now, this will avoid going further into the process loop
-	 * in case our fd was ready (removing ourselfs from the loop should avoid that as well).
-	 * If we were supposed to be scheduled make sure we continue the graph for the peers we
-	 * were supposed to trigger */
-	old_state = SPA_ATOMIC_XCHG(this->rt.target.activation->status, PW_NODE_ACTIVATION_INACTIVE);
+	/* The remote client will INACTIVE itself and remove itself from the loop to avoid
+	 * being scheduled.
+	 * The server will mark remote nodes as FINISHED. This will make sure the node will not
+	 * trigger the peers anymore when it will stop because we do that on the server side
+	 * because the client might simply be dead and not able to resume anything.
+	 */
+	new_state = this->remote ? PW_NODE_ACTIVATION_FINISHED : PW_NODE_ACTIVATION_INACTIVE;
+
+	old_state = SPA_ATOMIC_XCHG(this->rt.target.activation->status, new_state);
 	if (PW_NODE_ACTIVATION_PENDING_TRIGGER(old_state))
 		trigger = get_time_ns(this->rt.target.system);
 

@@ -184,6 +184,9 @@ struct spa_meta_videotransform {
  * layout with 2 extra fds.
  */
 struct spa_meta_sync_timeline {
+#define SPA_META_SYNC_TIMELINE_UNSCHEDULED_RELEASE	(1<<0)	/**< this flag is set by the producer and cleared
+								  *  by the consumer when it promises to signal
+								  *  the release point */
 	uint32_t flags;
 	uint32_t padding;
 	uint64_t acquire_point;			/**< the timeline acquire point, this is when the data

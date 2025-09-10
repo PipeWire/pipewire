@@ -1,3 +1,50 @@
+# PipeWire 1.4.8 (2025-09-11)
+
+This is a bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Low latency for Firewire devices using the ALSA drivers.
+  - Fix potential wrong pointers in memory mappings.
+  - Improve compatibility with Apple Home Pod Minis.
+  - JACK now implements the rename_callback.
+  - Various improvements and bug fixes.
+
+
+## PipeWire
+  - Make sure we can only queue buffers that were previously dequeued,
+    to avoid some API misuse.
+  - Fix potential wrong pointers in memory mappings. (#4884)
+  - Improve the node unprepare function. (#4840)
+
+## Modules
+  - Add fp_sap25 encryption to the ROAP module for compatibility with
+    Apple Home Pod Minis.
+  - Write a correct ALAC end tag in RAOP. (#4853)
+  - Avoid VBAN problems with too long session names.
+  - Fix a potential crash in the link-factory. (#4691)
+
+## SPA
+  - Show correct values in the ALSA api.alsa.period-num property.
+  - Add better support for Razer BlackShark v3.
+  - Use only 3 periods in ALSA when in Pro-Audio mode. This gives
+    better latency on some drivers. Also set the period count before
+    the period size for improved compatibility. (#4785)
+  - Force IRQ mode for firewire devices in pro-audio mode even if
+    there are multiple capture and playback devices.
+  - Add a new flag in the sync_timeline metadata to track if a
+    release_point will be signaled or not. (#4885)
+
+## JACK
+  - Support the rename_callback. (#4761)
+
+## Tools
+  - Fix the -C option in pw-dump.
+  - Log more info from sndfile when opening a file failed.
+
+
+Older versions:
+
 # PipeWire 1.4.7 (2025-07-23)
 
 This is a bugfix release that is API and ABI compatible with
@@ -29,7 +76,6 @@ previous 1.x releases.
 ## GStreamer
   - Add some format validations.
 
-
 # PipeWire 1.4.6 (2025-06-27)
 
 This is a bugfix release that is API and ABI compatible with
@@ -60,9 +106,6 @@ previous 1.x releases.
 
 ## GStreamer
   - Fix a refcount issue in the device provider.
-
-
-Older versions:
 
 # PipeWire 1.4.5 (2025-06-04)
 

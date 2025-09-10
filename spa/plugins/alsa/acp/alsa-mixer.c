@@ -30,6 +30,16 @@
 #include "alsa-mixer.h"
 #include "alsa-util.h"
 
+/**
+ * ALSA (1/100) dB volume equal or below this is considered muted.
+ * The actual ALSA value is SND_CTL_TLV_DB_GAIN_MUTE = -9999999
+ */
+#ifdef SND_CTL_TLV_DB_GAIN_MUTE
+#define ALSA_DB_MUTED	(SND_CTL_TLV_DB_GAIN_MUTE)
+#else
+#define ALSA_DB_MUTED	(-9999999)
+#endif
+
 static int setting_select(pa_alsa_setting *s, snd_mixer_t *m);
 
 struct description_map {
@@ -1046,6 +1056,52 @@ static long decibel_fix_get_step(pa_alsa_decibel_fix *db_fix, long *db_value, in
     return i + db_fix->min_step;
 }
 
+/* Same as snd_mixer_selem_ask_playback/capture_dB_vol(), but if the result is muted,
+ * round volume up instead.
+ */
+static int element_ask_unmuted_dB_vol(snd_mixer_elem_t *me, pa_alsa_direction_t d, long value_dB, int rounding, long *alsa_val) {
+    int r = -1;
+    long val, dB, base_val;
+
+    pa_assert(me);
+
+    if (d == PA_ALSA_DIRECTION_OUTPUT) {
+        if ((r = snd_mixer_selem_ask_playback_dB_vol(me, value_dB, rounding, &val)) < 0)
+            return r;
+
+        if ((r = snd_mixer_selem_ask_playback_vol_dB(me, val, &dB)) < 0)
+            return r;
+
+        base_val = val;
+
+        if (dB <= ALSA_DB_MUTED && value_dB > ALSA_DB_MUTED)
+            if ((r = snd_mixer_selem_ask_playback_dB_vol(me, value_dB, +1, &val)) < 0)
+                return r;
+
+        *alsa_val = val;
+    } else {
+        if ((r = snd_mixer_selem_ask_capture_dB_vol(me, value_dB, rounding, &val)) < 0)
+            return r;
+
+        if ((r = snd_mixer_selem_ask_capture_vol_dB(me, val, &dB)) < 0)
+            return r;
+
+        base_val = val;
+
+        if (dB <= ALSA_DB_MUTED && value_dB > ALSA_DB_MUTED)
+            if ((r = snd_mixer_selem_ask_capture_dB_vol(me, value_dB, +1, &val)) < 0)
+                return r;
+
+        *alsa_val = val;
+    }
+
+    if (val != base_val)
+        pa_log_debug("Volume rounded to mute: %ld -> %ld (dB/100) rounding:%d, correcting vol:%ld -> %ld",
+                     value_dB, dB, rounding, base_val, val);
+
+    return r;
+}
+
 /* Alsa lib documentation says for snd_mixer_selem_set_playback_dB() direction argument,
  * that "-1 = accurate or first below, 0 = accurate, 1 = accurate or first above".
  * But even with accurate nearest dB volume step is not selected, so that is why we need
@@ -1164,17 +1220,19 @@ static int element_set_volume(pa_alsa_element *e, snd_mixer_t *m, const pa_chann
                         }
 
                     } else {
+                        long alsa_val;
+
                         if (write_to_hw) {
                             if (deferred_volume) {
                                 if ((r = element_get_nearest_alsa_dB(me, c, PA_ALSA_DIRECTION_OUTPUT, &value)) >= 0)
                                     r = snd_mixer_selem_set_playback_dB(me, c, value, 0);
                             } else {
-                                if ((r = snd_mixer_selem_set_playback_dB(me, c, value, rounding)) >= 0)
-                                    r = snd_mixer_selem_get_playback_dB(me, c, &value);
+                                if ((r = element_ask_unmuted_dB_vol(me, e->direction, value, rounding, &alsa_val)) >= 0)
+                                    if ((r = snd_mixer_selem_set_playback_volume(me, c, alsa_val)) >= 0)
+                                        r = snd_mixer_selem_get_playback_dB(me, c, &value);
                            }
                         } else {
-                            long alsa_val;
-                            if ((r = snd_mixer_selem_ask_playback_dB_vol(me, value, rounding, &alsa_val)) >= 0)
+                            if ((r = element_ask_unmuted_dB_vol(me, e->direction, value, rounding, &alsa_val)) >= 0)
                                 r = snd_mixer_selem_ask_playback_vol_dB(me, alsa_val, &value);
                         }
                     }
@@ -1192,17 +1250,19 @@ static int element_set_volume(pa_alsa_element *e, snd_mixer_t *m, const pa_chann
                         }
 
                     } else {
+                        long alsa_val;
+
                         if (write_to_hw) {
                             if (deferred_volume) {
                                 if ((r = element_get_nearest_alsa_dB(me, c, PA_ALSA_DIRECTION_INPUT, &value)) >= 0)
                                     r = snd_mixer_selem_set_capture_dB(me, c, value, 0);
                             } else {
-                                if ((r = snd_mixer_selem_set_capture_dB(me, c, value, rounding)) >= 0)
-                                    r = snd_mixer_selem_get_capture_dB(me, c, &value);
+                                if ((r = element_ask_unmuted_dB_vol(me, e->direction, value, rounding, &alsa_val)) >= 0)
+                                    if ((r = snd_mixer_selem_set_capture_volume(me, c, alsa_val)) >= 0)
+                                        r = snd_mixer_selem_ask_capture_vol_dB(me, alsa_val, &value);
                             }
                         } else {
-                            long alsa_val;
-                            if ((r = snd_mixer_selem_ask_capture_dB_vol(me, value, rounding, &alsa_val)) >= 0)
+                            if ((r = element_ask_unmuted_dB_vol(me, e->direction, value, rounding, &alsa_val)) >= 0)
                                 r = snd_mixer_selem_ask_capture_vol_dB(me, alsa_val, &value);
                         }
                     }
@@ -1398,13 +1458,18 @@ static int element_set_constant_volume(pa_alsa_element *e, snd_mixer_t *m) {
         else
             r = snd_mixer_selem_set_capture_volume_all(me, volume);
     } else {
+        int rounding = (e->direction == PA_ALSA_DIRECTION_OUTPUT) ? +1 : -1;
+
         pa_assert(e->volume_use == PA_ALSA_VOLUME_ZERO);
         pa_assert(!e->db_fix);
 
-        if (e->direction == PA_ALSA_DIRECTION_OUTPUT)
-            r = snd_mixer_selem_set_playback_dB_all(me, 0, +1);
-        else
-            r = snd_mixer_selem_set_capture_dB_all(me, 0, -1);
+        r = element_ask_unmuted_dB_vol(me, e->direction, 0, rounding, &volume);
+        if (r >= 0) {
+            if (e->direction == PA_ALSA_DIRECTION_OUTPUT)
+                r = snd_mixer_selem_set_playback_volume_all(me, volume);
+            else
+                r = snd_mixer_selem_set_capture_volume_all(me, volume);
+        }
     }
 
     if (r < 0) {
@@ -3558,9 +3623,9 @@ static bool element_is_subset(pa_alsa_element *a, pa_alsa_element *b, snd_mixer_
                 a_limit = a->constant_volume;
             else if (a->volume_use == PA_ALSA_VOLUME_ZERO) {
                 long dB = 0;
+                int rounding = (a->direction == PA_ALSA_DIRECTION_OUTPUT ? +1 : -1);
 
                 if (a->db_fix) {
-                    int rounding = (a->direction == PA_ALSA_DIRECTION_OUTPUT ? +1 : -1);
                     a_limit = decibel_fix_get_step(a->db_fix, &dB, rounding);
                 } else {
                     snd_mixer_selem_id_t *sid;
@@ -3573,13 +3638,8 @@ static bool element_is_subset(pa_alsa_element *a, pa_alsa_element *b, snd_mixer_
                         return false;
                     }
 
-                    if (a->direction == PA_ALSA_DIRECTION_OUTPUT) {
-                        if (snd_mixer_selem_ask_playback_dB_vol(me, dB, +1, &a_limit) < 0)
-                            return false;
-                    } else {
-                        if (snd_mixer_selem_ask_capture_dB_vol(me, dB, -1, &a_limit) < 0)
-                            return false;
-                    }
+                    if (element_ask_unmuted_dB_vol(me, a->direction, dB, rounding, &a_limit) < 0)
+                        return false;
                 }
             } else if (a->volume_use == PA_ALSA_VOLUME_OFF)
                 a_limit = a->min_volume;

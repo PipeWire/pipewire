@@ -134,7 +134,7 @@ enum spa_choice_type {
 	SPA_CHOICE_Range,		/**< range: default, min, max */
 	SPA_CHOICE_Step,		/**< range with step: default, min, max, step */
 	SPA_CHOICE_Enum,		/**< list: default, alternative,...  */
-	SPA_CHOICE_Flags,		/**< flags: default, possible flags,... */
+	SPA_CHOICE_Flags,		/**< flags: first value is flags */
 };
 
 struct spa_pod_choice_body {

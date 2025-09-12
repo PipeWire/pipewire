@@ -1019,8 +1019,9 @@ A choice contains an array of possible values.
                    child2 and child3, in steps of child4 in the value array.
     - Enum (3)   : child1 is a default value, options are any value from
                    the value array, preferred values come first.
-    - Flags (4)  : child1 is a default value, options are any value from
-                   the value array, preferred values come first.
+    - Flags (4)  : only child1 is a flag value. When filtering, the flags
+                   are AND-ed together.
+
 - flags: must be 0
 
 ## Pod (20)

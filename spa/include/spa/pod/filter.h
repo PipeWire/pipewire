@@ -292,7 +292,7 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 					p2 = spa_pod_object_find_prop(of, p2, p1->key);
 					if (p2 != NULL)
 						res = spa_pod_filter_prop(b, p1, p2);
-					else if ((p1->flags & SPA_POD_PROP_FLAG_MANDATORY) != 0)
+					else if (SPA_FLAG_IS_SET(p1->flags, SPA_POD_PROP_FLAG_MANDATORY))
 						res = -EINVAL;
 					else
 						spa_pod_builder_raw_padded(b, p1, SPA_POD_PROP_SIZE(p1));
@@ -305,11 +305,12 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 						p1 = spa_pod_object_find_prop(op, p1, p2->key);
 						if (p1 != NULL)
 							continue;
-						if ((p2->flags & SPA_POD_PROP_FLAG_MANDATORY) != 0)
+						if (SPA_FLAG_IS_SET(p2->flags, SPA_POD_PROP_FLAG_MANDATORY))
 							res = -EINVAL;
+						else
+							spa_pod_builder_raw_padded(b, p2, SPA_POD_PROP_SIZE(p2));
 						if (res < 0)
 							break;
-						spa_pod_builder_raw_padded(b, p2, SPA_POD_PROP_SIZE(p2));
 					}
 				}
 				spa_pod_builder_pop(b, &f);

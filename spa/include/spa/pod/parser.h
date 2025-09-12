@@ -800,13 +800,19 @@ SPA_API_POD_PARSER int spa_pod_parser_getv(struct spa_pod_parser *parser, va_lis
 		struct spa_pod_prop prop;
 
 		if (f->pod.type == SPA_TYPE_Object) {
-			uint32_t key = va_arg(args, uint32_t);
+			uint32_t key = va_arg(args, uint32_t), *flags = NULL;
 
 			if (key == 0)
 				break;
-
-			if (spa_pod_parser_object_find_prop(parser, key, &prop, &body) >= 0)
+			if (key == SPA_ID_INVALID) {
+				key = va_arg(args, uint32_t);
+				flags = va_arg(args, uint32_t*);
+			}
+			if (spa_pod_parser_object_find_prop(parser, key, &prop, &body) >= 0) {
 				pod = prop.value;
+				if (flags)
+					*flags = prop.flags;
+			}
 		}
 
 		if ((format = va_arg(args, char *)) == NULL)

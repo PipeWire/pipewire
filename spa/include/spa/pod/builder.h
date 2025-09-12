@@ -625,10 +625,14 @@ spa_pod_builder_addv(struct spa_pod_builder *builder, va_list args)
 		switch (ftype) {
 		case SPA_TYPE_Object:
 		{
-			uint32_t key = va_arg(args, uint32_t);
+			uint32_t key = va_arg(args, uint32_t), flags = 0;
 			if (key == 0)
 				goto exit;
-			spa_pod_builder_prop(builder, key, 0);
+			if (key == SPA_ID_INVALID) {
+				key = va_arg(args, uint32_t);
+				flags = va_arg(args, uint32_t);
+			}
+			spa_pod_builder_prop(builder, key, flags);
 			break;
 		}
 		case SPA_TYPE_Sequence:

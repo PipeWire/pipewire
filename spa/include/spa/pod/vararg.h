@@ -20,6 +20,8 @@ extern "C" {
 
 #define SPA_POD_Prop(key,...)				\
 	key, ##__VA_ARGS__
+#define SPA_POD_Propf(key,flags,...)			\
+	SPA_ID_INVALID, key, flags, ##__VA_ARGS__
 
 #define SPA_POD_Control(offset,type,...)		\
 	offset, type, ##__VA_ARGS__

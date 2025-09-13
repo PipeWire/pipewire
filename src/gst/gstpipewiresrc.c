@@ -1162,7 +1162,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   GST_DEBUG_OBJECT (basesrc, "connect capture with path %s, target-object %s",
                     pwsrc->stream->path, pwsrc->stream->target_object);
 
-  pwsrc->possible_caps = gst_caps_ref (possible_caps);
+  gst_caps_replace (&pwsrc->possible_caps, possible_caps);
   pwsrc->negotiated = FALSE;
 
   enum pw_stream_flags flags;

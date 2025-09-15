@@ -614,10 +614,11 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	struct spa_pod_builder b;
 	uint32_t n_params, min_samples, max_samples;
 	float min_ptime, max_ptime;
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[3];
 	enum pw_stream_flags flags;
 	float latency_msec;
 	int res;
+	bool process_latency_from_sess;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL) {
@@ -901,6 +902,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		pw_properties_set(props, "rtp.ts-refclk", str);
 	}
 
+	process_latency_from_sess = pw_properties_get_bool(props, "process.latency.from.sess", false);
+
 	spa_dll_init(&impl->dll);
 	spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
 	impl->corr = 1.0;
@@ -941,6 +944,33 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	default:
 		res = -EINVAL;
 		goto out;
+	}
+
+	if (process_latency_from_sess) {
+		/* If process.latency.from.sess is set to true, then the sess.latency.msec
+		 * quantity is to be set as the process latency at startup. But since the
+		 * sess.latency.msec value is converted to impl->target_buffer, and that
+		 * quantity in turn is subjected to constraint checks (see above), it is
+		 * possible that the _actual_ session latency no longer equals the value
+		 * of sess.latency.msec by the time this location is reached. To take into
+		 * account these constraint adjustments, convert back the impl->target_buffer
+		 * to nanoseconds, and use that as the process latency.
+		 *
+		 * Then, just like how update_latency_params() does it, construct the
+		 * SPA_PARAM_Latency and SPA_PARAM_ProcessLatency params to let the new
+		 * pw_stream know of these latency figures right from the start. */
+
+		struct spa_latency_info latency;
+
+		impl->process_latency.ns = (int64_t)(impl->target_buffer * 1e9 / impl->rate);
+		pw_log_debug("set process latency to %" PRId64 " based on sess.latency.msec "
+			"value %f", impl->process_latency.ns, latency_msec);
+
+		latency = SPA_LATENCY_INFO(impl->direction);
+		spa_process_latency_info_add(&(impl->process_latency), &latency);
+		params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
+		params[n_params++] = spa_process_latency_build(&b, SPA_PARAM_ProcessLatency,
+								&(impl->process_latency));
 	}
 
 	pw_stream_add_listener(impl->stream,

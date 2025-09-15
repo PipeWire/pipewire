@@ -14,7 +14,7 @@ node and device statistics.
 A hierarchical view is shown of Driver nodes and follower nodes. The
 Driver nodes are actively using a timer to schedule dataflow in the
 followers. The followers of a driver node as shown below their driver
-with a + sign in a tree-like representation.
+with a + sign (or = for async nodes) in a tree-like representation.
 
 The columns presented are as follows:
 
@@ -173,8 +173,8 @@ For Video formats, the layout is \<pixelformat\>
 \parblock
 Name assigned to the device/node, as found in *pw-dump* node.name
 
-Names are prefixed by *+* when they are linked to a driver (entry
-above with no +)
+Names are prefixed by *+*/*=* when they are linked to a driver (entry
+above with no +/=)
 \endparblock
 
 # COMMANDS

@@ -298,7 +298,8 @@ static void context_do_profile(void *data)
 			SPA_POD_Long(n->async ? na->prev_finish_time : na->finish_time),
 			SPA_POD_Int(na->status),
 			SPA_POD_Fraction(&latency),
-			SPA_POD_Int(na->xrun_count));
+			SPA_POD_Int(na->xrun_count),
+			SPA_POD_Bool(n->async));
 
 		if (n->driver) {
 			spa_pod_builder_prop(&b, SPA_PROFILER_followerClock, 0);

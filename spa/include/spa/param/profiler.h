@@ -66,7 +66,8 @@ enum spa_profiler {
 							  *      Long : finish,
 							  *      Int : status,
 							  *      Fraction : latency,
-							  *      Int : xrun_count))  */
+							  *      Int : xrun_count))
+							  *      Bool : async))  */
 	SPA_PROFILER_followerClock,			/**< follower clock information
 							  *  (Struct(
 							  *      Int : clock id,

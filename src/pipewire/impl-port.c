@@ -1679,7 +1679,7 @@ int pw_impl_port_for_each_link(struct pw_impl_port *port,
 int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 {
 	struct pw_impl_link *l;
-	struct spa_latency_info latency, *current;
+	struct spa_latency_info latency, *current, other_latency;
 	struct pw_impl_port *other;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
@@ -1702,7 +1702,14 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 						port->info.id, other->info.id);
 				continue;
 			}
-			spa_latency_info_combine(&latency, &other->latency[other->direction]);
+			other_latency = other->latency[other->direction];
+			if (l->async && other->node->driver_node != port->node) {
+				/* we add 1 cycle delay from async links */
+				other_latency.min_quantum++;
+				other_latency.max_quantum++;
+			}
+			spa_latency_info_combine(&latency, &other_latency);
+
 			pw_log_debug("port %d: peer %d: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 					port->info.id, other->info.id,
 					latency.min_quantum, latency.max_quantum,
@@ -1718,7 +1725,15 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 						port->info.id, other->info.id);
 				continue;
 			}
-			spa_latency_info_combine(&latency, &other->latency[other->direction]);
+			other_latency = other->latency[other->direction];
+			if (l->async && other->node != port->node->driver_node) {
+				/* we only add 1 cycle delay for async links that
+				 * are not from our driver */
+				other_latency.min_quantum++;
+				other_latency.max_quantum++;
+			}
+			spa_latency_info_combine(&latency, &other_latency);
+
 			pw_log_debug("port %d: peer %d: latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 					port->info.id, other->info.id,
 					latency.min_quantum, latency.max_quantum,

@@ -152,6 +152,7 @@ will then:
  - Check the previous cycle. Did it complete? Mark xrun on unfinished nodes.
  - Perform reposition requests if any, timebase changes, etc..
  - The pending counter of each follower node is set to the required field.
+ - Update the cycle counter in the driver activation io.
  - It then loops over all targets of the driver and atomically decrements the required
    field of the activation record. When the required field is 0, the eventfd is signaled
    and the node can be scheduled.
@@ -186,6 +187,118 @@ fields from all the nodes in the target list of the driver are now 0.
 
 The driver calculates some stats about cpu time etc.
 
+# Async scheduling
+
+When a node has the node.async property set to true, it will be considered an async
+node and will be scheduled differently.
+
+Async nodes don't increment the pending counter of their peers and the upstream peers
+also don't increment the async node pending counters. Only the driver increments the
+pending counter to the async node.
+
+This means that the async nodes do not depend on any other node and also are not a
+dependency for other nodes. This also means that the async nodes can be scheduled as
+soon as the driver has started the graph.
+
+The completion of the async node does not influence the completion of the graph in
+any way and async nodes are therefor interesting is real-time performance can not
+be guaranteed, for example when the processing threads are not running in a real-time
+priority.
+
+A link between a port of an async node and another port (async or not) is called an
+async link and will have the link.async=true property.
+
+Because async nodes then run concurrently with other nodes, a method must be in place
+to avoid concurrent access to buffer data. This is done by sending a spa_io_async_buffers
+io to the (mixer) ports of an async link. The spa_io_async_buffers has 2 spa_io_buffer
+slots.
+
+The driver will increment a cycle counter for each cycle that it starts. Output ports
+will write to the spa_io_async_buffers (cycle+1)&1 slot and input ports will read from
+(cycle&1) slots. This way the async node will always consume the output of the previous
+cycle and will provide data for the next cycle. They will therefore always add 1 cycle
+of latency in the graph.
+
+A special exception is made for the output ports of the driver node. When the driver is
+started, the output port buffers are copied to the previous cycle spa_io_buffer slot.
+This way, the async nodes will immediately pick up the new data from the driver source.
+
+Because there are 2 buffers in flight on the spa_io_async_buffers io area, the link needs
+to negotiate at least 2 buffers for this to work.
+
+
+## Example
+
+A, B, C are async nodes and have async links between their ports. The async
+link has the spa_io_async_buffers with 2 slots (named 0 and 1) below. All the
+slots are empty.
+
+   +--------+          +-------+          +-------+
+   | A      |          |  B    |          |    C  |
+   |        0 -(   )-> 0       0 -(   )-> 0       |
+   |        1  (   )   1       1  (   )   1       |
+   +--------+          +-------+          +-------+
+
+
+cycle 0: A produces a buffer AB0 on the output port in the (cycle+1)&1 slot (1).
+         B consumes slot cycle&1 (0) with the empty buffer and produces BC0 in slot 1
+         C consumes slot cycle&1 (0) with the empty buffer
+
+   +--------+          +-------+          +-------+
+   | A      |          |  B    |          |    C  |
+   |  (AB0) 0 -(   )-> 0 (   ) 0 -(   )-> 0 (   ) |
+   |        1  (AB0)   1       1  (BC0)   1       |
+   +--------+          +-------+          +-------+
+
+
+cycle 1: A produces a buffer AB1 on the output port in the (cycle+1)&1 slot (0).
+         B consumes slot cycle&1 (1) with buffer AB0 and produces BC1 in slot 0
+         C consumes slot cycle&1 (1) with buffer BC0
+
+   +--------+          +-------+          +-------+
+   | A      |          |  B    |          |    C  |
+   |  (AB1) 0 -(AB1)-> 0 (AB0) 0 -(BC1)-> 0 (BC0) |
+   |        1  (AB0)   1       1  (BC0)   1       |
+   +--------+          +-------+          +-------+
+
+cycle 2: A produces a buffer AB2 on the output port in the (cycle+1)&1 slot (1).
+         B consumes slot cycle&1 (0) with buffer AB1 and produces BC2 in slot 1
+         C consumes slot cycle&1 (0) with buffer BC1
+
+   +--------+          +-------+          +-------+
+   | A      |          |  B    |          |    C  |
+   |  (AB2) 0 -(AB1)-> 0 (AB1) 0 -(BC1)-> 0 (BC1) |
+   |        1  (AB2)   1       1  (BC2)   1       |
+   +--------+          +-------+          +-------+
+
+Each async link adds 1 cycle of latency to the chain. Notice how AB0 from cycle 0,
+produces BC1 in cycle 1, which arrives in node C at cycle 2.
+
+## Latency reporting
+
+Because the latency is really introduced by the links, the additional cycle of
+latency is added when the SPA_PARAM_Latency is copied between the output and
+input ports of a link.
+
+It is possible for a sync node A to be linked to another sync node D and an
+async node B:
+
+   +--------+          +-------+
+   | A      |          |  B    |
+   |  (AB1) 0 -(AB1)-> 0 (AB0) 0 ...
+   |        1 \(AB0)   1       1
+   +--------+  \       +-------+
+                \
+                 \          +-------+
+                  \         |  D    |
+                   -(AB1)-> 0 (AB1) |
+                            |       |
+                            +-------+
+
+The Output latency on A's output port is what A reports. When it copied to the
+input port of B, 1 cycle is added and when it is copied to D, nothing is added.
+
+
 # Remote nodes.
 
 For remote nodes, the eventfd and the activation is transferred from the server
@@ -206,7 +319,8 @@ After they complete (and only when the profiler is active), they will trigger an
 extra eventfd to signal the server that the graph completed. This is used by the
 server to generate the profiler info.
 
-## Lazy scheduling
+
+# Lazy scheduling
 
 Normally, a driver will wake up the graph and all the followers need to process
 the data in sync. There are cases where:

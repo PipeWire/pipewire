@@ -1022,6 +1022,7 @@ struct pw_impl_link {
 
 	void *user_data;
 
+	unsigned int async:1;
 	unsigned int registered:1;
 	unsigned int feedback:1;
 	unsigned int preparing:1;

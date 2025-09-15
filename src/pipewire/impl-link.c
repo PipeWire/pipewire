@@ -52,8 +52,6 @@ struct impl {
 	struct pw_properties *properties;
 
 	struct spa_io_buffers io[2];
-
-	bool async;
 };
 
 /** \endcond */
@@ -799,7 +797,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 		!impl->input.node->runnable || !impl->output.node->runnable)
 		return 0;
 
-	if (impl->async) {
+	if (this->async) {
 		io_type = SPA_IO_AsyncBuffers;
 		io_size = sizeof(struct spa_io_async_buffers);
 	} else {
@@ -1200,16 +1198,29 @@ static void node_active_changed(void *data, bool active)
 	pw_impl_link_prepare(&impl->this);
 }
 
+static void node_driver_changed(void *data, struct pw_impl_node *old, struct pw_impl_node *driver)
+{
+	struct impl *impl = data;
+	if (impl->this.async) {
+		/* for async links, input and output port latency depends on if the
+		 * output node is directly driving the input node. */
+		pw_impl_port_recalc_latency(impl->output.port);
+		pw_impl_port_recalc_latency(impl->input.port);
+	}
+}
+
 static const struct pw_impl_node_events input_node_events = {
 	PW_VERSION_IMPL_NODE_EVENTS,
 	.result = input_node_result,
 	.active_changed = node_active_changed,
+	.driver_changed = node_driver_changed,
 };
 
 static const struct pw_impl_node_events output_node_events = {
 	PW_VERSION_IMPL_NODE_EVENTS,
 	.result = output_node_result,
 	.active_changed = node_active_changed,
+	.driver_changed = node_driver_changed,
 };
 
 static bool pw_impl_node_can_reach(struct pw_impl_node *output, struct pw_impl_node *input, int hop)
@@ -1496,11 +1507,11 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	if (this->passive && str == NULL)
 		 pw_properties_set(properties, PW_KEY_LINK_PASSIVE, "true");
 
-	impl->async = (output_node->async || input_node->async) &&
+	this->async = (output_node->async || input_node->async) &&
 		SPA_FLAG_IS_SET(output->flags, PW_IMPL_PORT_FLAG_ASYNC) &&
 		SPA_FLAG_IS_SET(input->flags, PW_IMPL_PORT_FLAG_ASYNC);
 
-	if (impl->async)
+	if (this->async)
 		 pw_properties_set(properties, PW_KEY_LINK_ASYNC, "true");
 
 	spa_hook_list_init(&this->listener_list);
@@ -1551,7 +1562,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	pw_log_info("(%s) (%s) -> (%s) async:%d:%d:%d:%04x:%04x:%d", this->name, output_node->name,
 			input_node->name, output_node->driving,
 			output_node->async, input_node->async,
-			output->flags, input->flags, impl->async);
+			output->flags, input->flags, this->async);
 
 	pw_impl_port_emit_link_added(output, this);
 	pw_impl_port_emit_link_added(input, this);

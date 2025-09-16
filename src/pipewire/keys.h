@@ -245,6 +245,7 @@ extern "C" {
 #define PW_KEY_PORT_PASSIVE		"port.passive"		/**< the ports wants passive links, since 0.3.67 */
 #define PW_KEY_PORT_IGNORE_LATENCY	"port.ignore-latency"	/**< latency ignored by peers, since 0.3.71 */
 #define PW_KEY_PORT_GROUP		"port.group"		/**< the port group of the port 1.2.0 */
+#define PW_KEY_PORT_EXCLUSIVE		"port.exclusive"	/**< link port only once 1.6.0 */
 
 /** link properties */
 #define PW_KEY_LINK_ID			"link.id"		/**< a link id */

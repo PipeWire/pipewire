@@ -370,6 +370,9 @@ int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mi
 	uint32_t port_id;
 	int res = 0;
 
+	if (port->exclusive && port->n_mix != 0)
+		return -EBUSY;
+
 	port_id = pw_map_insert_new(&port->mix_port_map, mix);
 	if (port_id == SPA_ID_INVALID)
 		return -errno;
@@ -1236,6 +1239,7 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 	is_monitor = pw_properties_get_bool(port->properties, PW_KEY_PORT_MONITOR, false);
 
 	port->ignore_latency = pw_properties_get_bool(port->properties, PW_KEY_PORT_IGNORE_LATENCY, false);
+	port->exclusive = pw_properties_get_bool(port->properties, PW_KEY_PORT_EXCLUSIVE, node->exclusive);
 
 	is_control = PW_IMPL_PORT_IS_CONTROL(port);
 	if (is_control) {

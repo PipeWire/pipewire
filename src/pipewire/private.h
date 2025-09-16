@@ -782,6 +782,7 @@ struct pw_impl_node {
 	unsigned int sync:1;		/**< the sync-groups are active */
 	unsigned int async:1;		/**< async processing, one cycle latency */
 	unsigned int lazy:1;		/**< the graph is lazy scheduling */
+	unsigned int exclusive:1;	/**< ports can only be linked once */
 
 	uint32_t transport;		/**< latest transport request */
 
@@ -964,6 +965,7 @@ struct pw_impl_port {
 	unsigned int have_latency_param:1;
 	unsigned int ignore_latency:1;
 	unsigned int have_latency:1;
+	unsigned int exclusive:1;		/**< port can only be linked once */
 
 	unsigned int have_tag_param:1;
 	struct spa_pod *tag[2];			/**< tags */

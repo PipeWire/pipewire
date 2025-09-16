@@ -272,7 +272,6 @@ struct impl {
 	bool mute;
 	float volume;
 
-	struct spa_latency_info latency_info;
 	struct spa_process_latency_info process_latency;
 
 	struct spa_ringbuffer ring;
@@ -856,7 +855,7 @@ static uint32_t msec_to_samples(struct impl *impl, uint32_t msec)
 static void update_latency(struct impl *impl)
 {
 	uint32_t n_params = 0;
-	const struct spa_pod *params[3];
+	const struct spa_pod *params[2];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct spa_latency_info latency;
@@ -867,7 +866,6 @@ static void update_latency(struct impl *impl)
 
 	spa_process_latency_info_add(&impl->process_latency, &latency);
 	params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &latency);
-	params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &impl->latency_info);
 	params[n_params++] = spa_process_latency_build(&b, SPA_PARAM_ProcessLatency, &impl->process_latency);
 	rtp_stream_update_params(impl->stream, params, n_params);
 }
@@ -1670,18 +1668,6 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 	rtp_stream_set_param(impl->stream, id, param);
 }
 
-static void param_latency_changed(struct impl *impl, const struct spa_pod *param)
-{
-	struct spa_latency_info latency;
-
-	if (param == NULL || spa_latency_parse(param, &latency) < 0)
-		return;
-	if (latency.direction == SPA_DIRECTION_OUTPUT)
-		impl->latency_info = latency;
-
-	update_latency(impl);
-}
-
 static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param)
 {
 	struct spa_process_latency_info info;
@@ -1710,9 +1696,6 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	case SPA_PARAM_Props:
 		if (param != NULL)
 			stream_props_changed(impl, id, param);
-		break;
-	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param);
 		break;
 	case SPA_PARAM_ProcessLatency:
 		param_process_latency_changed(impl, param);
@@ -1845,8 +1828,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->module = module;
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
-
-	impl->latency_info = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	ip = pw_properties_get(props, "raop.ip");
 	port = pw_properties_get(props, "raop.port");
@@ -2009,6 +1990,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error("can't create raop stream: %m");
 		goto error;
 	}
+	update_latency(impl);
 
 	impl->headers = pw_properties_new(NULL, NULL);
 

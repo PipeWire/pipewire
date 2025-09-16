@@ -294,7 +294,7 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 						res = spa_pod_filter_prop(b, p1, p2);
 					else if (SPA_FLAG_IS_SET(p1->flags, SPA_POD_PROP_FLAG_MANDATORY))
 						res = -EINVAL;
-					else
+					else if (!SPA_FLAG_IS_SET(p1->flags, SPA_POD_PROP_FLAG_DROP))
 						spa_pod_builder_raw_padded(b, p1, SPA_POD_PROP_SIZE(p1));
 					if (res < 0)
 						break;
@@ -307,7 +307,7 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 							continue;
 						if (SPA_FLAG_IS_SET(p2->flags, SPA_POD_PROP_FLAG_MANDATORY))
 							res = -EINVAL;
-						else
+						else if (!SPA_FLAG_IS_SET(p2->flags, SPA_POD_PROP_FLAG_DROP))
 							spa_pod_builder_raw_padded(b, p2, SPA_POD_PROP_SIZE(p2));
 						if (res < 0)
 							break;

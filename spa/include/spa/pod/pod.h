@@ -201,8 +201,11 @@ struct spa_pod_prop {
 							 *	  Int : n_items,
 							 *	  (String : key,
 							 *	   String : value)*)) */
-#define SPA_POD_PROP_FLAG_MANDATORY	(1u<<3)		/**< is mandatory */
+#define SPA_POD_PROP_FLAG_MANDATORY	(1u<<3)		/**< is mandatory, when filtering, both sides
+							  *  need this property or filtering fails. */
 #define SPA_POD_PROP_FLAG_DONT_FIXATE	(1u<<4)		/**< choices need no fixation */
+#define SPA_POD_PROP_FLAG_DROP		(1u<<5)		/**< drop property, when filtering, both sides
+                                                          *  need the property or it will be dropped. */
 	uint32_t flags;			/**< flags for property */
 	struct spa_pod value;
 	/* value follows */

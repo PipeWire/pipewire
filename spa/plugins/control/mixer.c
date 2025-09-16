@@ -679,8 +679,8 @@ static inline int event_sort(struct spa_pod_control *a, const void *abody,
 		const uint32_t *da = abody, *db = bbody;
 		if (SPA_POD_BODY_SIZE(&a->value) < 4 || SPA_POD_BODY_SIZE(&b->value) < 4)
 			return 0;
-		if ((da[0] >> 28) != 2 || (da[0] >> 28) != 4 ||
-		    (db[0] >> 28) != 2 || (db[0] >> 28) != 4)
+		if (((da[0] >> 28) != 2 && (da[0] >> 28) != 4) ||
+		    ((db[0] >> 28) != 2 && (db[0] >> 28) != 4))
 			return 0;
 		return event_compare(da[0] >> 16, db[0] >> 16);
 	}

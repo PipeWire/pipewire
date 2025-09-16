@@ -355,7 +355,7 @@ PWTEST(logger_debug_env_invalid)
 
 	fsync(STDERR_FILENO);
 	lseek(fd, SEEK_SET, 0);
-	while ((rc = read(fd, buf, sizeof(buf) - 1) > 0)) {
+	while ((rc = read(fd, buf, sizeof(buf) - 1)) > 0) {
 		if (strstr(buf, "Ignoring invalid format in log level")) {
 		    error_message_found = true;
 		    break;

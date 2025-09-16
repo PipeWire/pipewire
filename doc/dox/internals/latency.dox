@@ -100,6 +100,20 @@ When the ProcessLatency changes, the procedure to notify of latency changes is:
 PipeWire will automatically aggregate latency from links and propagate the new latencies
 down and upstream.
 
+# Async nodes
+
+When a node has the node.async property set to true, it will be considered an async
+node and will be scheduled differently, see scheduling.dox.
+
+A link between a port of an async node and another port (async or not) is called an
+async link and will have the link.async=true property.
+
+An async link will add 1 quantum of latency between the nodes it links. A special
+exception is made for the output ports of the driver node, which do not add latency.
+
+The Latency param will be updated with 1 extra quantum when they travel over an async
+link.
+
 # Examples
 
 ## A source node with a given ProcessLatency
@@ -239,5 +253,30 @@ depending on the path in the graph.
 We also see that node.FL has different min/max-rate input latencies. This information can be
 used to insert a delay node to align the latencies again. For example, if we delay the signal
 between node.FL and FL.sink with 1536 samples, the latencies will be aligned again.
+
+## An async output stream and sink node linked together
+
+The sink has 1 quantum of Input latency. The stream has no output latency. When the Input latency
+travels over the async link 1 quantum of latency is added and the Input latency on the stream is
+now 2 quanta. Similar for the stream Output latency that receives an additional 1 quantum of
+latency when it arrives in the sink over the async link.
+
+```
+      Latency: [{ "direction": "output", "min-quantum": 0, "max-quantum": 0 } ]
+      Latency: [{ "direction": "input", "min-quantum": 2, "max-quantum": 2 } ]
+               ^
+               |         Latency: [{ "direction": "output", "min-quantum": 1, "max-quantum": 1 } ]
+               |         Latency: [{ "direction": "input", "min-quantum": 1, "max-quantum": 1 } ]
+               |              |
+   +----------+v              v+--------+
+   | async    FL ------------ FL        |
+   | stream   +                | sink   |
+   |          FR --+          FR        |
+   +----------+    |           +--------+
+                   v
+      Latency: [{ "direction": "output", "min-quantum": 0, "max-quantum": 0 } ]
+      Latency: [{ "direction": "input", "min-quantum": 0, "max-quantum": 0 } ]
+```
+
 
 */

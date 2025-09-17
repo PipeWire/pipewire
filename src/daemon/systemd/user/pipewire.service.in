@@ -20,7 +20,6 @@ ConditionUser=!root
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
-RestrictNamespaces=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service mincore
 Type=simple

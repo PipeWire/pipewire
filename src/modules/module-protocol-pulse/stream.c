@@ -40,6 +40,23 @@ static int parse_frac(struct pw_properties *props, const char *key,
 	return 0;
 }
 
+void create_stream_timeout(void *user_data, uint64_t expirations) {
+	struct stream *stream = user_data;
+
+	if (stream->create_tag != SPA_ID_INVALID) {
+		pw_log_warn("[%s] timeout on stream %p channel:%d", stream->client->name, stream, stream->channel);
+
+		/* Don't try to signal anything to the client, it's already killed the stream on its end */
+		stream->drain_tag = 0;
+		stream->killed = false;
+
+		stream_free(stream);
+	} else {
+		pw_loop_destroy_source(stream->impl->main_loop, stream->timer);
+		stream->timer = NULL;
+	}
+}
+
 struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,
 			  const struct sample_spec *ss, const struct channel_map *map,
 			  const struct buffer_attr *attr)
@@ -89,6 +106,12 @@ struct stream *stream_new(struct client *client, enum stream_type type, uint32_t
 		spa_assert_not_reached();
 	}
 
+	/* Time out if we don't get a link and can't send a reply to create in 35s. Client will time out in
+	 * 30s and clean up its stream anyway. */
+	struct timespec create_timeout = { .tv_sec = 35, .tv_nsec = 0 };
+	stream->timer = pw_loop_add_timer(stream->impl->main_loop, create_stream_timeout, stream);
+	pw_loop_update_timer(stream->impl->main_loop, stream->timer, &create_timeout, NULL, false);
+
 	return stream;
 
 error_errno:
@@ -105,6 +128,11 @@ void stream_free(struct stream *stream)
 	struct impl *impl = client->impl;
 
 	pw_log_debug("client %p: stream %p channel:%d", client, stream, stream->channel);
+
+	if (stream->timer) {
+		pw_loop_destroy_source(stream->impl->main_loop, stream->timer);
+		stream->timer = NULL;
+	}
 
 	if (stream->drain_tag)
 		reply_error(client, -1, stream->drain_tag, -ENOENT);

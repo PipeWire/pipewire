@@ -40,7 +40,8 @@ static int parse_frac(struct pw_properties *props, const char *key,
 	return 0;
 }
 
-void create_stream_timeout(void *user_data, uint64_t expirations) {
+static void create_stream_timeout(void *user_data, uint64_t expirations)
+{
 	struct stream *stream = user_data;
 
 	if (stream->create_tag != SPA_ID_INVALID) {

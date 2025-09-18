@@ -800,6 +800,12 @@ struct pw_impl_port *pw_context_create_port(
 	spa_list_init(&this->control_list[1]);
 
 	spa_hook_list_init(&this->listener_list);
+	spa_hook_list_init(&impl->mix_hooks);
+
+	pw_map_init(&this->mix_port_map, 64, 64);
+
+	this->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+	this->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	if (this->direction == PW_DIRECTION_INPUT)
 		mix_methods = &schedule_mix_node;
@@ -810,14 +816,8 @@ struct pw_impl_port *pw_context_create_port(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
 			mix_methods, impl);
-	spa_hook_list_init(&impl->mix_hooks);
 
 	pw_impl_port_set_mix(this, NULL, 0);
-
-	pw_map_init(&this->mix_port_map, 64, 64);
-
-	this->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
-	this->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
 	if (info)
 		update_info(this, info);

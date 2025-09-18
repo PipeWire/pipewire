@@ -144,6 +144,9 @@ void pw_context_release_loop(struct pw_context *context, struct pw_loop *loop);
 /** Get the work queue from the context: Since 0.3.26 */
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context);
 
+/** Get the timer queue from the context: Since 1.6.0 */
+struct pw_timer_queue *pw_context_get_timer_queue(struct pw_context *context);
+
 /** Get the memory pool from the context: Since 0.3.74 */
 struct pw_mempool *pw_context_get_mempool(struct pw_context *context);
 

@@ -69,6 +69,7 @@ PW_LOG_TOPIC(log_proxy, "pw.proxy");
 PW_LOG_TOPIC(log_resource, "pw.resource");
 PW_LOG_TOPIC(log_stream, "pw.stream");
 PW_LOG_TOPIC(log_thread_loop, "pw.thread-loop");
+PW_LOG_TOPIC(log_timer_queue, "pw.timer-queue");
 PW_LOG_TOPIC(log_work_queue, "pw.work-queue");
 
 PW_LOG_TOPIC(PW_LOG_TOPIC_DEFAULT, "default");

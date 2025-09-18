@@ -580,6 +580,8 @@ void pw_context_destroy(struct pw_context *context)
 
 	if (context->work_queue)
 		pw_work_queue_destroy(context->work_queue);
+	if (context->timer_queue)
+		pw_timer_queue_destroy(context->timer_queue);
 
 	pw_properties_free(context->properties);
 	pw_properties_free(context->conf);
@@ -748,6 +750,14 @@ SPA_EXPORT
 struct pw_work_queue *pw_context_get_work_queue(struct pw_context *context)
 {
 	return context->work_queue;
+}
+
+SPA_EXPORT
+struct pw_timer_queue *pw_context_get_timer_queue(struct pw_context *context)
+{
+	if (context->timer_queue == NULL)
+		context->timer_queue =  pw_timer_queue_new(context->main_loop);
+	return context->timer_queue;
 }
 
 SPA_EXPORT

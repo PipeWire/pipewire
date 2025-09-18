@@ -37,6 +37,7 @@ extern "C" {
 #include <pipewire/filter.h>
 #include <pipewire/thread-loop.h>
 #include <pipewire/data-loop.h>
+#include <pipewire/timer-queue.h>
 #include <pipewire/type.h>
 #include <pipewire/utils.h>
 #include <pipewire/version.h>

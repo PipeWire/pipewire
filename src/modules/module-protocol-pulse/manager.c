@@ -27,6 +27,7 @@ struct manager {
 	struct pw_manager this;
 
 	struct pw_loop *loop;
+	struct pw_timer_queue *timer_queue;
 
 	struct spa_hook core_listener;
 	struct spa_hook registry_listener;
@@ -48,7 +49,7 @@ struct object_data {
 	struct object *object;
 	const char *key;
 	size_t size;
-	struct spa_source *timer;
+	struct pw_timer timer;
 };
 
 struct object {
@@ -178,10 +179,7 @@ static void object_reset_params(struct object *o)
 static void object_data_free(struct object_data *d)
 {
 	spa_list_remove(&d->link);
-	if (d->timer) {
-		pw_loop_destroy_source(d->object->manager->loop, d->timer);
-		d->timer = NULL;
-	}
+	pw_timer_queue_cancel(&d->timer);
 	free(d);
 }
 
@@ -752,6 +750,7 @@ struct pw_manager *pw_manager_new(struct pw_core *core)
 
 	context = pw_core_get_context(core);
 	m->loop = pw_context_get_main_loop(context);
+	m->timer_queue = pw_context_get_timer_queue(context);
 
 	spa_hook_list_init(&m->hooks);
 
@@ -888,7 +887,7 @@ done:
 	return SPA_PTROFF(d, sizeof(struct object_data), void);
 }
 
-static void object_data_timeout(void *data, uint64_t count)
+static void object_data_timeout(void *data)
 {
 	struct object_data *d = data;
 	struct object *o = d->object;
@@ -896,11 +895,6 @@ static void object_data_timeout(void *data, uint64_t count)
 
 	pw_log_debug("manager:%p object id:%d data '%s' lifetime ends",
 			m, o->this.id, d->key);
-
-	if (d->timer) {
-		pw_loop_destroy_source(m->loop, d->timer);
-		d->timer = NULL;
-	}
 
 	manager_emit_object_data_timeout(m, &o->this, d->key);
 }
@@ -911,7 +905,6 @@ void *pw_manager_object_add_temporary_data(struct pw_manager_object *obj, const 
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
 	struct object_data *d;
 	void *data;
-	struct timespec timeout = {0}, interval = {0};
 
 	data = pw_manager_object_add_data(obj, key, size);
 	if (data == NULL)
@@ -919,14 +912,8 @@ void *pw_manager_object_add_temporary_data(struct pw_manager_object *obj, const 
 
 	d = SPA_PTROFF(data, -sizeof(struct object_data), void);
 
-	if (d->timer == NULL)
-		d->timer = pw_loop_add_timer(o->manager->loop, object_data_timeout, d);
-	if (d->timer == NULL)
-		return NULL;
-
-	timeout.tv_sec = lifetime_nsec / SPA_NSEC_PER_SEC;
-	timeout.tv_nsec = lifetime_nsec % SPA_NSEC_PER_SEC;
-	pw_loop_update_timer(o->manager->loop, d->timer, &timeout, &interval, false);
+	pw_timer_queue_add(o->manager->timer_queue, &d->timer, NULL,
+			lifetime_nsec, object_data_timeout, d);
 
 	return data;
 }

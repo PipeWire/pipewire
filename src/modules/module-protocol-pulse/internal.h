@@ -59,6 +59,7 @@ struct impl {
 	struct spa_hook_list hooks;
 	struct spa_list servers;
 
+	struct pw_timer_queue *timer_queue;
 	struct pw_work_queue *work_queue;
 	struct spa_list cleanup_clients;
 

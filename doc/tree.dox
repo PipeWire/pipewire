@@ -43,6 +43,7 @@ This determines the ordering of items in Doxygen sidebar.
 \addtogroup pw_protocol
 \addtogroup pw_resource
 \addtogroup pw_thread_loop
+\addtogroup pw_timer_queue
 \addtogroup pw_work_queue
 \}
 

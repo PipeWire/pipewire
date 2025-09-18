@@ -405,6 +405,7 @@ struct pw_context {
 	struct spa_thread_utils *thread_utils;
 	struct pw_loop *main_loop;		/**< main loop for control */
 	struct pw_work_queue *work_queue;	/**< work queue */
+	struct pw_timer_queue *timer_queue;	/**< timer queue */
 
 	struct spa_support support[16];	/**< support for spa plugins */
 	uint32_t n_support;		/**< number of support items */

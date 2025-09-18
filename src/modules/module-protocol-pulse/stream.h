@@ -106,6 +106,7 @@ struct stream {
 struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,
 			  const struct sample_spec *ss, const struct channel_map *map,
 			  const struct buffer_attr *attr);
+void stream_created(struct stream *stream);
 void stream_free(struct stream *stream);
 void stream_flush(struct stream *stream);
 uint32_t stream_pop_missing(struct stream *stream);

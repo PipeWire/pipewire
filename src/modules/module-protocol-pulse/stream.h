@@ -50,7 +50,7 @@ struct stream {
 
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
-	struct spa_source *timer;
+	struct pw_timer timer;
 
 	struct spa_io_position *position;
 	struct spa_ringbuffer ring;

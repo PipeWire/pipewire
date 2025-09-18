@@ -5524,6 +5524,7 @@ struct pw_protocol_pulse *pw_protocol_pulse_new(struct pw_context *context,
 
 	impl->main_loop = pw_context_get_main_loop(context);
 	impl->work_queue = pw_context_get_work_queue(context);
+	impl->timer_queue = pw_context_get_timer_queue(context);
 
 	if (props == NULL)
 		props = pw_properties_new(NULL, NULL);

@@ -119,6 +119,15 @@ error_errno:
 	return NULL;
 }
 
+void stream_created(struct stream *stream)
+{
+	struct client *client = stream->client;
+	pw_log_debug("client %p: stream %p channel:%d", client, stream, stream->channel);
+
+	stream->create_tag = SPA_ID_INVALID;
+	pw_timer_queue_cancel(&stream->timer);
+}
+
 void stream_free(struct stream *stream)
 {
 	struct client *client = stream->client;

@@ -621,7 +621,7 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 			TAG_INVALID);
 	}
 
-	stream->create_tag = SPA_ID_INVALID;
+	stream_created(stream);
 
 	return client_queue_message(client, reply);
 }
@@ -783,7 +783,7 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 			TAG_INVALID);
 	}
 
-	stream->create_tag = SPA_ID_INVALID;
+	stream_created(stream);
 
 	return client_queue_message(client, reply);
 }

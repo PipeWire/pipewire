@@ -229,6 +229,9 @@ extern "C" {
 									  *  playback or disable the prefix
 									  *  completely if an empty string
 									  *  is provided */
+#define PW_KEY_NODE_PHYSICAL		"node.physical"		/**< ports from the node are physical */
+#define PW_KEY_NODE_TERMINAL		"node.terminal"		/**< ports from the node are terminal */
+
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */
 #define PW_KEY_PORT_NAME		"port.name"		/**< port name */

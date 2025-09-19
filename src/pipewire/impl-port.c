@@ -1238,6 +1238,13 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 
 	is_monitor = pw_properties_get_bool(port->properties, PW_KEY_PORT_MONITOR, false);
 
+	if (!is_monitor) {
+		if ((str = pw_properties_get(nprops, PW_KEY_NODE_TERMINAL)) != NULL)
+			pw_properties_set(port->properties, PW_KEY_PORT_TERMINAL, str);
+		if ((str = pw_properties_get(nprops, PW_KEY_NODE_PHYSICAL)) != NULL)
+			pw_properties_set(port->properties, PW_KEY_PORT_PHYSICAL, str);
+	}
+
 	port->ignore_latency = pw_properties_get_bool(port->properties, PW_KEY_PORT_IGNORE_LATENCY, false);
 	port->exclusive = pw_properties_get_bool(port->properties, PW_KEY_PORT_EXCLUSIVE, node->exclusive);
 

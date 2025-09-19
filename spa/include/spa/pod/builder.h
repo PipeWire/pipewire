@@ -486,7 +486,7 @@ spa_pod_builder_control(struct spa_pod_builder *builder, uint32_t offset, uint32
 	return spa_pod_builder_raw(builder, &p, sizeof(p));
 }
 
-SPA_API_POD_BUILDER uint32_t spa_choice_from_id(char id)
+SPA_API_POD_BUILDER uint32_t spa_choice_from_id_flags(char id, uint32_t *flags)
 {
 	switch (id) {
 	case 'r':
@@ -495,12 +495,20 @@ SPA_API_POD_BUILDER uint32_t spa_choice_from_id(char id)
 		return SPA_CHOICE_Step;
 	case 'e':
 		return SPA_CHOICE_Enum;
+	case 'F':
+		*flags |= SPA_POD_PROP_FLAG_DROP;
+		SPA_FALLTHROUGH;
 	case 'f':
 		return SPA_CHOICE_Flags;
 	case 'n':
 	default:
 		return SPA_CHOICE_None;
 	}
+}
+SPA_API_POD_BUILDER uint32_t spa_choice_from_id(char id)
+{
+	uint32_t flags = 0;
+	return spa_choice_from_id_flags(id, &flags);
 }
 
 #define SPA_POD_BUILDER_COLLECT(builder,type,args)				\
@@ -621,43 +629,46 @@ spa_pod_builder_addv(struct spa_pod_builder *builder, va_list args)
 		int n_values = 1;
 		struct spa_pod_frame f;
 		bool choice;
+		uint32_t key = 0, flags = 0, offset = 0, type = 0, ctype = 0;
 
 		switch (ftype) {
 		case SPA_TYPE_Object:
-		{
-			uint32_t key = va_arg(args, uint32_t), flags = 0;
+			key = va_arg(args, uint32_t);
 			if (key == 0)
 				goto exit;
 			if (key == SPA_ID_INVALID) {
 				key = va_arg(args, uint32_t);
 				flags = va_arg(args, uint32_t);
 			}
-			spa_pod_builder_prop(builder, key, flags);
 			break;
-		}
 		case SPA_TYPE_Sequence:
-		{
-			uint32_t offset = va_arg(args, uint32_t);
-			uint32_t type = va_arg(args, uint32_t);
+			offset = va_arg(args, uint32_t);
+			type = va_arg(args, uint32_t);
 			if (type == 0)
 				goto exit;
-			spa_pod_builder_control(builder, offset, type);
-			SPA_FALLTHROUGH
-		}
-		default:
 			break;
 		}
+
+
 		if ((format = va_arg(args, const char *)) == NULL)
 			break;
 
 		choice = *format == '?';
 		if (choice) {
-			uint32_t type = spa_choice_from_id(*++format);
+			ctype = spa_choice_from_id_flags(*++format, &flags);
 			if (*format != '\0')
 				format++;
-
-			spa_pod_builder_push_choice(builder, &f, type, 0);
-
+		}
+		switch (ftype) {
+		case SPA_TYPE_Object:
+			spa_pod_builder_prop(builder, key, flags);
+			break;
+		case SPA_TYPE_Sequence:
+			spa_pod_builder_control(builder, offset, type);
+			break;
+		}
+		if (choice) {
+			spa_pod_builder_push_choice(builder, &f, ctype, 0);
 			n_values = va_arg(args, int);
 		}
 		while (n_values-- > 0)

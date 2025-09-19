@@ -118,6 +118,17 @@ SPA_API_BUFFER void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint3
 	return NULL;
 }
 
+SPA_API_BUFFER bool spa_buffer_has_meta_features(const struct spa_buffer *b, uint32_t type, uint32_t features)
+{
+	uint32_t i;
+	for (i = 0; i < b->n_metas; i++) {
+		uint32_t t = b->metas[i].type;
+		if ((t >> 16) == type && (t & features) == features)
+			return true;
+	}
+	return false;
+}
+
 /**
  * \}
  */

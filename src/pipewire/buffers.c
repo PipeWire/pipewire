@@ -221,12 +221,12 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	if ((res = param_filter(result, &input, &output, SPA_PARAM_Meta, &b)) > 0)
 		n_params += res;
 
-	metas = alloca(sizeof(struct spa_meta) * n_params);
+	metas = alloca(sizeof(struct spa_meta) * n_params * 2);
 
 	n_metas = 0;
 	params = alloca(n_params * sizeof(struct spa_pod *));
 	for (i = 0, offset = 0; i < n_params; i++) {
-		uint32_t type, size;
+		uint32_t type, size, features = 0;
 
 		params[i] = SPA_PTROFF(buffer, offset, struct spa_pod);
 		spa_pod_fixate(params[i]);
@@ -239,7 +239,8 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		if (spa_pod_parse_object(params[i],
 					SPA_TYPE_OBJECT_ParamMeta, NULL,
 					SPA_PARAM_META_type, SPA_POD_Id(&type),
-					SPA_PARAM_META_size, SPA_POD_Int(&size)) < 0) {
+					SPA_PARAM_META_size, SPA_POD_Int(&size),
+					SPA_PARAM_META_features, SPA_POD_OPT_Int(&features)) < 0) {
 			pw_log_warn("%p: invalid Meta param", result);
 			continue;
 		}
@@ -250,6 +251,11 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 		metas[n_metas].type = type;
 		metas[n_metas].size = size;
 		n_metas++;
+		if (features != 0) {
+			metas[n_metas].type = SPA_META_TYPE_FEATURES(type, features);
+			metas[n_metas].size = 0;
+			n_metas++;
+		}
 	}
 
 	max_buffers = context->settings.link_max_buffers;

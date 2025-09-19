@@ -27,8 +27,8 @@ static void rearm_timer(struct pw_timer_queue *queue)
 	}
 	if (timeout != queue->next_timeout) {
 		if (timeout)
-			pw_log_debug("%p: arming with timeout %ld.%09ld", queue,
-				     timeout->tv_sec, timeout->tv_nsec);
+			pw_log_debug("%p: arming with timeout %"PRIi64, queue,
+				     (int64_t)SPA_TIMESPEC_TO_NSEC(timeout));
 		else
 			pw_log_debug("%p: disarming (no entries)", queue);
 
@@ -162,8 +162,9 @@ int pw_timer_queue_add(struct pw_timer_queue *queue, struct pw_timer *timer,
 	timer->callback = callback;
 	timer->data = data;
 
-	pw_log_debug("%p: adding timer %p with timeout %ld.%09ld",
-		     queue, timer, timeout.tv_sec, timeout.tv_nsec);
+	pw_log_debug("%p: adding timer %p with timeout %"PRIi64,
+		     queue, timer, (int64_t)SPA_TIMESPEC_TO_NSEC(&timeout));
+
 
 	/* Insert timer in sorted order (earliest timeout first) */
 	spa_list_for_each(iter, &queue->entries, link) {

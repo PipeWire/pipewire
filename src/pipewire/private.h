@@ -785,6 +785,7 @@ struct pw_impl_node {
 	unsigned int lazy:1;		/**< the graph is lazy scheduling */
 	unsigned int exclusive:1;	/**< ports can only be linked once */
 	unsigned int leaf:1;		/**< node only produces/consumes data */
+	unsigned int reliable:1;	/**< ports need reliable tee */
 
 	uint32_t transport;		/**< latest transport request */
 
@@ -970,6 +971,7 @@ struct pw_impl_port {
 	unsigned int ignore_latency:1;
 	unsigned int have_latency:1;
 	unsigned int exclusive:1;		/**< port can only be linked once */
+	unsigned int reliable:1;		/**< port needs reliable tee */
 
 	unsigned int have_tag_param:1;
 	struct spa_pod *tag[2];			/**< tags */

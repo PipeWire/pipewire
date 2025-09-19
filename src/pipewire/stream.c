@@ -2507,6 +2507,16 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	struct buffer *b;
 	int res;
 
+	/* For reliable output streams, only give buffers when both queue AND output IO are clear */
+	if (impl->direction == SPA_DIRECTION_OUTPUT && stream->node->reliable) {
+		struct spa_io_buffers *io = impl->io;
+
+		if (!queue_is_empty(impl, &impl->queued) || io->status == SPA_STATUS_HAVE_DATA) {
+			errno = EAGAIN;
+			return NULL;
+		}
+	}
+
 	if ((b = queue_pop(impl, &impl->dequeued)) == NULL) {
 		res = -errno;
 		pw_log_trace_fp("%p: no more buffers: %m", stream);

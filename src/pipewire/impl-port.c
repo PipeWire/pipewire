@@ -303,6 +303,37 @@ static int tee_process(void *object)
         return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 
+static int tee_process_reliable(void *object)
+{
+	struct impl *impl = object;
+	struct pw_impl_port *this = &impl->this;
+	struct pw_impl_port_mix *mix;
+	struct spa_io_buffers *io = &this->rt.io;
+	uint32_t cycle = this->node->rt.position->clock.cycle & 1;
+
+	if (io->status == SPA_STATUS_HAVE_DATA) {
+		uint32_t buffer_id = io->buffer_id;
+
+		pw_log_trace_fp("%p: tee input status:%d id:%d cycle:%d", this, io->status, buffer_id, cycle);
+
+		spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
+			struct spa_io_buffers *mio = mix->io[cycle];
+
+			pw_log_trace_fp("%p: port %d %p->%p status:%d id:%d", this,
+					mix->port.port_id, io, mio, mio->status, mio->buffer_id);
+
+			if (mio->status != SPA_STATUS_HAVE_DATA) {
+				io->buffer_id = mio->buffer_id;
+				io->status = SPA_STATUS_NEED_DATA;
+				mio->buffer_id = buffer_id;
+				mio->status = SPA_STATUS_HAVE_DATA;
+				break;
+			}
+		}
+	}
+        return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
+}
+
 static int tee_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct impl *impl = object;
@@ -320,6 +351,15 @@ static const struct spa_node_methods schedule_tee_node = {
 	.port_set_io = port_set_io,
 	.port_reuse_buffer = tee_reuse_buffer,
 	.process = tee_process,
+};
+
+static const struct spa_node_methods schedule_tee_node_reliable = {
+	SPA_VERSION_NODE_METHODS,
+	.add_listener = mix_add_listener,
+	.port_enum_params = mix_port_enum_params,
+	.port_set_io = port_set_io,
+	.port_reuse_buffer = tee_reuse_buffer,
+	.process = tee_process_reliable,
 };
 
 static int schedule_mix_input(void *object)
@@ -456,6 +496,7 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 
 static int check_properties(struct pw_impl_port *port)
 {
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	struct pw_impl_node *node = port->node;
 	bool is_control, is_network, is_monitor, is_device, is_duplex, is_virtual;
 	const char *media_class, *override_device_prefix, *channel_names;
@@ -480,6 +521,14 @@ static int check_properties(struct pw_impl_port *port)
 
 	port->ignore_latency = pw_properties_get_bool(port->properties, PW_KEY_PORT_IGNORE_LATENCY, false);
 	port->exclusive = pw_properties_get_bool(port->properties, PW_KEY_PORT_EXCLUSIVE, node->exclusive);
+	port->reliable = pw_properties_get_bool(port->properties, PW_KEY_PORT_RELIABLE, node->reliable);
+
+	if (port->direction == PW_DIRECTION_OUTPUT) {
+		if (port->reliable)
+			impl->mix_node.iface.cb.funcs = &schedule_tee_node_reliable;
+		else
+			impl->mix_node.iface.cb.funcs = &schedule_tee_node;
+	}
 
 	/* inherit passive state from parent node */
 	port->passive = pw_properties_get_bool(port->properties, PW_KEY_PORT_PASSIVE,

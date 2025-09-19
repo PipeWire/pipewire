@@ -787,6 +787,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res;
 	uint32_t io_type, io_size;
+	bool reliable_driver;
 
 	pw_log_debug("%p: activate activated:%d state:%s", this, impl->activated,
 			pw_link_state_as_string(this->info.state));
@@ -795,7 +796,15 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 		!impl->input.node->runnable || !impl->output.node->runnable)
 		return 0;
 
-	if (this->async) {
+	/* check if the output node is a driver for the input node and if
+	 * it has reliable scheduling. Because it is a driver, it will always be
+	 * scheduled before the input node and there will not be any concurrent access
+	 * to the io, so we don't need async IO, even when the input is async. This
+	 * avoid the problem of out-of-order buffers after a stall. */
+	reliable_driver = (impl->output.node == impl->input.node->driver_node) &&
+		impl->output.node->reliable;
+
+	if (this->async && !reliable_driver) {
 		io_type = SPA_IO_AsyncBuffers;
 		io_size = sizeof(struct spa_io_async_buffers);
 	} else {

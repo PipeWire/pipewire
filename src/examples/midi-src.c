@@ -178,6 +178,7 @@ int main(int argc, char *argv[])
 	uint8_t buffer[1024];
 	struct spa_pod_builder builder;
 	struct spa_pod *params[1];
+	uint32_t n_params = 0;
 
 	pw_init(&argc, &argv);
 
@@ -226,7 +227,7 @@ int main(int argc, char *argv[])
 	 */
 	spa_pod_builder_init(&builder, buffer, sizeof(buffer));
 
-	params[0] = spa_pod_builder_add_object(&builder,
+	params[n_params++] = spa_pod_builder_add_object(&builder,
 			/* POD Object for the buffer parameter */
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			/* Default 1 buffer, minimum of 1, max of 32 buffers.
@@ -242,7 +243,7 @@ int main(int argc, char *argv[])
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(1));
 
 	pw_filter_update_params(data.filter, data.port,
-			(const struct spa_pod **)params, SPA_N_ELEMENTS(params));
+			(const struct spa_pod **)params, n_params);
 
 	/* Now connect this filter. We ask that our process function is
 	 * called in a realtime thread. */

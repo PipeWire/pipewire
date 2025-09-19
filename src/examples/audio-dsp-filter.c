@@ -80,6 +80,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
 	const struct spa_pod *params[1];
+	uint32_t n_params = 0;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -133,7 +134,7 @@ int main(int argc, char *argv[])
 				NULL),
 			NULL, 0);
 
-	params[0] = spa_process_latency_build(&b,
+	params[n_params++] = spa_process_latency_build(&b,
 			SPA_PARAM_ProcessLatency,
 			&SPA_PROCESS_LATENCY_INFO_INIT(
 				.ns = 10 * SPA_NSEC_PER_MSEC
@@ -144,7 +145,7 @@ int main(int argc, char *argv[])
 	 * called in a realtime thread. */
 	if (pw_filter_connect(data.filter,
 				PW_FILTER_FLAG_RT_PROCESS,
-				params, 1) < 0) {
+				params, n_params) < 0) {
 		fprintf(stderr, "can't connect\n");
 		return -1;
 	}

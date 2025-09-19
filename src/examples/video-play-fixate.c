@@ -297,6 +297,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[1];
+	uint32_t n_params = 0;
 	Uint32 sdl_format;
 	void *d;
 
@@ -341,7 +342,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 
 	/* a SPA_TYPE_OBJECT_ParamBuffers object defines the acceptable size,
 	 * number, stride etc of the buffers */
-	params[0] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
@@ -350,7 +351,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_MemPtr) | (1<<SPA_DATA_DmaBuf)));
 
 	/* we are done */
-	pw_stream_update_params(stream, params, 1);
+	pw_stream_update_params(stream, params, n_params);
 }
 
 /* these are the stream events we listen for */
@@ -369,14 +370,16 @@ static int build_formats(struct data *data, struct spa_pod_builder *b, const str
 	SDL_GetRendererInfo(data->renderer, &info);
 
 	if (data->mod_info[0].n_modifiers > 0) {
-		params[n_params++] = build_format(b, &info, SPA_VIDEO_FORMAT_RGB, data->mod_info[0].modifiers, data->mod_info[0].n_modifiers);
+		params[n_params++] = build_format(b,
+				&info, SPA_VIDEO_FORMAT_RGB,
+				data->mod_info[0].modifiers,
+				data->mod_info[0].n_modifiers);
 	}
 	params[n_params++] = build_format(b, &info, SPA_VIDEO_FORMAT_RGB, NULL, 0);
 
 	for (int i=0; i < n_params; i++) {
 		spa_debug_format(2, NULL, params[i]);
 	}
-
 	return n_params;
 }
 

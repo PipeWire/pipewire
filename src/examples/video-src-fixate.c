@@ -378,6 +378,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[5];
+	uint32_t n_params = 0;
 	int blocks, size, stride, buffertypes;
 
 	if (param == NULL || id != SPA_PARAM_Format)
@@ -414,11 +415,10 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 				modifier = modifiers[rand()%n_modifiers];
 			}
 
-			params[0] = fixate_format(&b, SPA_VIDEO_FORMAT_RGBA, &modifier);
-
-			params[1] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
-					supported_modifiers, sizeof(supported_modifiers)/sizeof(supported_modifiers[0]));
-			params[2] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
+			params[n_params++] = fixate_format(&b, SPA_VIDEO_FORMAT_RGBA, &modifier);
+			params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
+					supported_modifiers, SPA_N_ELEMENTS(supported_modifiers));
+			params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
 					NULL, 0);
 
 			printf("announcing fixated EnumFormats\n");
@@ -426,7 +426,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 			    spa_debug_format(4, NULL, params[i]);
 			}
 
-			pw_stream_update_params(stream, params, 3);
+			pw_stream_update_params(stream, params, n_params);
 			return;
 		}
 		printf("no fixation required\n");
@@ -436,7 +436,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		buffertypes = (1<<SPA_DATA_DmaBuf);
 	}
 
-	params[0] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers,  SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,   SPA_POD_Int(blocks),
@@ -444,31 +444,31 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		SPA_PARAM_BUFFERS_stride,   SPA_POD_Int(stride),
 		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(buffertypes));
 
-	params[1] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 
-	params[2] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoDamage),
 		SPA_PARAM_META_size, SPA_POD_CHOICE_RANGE_Int(
 					sizeof(struct spa_meta_region) * 16,
 					sizeof(struct spa_meta_region) * 1,
 					sizeof(struct spa_meta_region) * 16));
-	params[3] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
 		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_region)));
 #define CURSOR_META_SIZE(w,h)	(sizeof(struct spa_meta_cursor) + \
 				 sizeof(struct spa_meta_bitmap) + w * h * CURSOR_BPP)
-	params[4] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Cursor),
 		SPA_PARAM_META_size, SPA_POD_Int(
 			CURSOR_META_SIZE(CURSOR_WIDTH,CURSOR_HEIGHT)));
 
-	pw_stream_update_params(stream, params, 5);
+	pw_stream_update_params(stream, params, n_params);
 }
 
 static const struct pw_stream_events stream_events = {
@@ -490,6 +490,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
 	const struct spa_pod *params[2];
+	uint32_t n_params = 0;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 
@@ -540,9 +541,9 @@ int main(int argc, char *argv[])
 	 * The server will select a format that matches and informs us about this
 	 * in the stream param_changed event.
 	 */
-	params[0] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
-			supported_modifiers, sizeof(supported_modifiers)/sizeof(supported_modifiers[0]));
-	params[1] = build_format(&b, SPA_VIDEO_FORMAT_RGBA, NULL, 0);
+	params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
+				supported_modifiers, SPA_N_ELEMENTS(supported_modifiers));
+	params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA, NULL, 0);
 
 	printf("announcing starting EnumFormats\n");
 	for (unsigned int i=0; i < 2; i++) {
@@ -561,7 +562,7 @@ int main(int argc, char *argv[])
 			  PW_ID_ANY,
 			  PW_STREAM_FLAG_DRIVER |
 			  PW_STREAM_FLAG_ALLOC_BUFFERS,
-			  params, 2);
+			  params, n_params);
 
 	/* unlock, run the loop and wait, this will trigger the callbacks */
 	pw_thread_loop_wait(data.loop);

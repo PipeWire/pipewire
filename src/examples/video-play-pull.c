@@ -330,6 +330,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[5];
+	uint32_t n_params = 0;
 	Uint32 sdl_format;
 	void *d;
 	int32_t mult, size, blocks;
@@ -417,7 +418,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 
 	/* a SPA_TYPE_OBJECT_ParamBuffers object defines the acceptable size,
 	 * number, stride etc of the buffers */
-	params[0] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(8, 2, MAX_BUFFERS),
 		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(blocks),
@@ -426,19 +427,19 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int((1<<SPA_DATA_MemPtr)));
 
 	/* a header metadata with timing information */
-	params[1] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 	/* video cropping information */
-	params[2] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoCrop),
 		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_region)));
 #define CURSOR_META_SIZE(w,h)	(sizeof(struct spa_meta_cursor) + \
 				 sizeof(struct spa_meta_bitmap) + w * h * 4)
 	/* cursor information */
-	params[3] = spa_pod_builder_add_object(&b,
+	params[n_params++] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Cursor),
 		SPA_PARAM_META_size, SPA_POD_CHOICE_RANGE_Int(
@@ -447,7 +448,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 				CURSOR_META_SIZE(256,256)));
 
 	/* we are done */
-	pw_stream_update_params(stream, params, 4);
+	pw_stream_update_params(stream, params, n_params);
 }
 
 /* these are the stream events we listen for */
@@ -463,15 +464,16 @@ static const struct pw_stream_events stream_events = {
 
 static int build_format(struct data *data, struct spa_pod_builder *b, const struct spa_pod **params)
 {
+	uint32_t n_params = 0;
 	SDL_RendererInfo info;
 
 	SDL_GetRendererInfo(data->renderer, &info);
-	params[0] = sdl_build_formats(&info, b);
+	params[n_params++] = sdl_build_formats(&info, b);
 
 	fprintf(stderr, "supported SDL formats:\n");
 	spa_debug_format(2, NULL, params[0]);
 
-	params[1] = spa_pod_builder_add_object(b,
+	params[n_params++] = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_video),
 			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_dsp),
@@ -480,7 +482,7 @@ static int build_format(struct data *data, struct spa_pod_builder *b, const stru
 	fprintf(stderr, "supported DSP formats:\n");
 	spa_debug_format(2, NULL, params[1]);
 
-	return 2;
+	return n_params;
 }
 
 static void do_quit(void *userdata, int signal_number)

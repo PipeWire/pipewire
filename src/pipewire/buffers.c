@@ -188,7 +188,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t i, j, offset, n_params, n_metas;
 	struct spa_meta *metas;
-	uint32_t max_buffers, blocks;
+	uint32_t min_buffers, max_buffers, blocks;
 	size_t minsize, stride, align;
 	uint32_t *data_sizes;
 	int32_t *data_strides;
@@ -253,6 +253,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	}
 
 	max_buffers = context->settings.link_max_buffers;
+	min_buffers = 1;
 
 	align = pw_properties_get_uint32(context->properties, PW_KEY_CPU_MAX_ALIGN, MAX_ALIGN);
 
@@ -306,7 +307,9 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	}
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_ASYNC))
-		max_buffers = SPA_MAX(2u, max_buffers);
+		min_buffers += 1;
+
+	max_buffers = SPA_MAX(min_buffers, max_buffers);
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED_MEM)) {
 		if (types != SPA_ID_INVALID)

@@ -2,26 +2,26 @@
 
 This document tries to explain how the PipeWire graph is scheduled.
 
-Graph are constructed from linked nodes together with their ports. This
+Graphs are constructed from linked nodes together with their ports. This
 results in a dependency graph between nodes. Special care is taken for
 loopback links so that the graph remains a directed graph.
 
 # Processing threads
 
-The server (and clients) have two processing threads:
+The server (and clients) has two processing threads:
 
-- A main thread that will do all IPC with clients and server and configures the
+- A main thread that will do all IPC with clients and server and configure the
   nodes in the graph for processing.
-- A (or more) data processing thread that only does the data processing.
+- One (or more) data processing threads that only do the data processing.
 
 
 The data processing threads are given realtime priority and are designed to
 run with as little overhead as possible. All of the node resources such as
-buffers, io areas and metadata will be set up in shared memory before the
+buffers, I/O areas and metadata will be set up in shared memory before the
 node is scheduled to run.
 
 This document describes the processing that happens in the data processing
-thread after the main-thread has configured it.
+thread after the main thread has configured it.
 
 # Nodes
 
@@ -41,7 +41,7 @@ Each node also has:
   +-v---------+
     activation {
       status:OK,        // bitmask of NEED_DATA, HAVE_DATA or OK
-      pending:0,	// number of unsatisfied dependencies to be able to run
+      pending:0,	// number of unsatisfied dependencies needed to be able to run
       required:0        // number of dependencies with other nodes
     }
 ```
@@ -49,7 +49,7 @@ Each node also has:
 The activation record has the following information:
 
  - processing state and pending dependencies. As long as there are pending dependencies
-   the node can not be processed. This is the only relevant information for actually
+   the node cannot be processed. This is the only relevant information for actually
    scheduling the graph and is shown in the above illustration.
  - Current status of the node and profiling info (TRIGGERED, AWAKE, FINISHED, timestamps
    when the node changed state).
@@ -157,10 +157,10 @@ will then:
    field of the activation record. When the required field is 0, the eventfd is signaled
    and the node can be scheduled.
 
-In our example above, Node A and B will have their pending state decremented. Node A
+In our example above, nodes A and B will have their pending state decremented. Node A
 will be 0 and will be triggered first (node B has 2 pending dependencies to start with and
 will not be triggered yet). The driver itself also has 2 dependencies left and will not
-be triggered (complete) yet.
+be triggered (completed) yet.
 
 ## Scheduling node A
 
@@ -172,12 +172,12 @@ After processing, node A goes through the list of targets and decrements each pe
 field (node A has a reference to B and the driver).
 
 In our above example, the driver is decremented (from 2 to 1) but is not yet triggered.
-node B is decremented (from 1 to 0) and is triggered by writing to the eventfd.
+Node B is decremented (from 1 to 0) and is triggered by writing to the eventfd.
 
 ## Scheduling node B
 
 Node B is scheduled and processes the input from node A. It then goes through the list of
-targets and decrements the pending fields.  It decrements the pending field of the
+targets and decrements the pending fields. It decrements the pending field of the
 driver (from 1 to 0) and triggers the driver.
 
 ## Scheduling the driver
@@ -185,7 +185,7 @@ driver (from 1 to 0) and triggers the driver.
 The graph always completes after the driver is triggered and scheduled. All required
 fields from all the nodes in the target list of the driver are now 0.
 
-The driver calculates some stats about cpu time etc.
+The driver calculates some stats about CPU time etc.
 
 # Async scheduling
 
@@ -201,8 +201,8 @@ dependency for other nodes. This also means that the async nodes can be schedule
 soon as the driver has started the graph.
 
 The completion of the async node does not influence the completion of the graph in
-any way and async nodes are therefor interesting is real-time performance can not
-be guaranteed, for example when the processing threads are not running in a real-time
+any way and async nodes are therefore interesting when real-time performance can not
+be guaranteed, for example when the processing threads are not running with a real-time
 priority.
 
 A link between a port of an async node and another port (async or not) is called an
@@ -210,7 +210,7 @@ async link and will have the link.async=true property.
 
 Because async nodes then run concurrently with other nodes, a method must be in place
 to avoid concurrent access to buffer data. This is done by sending a spa_io_async_buffers
-io to the (mixer) ports of an async link. The spa_io_async_buffers has 2 spa_io_buffer
+I/O to the (mixer) ports of an async link. The spa_io_async_buffers has 2 spa_io_buffer
 slots.
 
 The driver will increment a cycle counter for each cycle that it starts. Output ports
@@ -223,7 +223,7 @@ A special exception is made for the output ports of the driver node. When the dr
 started, the output port buffers are copied to the previous cycle spa_io_buffer slot.
 This way, the async nodes will immediately pick up the new data from the driver source.
 
-Because there are 2 buffers in flight on the spa_io_async_buffers io area, the link needs
+Because there are 2 buffers in flight on the spa_io_async_buffers I/O area, the link needs
 to negotiate at least 2 buffers for this to work.
 
 
@@ -233,43 +233,49 @@ A, B, C are async nodes and have async links between their ports. The async
 link has the spa_io_async_buffers with 2 slots (named 0 and 1) below. All the
 slots are empty.
 
+```
    +--------+          +-------+          +-------+
    | A      |          |  B    |          |    C  |
    |        0 -(   )-> 0       0 -(   )-> 0       |
    |        1  (   )   1       1  (   )   1       |
    +--------+          +-------+          +-------+
-
+```
 
 cycle 0: A produces a buffer AB0 on the output port in the (cycle+1)&1 slot (1).
          B consumes slot cycle&1 (0) with the empty buffer and produces BC0 in slot 1
          C consumes slot cycle&1 (0) with the empty buffer
 
+```
    +--------+          +-------+          +-------+
    | A      |          |  B    |          |    C  |
    |  (AB0) 0 -(   )-> 0 (   ) 0 -(   )-> 0 (   ) |
    |        1  (AB0)   1       1  (BC0)   1       |
    +--------+          +-------+          +-------+
-
+```
 
 cycle 1: A produces a buffer AB1 on the output port in the (cycle+1)&1 slot (0).
          B consumes slot cycle&1 (1) with buffer AB0 and produces BC1 in slot 0
          C consumes slot cycle&1 (1) with buffer BC0
 
+```
    +--------+          +-------+          +-------+
    | A      |          |  B    |          |    C  |
    |  (AB1) 0 -(AB1)-> 0 (AB0) 0 -(BC1)-> 0 (BC0) |
    |        1  (AB0)   1       1  (BC0)   1       |
    +--------+          +-------+          +-------+
+```
 
 cycle 2: A produces a buffer AB2 on the output port in the (cycle+1)&1 slot (1).
          B consumes slot cycle&1 (0) with buffer AB1 and produces BC2 in slot 1
          C consumes slot cycle&1 (0) with buffer BC1
 
+```
    +--------+          +-------+          +-------+
    | A      |          |  B    |          |    C  |
    |  (AB2) 0 -(AB1)-> 0 (AB1) 0 -(BC1)-> 0 (BC1) |
    |        1  (AB2)   1       1  (BC2)   1       |
    +--------+          +-------+          +-------+
+```
 
 Each async link adds 1 cycle of latency to the chain. Notice how AB0 from cycle 0,
 produces BC1 in cycle 1, which arrives in node C at cycle 2.
@@ -283,6 +289,7 @@ input ports of a link.
 It is possible for a sync node A to be linked to another sync node D and an
 async node B:
 
+```
    +--------+          +-------+
    | A      |          |  B    |
    |  (AB1) 0 -(AB1)-> 0 (AB0) 0 ...
@@ -294,14 +301,15 @@ async node B:
                    -(AB1)-> 0 (AB1) |
                             |       |
                             +-------+
+```
 
-The Output latency on A's output port is what A reports. When it copied to the
+The output latency on A's output port is what A reports. When it is copied to the
 input port of B, 1 cycle is added and when it is copied to D, nothing is added.
 
 
-# Remote nodes.
+# Remote nodes
 
-For remote nodes, the eventfd and the activation is transferred from the server
+For remote nodes, the eventfd and the activation are transferred from the server
 to the client.
 
 This means that writing to the remote client eventfd will wake the client directly
@@ -311,7 +319,7 @@ All remote clients also get the activation and eventfd of the peer and driver th
 are linked to and can directly trigger peers and drivers without going to the
 server first.
 
-## Remote driver nodes.
+## Remote driver nodes
 
 Remote drivers start the graph cycle directly without going to the server first.
 
@@ -342,7 +350,7 @@ When the graph is started or partially controlled by RequestProcess events and
 commands we say we have lazy scheduling. The driver is not always scheduling according
 to its own rhythm but also depending on the follower.
 
-We can't just enable lazy scheduling when no follower will emit RequestProcess events
+We cannot just enable lazy scheduling when no follower will emit RequestProcess events
 or when no driver will listen for RequestProcess commands. Two new node properties are
 defined:
 
@@ -357,9 +365,9 @@ defined:
   >1 means request events as a follower are supported with increasing preference
 
  We can only enable lazy scheduling when both the driver and (at least one) follower
- has the node.supports-lazy and node.supports-request property respectively.
+ have the node.supports-lazy and node.supports-request properties respectively.
 
- Node can end up as a driver (is_driver()) and lazy scheduling can be enabled (is_lazy()),
+ Nodes can end up as a driver (is_driver()) and lazy scheduling can be enabled (is_lazy()),
  which results in the following cases:
 
   driver producer
@@ -416,7 +424,7 @@ Some use cases:
     consumer
       - node.driver = false
 
-    -> producer selected as driver, consumer is simple follower.
+    -> producer selected as driver, consumer is a simple follower.
        lazy scheduling inactive (no lazy driver or no request follower)
 
 

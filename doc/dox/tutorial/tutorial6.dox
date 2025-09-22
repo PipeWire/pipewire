@@ -1,6 +1,6 @@
 /** \page page_tutorial6 Tutorial - Part 6: Binding Objects
 
-\ref page_tutorial5 | \ref page_tutorial "Index"
+\ref page_tutorial5 | \ref page_tutorial "Index" | \ref page_tutorial7
 
 In this tutorial we show how to bind to an object so that we can
 receive events and call methods on the object.
@@ -64,6 +64,6 @@ you created. Otherwise, they will be leaked:
 }
 \endcode
 
-\ref page_tutorial5 | \ref page_tutorial "Index"
+\ref page_tutorial5 | \ref page_tutorial "Index" | \ref page_tutorial7
 
 */

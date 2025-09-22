@@ -79,6 +79,7 @@ extra_docs = [
   'dox/tutorial/tutorial4.dox',
   'dox/tutorial/tutorial5.dox',
   'dox/tutorial/tutorial6.dox',
+  'dox/tutorial/tutorial7.dox',
   'dox/api/index.dox',
   'dox/api/spa-index.dox',
   'dox/api/spa-plugins.dox',
@@ -173,6 +174,7 @@ example_files = [
   'tutorial4.c',
   'tutorial5.c',
   'tutorial6.c',
+  'tutorial7.c',
 ]
 example_dep_files = []
 foreach h : example_files

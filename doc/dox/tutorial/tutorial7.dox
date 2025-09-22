@@ -1,0 +1,242 @@
+/** \page page_tutorial7 Tutorial - Part 7: Creating an Audio DSP Filter
+
+\ref page_tutorial6 | \ref page_tutorial "Index"
+
+In this tutorial we show how to use \ref pw_filter "pw_filter" to create
+a real-time audio processing filter. This is useful for implementing audio
+effects, equalizers, analyzers, and other DSP applications.
+
+Let's take a look at the code before we break it down:
+
+\snippet tutorial7.c code
+
+Save as tutorial7.c and compile with:
+
+    gcc -Wall tutorial7.c -o tutorial7 -lm $(pkg-config --cflags --libs libpipewire-0.3)
+
+## Overview
+
+Unlike \ref pw_stream "pw_stream" which is designed for applications that
+produce or consume audio data, \ref pw_filter "pw_filter" is designed for
+applications that process existing audio streams. Filters have both input
+and output ports and operate in the DSP domain using 32-bit floating point
+samples.
+
+## Setting up the Filter
+
+We start with the usual boilerplate and define our data structure:
+
+\code{.c}
+struct data {
+	struct pw_main_loop *loop;
+	struct pw_filter *filter;
+	struct port *in_port;
+	struct port *out_port;
+};
+\endcode
+
+The filter object manages both input and output ports. Each port represents
+an audio channel that can be connected to other applications.
+
+## Creating the Filter
+
+\code{.c}
+data.filter = pw_filter_new_simple(
+		pw_main_loop_get_loop(data.loop),
+		"audio-filter",
+		pw_properties_new(
+			PW_KEY_MEDIA_TYPE, "Audio",
+			PW_KEY_MEDIA_CATEGORY, "Filter",
+			PW_KEY_MEDIA_ROLE, "DSP",
+			NULL),
+		&filter_events,
+		&data);
+\endcode
+
+We use `pw_filter_new_simple()` which automatically manages the core connection
+for us. The properties are important:
+
+- `PW_KEY_MEDIA_TYPE`: "Audio" indicates this is an audio filter
+- `PW_KEY_MEDIA_CATEGORY`: "Filter" tells the session manager this processes audio
+- `PW_KEY_MEDIA_ROLE`: "DSP" indicates this is for audio processing
+
+## Adding Ports
+
+Next we add input and output ports:
+
+\code{.c}
+data.in_port = pw_filter_add_port(data.filter,
+		PW_DIRECTION_INPUT,
+		PW_FILTER_PORT_FLAG_MAP_BUFFERS,
+		sizeof(struct port),
+		pw_properties_new(
+			PW_KEY_FORMAT_DSP, "32 bit float mono audio",
+			PW_KEY_PORT_NAME, "input",
+			NULL),
+		NULL, 0);
+
+data.out_port = pw_filter_add_port(data.filter,
+		PW_DIRECTION_OUTPUT,
+		PW_FILTER_PORT_FLAG_MAP_BUFFERS,
+		sizeof(struct port),
+		pw_properties_new(
+			PW_KEY_FORMAT_DSP, "32 bit float mono audio",
+			PW_KEY_PORT_NAME, "output",
+			NULL),
+		NULL, 0);
+\endcode
+
+Key points about filter ports:
+
+- `PW_DIRECTION_INPUT` and `PW_DIRECTION_OUTPUT` specify the port direction
+- `PW_FILTER_PORT_FLAG_MAP_BUFFERS` allows direct memory access to buffers
+- `PW_KEY_FORMAT_DSP` indicates this uses 32-bit float DSP format
+- DSP ports work with normalized floating-point samples (typically -1.0 to 1.0)
+
+## Setting Process Latency
+
+\code{.c}
+params[n_params++] = spa_process_latency_build(&b,
+		SPA_PARAM_ProcessLatency,
+		&SPA_PROCESS_LATENCY_INFO_INIT(
+			.ns = 10 * SPA_NSEC_PER_MSEC
+		));
+\endcode
+
+This tells PipeWire that our filter adds 10 milliseconds of processing latency.
+This information helps the audio system maintain proper timing and latency
+compensation throughout the audio graph.
+
+## Connecting the Filter
+
+\code{.c}
+if (pw_filter_connect(data.filter,
+			PW_FILTER_FLAG_RT_PROCESS,
+			params, n_params) < 0) {
+	fprintf(stderr, "can't connect\n");
+	return -1;
+}
+\endcode
+
+The `PW_FILTER_FLAG_RT_PROCESS` flag ensures our process callback runs in the
+real-time audio thread. This is crucial for low-latency audio processing but
+means our process function must be real-time safe (no allocations, file I/O,
+or blocking operations).
+
+## The Process Callback
+
+The heart of the filter is the process callback:
+
+\snippet tutorial7.c on_process
+
+The process function is called for each audio buffer and works as follows:
+
+1. Get the number of samples to process from `position->clock.duration`
+2. Get input and output buffer pointers using `pw_filter_get_dsp_buffer()`
+3. Process the audio data (here we just copy input to output)
+4. The framework handles queueing the processed buffers
+
+### Key Points about DSP Processing:
+
+- **Float Format**: DSP buffers use 32-bit float samples, typically normalized to [-1.0, 1.0]
+- **Real-time Safe**: The process function runs in the audio thread and must be real-time safe
+- **Buffer Management**: `pw_filter_get_dsp_buffer()` handles the buffer lifecycle automatically
+- **Sample-accurate**: Processing happens at the audio sample rate with precise timing
+
+## Advanced Usage
+
+This example shows a simple passthrough, but you can implement any audio processing:
+
+\code{.c}
+/* Example: Simple volume control */
+for (uint32_t i = 0; i < n_samples; i++) {
+    out[i] = in[i] * 0.5f;  // Reduce volume by half
+}
+
+/* Example: Simple high-pass filter */
+static float last_sample = 0.0f;
+float alpha = 0.99f;
+for (uint32_t i = 0; i < n_samples; i++) {
+    out[i] = alpha * (out[i] + in[i] - last_sample);
+    last_sample = in[i];
+}
+\endcode
+
+## Comparison with pw_stream
+
+| Feature | pw_stream | pw_filter |
+|---------|-----------|-----------|
+| **Use case** | Audio playback/recording | Audio processing/effects |
+| **Data format** | Various (S16, S32, etc.) | 32-bit float DSP |
+| **Ports** | Single direction | Input and output |
+| **Buffer management** | Manual queue/dequeue | Automatic via get_dsp_buffer |
+| **Typical apps** | Media players, recorders | Equalizers, effects, analyzers |
+
+## Connecting and Linking the Filter
+
+### Manual Linking Options
+
+Filters require manual connection by design. You can connect them using:
+
+#### Using pw-link command line:
+\code{.sh}
+# List output ports (sources)
+pw-link -o
+
+# List input ports (sinks)
+pw-link -i
+
+# List existing connections
+pw-link -l
+
+# Connect a source to filter input
+pw-link "source_app:output_FL" "audio-filter:input"
+
+# Connect filter output to sink
+pw-link "audio-filter:output" "sink_app:input_FL"
+\endcode
+
+
+### Understanding Filter Auto-Connection Behavior
+
+**Important**: Unlike audio sources and sinks, filters are **not automatically connected** by WirePlumber. This is by design because filters are meant to be explicitly inserted into audio chains where needed.
+
+**Why filters don't auto-connect**:
+- Filters process existing audio streams rather than generate/consume them
+- Auto-connecting filters could create unwanted audio processing
+- Filters typically require specific placement in the audio graph
+- Manual connection gives users control over when/where effects are applied
+
+### Testing the Filter
+
+The filter requires manual connection to test. Here's the recommended workflow:
+
+1. **Start an audio source** (e.g., `pw-play music.wav`)
+2. **Run your filter** (`./tutorial7`)
+3. **Check available ports**:
+   ```sh
+   # List output ports
+   pw-link -o | grep -E "(pw-play|audio-filter)"
+   # List input ports
+   pw-link -i | grep -E "(audio-filter|playback)"
+   ```
+4. **Connect the audio chain manually**:
+   ```sh
+   # Connect source -> filter -> sink
+   pw-link "pw-play:output_FL" "audio-filter:input"
+   pw-link "audio-filter:output" "alsa_output.pci-0000_00_1f.3.analog-stereo:playback_FL"
+   ```
+
+You should hear the audio pass through your filter. Modify the process function
+to add effects like volume changes, filtering, or other audio processing.
+
+**Alternative: Use a patchbay tool**
+- **Helvum**: `flatpak install flathub org.pipewire.Helvum`
+- **qpwgraph**: Available in most Linux distributions
+- **Carla**: Full-featured audio plugin host
+
+These tools provide graphical interfaces for connecting PipeWire nodes and are ideal for experimenting with filter placement.
+
+\ref page_tutorial6 | \ref page_tutorial "Index"
+
+*/

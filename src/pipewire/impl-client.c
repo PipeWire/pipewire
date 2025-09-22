@@ -216,7 +216,6 @@ static int update_properties(struct pw_impl_client *client, const struct spa_dic
 		}
                 changed += pw_properties_set(client->properties, dict->items[i].key, dict->items[i].value);
 	}
-	client->info.props = &client->properties->dict;
 
 	pw_log_debug("%p: updated %d properties", client, changed);
 
@@ -481,6 +480,8 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 	pw_mempool_add_listener(this->pool, &impl->pool_listener, &pool_events, impl);
 
 	this->properties = properties;
+	this->info.props = &this->properties->dict;
+
 	this->permission_func = client_permission_func;
 	this->permission_data = impl;
 
@@ -493,7 +494,6 @@ struct pw_impl_client *pw_context_create_client(struct pw_impl_core *core,
 
 	pw_context_add_listener(this->context, &impl->context_listener, &context_events, impl);
 
-	this->info.props = &this->properties->dict;
 
 	return this;
 
@@ -559,7 +559,6 @@ int pw_impl_client_register(struct pw_impl_client *client,
 	pw_properties_setf(client->properties, PW_KEY_OBJECT_ID, "%d", client->info.id);
 	pw_properties_setf(client->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(client->global));
-	client->info.props = &client->properties->dict;
 	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);
 
 	pw_global_update_keys(client->global, client->info.props, keys);

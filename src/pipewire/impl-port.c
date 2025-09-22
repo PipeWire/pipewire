@@ -39,6 +39,8 @@ struct impl {
 	struct spa_list param_list;
 	struct spa_list pending_list;
 
+	struct spa_hook node_listener;
+
 	unsigned int cache_params:1;
 };
 
@@ -452,6 +454,134 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 	return res;
 }
 
+static int check_properties(struct pw_impl_port *port)
+{
+	struct pw_impl_node *node = port->node;
+	bool is_control, is_network, is_monitor, is_device, is_duplex, is_virtual;
+	const char *media_class, *override_device_prefix, *channel_names;
+	const char *str, *prefix, *path, *desc, *nick, *name;
+	const struct pw_properties *nprops;
+	char position[256];
+	int changed = 0;
+
+	nprops = pw_impl_node_get_properties(node);
+	media_class = pw_properties_get(nprops, PW_KEY_MEDIA_CLASS);
+	is_network = pw_properties_get_bool(nprops, PW_KEY_NODE_NETWORK, false);
+
+	is_control = PW_IMPL_PORT_IS_CONTROL(port);
+	is_monitor = pw_properties_get_bool(port->properties, PW_KEY_PORT_MONITOR, false);
+
+	if (!is_monitor) {
+		if ((str = pw_properties_get(nprops, PW_KEY_NODE_TERMINAL)) != NULL)
+			changed += pw_properties_set(port->properties, PW_KEY_PORT_TERMINAL, str);
+		if ((str = pw_properties_get(nprops, PW_KEY_NODE_PHYSICAL)) != NULL)
+			changed += pw_properties_set(port->properties, PW_KEY_PORT_PHYSICAL, str);
+	}
+
+	port->ignore_latency = pw_properties_get_bool(port->properties, PW_KEY_PORT_IGNORE_LATENCY, false);
+	port->exclusive = pw_properties_get_bool(port->properties, PW_KEY_PORT_EXCLUSIVE, node->exclusive);
+
+	/* inherit passive state from parent node */
+	port->passive = pw_properties_get_bool(port->properties, PW_KEY_PORT_PASSIVE,
+			port->direction == PW_DIRECTION_INPUT ?
+			node->in_passive : node->out_passive);
+
+	if (media_class != NULL &&
+	    (strstr(media_class, "Sink") != NULL ||
+	     strstr(media_class, "Source") != NULL))
+		is_device = true;
+	else
+		is_device = false;
+
+	is_duplex = media_class != NULL && strstr(media_class, "Duplex") != NULL;
+	is_virtual = media_class != NULL && strstr(media_class, "Virtual") != NULL;
+
+	override_device_prefix = pw_properties_get(nprops, PW_KEY_NODE_DEVICE_PORT_NAME_PREFIX);
+
+	if (is_network) {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"send" : is_monitor ? "monitor" : "receive";
+	} else if (is_duplex) {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"playback" : "capture";
+	} else if (is_virtual) {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"input" : "capture";
+	} else if (is_device) {
+		if (override_device_prefix != NULL)
+			prefix = is_monitor ? "monitor" : override_device_prefix;
+		else
+			prefix = port->direction == PW_DIRECTION_INPUT ?
+				"playback" : is_monitor ? "monitor" : "capture";
+	} else {
+		prefix = port->direction == PW_DIRECTION_INPUT ?
+			"input" : is_monitor ? "monitor" : "output";
+	}
+
+	path = pw_properties_get(nprops, PW_KEY_OBJECT_PATH);
+	desc = pw_properties_get(nprops, PW_KEY_NODE_DESCRIPTION);
+	nick = pw_properties_get(nprops, PW_KEY_NODE_NICK);
+	name = pw_properties_get(nprops, PW_KEY_NODE_NAME);
+
+	if (pw_properties_get(port->properties, PW_KEY_OBJECT_PATH) == NULL ||
+	    port->auto_path) {
+		if ((str = name) == NULL && (str = nick) == NULL && (str = desc) == NULL)
+			str = "node";
+
+		changed += pw_properties_setf(port->properties, PW_KEY_OBJECT_PATH, "%s:%s_%d",
+			path ? path : str, prefix, pw_impl_port_get_id(port));
+		port->auto_path = true;
+	}
+
+	str = pw_properties_get(port->properties, PW_KEY_AUDIO_CHANNEL);
+	if (str == NULL || spa_streq(str, "UNK"))
+		snprintf(position, sizeof(position), "%d", port->port_id + 1);
+	else if (str != NULL)
+		snprintf(position, sizeof(position), "%s", str);
+
+	channel_names = pw_properties_get(nprops, PW_KEY_NODE_CHANNELNAMES);
+	if (channel_names != NULL) {
+		struct spa_json it[1];
+		char v[256];
+                uint32_t i;
+
+		if (spa_json_begin_array_relax(&it[0], channel_names, strlen(channel_names)) > 0) {
+			for (i = 0; i < port->port_id + 1; i++)
+				if (spa_json_get_string(&it[0], v, sizeof(v)) <= 0)
+					break;
+
+			if (i == port->port_id + 1 && strlen(v) > 0)
+				snprintf(position, sizeof(position), "%s", v);
+		}
+	}
+
+	if (pw_properties_get(port->properties, PW_KEY_PORT_NAME) == NULL ||
+	    port->auto_name) {
+		if (is_control)
+			changed += pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s", prefix);
+		else if (prefix == NULL || strlen(prefix) == 0)
+			changed += pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s", position);
+		else
+			changed += pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%s", prefix, position);
+		port->auto_name = true;
+	}
+	if (pw_properties_get(port->properties, PW_KEY_PORT_ALIAS) == NULL ||
+	    port->auto_alias) {
+		if ((str = nick) == NULL && (str = desc) == NULL && (str = name) == NULL)
+			str = "node";
+
+		if (is_control)
+			changed += pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
+				str, prefix);
+		else {
+			changed += pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
+				str, pw_properties_get(port->properties, PW_KEY_PORT_NAME));
+		}
+		port->auto_alias = true;
+	}
+	return changed;
+}
+
 static int update_properties(struct pw_impl_port *port, const struct spa_dict *dict, bool filter)
 {
 	static const char * const ignored[] = {
@@ -462,37 +592,21 @@ static int update_properties(struct pw_impl_port *port, const struct spa_dict *d
 		PW_KEY_PORT_ID,
 		NULL
 	};
-
 	int changed;
 
 	changed = pw_properties_update_ignore(port->properties, dict, filter ? ignored : NULL);
 
-	if (changed) {
-		const char *name, *alias;
-		name = spa_dict_lookup(dict, PW_KEY_PORT_NAME);
-		alias = spa_dict_lookup(dict, PW_KEY_PORT_ALIAS);
-
-		if (alias != NULL) {
-			/* alias was explicitly updated, don't generate one from
-			 * the port.name */
-			port->alias_port_name = false;
-		}
-		else if (name != NULL && port->alias_port_name) {
-			const struct pw_properties *nprops = pw_impl_node_get_properties(port->node);
-			const char *node_desc = pw_properties_get(nprops, PW_KEY_NODE_DESCRIPTION);
-			const char *node_nick = pw_properties_get(nprops, PW_KEY_NODE_NICK);
-			const char *node_name = pw_properties_get(nprops, PW_KEY_NODE_NAME);
-			const char *str;
-
-			if ((str = node_nick) == NULL && (str = node_desc) == NULL && (str = node_name) == NULL)
-				str = "node";
-			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s", str, name);
-		}
-	}
-	port->info.props = &port->properties->dict;
+	pw_log_debug("%p: updated %d properties", port, changed);
 
 	if (changed) {
-		pw_log_debug("%p: updated %d properties", port, changed);
+		/* check for explicit updates so we don't have to autogenerate */
+		if (spa_dict_lookup(dict, PW_KEY_OBJECT_PATH) != NULL)
+			port->auto_path = false;
+		if (spa_dict_lookup(dict, PW_KEY_PORT_NAME) != NULL)
+			port->auto_name = false;
+		if (spa_dict_lookup(dict, PW_KEY_PORT_ALIAS) != NULL)
+			port->auto_alias = false;
+		check_properties(port);
 		port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
 	}
 	return changed;
@@ -1185,7 +1299,6 @@ int pw_impl_port_register(struct pw_impl_port *port,
 	pw_properties_setf(port->properties, PW_KEY_OBJECT_ID, "%d", port->info.id);
 	pw_properties_setf(port->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(port->global));
-	port->info.props = &port->properties->dict;
 
 	pw_global_update_keys(port->global, &port->properties->dict, global_keys);
 
@@ -1194,18 +1307,32 @@ int pw_impl_port_register(struct pw_impl_port *port,
 	return pw_global_register(port->global);
 }
 
+static void node_info_changed(void *data, const struct pw_node_info *info)
+{
+	struct pw_impl_port *port = data;
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		if (check_properties(port) > 0) {
+			port->info.change_mask |= PW_PORT_CHANGE_MASK_PROPS;
+			emit_info_changed(port);
+		}
+	}
+
+}
+static const struct pw_impl_node_events node_events = {
+	PW_VERSION_IMPL_NODE_EVENTS,
+	.info_changed = node_info_changed,
+};
+
 SPA_EXPORT
 int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 {
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	uint32_t port_id = port->port_id;
 	struct spa_list *ports;
 	struct pw_map *portmap;
 	struct pw_impl_port *find;
-	bool is_control, is_network, is_monitor, is_device, is_duplex, is_virtual;
-	const char *media_class, *override_device_prefix, *channel_names;
-	const char *str, *dir, *prefix, *path, *desc, *nick, *name;
-	const struct pw_properties *nprops;
-	char position[256];
+	const char *dir;
+	bool is_control;
 	int res;
 
 	if (port->node != NULL)
@@ -1227,146 +1354,28 @@ int pw_impl_port_add(struct pw_impl_port *port, struct pw_impl_node *node)
 		return res;
 
 	port->node = node;
+	pw_impl_node_add_listener(node, &impl->node_listener, &node_events, port);
 
 	pw_impl_node_emit_port_init(node, port);
 
 	check_params(port);
 
-	nprops = pw_impl_node_get_properties(node);
-	media_class = pw_properties_get(nprops, PW_KEY_MEDIA_CLASS);
-	is_network = pw_properties_get_bool(nprops, PW_KEY_NODE_NETWORK, false);
-
-	is_monitor = pw_properties_get_bool(port->properties, PW_KEY_PORT_MONITOR, false);
-
-	if (!is_monitor) {
-		if ((str = pw_properties_get(nprops, PW_KEY_NODE_TERMINAL)) != NULL)
-			pw_properties_set(port->properties, PW_KEY_PORT_TERMINAL, str);
-		if ((str = pw_properties_get(nprops, PW_KEY_NODE_PHYSICAL)) != NULL)
-			pw_properties_set(port->properties, PW_KEY_PORT_PHYSICAL, str);
-	}
-
-	port->ignore_latency = pw_properties_get_bool(port->properties, PW_KEY_PORT_IGNORE_LATENCY, false);
-	port->exclusive = pw_properties_get_bool(port->properties, PW_KEY_PORT_EXCLUSIVE, node->exclusive);
+	check_properties(port);
 
 	is_control = PW_IMPL_PORT_IS_CONTROL(port);
 	if (is_control) {
 		dir = port->direction == PW_DIRECTION_INPUT ?  "control" : "notify";
-		pw_properties_set(port->properties, PW_KEY_PORT_CONTROL, "true");
-	}
-	else {
-		dir = port->direction == PW_DIRECTION_INPUT ? "in" : "out";
-	}
-	pw_properties_set(port->properties, PW_KEY_PORT_DIRECTION, dir);
-
-	/* inherit passive state from parent node */
-	if (port->direction == PW_DIRECTION_INPUT)
-		port->passive = node->in_passive;
-	else
-		port->passive = node->out_passive;
-	/* override with specific port property if available */
-	port->passive = pw_properties_get_bool(port->properties, PW_KEY_PORT_PASSIVE,
-			port->passive);
-
-	if (media_class != NULL &&
-	    (strstr(media_class, "Sink") != NULL ||
-	     strstr(media_class, "Source") != NULL))
-		is_device = true;
-	else
-		is_device = false;
-
-	is_duplex = media_class != NULL && strstr(media_class, "Duplex") != NULL;
-	is_virtual = media_class != NULL && strstr(media_class, "Virtual") != NULL;
-
-	override_device_prefix = pw_properties_get(nprops, PW_KEY_NODE_DEVICE_PORT_NAME_PREFIX);
-
-	if (is_network) {
-		prefix = port->direction == PW_DIRECTION_INPUT ?
-			"send" : is_monitor ? "monitor" : "receive";
-	} else if (is_duplex) {
-		prefix = port->direction == PW_DIRECTION_INPUT ?
-			"playback" : "capture";
-	} else if (is_virtual) {
-		prefix = port->direction == PW_DIRECTION_INPUT ?
-			"input" : "capture";
-	} else if (is_device) {
-		if (override_device_prefix != NULL)
-			prefix = is_monitor ? "monitor" : override_device_prefix;
-		else
-			prefix = port->direction == PW_DIRECTION_INPUT ?
-				"playback" : is_monitor ? "monitor" : "capture";
-	} else {
-		prefix = port->direction == PW_DIRECTION_INPUT ?
-			"input" : is_monitor ? "monitor" : "output";
-	}
-
-	path = pw_properties_get(nprops, PW_KEY_OBJECT_PATH);
-	desc = pw_properties_get(nprops, PW_KEY_NODE_DESCRIPTION);
-	nick = pw_properties_get(nprops, PW_KEY_NODE_NICK);
-	name = pw_properties_get(nprops, PW_KEY_NODE_NAME);
-
-	if (pw_properties_get(port->properties, PW_KEY_OBJECT_PATH) == NULL) {
-		if ((str = name) == NULL && (str = nick) == NULL && (str = desc) == NULL)
-			str = "node";
-
-		pw_properties_setf(port->properties, PW_KEY_OBJECT_PATH, "%s:%s_%d",
-			path ? path : str, prefix, pw_impl_port_get_id(port));
-	}
-
-	str = pw_properties_get(port->properties, PW_KEY_AUDIO_CHANNEL);
-	if (str ==  NULL || spa_streq(str, "UNK"))
-		snprintf(position, sizeof(position), "%d", port->port_id + 1);
-	else if (str != NULL)
-		snprintf(position, sizeof(position), "%s", str);
-
-	channel_names = pw_properties_get(nprops, PW_KEY_NODE_CHANNELNAMES);
-	if (channel_names != NULL) {
-		struct spa_json it[1];
-		char v[256];
-                uint32_t i;
-
-		if (spa_json_begin_array_relax(&it[0], channel_names, strlen(channel_names)) > 0) {
-			for (i = 0; i < port->port_id + 1; i++)
-				if (spa_json_get_string(&it[0], v, sizeof(v)) <= 0)
-					break;
-
-			if (i == port->port_id + 1 && strlen(v) > 0)
-				snprintf(position, sizeof(position), "%s", v);
-		}
-	}
-
-	if (pw_properties_get(port->properties, PW_KEY_PORT_NAME) == NULL) {
-		if (is_control)
-			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s", prefix);
-		else if (prefix == NULL || strlen(prefix) == 0)
-			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s", position);
-		else
-			pw_properties_setf(port->properties, PW_KEY_PORT_NAME, "%s_%s", prefix, position);
-	}
-	if (pw_properties_get(port->properties, PW_KEY_PORT_ALIAS) == NULL) {
-		if ((str = nick) == NULL && (str = desc) == NULL && (str = name) == NULL)
-			str = "node";
-
-		if (is_control)
-			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
-				str, prefix);
-		else {
-			pw_properties_setf(port->properties, PW_KEY_PORT_ALIAS, "%s:%s",
-				str, pw_properties_get(port->properties, PW_KEY_PORT_NAME));
-			port->alias_port_name = true;
-		}
-	}
-
-	port->info.props = &port->properties->dict;
-
-	if (is_control) {
 		pw_log_debug("%p: setting node control", port);
+		pw_properties_set(port->properties, PW_KEY_PORT_CONTROL, "true");
 	} else {
+		dir = port->direction == PW_DIRECTION_INPUT ? "in" : "out";
 		pw_log_debug("%p: setting mixer position io", port);
 		spa_node_set_io(port->mix,
 			     SPA_IO_Position,
 			     node->rt.position,
 			     sizeof(struct spa_io_position));
 	}
+	pw_properties_set(port->properties, PW_KEY_PORT_DIRECTION, dir);
 
 	pw_log_debug("%p: %d add to node %p", port, port_id, node);
 
@@ -1419,6 +1428,7 @@ static int do_remove_port(struct spa_loop *loop,
 
 static void pw_impl_port_remove(struct pw_impl_port *port)
 {
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	struct pw_impl_node *node = port->node;
 	int res;
 
@@ -1448,6 +1458,7 @@ static void pw_impl_port_remove(struct pw_impl_port *port)
 
 	spa_list_remove(&port->link);
 	pw_impl_node_emit_port_removed(node, port);
+	spa_hook_remove(&impl->node_listener);
 	port->node = NULL;
 }
 

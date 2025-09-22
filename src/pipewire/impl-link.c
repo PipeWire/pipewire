@@ -1493,6 +1493,7 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	this->context = context;
 	this->properties = properties;
+	this->info.props = &this->properties->dict;
 	this->info.state = PW_LINK_STATE_INIT;
 
 	this->output = output;
@@ -1518,7 +1519,6 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	impl->format_filter = format_filter;
 	this->info.format = NULL;
-	this->info.props = &this->properties->dict;
 
 	this->rt.out_mix.peer_id = input->global->id;
 	this->rt.in_mix.peer_id = output->global->id;
@@ -1682,7 +1682,6 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_PORT, "%u", link->info.output_port_id);
 	pw_properties_setf(link->properties, PW_KEY_LINK_INPUT_NODE, "%u", link->info.input_node_id);
 	pw_properties_setf(link->properties, PW_KEY_LINK_INPUT_PORT, "%u", link->info.input_port_id);
-	link->info.props = &link->properties->dict;
 
 	pw_global_update_keys(link->global, link->info.props, keys);
 

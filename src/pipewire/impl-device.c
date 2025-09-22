@@ -143,7 +143,6 @@ static int execute_match(void *data, const char *location, const char *action,
 	struct pw_impl_device *this = match->device;
 	if (spa_streq(action, "update-props")) {
 		match->count += pw_properties_update_string(this->properties, val, len);
-		this->info.props = &this->properties->dict;
 	}
 	return 1;
 }
@@ -197,7 +196,6 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 
 	this->context = context;
 	this->properties = properties;
-
 	this->info.props = &properties->dict;
 	this->info.params = this->params;
 	spa_hook_list_init(&this->listener_list);
@@ -617,7 +615,6 @@ int pw_impl_device_register(struct pw_impl_device *device,
 	pw_properties_setf(device->properties, PW_KEY_OBJECT_ID, "%d", device->info.id);
 	pw_properties_setf(device->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(device->global));
-	device->info.props = &device->properties->dict;
 
 	pw_global_update_keys(device->global, device->info.props, global_keys);
 
@@ -690,7 +687,6 @@ static int update_properties(struct pw_impl_device *device, const struct spa_dic
 	int changed;
 
 	changed = pw_properties_update_ignore(device->properties, dict, filter ? ignored : NULL);
-	device->info.props = &device->properties->dict;
 
 	pw_log_debug("%p: updated %d properties", device, changed);
 

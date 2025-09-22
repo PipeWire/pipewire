@@ -139,7 +139,6 @@ int pw_impl_factory_update_properties(struct pw_impl_factory *factory, const str
 	int changed;
 
 	changed = pw_properties_update(factory->properties, dict);
-	factory->info.props = &factory->properties->dict;
 
 	pw_log_debug("%p: updated %d properties", factory, changed);
 
@@ -192,7 +191,6 @@ int pw_impl_factory_register(struct pw_impl_factory *factory,
 	pw_properties_set(factory->properties, PW_KEY_FACTORY_NAME, factory->info.name);
 	pw_properties_setf(factory->properties, PW_KEY_FACTORY_TYPE_NAME, "%s", factory->info.type);
 	pw_properties_setf(factory->properties, PW_KEY_FACTORY_TYPE_VERSION, "%d", factory->info.version);
-	factory->info.props = &factory->properties->dict;
 
 	pw_global_update_keys(factory->global, factory->info.props, keys);
 

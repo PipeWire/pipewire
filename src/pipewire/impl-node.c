@@ -989,7 +989,6 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->global->id);
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(this->global));
-	this->info.props = &this->properties->dict;
 
 	pw_global_update_keys(this->global, &this->properties->dict, global_keys);
 
@@ -1114,7 +1113,6 @@ static int execute_match(void *data, const char *location, const char *action,
 	struct pw_impl_node *this = match->node;
 	if (spa_streq(action, "update-props")) {
 		match->count += pw_properties_update_string(this->properties, val, len);
-		this->info.props = &this->properties->dict;
 	}
 	return 1;
 }
@@ -1785,7 +1783,6 @@ static int update_properties(struct pw_impl_node *node, const struct spa_dict *d
 	int changed;
 
 	changed = pw_properties_update_ignore(node->properties, dict, filter ? ignored : NULL);
-	node->info.props = &node->properties->dict;
 
 	pw_log_debug("%p: updated %d properties", node, changed);
 

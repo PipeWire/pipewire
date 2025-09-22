@@ -416,6 +416,7 @@ struct pw_impl_core *pw_context_create_core(struct pw_context *context,
 	this->info.version = pw_get_library_version();
 	this->info.cookie = pw_rand32();
 	this->info.name = name;
+	this->info.props = &this->properties->dict;
 	spa_hook_list_init(&this->listener_list);
 
 	if (user_data_size > 0)
@@ -552,7 +553,6 @@ int pw_impl_core_update_properties(struct pw_impl_core *core, const struct spa_d
 	int changed;
 
 	changed = pw_properties_update(core->properties, dict);
-	core->info.props = &core->properties->dict;
 
 	pw_log_debug("%p: updated %d properties", core, changed);
 
@@ -603,7 +603,6 @@ int pw_impl_core_register(struct pw_impl_core *core,
 	pw_properties_setf(core->properties, PW_KEY_OBJECT_ID, "%d", core->info.id);
 	pw_properties_setf(core->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(core->global));
-	core->info.props = &core->properties->dict;
 
 	pw_global_update_keys(core->global, core->info.props, keys);
 

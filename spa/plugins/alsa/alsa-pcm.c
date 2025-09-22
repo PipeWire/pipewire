@@ -2358,10 +2358,14 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		snd_pcm_uframes_t period_size_max;
 		unsigned int periods_min = (periods == UINT_MAX) ? 3 : periods;
 
-		CHECK(snd_pcm_hw_params_set_periods_min(hndl, params, &periods_min, &dir), "set_periods_min");
-		CHECK(snd_pcm_hw_params_get_period_size_max(params, &period_size_max, &dir), "get_period_size_max");
-		if (period_size > period_size_max)
-			period_size = SPA_MIN(period_size, flp2(period_size_max));
+		err = snd_pcm_hw_params_set_periods_min(hndl, params, &periods_min, &dir);
+		if (!err) {
+			CHECK(snd_pcm_hw_params_get_period_size_max(params, &period_size_max, &dir), "get_period_size_max");
+			if (period_size > period_size_max)
+				period_size = SPA_MIN(period_size, flp2(period_size_max));
+		} else {
+			spa_log_debug(state->log, "set_periods_min: %s", snd_strerror(err));
+		}
 	}
 
 	CHECK(snd_pcm_hw_params_set_period_size_near(hndl, params, &period_size, &dir), "set_period_size_near");

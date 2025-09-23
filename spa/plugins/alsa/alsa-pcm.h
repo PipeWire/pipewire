@@ -203,6 +203,7 @@ struct state {
 	int n_fds;
 	uint32_t threshold;
 	uint32_t last_threshold;
+	snd_pcm_uframes_t period_size_min;
 	uint32_t headroom;
 	uint32_t start_delay;
 	uint32_t min_delay;
@@ -233,6 +234,7 @@ struct state {
 	unsigned int linked:1;
 	unsigned int is_batch:1;
 	unsigned int force_rate:1;
+	unsigned int use_period_size_min_as_headroom:1;
 
 	uint64_t iec958_codecs;
 

@@ -975,6 +975,13 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 	if (info && (str = spa_dict_lookup(info, "device.profile.pro")) != NULL)
 		state->is_pro = spa_atob(str);
 
+	if (info && spa_strstartswith(spa_dict_lookup(info, SPA_KEY_API_ALSA_CARD_NAME), "sof-") &&
+	    state->stream == SND_PCM_STREAM_PLAYBACK) {
+		state->use_period_size_min_as_headroom = true;
+		spa_log_info(state->log,
+			     "ALSA SOF driver detected: default api.alsa.use-period-size-min-as-headroom=true");
+	}
+
 	state->multi_rate = true;
 	state->htimestamp = false;
 	state->htimestamp_max_errors = MAX_HTIMESTAMP_ERROR;
@@ -2034,7 +2041,12 @@ static void recalc_headroom(struct state *state)
 	if (state->position != NULL)
 		rate = state->position->clock.target_rate.denom;
 
-	state->headroom = state->default_headroom;
+	if (state->use_period_size_min_as_headroom)
+		state->headroom = state->default_headroom ?
+				  state->default_headroom : state->period_size_min;
+	else
+		state->headroom = state->default_headroom;
+
 	if (!state->disable_tsched || state->resample) {
 		/* When using timers, we might miss the pointer update for batch
 		 * devices so add some extra headroom. With IRQ, we know the pointers
@@ -2356,6 +2368,12 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		periods = UINT_MAX;
 	}
 
+	/* Query the minimum period size for this configuration
+	 * This information is used as headroom if use_period_size_min_as_headroom is
+	 * set and default_headroom is 0 (not forced by user)
+	 */
+	CHECK(snd_pcm_hw_params_get_period_size_min(params, &state->period_size_min, &dir), "snd_pcm_hw_params_get_period_size_min");
+
 	if (state->default_period_size == 0) {
 		/* Some devices (FireWire) don't produce audio if period number is too
 		 * small, so force a minimum. This will restrict possible period sizes if
@@ -2417,14 +2435,14 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	recalc_headroom(state);
 
 	spa_log_info(state->log, "%s: format:%s access:%s-%s rate:%d channels:%d "
-			"buffer frames %lu, period frames %lu, periods %u, frame_size %zd "
+			"buffer frames %lu, period frames %lu (min:%lu), periods %u, frame_size %zd "
 			"headroom %u start-delay:%u batch:%u tsched:%u resample:%u",
 			state->name, snd_pcm_format_name(state->format),
 			state->use_mmap ? "mmap" : "rw",
 			planar ? "planar" : "interleaved",
 			state->rate, state->channels, state->buffer_frames, state->period_frames,
-			periods, state->frame_size, state->headroom, state->start_delay,
-			state->is_batch, !state->disable_tsched, state->resample);
+			state->period_size_min, periods, state->frame_size, state->headroom,
+			state->start_delay, state->is_batch, !state->disable_tsched, state->resample);
 
 	/* write the parameters to device */
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");

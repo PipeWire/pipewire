@@ -14,6 +14,7 @@
 #include <spa/utils/dll.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw-json.h>
+#include <spa/param/latency-utils.h>
 #include <spa/control/control.h>
 #include <spa/control/ump-utils.h>
 #include <spa/debug/types.h>
@@ -185,6 +186,9 @@ struct impl {
 	/* And some bookkeping for the sender processing */
 	uint64_t rtp_base_ts;
 	uint32_t rtp_last_ts;
+
+	/* The process latency, set by on_stream_param_changed(). */
+	struct spa_process_latency_info process_latency;
 };
 
 /* Atomic internal_state accessors.
@@ -482,10 +486,70 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
+static void update_latency_params(struct impl *impl)
+{
+	uint32_t n_params = 0;
+	const struct spa_pod *params[2];
+	uint8_t buffer[1024];
+	struct spa_pod_builder b;
+	struct spa_latency_info main_latency;
+
+	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+
+	/* main_latency is the latency in the direction indicated by impl->direction.
+	 * In RTP streams, this consists solely of the process latency. (In theory,
+	 * PipeWire SPA nodes could have additional latencies on top of the process
+	 * latency, but this is not the case here.) The other direction is already
+	 * handled by pw_stream.
+	 *
+	 * The main_latncy is passed as updated SPA_PARAM_Latency params to the stream.
+	 * That way, the stream always gets information of latency for _both_ directions;
+	 * the direction indicated by impl->direction is covered by main_latency, and
+	 * the opposite direction is already taken care of by the default pw_stream
+	 * param handling.
+	 *
+	 * The process latency is also passed on as an SPA_PARAM_ProcessLatency param.
+	 */
+
+	main_latency = SPA_LATENCY_INFO(impl->direction);
+	spa_process_latency_info_add(&impl->process_latency, &main_latency);
+
+	params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &main_latency);
+	params[n_params++] = spa_process_latency_build(&b, SPA_PARAM_ProcessLatency,
+							&impl->process_latency);
+
+	pw_stream_update_params(impl->stream, params, n_params);
+}
+
+static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param)
+{
+	struct spa_process_latency_info process_latency;
+
+	if (param == NULL)
+		spa_zero(process_latency);
+
+	else if (spa_process_latency_parse(param, &process_latency) < 0)
+		return;
+	if (spa_process_latency_info_compare(&impl->process_latency, &process_latency) == 0)
+		return;
+
+	impl->process_latency = process_latency;
+
+	update_latency_params(impl);
+}
+
 static void on_stream_param_changed (void *d, uint32_t id, const struct spa_pod *param)
 {
 	struct impl *impl = d;
-	rtp_stream_emit_param_changed(impl, id, param);
+
+	switch (id) {
+	case SPA_PARAM_ProcessLatency:
+		param_process_latency_changed(impl, param);
+		break;
+	default:
+		rtp_stream_emit_param_changed(impl, id, param);
+		break;
+	}
 };
 
 static const struct pw_stream_events stream_events = {
@@ -1006,4 +1070,18 @@ int rtp_stream_update_params(struct rtp_stream *s,
 {
 	struct impl *impl = (struct impl*)s;
 	return pw_stream_update_params(impl->stream, params, n_params);
+}
+
+void rtp_stream_update_process_latency(struct rtp_stream *s,
+				const struct spa_process_latency_info *process_latency)
+{
+	struct impl *impl = (struct impl*)s;
+
+	if (spa_process_latency_info_compare(&impl->process_latency, process_latency) == 0)
+		return;
+
+	spa_memcpy(&(impl->process_latency), process_latency,
+		sizeof(const struct spa_process_latency_info));
+
+	update_latency_params(impl);
 }

@@ -82,6 +82,9 @@ int rtp_stream_update_params(struct rtp_stream *stream,
 			const struct spa_pod **params,
 			uint32_t n_params);
 
+void rtp_stream_update_process_latency(struct rtp_stream *stream,
+				const struct spa_process_latency_info *process_latency);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1013,8 +1013,6 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
 		spa_log_debug(this->log, "%p: starting %d", this, this->started);
-		if (this->started)
-			return 0;
 		if ((res = negotiate_format(this)) < 0)
 			return res;
 		this->ready = true;

@@ -175,6 +175,11 @@ exit_free:
         return NULL;
 }
 
+uint32_t dsf_layout_stride(const struct dsf_layout *layout)
+{
+	return layout->channels * SPA_ABS(layout->interleave);
+}
+
 static const uint8_t bitrev[256] = {
 	0x00, 0x80, 0x40, 0xc0, 0x20, 0xa0, 0x60, 0xe0, 0x10, 0x90, 0x50, 0xd0, 0x30, 0xb0, 0x70, 0xf0,
 	0x08, 0x88, 0x48, 0xc8, 0x28, 0xa8, 0x68, 0xe8, 0x18, 0x98, 0x58, 0xd8, 0x38, 0xb8, 0x78, 0xf8,
@@ -200,16 +205,12 @@ dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_l
 	uint8_t *d = data;
 	int step = SPA_ABS(layout->interleave);
 	bool rev = layout->lsb != f->info.lsb;
-	size_t total, block, offset, pos, scale;
+	size_t total, block, offset, pos;
 	size_t blocksize = f->info.blocksize * f->info.channels;
 
 	block = f->offset / f->info.blocksize;
 	offset = block * blocksize;
 	pos = f->offset % f->info.blocksize;
-	scale = SPA_CLAMP(f->info.rate / (44100u * 64u), 1u, 4u);
-
-	samples *= step;
-	samples *= scale;
 
 	for (total = 0; total < samples; total++) {
 		uint32_t i;

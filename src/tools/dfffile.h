@@ -24,6 +24,8 @@ struct dff_layout {
 	bool lsb;
 };
 
+uint32_t dff_layout_stride(const struct dff_layout *layout);
+
 struct dff_file * dff_file_open(const char *filename, const char *mode, struct dff_file_info *info);
 
 ssize_t dff_file_read(struct dff_file *f, void *data, size_t samples, const struct dff_layout *layout);

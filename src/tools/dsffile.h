@@ -24,6 +24,8 @@ struct dsf_layout {
 	bool lsb;
 };
 
+uint32_t dsf_layout_stride(const struct dsf_layout *layout);
+
 struct dsf_file * dsf_file_open(const char *filename, const char *mode, struct dsf_file_info *info);
 
 ssize_t dsf_file_read(struct dsf_file *f, void *data, size_t samples, const struct dsf_layout *layout);

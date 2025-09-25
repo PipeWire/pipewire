@@ -870,7 +870,7 @@ on_param_changed(void *userdata, uint32_t id, const struct spa_pod *param)
 	data->dff.layout.channels = info.info.dsd.channels;
 	data->dff.layout.lsb = info.info.dsd.bitorder == SPA_PARAM_BITORDER_lsb;
 
-	data->stride = data->dsf.layout.channels * SPA_ABS(data->dsf.layout.interleave);
+	data->stride = dsf_layout_stride(&data->dsf.layout);
 
 	if (data->verbose) {
 		fprintf(stderr, "DSD: channels:%d bitorder:%s interleave:%d stride:%d\n",

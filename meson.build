@@ -339,14 +339,23 @@ endif
 pw_cat_ffmpeg = get_option('pw-cat-ffmpeg')
 ffmpeg = get_option('ffmpeg')
 if pw_cat_ffmpeg.allowed() or ffmpeg.allowed()
+  # libswscale is only used by videoconvert. FFmpeg might however be used for
+  # compressed audio (both for decoding said compressed audio and for parsing
+  # it in pw-cat). If users only care about audio, then libswscale would still
+  # become a requirement if its required flag is defined only by FFmpeg options.
+  # Make the videoconvert option a factor in swscale_dep as well to avoid this.
+  videoconvert = get_option('videoconvert')
   avcodec_dep = dependency('libavcodec', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
   avformat_dep = dependency('libavformat', required: pw_cat_ffmpeg.enabled())
   avfilter_dep = dependency('libavfilter', required: ffmpeg.enabled())
   avutil_dep = dependency('libavutil', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
-  swscale_dep = dependency('libswscale', required: pw_cat_ffmpeg.enabled() or ffmpeg.enabled())
+  swscale_dep = dependency('libswscale', required: (pw_cat_ffmpeg.enabled() or ffmpeg.enabled()) and videoconvert.enabled())
 else
   avcodec_dep = dependency('', required: false)
+  avformat_dep = dependency('', required: false)
   avfilter_dep = dependency('', required: false)
+  avutil_dep = dependency('', required: false)
+  swscale_dep = dependency('', required: false)
 endif
 cdata.set('HAVE_PW_CAT_FFMPEG_INTEGRATION', pw_cat_ffmpeg.allowed())
 

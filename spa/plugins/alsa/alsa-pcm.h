@@ -169,6 +169,7 @@ struct state {
 	uint32_t delay;
 	uint32_t read_size;
 	uint32_t max_read;
+	uint32_t duration;
 
 	uint64_t port_info_all;
 	struct spa_port_info port_info;
@@ -232,7 +233,7 @@ struct state {
 	unsigned int dsd_lsb:1;
 	unsigned int linked:1;
 	unsigned int is_batch:1;
-	unsigned int force_rate:1;
+	unsigned int force_quantum:1;
 
 	uint64_t iec958_codecs;
 

@@ -2069,7 +2069,7 @@ static void recalc_headroom(struct state *state)
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
 {
-	unsigned int rrate, rchannels, val, rscale = 1;
+	unsigned int rrate, rchannels, val, rscale = 1, period_scale = 1;
 	snd_pcm_uframes_t period_size;
 	int err, dir;
 	snd_pcm_hw_params_t *params;
@@ -2085,7 +2085,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			state->have_format, state->started);
 
 	state->use_mmap = !state->disable_mmap;
-	state->force_rate = false;
+	state->force_quantum = state->disable_tsched;
 
 	switch (fmt->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
@@ -2148,7 +2148,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 				IEC958_AES0_CON_EMPHASIS_NONE | IEC958_AES0_NONAUDIO,
 				IEC958_AES1_CON_ORIGINAL | IEC958_AES1_CON_PCM_CODER,
 				0, aes3);
-		state->force_rate = true;
+		state->force_quantum = true;
 		break;
 	}
 	case SPA_MEDIA_SUBTYPE_dsd:
@@ -2186,6 +2186,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		default:
 			return -ENOTSUP;
 		}
+		state->force_quantum = true;
 		break;
 	}
 	default:
@@ -2316,10 +2317,13 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	default_period = SPA_SCALE32_UP(DEFAULT_PERIOD, state->rate, DEFAULT_RATE);
 	default_period = flp2(2 * default_period - 1);
 
-	/* no period size specified. If we are batch or not using timers,
-	 * use the graph duration as the period */
-	if (period_size == 0 && (state->is_batch || state->disable_tsched))
-		period_size = state->position ? state->position->clock.target_duration : default_period;
+	/* no period size specified. If we are batch or forcing our quantum,
+	 * use the graph requested quantum scaled by our rate */
+	if (period_size == 0 && (state->is_batch || state->force_quantum) && state->position) {
+		period_size = SPA_SCALE32_UP(state->position->clock.target_duration,
+				state->rate, state->position->clock.target_rate.denom);
+		period_size = flp2(period_size);
+	}
 	if (period_size == 0)
 		period_size = default_period;
 
@@ -2330,6 +2334,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			 * period size to our default so that we don't create too much
 			 * headroom. */
 			period_size = SPA_MIN(period_size, default_period) / 2;
+			period_scale = 2;
 		} else {
 			/* disable ALSA wakeups */
 			if (snd_pcm_hw_params_can_disable_period_wakeup(params))
@@ -2362,7 +2367,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 		err = snd_pcm_hw_params_set_periods_min(hndl, params, &periods_min, &dir);
 		if (!err) {
-			CHECK(snd_pcm_hw_params_get_period_size_max(params, &period_size_max, &dir), "get_period_size_max");
+			CHECK(snd_pcm_hw_params_get_period_size_max(params, &period_size_max, &dir),
+					"get_period_size_max");
 			if (period_size > period_size_max)
 				period_size = SPA_MIN(period_size, flp2(period_size_max));
 		} else {
@@ -2378,6 +2384,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	}
 
 	state->period_frames = period_size;
+	state->duration = period_size * period_scale;
 
 	if (periods != UINT_MAX) {
 		CHECK(snd_pcm_hw_params_set_periods_near(hndl, params, &periods, &dir), "set_periods");
@@ -2991,23 +2998,22 @@ static inline int check_position_config(struct state *state, bool starting)
 	uint64_t target_duration;
 	struct spa_fraction target_rate;
 	struct spa_io_position *pos;
+	bool can_force;
 
 	if (SPA_UNLIKELY((pos = state->position) == NULL))
 		return 0;
 
-	if (state->disable_tsched && (starting || state->started) && !state->following) {
-		target_duration = state->period_frames;
+	/* we can force rate/duration when we are the driver and started/starting */
+	can_force = (starting || state->started) && !state->following;
+
+	if (state->force_quantum && can_force) {
 		target_rate = SPA_FRACTION(1, state->rate);
-		pos->clock.target_duration = target_duration;
+		target_duration = state->duration;
 		pos->clock.target_rate = target_rate;
+		pos->clock.target_duration = target_duration;
 	} else {
+		target_rate = pos->clock.target_rate;
 		target_duration = pos->clock.target_duration;
-		if (state->force_rate && !state->following) {
-			target_rate = SPA_FRACTION(1, state->rate);
-			pos->clock.target_rate = target_rate;
-		} else {
-			target_rate = pos->clock.target_rate;
-		}
 	}
 	if (target_duration == 0 || target_rate.denom == 0)
 		return -EIO;

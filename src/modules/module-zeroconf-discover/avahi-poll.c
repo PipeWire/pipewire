@@ -8,7 +8,9 @@
 
 struct impl {
 	AvahiPoll api;
+	struct pw_context *context;
 	struct pw_loop *loop;
+	struct pw_timer_queue *timer_queue;
 };
 
 struct AvahiWatch {
@@ -22,7 +24,7 @@ struct AvahiWatch {
 
 struct AvahiTimeout {
 	struct impl *impl;
-	struct spa_source *source;
+	struct pw_timer timer;
 	AvahiTimeoutCallback callback;
 	void *userdata;
 };
@@ -99,17 +101,40 @@ static void watch_free(AvahiWatch *w)
 		free(w);
 }
 
-static void timeout_callback(void *data, uint64_t expirations)
+static void timeout_callback(void *data)
 {
 	AvahiTimeout *w = data;
 	w->callback(w, w->userdata);
+}
+
+static int schedule_timeout(AvahiTimeout *t, const struct timeval *tv)
+{
+	struct timeval now;
+	int64_t timeout_ns;
+
+	if (tv == NULL)
+		return 0;
+
+	/* Get current REALTIME (same clock domain as Avahi) */
+	if (gettimeofday(&now, NULL) < 0)
+		return -errno;
+
+	/* Calculate relative timeout: target - now */
+	timeout_ns = ((int64_t)tv->tv_sec - now.tv_sec) * SPA_NSEC_PER_SEC +
+		     ((int64_t)tv->tv_usec - now.tv_usec) * 1000UL;
+
+	/* Ensure minimum timeout */
+	if (timeout_ns <= 0)
+		timeout_ns = 1;
+
+	return pw_timer_queue_add(t->impl->timer_queue, &t->timer, NULL,
+				  timeout_ns, timeout_callback, t);
 }
 
 static AvahiTimeout* timeout_new(const AvahiPoll *api, const struct timeval *tv,
 		AvahiTimeoutCallback callback, void *userdata)
 {
 	struct impl *impl = api->userdata;
-	struct timespec value;
 	AvahiTimeout *w;
 
 	w = calloc(1, sizeof(*w));
@@ -119,38 +144,27 @@ static AvahiTimeout* timeout_new(const AvahiPoll *api, const struct timeval *tv,
 	w->impl = impl;
 	w->callback = callback;
 	w->userdata = userdata;
-	w->source = pw_loop_add_timer(impl->loop, timeout_callback, w);
-	if (w->source == NULL) {
+
+	if (schedule_timeout(w, tv) < 0) {
 		free(w);
 		return NULL;
 	}
-	if (tv != NULL) {
-		value.tv_sec = tv->tv_sec;
-		value.tv_nsec = tv->tv_usec * 1000UL;
-		pw_loop_update_timer(impl->loop, w->source, &value, NULL, true);
-	}
+
 	return w;
 }
 
 static void timeout_update(AvahiTimeout *t, const struct timeval *tv)
 {
-	struct impl *impl = t->impl;
-	struct timespec value, *v = NULL;
+	/* Cancel the existing timer */
+	pw_timer_queue_cancel(&t->timer);
 
-	if (tv != NULL) {
-		value.tv_sec = tv->tv_sec;
-		value.tv_nsec = tv->tv_usec * 1000UL;
-		if (value.tv_sec == 0 && value.tv_nsec == 0)
-			value.tv_nsec = 1;
-		v = &value;
-	}
-	pw_loop_update_timer(impl->loop, t->source, v, NULL, true);
+	/* Schedule new timeout if provided */
+	schedule_timeout(t, tv);
 }
 
 static void timeout_free(AvahiTimeout *t)
 {
-	struct impl *impl = t->impl;
-	pw_loop_destroy_source(impl->loop, t->source);
+	pw_timer_queue_cancel(&t->timer);
 	free(t);
 }
 
@@ -164,7 +178,7 @@ static const AvahiPoll avahi_poll_api = {
 	.timeout_free = timeout_free,
 };
 
-AvahiPoll* pw_avahi_poll_new(struct pw_loop *loop)
+AvahiPoll* pw_avahi_poll_new(struct pw_context *context)
 {
 	struct impl *impl;
 
@@ -172,7 +186,10 @@ AvahiPoll* pw_avahi_poll_new(struct pw_loop *loop)
 	if (impl == NULL)
 		return NULL;
 
-	impl->loop = loop;
+	impl->context = context;
+	impl->loop = pw_context_get_main_loop(context);
+	impl->timer_queue = pw_context_get_timer_queue(context);
+
 	impl->api = avahi_poll_api;
 	impl->api.userdata = impl;
 

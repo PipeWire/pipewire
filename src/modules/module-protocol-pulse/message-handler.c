@@ -118,6 +118,16 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 	} else if (spa_streq(message, "pipewire-pulse:log-level")) {
 		int res = pw_log_set_level_string(params);
 		fprintf(response, "%d", res);
+	} else if (spa_streq(message, "pipewire-pulse:list-modules")) {
+		bool first = true;
+		const struct module_info *i = NULL;
+		fputc('[', response);
+		while ((i = module_info_next(client->impl, i)) != NULL) {
+			fprintf(response, "%s{\"name\":\"%s\"}",
+						first ? "" : ",\n", i->name);
+				first = false;
+		}
+		fputc(']', response);
 	} else if (spa_streq(message, "pipewire-pulse:describe-module")) {
 		const struct module_info *i = module_info_find(client->impl, params);
 

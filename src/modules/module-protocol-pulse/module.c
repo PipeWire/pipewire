@@ -293,20 +293,28 @@ void audioinfo_to_properties(struct spa_audio_info_raw *info, struct pw_properti
 	}
 }
 
-const struct module_info *module_info_find(struct impl *impl, const char *name)
+const struct module_info *module_info_next(struct impl *impl, const struct module_info *info)
 {
 	extern const struct module_info __start_pw_mod_pulse_modules[];
 	extern const struct module_info __stop_pw_mod_pulse_modules[];
 
-	const struct module_info *info = __start_pw_mod_pulse_modules;
+	if (info == NULL)
+		info = __start_pw_mod_pulse_modules;
+	else
+		info++;
+	if (info == __stop_pw_mod_pulse_modules)
+		return NULL;
+	return info;
+}
 
-	for (; info < __stop_pw_mod_pulse_modules; info++) {
+const struct module_info *module_info_find(struct impl *impl, const char *name)
+{
+	const struct module_info *info = NULL;
+
+	while ((info = module_info_next(impl, info)) != NULL) {
 		if (spa_streq(info->name, name))
 			return info;
 	}
-
-	spa_assert(info == __stop_pw_mod_pulse_modules);
-
 	return NULL;
 }
 

@@ -58,6 +58,7 @@ static void timer_timeout(void *user_data, uint64_t expirations)
 		pw_log_debug("%p: timer was rearmed", queue);
 		return;
 	}
+	queue->next_timeout = NULL;
 
 	pw_log_debug("%p: processing timer %p", queue, timer);
 	timer->queue = NULL;

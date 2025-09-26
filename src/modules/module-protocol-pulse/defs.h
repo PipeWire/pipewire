@@ -109,8 +109,8 @@ static inline int res_to_err(int res)
 	case -ENOTSUP: case -EPROTONOSUPPORT: case -ESOCKTNOSUPPORT: return ERR_NOTSUPPORTED;
 	case -ENOSYS: return ERR_NOTIMPLEMENTED;
 	case -EIO: return ERR_IO;
-	case -EBUSY: return ERR_BUSY;
-	case -ENFILE: case -EMFILE: return ERR_INTERNAL;
+	case -EBUSY: case -EADDRINUSE: case -EAGAIN: return ERR_BUSY;
+	case -ENFILE: case -EMFILE: -ENOMEM: return ERR_INTERNAL;
 	}
 	return ERR_UNKNOWN;
 }

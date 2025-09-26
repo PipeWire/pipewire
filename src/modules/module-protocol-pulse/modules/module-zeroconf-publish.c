@@ -637,7 +637,6 @@ static const struct impl_events impl_events = {
 static int module_zeroconf_publish_load(struct module *module)
 {
 	struct module_zeroconf_publish_data *data = module->user_data;
-	struct pw_loop *loop;
 	int error;
 
 	data->core = pw_context_connect(module->impl->context, NULL, 0);
@@ -650,8 +649,7 @@ static int module_zeroconf_publish_load(struct module *module)
 			&data->core_listener,
 			&core_events, data);
 
-	loop = pw_context_get_main_loop(module->impl->context);
-	data->avahi_poll = pw_avahi_poll_new(loop);
+	data->avahi_poll = pw_avahi_poll_new(module->impl->context);
 
 	data->client = avahi_client_new(data->avahi_poll, AVAHI_CLIENT_NO_FAIL,
 			client_callback, data, &error);

@@ -487,10 +487,7 @@ static int start_client(struct impl *impl)
 
 static int start_avahi(struct impl *impl)
 {
-	struct pw_loop *loop;
-
-	loop = pw_context_get_main_loop(impl->context);
-	impl->avahi_poll = pw_avahi_poll_new(loop);
+	impl->avahi_poll = pw_avahi_poll_new(impl->context);
 
 	return start_client(impl);
 }

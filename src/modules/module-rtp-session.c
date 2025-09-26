@@ -1835,7 +1835,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((res = setup_apple_session(impl)) < 0)
 		goto out;
 
-	impl->avahi_poll = pw_avahi_poll_new(impl->loop);
+	impl->avahi_poll = pw_avahi_poll_new(impl->context);
 	if ((impl->client = avahi_client_new(impl->avahi_poll,
 					AVAHI_CLIENT_NO_FAIL,
 					client_callback, impl,

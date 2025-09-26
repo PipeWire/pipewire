@@ -110,7 +110,7 @@ static inline int res_to_err(int res)
 	case -ENOSYS: return ERR_NOTIMPLEMENTED;
 	case -EIO: return ERR_IO;
 	case -EBUSY: case -EADDRINUSE: case -EAGAIN: return ERR_BUSY;
-	case -ENFILE: case -EMFILE: -ENOMEM: return ERR_INTERNAL;
+	case -ENFILE: case -EMFILE: case -ENOMEM: return ERR_INTERNAL;
 	}
 	return ERR_UNKNOWN;
 }

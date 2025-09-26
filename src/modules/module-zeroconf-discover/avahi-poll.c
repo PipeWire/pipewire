@@ -72,7 +72,10 @@ static AvahiWatch* watch_new(const AvahiPoll *api, int fd, AvahiWatchEvent event
 	w->userdata = userdata;
 	w->source = pw_loop_add_io(impl->loop, fd, to_pw_events(event),
 			false, watch_callback, w);
-
+	if (w->source == NULL) {
+		free(w);
+		return NULL;
+	}
 	return w;
 }
 
@@ -117,7 +120,10 @@ static AvahiTimeout* timeout_new(const AvahiPoll *api, const struct timeval *tv,
 	w->callback = callback;
 	w->userdata = userdata;
 	w->source = pw_loop_add_timer(impl->loop, timeout_callback, w);
-
+	if (w->source == NULL) {
+		free(w);
+		return NULL;
+	}
 	if (tv != NULL) {
 		value.tv_sec = tv->tv_sec;
 		value.tv_nsec = tv->tv_usec * 1000UL;

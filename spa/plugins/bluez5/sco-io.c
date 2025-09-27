@@ -15,6 +15,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
+#include <spa/utils/cleanup.h>
 #include <spa/monitor/device.h>
 
 #include <spa/node/node.h>
@@ -51,6 +52,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.sco-io");
  */
 #define MAX_MTU 1024
 
+#define KEEPALIVE_NSEC	(500 * SPA_NSEC_PER_MSEC)
+
 
 struct spa_bt_sco_io {
 	uint8_t read_buffer[MAX_MTU];
@@ -72,8 +75,57 @@ struct spa_bt_sco_io {
 
 	int (*source_cb)(void *userdata, uint8_t *data, int size, uint64_t rx_time);
 	void *source_userdata;
+
+	const struct media_codec *codec;
+	void *codec_data;
+
+	uint64_t last_tx_time;
+	uint64_t last_rx_time;
+	uint16_t keepalive_seqnum;
+	bool keepalive;
 };
 
+static void keepalive_send(struct spa_bt_sco_io *io)
+{
+	static const uint8_t zeros[2048];
+	uint8_t buf[MAX_MTU];
+	int res, need_flush = 0;
+	size_t size;
+
+	if (io->codec->id == SPA_BLUETOOTH_AUDIO_CODEC_CVSD) {
+		/* Doesn't have fixed block size; TX same amount as RX instead */
+		size = SPA_MIN(sizeof(buf), io->read_size);
+		memset(buf, 0, size);
+		goto send;
+	}
+
+	size = res = io->codec->start_encode(io->codec_data, buf, sizeof(buf), ++io->keepalive_seqnum,
+			io->last_rx_time / SPA_NSEC_PER_USEC);
+	if (res < 0)
+		return;
+
+	do {
+		size_t encoded;
+
+		res = io->codec->encode(io->codec_data, zeros, sizeof(zeros),
+				SPA_PTROFF(buf, size, void), sizeof(buf) - size,
+				&encoded, &need_flush);
+		if (res < 0)
+			return;
+
+		size += encoded;
+		if (size >= sizeof(buf))
+			return;
+	} while (!need_flush);
+
+send:
+	if (!io->keepalive)
+		spa_bt_sco_io_write_start(io);
+
+	io->keepalive = false;
+	spa_bt_sco_io_write(io, buf, size);
+	io->keepalive = true;
+}
 
 static void sco_io_on_ready(struct spa_source *source)
 {
@@ -107,6 +159,9 @@ static void sco_io_on_ready(struct spa_source *source)
 		}
 
 		io->read_size = res;
+		io->last_rx_time = rx_time;
+		if (!io->last_tx_time)
+			io->last_tx_time = rx_time;
 
 		if (io->source_cb) {
 			int res;
@@ -115,6 +170,13 @@ static void sco_io_on_ready(struct spa_source *source)
 				io->source_cb = NULL;
 			}
 		}
+
+		/* If sink has not supplied packets for some time, for each RX packet send
+		 * same amount of silence to keep the connection alive. Some devices (with
+		 * LC3-24kHZ) require this and it doesn't hurt for others.
+		 */
+		if (io->last_tx_time + KEEPALIVE_NSEC < io->last_rx_time || io->keepalive)
+			keepalive_send(io);
 	}
 
 read_done:
@@ -157,9 +219,17 @@ int spa_bt_sco_io_write(struct spa_bt_sco_io *io, const uint8_t *buf, size_t siz
 	size_t packet_size;
 	int res;
 
+	io->last_tx_time = io->last_rx_time;
+
 	if (io->read_size == 0) {
 		/* The proper write packet size is not known yet */
 		return 0;
+	}
+
+	if (io->keepalive) {
+		/* Transition from keepalive to sink-fed data */
+		io->write_size = 0;
+		io->keepalive = false;
 	}
 
 	packet_size = SPA_MIN(SPA_MIN(io->write_mtu, io->read_size), sizeof(io->write_buffer));
@@ -213,7 +283,8 @@ void spa_bt_sco_io_write_start(struct spa_bt_sco_io *io)
 struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, struct spa_loop *data_loop,
 		struct spa_system *data_system, struct spa_log *log)
 {
-	struct spa_bt_sco_io *io;
+	spa_autofree struct spa_bt_sco_io *io = NULL;
+	struct spa_audio_info format = { 0 };
 
 	spa_log_topic_init(log, &log_topic);
 
@@ -245,6 +316,15 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 		}
 	}
 
+	io->codec = transport->media_codec;
+
+	if (io->codec->validate_config(io->codec, 0, NULL, 0, &format) < 0)
+		return NULL;
+
+	io->codec_data = io->codec->init(io->codec, 0, NULL, 0, &format, NULL, transport->write_mtu);
+	if (!io->codec_data)
+		return NULL;
+
 	spa_log_debug(io->log, "%p: initial packet size:%d", io, (int)io->read_size);
 
 	spa_bt_recvmsg_init(&io->recv, io->fd, io->data_system, io->log);
@@ -257,7 +337,7 @@ struct spa_bt_sco_io *spa_bt_sco_io_create(struct spa_bt_transport *transport, s
 	io->source.rmask = 0;
 	spa_loop_add_source(io->data_loop, &io->source);
 
-	return io;
+	return spa_steal_ptr(io);
 }
 
 static int do_remove_source(struct spa_loop *loop,
@@ -279,6 +359,7 @@ void spa_bt_sco_io_destroy(struct spa_bt_sco_io *io)
 {
 	spa_log_debug(io->log, "%p: destroy", io);
 	spa_loop_locked(io->data_loop, do_remove_source, 0, NULL, 0, io);
+	io->codec->deinit(io->codec_data);
 	free(io);
 }
 
@@ -290,4 +371,6 @@ void spa_bt_sco_io_set_source_cb(struct spa_bt_sco_io *io, int (*source_cb)(void
 {
 	io->source_cb = source_cb;
 	io->source_userdata = userdata;
+	io->last_rx_time = 0;
+	io->last_tx_time = 0;
 }

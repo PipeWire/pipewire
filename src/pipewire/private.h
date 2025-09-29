@@ -784,6 +784,7 @@ struct pw_impl_node {
 	unsigned int async:1;		/**< async processing, one cycle latency */
 	unsigned int lazy:1;		/**< the graph is lazy scheduling */
 	unsigned int exclusive:1;	/**< ports can only be linked once */
+	unsigned int leaf:1;		/**< node only produces/consumes data */
 
 	uint32_t transport;		/**< latest transport request */
 

@@ -1309,6 +1309,10 @@ static void check_properties(struct pw_impl_node *node)
 		}
 	}
 	node->lock_rate = pw_properties_get_bool(node->properties, PW_KEY_NODE_LOCK_RATE, false);
+	/* the leaf node is one that only produces/consumes the data. We can deduce this from the
+	 * absence of a link-group and the fact that it has no output/input ports. */
+	node->leaf = node->link_groups == NULL &&
+			(node->info.max_input_ports == 0 || node->info.max_output_ports == 0);
 
 	value = pw_properties_get_uint32(node->properties, PW_KEY_NODE_FORCE_RATE, SPA_ID_INVALID);
 	if (value == 0)

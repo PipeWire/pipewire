@@ -1101,11 +1101,25 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		pw_log_debug(" next node %p: '%s' runnable:%u %p %p %p", n, n->name, n->runnable,
 				n->groups, n->link_groups, sync);
 	}
-	spa_list_for_each(n, collect, sort_link)
-		if (!n->driving && n->runnable) {
+	/* All non-driver runnable nodes (ie. reachable with a non-passive link) now make
+	 * all linked nodes up and downstream runnable as well */
+	spa_list_for_each(n, collect, sort_link) {
+		if (!n->driver && n->runnable) {
 			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT, 0);
 			run_nodes(context, n, collect, PW_DIRECTION_INPUT, 0);
 		}
+	}
+	/* now we might have made a driver runnable, if the node is not runnable at this point
+	 * it means it was linked to the driver with passives links and some other node
+	 * made the driver active. If the node is a leaf it can not be activated in any other
+	 * way and we will also make it, and all its peers, runnable */
+	spa_list_for_each(n, collect, sort_link) {
+		if (!n->driver && n->driver_node->runnable && !n->runnable && n->leaf) {
+			n->runnable = true;
+			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT, 0);
+			run_nodes(context, n, collect, PW_DIRECTION_INPUT, 0);
+		}
+	}
 
 	return 0;
 }

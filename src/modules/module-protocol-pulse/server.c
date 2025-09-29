@@ -31,6 +31,7 @@
 #include <spa/utils/result.h>
 #include <pipewire/pipewire.h>
 
+#include "network-utils.h"
 #include "client.h"
 #include "commands.h"
 #include "defs.h"
@@ -375,6 +376,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	struct client *client = NULL;
 	const char *client_access = NULL;
 	const char *error_reason = NULL;
+	char ipname[256];
 	pid_t pid;
 
 	length = sizeof(name);
@@ -418,9 +420,17 @@ on_connect(void *data, int fd, uint32_t mask)
 	if (client->props == NULL)
 		goto error;
 
+
 	pw_properties_setf(client->props,
 			"pulse.server.type", "%s",
 			server->addr.ss_family == AF_UNIX ? "unix" : "tcp");
+
+	if (server->addr.ss_family != AF_UNIX) {
+		uint16_t port = 0;
+		if (pw_net_get_ip(&name, ipname, sizeof(ipname), NULL, &port) >= 0)
+			pw_properties_setf(client->props,
+					"pulse.server.peer", "%s:%d", ipname, port);
+	}
 
 	client->routes = pw_properties_new(NULL, NULL);
 	if (client->routes == NULL)

@@ -2155,24 +2155,33 @@ static const struct spa_fga_descriptor param_eq_desc = {
 static void max_run(void * Instance, unsigned long SampleCount)
 {
 	struct builtin *impl = Instance;
-	float *out = impl->port[0], *in1 = impl->port[1], *in2 = impl->port[2];
-	unsigned long n;
+	float *out = impl->port[0];
+	float *src[8];
+	unsigned long n, p, n_srcs = 0;
 
 	if (out == NULL)
 		return;
 
-	if (in1 != NULL && in2 != NULL) {
-		for (n = 0; n < SampleCount; n++)
-			out[n] = SPA_MAX(in1[n], in2[n]);
-	} else if (in1 != NULL) {
-		for (n = 0; n < SampleCount; n++)
-			out[n] = in1[n];
-	} else if (in2 != NULL) {
-		for (n = 0; n < SampleCount; n++)
-			out[n] = in2[n];
+	for (p = 1; p < 9; p++) {
+		if (impl->port[p] != NULL)
+			src[n_srcs++] = impl->port[p];
+	}
+
+	if (n_srcs == 0) {
+		spa_memzero(out, SampleCount * sizeof(float));
+	} else if (n_srcs == 1) {
+		spa_memcpy(out, src[0], SampleCount * sizeof(float));
 	} else {
-		for (n = 0; n < SampleCount; n++)
-			out[n] = 0.0f;
+		for (p = 0; p < n_srcs; p++) {
+			if (p == 0) {
+				for (n = 0; n < SampleCount; n++)
+					out[n] = SPA_MAX(src[p][n], src[p + 1][n]);
+				p++;
+			} else {
+				for (n = 0; n < SampleCount; n++)
+					out[n] = SPA_MAX(out[n], src[p][n]);
+			}
+		}
 	}
 }
 
@@ -2189,7 +2198,31 @@ static struct spa_fga_port max_ports[] = {
 	{ .index = 2,
 	  .name = "In 2",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
-	}
+	},
+	{ .index = 3,
+	  .name = "In 3",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 4,
+	  .name = "In 4",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 5,
+	  .name = "In 5",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 6,
+	  .name = "In 6",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 7,
+	  .name = "In 7",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 8,
+	  .name = "In 8",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
 };
 
 static const struct spa_fga_descriptor max_desc = {

@@ -537,9 +537,12 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * ### Max
  *
- * Use the `max` plugin if you need to select the max value of two channels.
+ * Use the `max` plugin if you need to select the max value of a number of input ports.
  *
- * It has two input ports "In 1" and "In 2" and one output port "Out".
+ * It has 8 input ports named "In 1" to "In 8" and one output port "Out".
+ *
+ * All input ports samples are checked to find the maximum value per sample. Unused
+ * input ports will be ignored and not cause overhead.
  *
  * ### dcblock
  *

@@ -60,10 +60,7 @@ const libcamera::Span<const int64_t> cameraDevice(const Camera& camera)
 
 std::string cameraModel(const Camera& camera)
 {
-	if (auto model = camera.properties().get(properties::Model))
-		return std::move(model.value());
-
-	return camera.id();
+	return std::string(camera.properties().get(properties::Model).value_or(camera.id()));
 }
 
 const char *cameraLoc(const Camera& camera)

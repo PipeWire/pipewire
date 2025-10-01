@@ -1285,7 +1285,7 @@ static void convert_port_info(void *data,
 			port_id--;
 	} else if (info) {
 		pi = *info;
-		pi.flags = this->follower_port_flags &
+		pi.flags |= this->follower_port_flags &
 			(SPA_PORT_FLAG_LIVE |
 			 SPA_PORT_FLAG_PHYSICAL |
 			 SPA_PORT_FLAG_TERMINAL);

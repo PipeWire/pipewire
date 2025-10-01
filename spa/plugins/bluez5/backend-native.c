@@ -1394,7 +1394,7 @@ next_indicator:
 		// This command is sent when we activate Apple extensions
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (!mm_is_available(backend->modemmanager)) {
-		spa_log_warn(backend->log, "RFCOMM receive command but modem not available: %s", buf);
+		spa_log_info(backend->log, "RFCOMM receive command but modem not available: %s", buf);
 		rfcomm_send_error(rfcomm, CMEE_NO_CONNECTION_TO_PHONE);
 		return true;
 

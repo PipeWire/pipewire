@@ -727,6 +727,7 @@ static int impl_node_process(void *object)
 	struct buffer *outb;
 	const void **datas;
 	uint32_t cycle = this->position->clock.cycle & 1;
+	struct spa_data *d;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -793,11 +794,12 @@ static int impl_node_process(void *object)
 		return -EPIPE;
 	}
 
-	if (n_buffers == 1) {
+	d = outb->buf.datas;
+
+	if (n_buffers == 1 && SPA_FLAG_IS_SET(d[0].flags, SPA_DATA_FLAG_DYNAMIC)) {
+		spa_log_trace_fp(this->log, "%p: %d passthrough", this, n_buffers);
 		*outb->buffer = *buffers[0]->buffer;
 	} else {
-		struct spa_data *d = outb->buf.datas;
-
 		*outb->buffer = outb->buf;
 
 		maxsize = SPA_MIN(maxsize, d[0].maxsize);

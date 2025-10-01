@@ -1955,8 +1955,9 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 	if (SPA_FLAG_IS_SET(port->mix_flags, PW_IMPL_PORT_MIX_FLAG_NEGOTIATE)) {
 		int alloc_flags;
 
-		/* try dynamic data */
-		alloc_flags = PW_BUFFERS_FLAG_DYNAMIC;
+		alloc_flags = 0;
+		if (SPA_FLAG_IS_SET(port->spa_flags, SPA_PORT_FLAG_DYNAMIC_DATA))
+			alloc_flags |= PW_BUFFERS_FLAG_DYNAMIC;
 		if (SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_ASYNC))
 			alloc_flags |= PW_BUFFERS_FLAG_ASYNC;
 

@@ -1300,7 +1300,8 @@ static void media_on_flush_error(struct spa_source *source)
 	spa_log_trace(this->log, "%p: flush event", this);
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
-		spa_log_warn(this->log, "%p: error %d", this, source->rmask);
+		spa_log_warn(this->log, "%p: connection (%s) terminated unexpectedly",
+				this, this->transport ? this->transport->path : "");
 		if (this->flush_source.loop) {
 			spa_bt_latency_flush(&this->tx_latency, this->flush_source.fd, this->log);
 			spa_loop_remove_source(this->data_loop, &this->flush_source);

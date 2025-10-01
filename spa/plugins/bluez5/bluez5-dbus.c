@@ -4143,6 +4143,11 @@ release:
 			 */
 			spa_log_debug(monitor->log, "Failed to release idle transport %s: %s",
 			              transport->path, err.message);
+		} else if (spa_streq(err.name, DBUS_ERROR_UNKNOWN_METHOD) ||
+				spa_streq(err.name, DBUS_ERROR_UNKNOWN_OBJECT)) {
+			/* Transport disappeared */
+			spa_log_debug(monitor->log, "Failed to release (gone) transport %s: %s",
+			              transport->path, err.message);
 		} else {
 			spa_log_error(monitor->log, "Failed to release transport %s: %s",
 			              transport->path, err.message);

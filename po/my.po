@@ -9,15 +9,15 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
 "POT-Creation-Date: 2021-08-26 03:31+0000\n"
-"PO-Revision-Date: 2021-08-26 21:52+0630\n"
+"PO-Revision-Date: 2025-10-02 11:36+0630\n"
+"Last-Translator: zayar lwin <lw1nzayar@yandex.com>\n"
 "Language-Team: lw1nzayar@yandex.com\n"
+"Language: my\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Poedit 2.4.2\n"
-"Last-Translator: zayar lwin <lw1nzayar@yandex.com>\n"
-"Language: my\n"
+"X-Generator: Poedit 3.7\n"
 
 #: src/daemon/pipewire.c:45
 #, c-format
@@ -27,23 +27,24 @@ msgid ""
 "      --version                         Show version\n"
 "  -c, --config                          Load config (Default %s)\n"
 msgstr ""
-"%s [options]\n"
-"  -h, --help                            Show this help\n"
-"      --version                         Show version\n"
-"  -c, --config                          Load config (Default %s)\n"
+"%s [options]\r\n"
+"  -h, --help                            Show this help\r\n"
+"      --version                         Show version\r\n"
+"  -c, --config                          Load config (Default %s)\r\n"
+"\n"
 
 #: src/daemon/pipewire.desktop.in:4
 msgid "PipeWire Media System"
-msgstr "ပိုက်ဝိုင်ယာ မီဒီယာစစ်စတမ်"
+msgstr "ပိုက်ဝိုင်ယာ မီဒီယာစနစ်"
 
 #: src/daemon/pipewire.desktop.in:5
 msgid "Start the PipeWire Media System"
-msgstr "ပိုက်ဝိုင်ယာ မီဒီယာစစ်စတမ် စတင်ရန်"
+msgstr "ပိုက်ဝိုင်ယာ မီဒီယာစနစ် စတင်ရန်"
 
 #: src/examples/media-session/alsa-monitor.c:588
 #: spa/plugins/alsa/acp/compat.c:189
 msgid "Built-in Audio"
-msgstr "နဂိုတည်းကထည့်သွင်းထားသည်ံ့ အသံကရိယာ"
+msgstr "မူလပါရှိပြီးအသံကိရိယာ"
 
 #: src/examples/media-session/alsa-monitor.c:592
 #: spa/plugins/alsa/acp/compat.c:194
@@ -53,7 +54,7 @@ msgstr "ဆ.သ.ရ-စက်"
 #: src/examples/media-session/alsa-monitor.c:601
 #: src/modules/module-zeroconf-discover.c:296
 msgid "Unknown device"
-msgstr "မသိသောစက်"
+msgstr "မသိ"
 
 #: src/modules/module-protocol-pulse/modules/module-tunnel-sink.c:173
 #: src/modules/module-protocol-pulse/modules/module-tunnel-source.c:173
@@ -69,12 +70,12 @@ msgstr "%s@%sအတွက် လုံခြုံစွာဒေတာပို
 #: src/modules/module-zeroconf-discover.c:308
 #, c-format
 msgid "%s on %s@%s"
-msgstr ""
+msgstr "%s on %s@%s"
 
 #: src/modules/module-zeroconf-discover.c:312
 #, c-format
 msgid "%s on %s"
-msgstr ""
+msgstr "%s on %s"
 
 #: src/tools/pw-cat.c:1016
 #, c-format
@@ -85,6 +86,11 @@ msgid ""
 "  -v, --verbose                         Enable verbose operations\n"
 "\n"
 msgstr ""
+"%s [options] <file>\r\n"
+"  -h, --help                            Show this help\r\n"
+"      --version                         Show version\r\n"
+"  -v, --verbose                         Enable verbose operations\r\n"
+"\r\n"
 
 #: src/tools/pw-cat.c:1023
 #, c-format
@@ -103,6 +109,20 @@ msgid ""
 "      --list-targets                    List available targets for --target\n"
 "\n"
 msgstr ""
+"  -R, --remote                          Remote daemon name\r\n"
+"      --media-type                      Set media type (default %s)\r\n"
+"      --media-category                  Set media category (default %s)\r\n"
+"      --media-role                      Set media role (default %s)\r\n"
+"      --target                          Set node target (default %s)\r\n"
+"                                          0 means don't link\r\n"
+"      --latency                         Set node latency (default %s)\r\n"
+"                                          Xunit (unit = s, ms, us, ns)\r\n"
+"                                          or direct samples (256)\r\n"
+"                                          the rate is the one of the source "
+"file\r\n"
+"      --list-targets                    List available targets for --"
+"target\r\n"
+"\r\n"
 
 #: src/tools/pw-cat.c:1041
 #, c-format
@@ -123,6 +143,22 @@ msgid ""
 "%d)\n"
 "\n"
 msgstr ""
+"      --rate                            Sample rate (req. for rec) (default "
+"%u)\r\n"
+"      --channels                        Number of channels (req. for rec) "
+"(default %u)\r\n"
+"      --channel-map                     Channel map\r\n"
+"                                            one of: \"stereo\", "
+"\"surround-51\",... or\r\n"
+"                                            comma separated list of channel "
+"names: eg. \"FL,FR\"\r\n"
+"      --format                          Sample format %s (req. for rec) "
+"(default %s)\r\n"
+"      --volume                          Stream volume 0-1.0 (default %.3f)"
+"\r\n"
+"  -q  --quality                         Resampler quality (0 - 15) (default "
+"%d)\r\n"
+"\r\n"
 
 #: src/tools/pw-cat.c:1058
 msgid ""
@@ -131,6 +167,10 @@ msgid ""
 "  -m, --midi                            Midi mode\n"
 "\n"
 msgstr ""
+"  -p, --playback                        Playback mode\r\n"
+"  -r, --record                          Recording mode\r\n"
+"  -m, --midi                            Midi mode\r\n"
+"\r\n"
 
 #: src/tools/pw-cli.c:2954
 #, c-format
@@ -142,6 +182,12 @@ msgid ""
 "  -r, --remote                          Remote daemon name\n"
 "\n"
 msgstr ""
+"%s [options] [command]\r\n"
+"  -h, --help                            Show this help\r\n"
+"      --version                         Show version\r\n"
+"  -d, --daemon                          Start as daemon (Default false)\r\n"
+"  -r, --remote                          Remote daemon name\r\n"
+"\r\n"
 
 #: spa/plugins/alsa/acp/acp.c:306
 msgid "Pro Audio"
@@ -473,12 +519,12 @@ msgstr "မိုနို စကားပြောဆိုသံ + ၇.၁ ပ
 #: spa/plugins/alsa/acp/alsa-mixer.c:4750
 #, c-format
 msgid "%s Output"
-msgstr "%s ထုတ်ပို့ကရိယာ"
+msgstr "%s အသံထုတ်"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4757
 #, c-format
 msgid "%s Input"
-msgstr "%s လက်ခံကရိယာ"
+msgstr "%s အသံသွင်း"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1173 spa/plugins/alsa/acp/alsa-util.c:1267
 #, c-format
@@ -493,20 +539,26 @@ msgid_plural ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
+"snd_pcm_avail() မှ ပြန်ပေးသည့်တန်ဖိုးသည် အလွန်ကြီးမားနေသည်- %lu ဘိုက် (%lu ms)။\n"
+"ဖြစ်နိုင်ခြေအများဆုံးမှာ ALSA ဒရိုက်ဗာ ‘%s’ တွင် ပရိုဂရမ်အမှားတစ်ခုရှိနေခြင်းဖြစ်သည်။ ဤပြဿနာအား "
+"ALSA ရေးသားသူများထံသို့ သတင်းပို့ပေးပါ။"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1239
 #, c-format
 msgid ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li byte (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li byte "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgid_plural ""
-"snd_pcm_delay() returned a value that is exceptionally large: %li bytes (%s"
-"%lu ms).\n"
+"snd_pcm_delay() returned a value that is exceptionally large: %li bytes "
+"(%s%lu ms).\n"
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
+"snd_pcm_delay() မှ ပြန်ပေးသည့်တန်ဖိုးသည် အလွန်ကြီးမားနေသည်- %li ဘိုက် (%s%lu ms)။\n"
+"ဖြစ်နိုင်ခြေအများဆုံးမှာ ALSA ဒရိုက်ဗာ ‘%s’ တွင် ပရိုဂရမ်အမှားတစ်ခုရှိနေခြင်းဖြစ်သည်။ ဤပြဿနာအား "
+"ALSA ရေးသားသူများထံသို့ သတင်းပို့ပေးပါ။"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1286
 #, c-format
@@ -516,6 +568,10 @@ msgid ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr ""
+"snd_pcm_avail_delay() မှ ထူးဆန်းသောတန်ဖိုးများ ပြန်ပေးခဲ့သည်- နှောင့်နှေးမှု %lu သည် ရနိုင်မှု %lu "
+"ထက် နည်းနေပါသည်။\n"
+"ဖြစ်နိုင်ခြေအများဆုံးမှာ ALSA ဒရိုက်ဘာ '%s’ တွင် ပရိုဂရမ်အမှားတစ်ခုရှိနေခြင်းဖြစ်သည်။ ဤပြဿနာအား "
+"ALSA ရေးသားသူများထံသို့ သတင်းပို့ပေးပါ။"
 
 #: spa/plugins/alsa/acp/alsa-util.c:1329
 #, c-format
@@ -530,6 +586,9 @@ msgid_plural ""
 "Most likely this is a bug in the ALSA driver '%s'. Please report this issue "
 "to the ALSA developers."
 msgstr[0] ""
+"snd_pcm_mmap_begin() မှ ပြန်ပေးသည့်တန်ဖိုးသည် အလွန်ကြီးမားနေသည်- %lu ဘိုက် (%lu ms)။\n"
+"ဖြစ်နိုင်ခြေအများဆုံးမှာ ALSA ဒရိုက်ဗာ ‘%s’ တွင် ပရိုဂရမ်အမှားတစ်ခုရှိနေခြင်းဖြစ်သည်။ ဤပြဿနာအား "
+"ALSA ရေးသားသူများထံသို့ သတင်းပို့ပေးပါ။"
 
 #: spa/plugins/alsa/acp/channelmap.h:466
 msgid "(invalid)"

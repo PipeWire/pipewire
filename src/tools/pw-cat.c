@@ -489,7 +489,6 @@ static int av_codec_params_to_audio_info(struct data *data, AVCodecParameters *c
 	case AV_CODEC_ID_MPEGH_3D_AUDIO:
 		info->media_subtype = SPA_MEDIA_SUBTYPE_mpegh;
 		info->info.mpegh.rate = data->rate;
-		info->info.mpegh.channels = data->channels;
 		break;
 	default:
 		fprintf(stderr, "Unsupported encoded media subtype\n");

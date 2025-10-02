@@ -1960,6 +1960,10 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 			alloc_flags |= PW_BUFFERS_FLAG_DYNAMIC;
 		if (SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_ASYNC))
 			alloc_flags |= PW_BUFFERS_FLAG_ASYNC;
+		if (SPA_FLAG_IS_SET(port->spa_flags, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS)) {
+			alloc_flags |= PW_BUFFERS_FLAG_NO_MEM;
+			flags |= SPA_NODE_BUFFERS_FLAG_ALLOC;
+		}
 
 		pw_log_debug("%p: %d.%d negotiate %d buffers on node: %p flags:%08x",
 				port, port->direction, port->port_id, n_buffers, node->node,

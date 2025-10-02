@@ -27,10 +27,16 @@ extern "C" {
  *
  * MPEG-H is documented in the ISO/IEC 23008-3 specification.
  * MHAS is specified in ISO/IEC 23008-3, Clause 14.
+ *
+ * Note that unlike other formats, this one does not specify a channel
+ * count. This is because MPEG-H is entity-based; it contains multiple
+ * entities of different types (channel beds, audio objects etc.) which
+ * do not map 1:1 to channels. The channel amount is determined by
+ * decoders instead, based on the audio scene content and the target
+ * playback system.
  */
 struct spa_audio_info_mpegh {
 	uint32_t rate;				/*< sample rate */
-	uint32_t channels;			/*< number of channels */
 };
 
 #define SPA_AUDIO_INFO_MPEGH_INIT(...)		((struct spa_audio_info_mpegh) { __VA_ARGS__ })

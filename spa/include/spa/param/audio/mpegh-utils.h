@@ -33,8 +33,7 @@ spa_format_audio_mpegh_parse(const struct spa_pod *format, struct spa_audio_info
 	int res;
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
-			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info->rate),
-			SPA_FORMAT_AUDIO_channels,	SPA_POD_OPT_Int(&info->channels));
+			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info->rate));
 	return res;
 }
 
@@ -52,9 +51,6 @@ spa_format_audio_mpegh_build(struct spa_pod_builder *builder, uint32_t id,
 	if (info->rate != 0)
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_AUDIO_rate,		SPA_POD_Int(info->rate), 0);
-	if (info->channels != 0)
-		spa_pod_builder_add(builder,
-			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(info->channels), 0);
 	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
 }
 

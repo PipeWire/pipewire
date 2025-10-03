@@ -122,7 +122,7 @@ SPA_API_BUFFER_ALLOC int spa_buffer_alloc_fill_info(struct spa_buffer_alloc_info
 	 *    | |   uint32_t offset            |
 	 *    | |   uint32_t size              |
 	 *    | |   int32_t stride             |
-	 *    | |   int32_t dummy              |
+	 *    | |   int32_t flags              |
 	 *    | | ... <n_datas> chunks         |
 	 *    | +------------------------------+
 	 *    +>| data                         | memory for n_datas data, aligned

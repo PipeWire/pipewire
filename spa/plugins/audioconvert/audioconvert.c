@@ -3176,6 +3176,7 @@ impl_node_port_use_buffers(void *object,
 	struct impl *this = object;
 	struct port *port;
 	uint32_t i, j, maxsize;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -3186,12 +3187,16 @@ impl_node_port_use_buffers(void *object,
 	spa_log_debug(this->log, "%p: use buffers %d on port %d:%d",
 			this, n_buffers, direction, port_id);
 
-	clear_buffers(this, port);
+	if (n_buffers > 0 && !port->have_format) {
+		res = -EIO;
+		goto error;
+	}
+	if (n_buffers > MAX_BUFFERS) {
+		res = -ENOSPC;
+		goto error;
+	}
 
-	if (n_buffers > 0 && !port->have_format)
-		return -EIO;
-	if (n_buffers > MAX_BUFFERS)
-		return -ENOSPC;
+	clear_buffers(this, port);
 
 	maxsize = this->quantum_limit * sizeof(float);
 
@@ -3199,6 +3204,11 @@ impl_node_port_use_buffers(void *object,
 		struct buffer *b;
 		uint32_t n_datas = buffers[i]->n_datas;
 		struct spa_data *d = buffers[i]->datas;
+
+		if (n_datas > MAX_DATAS) {
+			res = -ENOSPC;
+			goto error;
+		}
 
 		b = &port->buffers[i];
 		b->id = i;
@@ -3224,7 +3234,8 @@ impl_node_port_use_buffers(void *object,
 				if (data == MAP_FAILED) {
 					spa_log_error(this->log, "%p: mmap failed %d on buffer %d %d %p: %m",
 							this, j, i, d[j].type, data);
-					return -EINVAL;
+					res = -EINVAL;
+					goto error;
 				}
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 				spa_log_debug(this->log, "%p: mmap %d on buffer %d %d %p %p",
@@ -3233,7 +3244,8 @@ impl_node_port_use_buffers(void *object,
 			if (data == NULL) {
 				spa_log_error(this->log, "%p: invalid memory %d on buffer %d %d %p",
 						this, j, i, d[j].type, data);
-				return -EINVAL;
+				res = -EINVAL;
+				goto error;
 			} else if (!SPA_IS_ALIGNED(data, this->max_align)) {
 				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
@@ -3245,11 +3257,14 @@ impl_node_port_use_buffers(void *object,
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, i);
+		port->n_buffers++;
 	}
 	port->maxsize = maxsize;
-	port->n_buffers = n_buffers;
 
 	return 0;
+error:
+	clear_buffers(this, port);
+	return res;
 }
 
 struct io_data {

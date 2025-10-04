@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/mman.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
@@ -27,6 +28,7 @@
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.mixer-dsp");
 
 #define MAX_BUFFERS	64
+#define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
 #define MAX_PORTS	512
 #define MAX_ALIGN	MIX_OPS_MAX_ALIGN
 
@@ -47,12 +49,15 @@ static void port_props_reset(struct port_props *props)
 struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_QUEUED	(1 << 0)
+#define BUFFER_FLAG_MAPPED	(1 << 1)
 	uint32_t flags;
 
 	struct spa_list link;
 	struct spa_buffer *buffer;
 	struct spa_meta_header *h;
 	struct spa_buffer buf;
+
+	void *datas[MAX_DATAS];
 };
 
 struct port {
@@ -450,11 +455,25 @@ next:
 
 static int clear_buffers(struct impl *this, struct port *port)
 {
-	if (port->n_buffers > 0) {
-		spa_log_debug(this->log, "%p: clear buffers %p", this, port);
-		port->n_buffers = 0;
-		spa_list_init(&port->queue);
+	uint32_t i, j;
+
+	spa_log_debug(this->log, "%p: clear buffers %p %d", this, port, port->n_buffers);
+	for (i = 0; i < port->n_buffers; i++) {
+		struct buffer *b = &port->buffers[i];
+		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
+			for (j = 0; j < b->buffer->n_datas; j++) {
+				if (b->datas[j]) {
+					spa_log_debug(this->log, "%p: unmap buffer %d data %d %p",
+							this, i, j, b->datas[j]);
+					munmap(b->datas[j], b->buffer->datas[j].maxsize);
+					b->datas[j] = NULL;
+				}
+			}
+			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_MAPPED);
+		}
 	}
+	port->n_buffers = 0;
+	spa_list_init(&port->queue);
 	return 0;
 }
 
@@ -581,7 +600,8 @@ impl_node_port_use_buffers(void *object,
 {
 	struct impl *this = object;
 	struct port *port;
-	uint32_t i;
+	uint32_t i, j;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -594,16 +614,26 @@ impl_node_port_use_buffers(void *object,
 
 	spa_return_val_if_fail(!this->started || port->io == NULL, -EIO);
 
-	clear_buffers(this, port);
+	if (n_buffers > 0 && !port->have_format) {
+		res = -EIO;
+		goto error;
+	}
+	if (n_buffers > MAX_BUFFERS) {
+		res = -ENOSPC;
+		goto error;
+	}
 
-	if (n_buffers > 0 && !port->have_format)
-		return -EIO;
-	if (n_buffers > MAX_BUFFERS)
-		return -ENOSPC;
+	clear_buffers(this, port);
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
+		uint32_t n_datas = buffers[i]->n_datas;
 		struct spa_data *d = buffers[i]->datas;
+
+		if (n_datas > MAX_DATAS) {
+			res = -ENOSPC;
+			goto error;
+		}
 
 		b = &port->buffers[i];
 		b->buffer = buffers[i];
@@ -612,23 +642,51 @@ impl_node_port_use_buffers(void *object,
 		b->h = spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
 		b->buf = *buffers[i];
 
-		if (d[0].data == NULL) {
-			spa_log_error(this->log, "%p: invalid memory on buffer %d", this, i);
-			return -EINVAL;
-		}
-		if (!SPA_IS_ALIGNED(d[0].data, this->max_align)) {
-			spa_log_warn(this->log, "%p: memory on buffer %d not aligned", this, i);
+		for (j = 0; j < n_datas; j++) {
+			void *data = d[j].data;
+			if (data == NULL && SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_MAPPABLE)) {
+				int prot = 0;
+				if (SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_READABLE))
+					prot |= PROT_READ;
+				if (SPA_FLAG_IS_SET(d[j].flags, SPA_DATA_FLAG_WRITABLE))
+					prot |= PROT_WRITE;
+				data = mmap(NULL, d[j].maxsize,
+					prot, MAP_SHARED, d[j].fd, d[j].mapoffset);
+				if (data == MAP_FAILED) {
+					spa_log_error(this->log, "%p: mmap failed %d on buffer %d %d %p: %m",
+							this, j, i, d[j].type, data);
+					res = -EINVAL;
+					goto error;
+				}
+				SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
+				spa_log_debug(this->log, "%p: mmap %d on buffer %d %d %p %p",
+							this, j, i, d[j].type, data, b);
+			}
+			if (data == NULL) {
+				spa_log_error(this->log, "%p: invalid memory %d on buffer %d %d %p",
+						this, j, i, d[j].type, data);
+				res = -EINVAL;
+				goto error;
+			} else if (!SPA_IS_ALIGNED(data, this->max_align)) {
+				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
+						this, j, i);
+			}
+
+			d[j].data = b->datas[j] = data;
 		}
 		if (direction == SPA_DIRECTION_OUTPUT)
 			queue_buffer(this, port, b);
 
+		port->n_buffers++;
 		spa_log_debug(this->log, "%p: port %d:%d buffer:%d n_data:%d data:%p maxsize:%d",
 				this, direction, port_id, i,
 				buffers[i]->n_datas, d[0].data, d[0].maxsize);
 	}
-	port->n_buffers = n_buffers;
 
 	return 0;
+error:
+	clear_buffers(this, port);
+	return res;
 }
 
 struct io_info {

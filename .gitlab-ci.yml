@@ -343,6 +343,8 @@ build_on_debian:
       -D systemd-system-service=disabled
       -D onnxruntime=disabled
       -D vulkan=enabled
+      -D ffmpeg=enabled
+      -D pw-cat-ffmpeg=enabled
 
 .build_on_fedora:
   extends:

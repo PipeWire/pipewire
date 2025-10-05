@@ -40,6 +40,15 @@
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/log.h>
+
+#ifndef AV_PROFILE_DTS_HD_MA
+#define AV_PROFILE_DTS_HD_MA FF_PROFILE_DTS_HD_MA
+#endif
+
+#ifndef AV_PROFILE_DTS_HD_HRA
+#define AV_PROFILE_DTS_HD_HRA FF_PROFILE_DTS_HD_HRA
+#endif
+
 #endif
 
 #include "midifile.h"
@@ -475,10 +484,10 @@ static int av_codec_params_to_audio_info(struct data *data, AVCodecParameters *c
 		info->info.dts.rate = data->rate;
 		info->info.dts.channels = data->channels;
 		switch (codec_params->profile) {
-		case FF_PROFILE_DTS_HD_MA:
+		case AV_PROFILE_DTS_HD_MA:
 			info->info.dts.ext_type = SPA_AUDIO_DTS_EXT_HD_MA;
 			break;
-		case FF_PROFILE_DTS_HD_HRA:
+		case AV_PROFILE_DTS_HD_HRA:
 			info->info.dts.ext_type = SPA_AUDIO_DTS_EXT_HD_HRA;
 			break;
 		default:

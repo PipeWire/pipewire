@@ -1946,7 +1946,7 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
                 struct spa_buffer **buffers, uint32_t n_buffers)
 {
-	int res;
+	int res, res2;
 	struct pw_impl_node *node = port->node;
 
 	if (SPA_FLAG_IS_SET(port->mix_flags, PW_IMPL_PORT_MIX_FLAG_MIX_ONLY))
@@ -2000,9 +2000,16 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 			flags, buffers, n_buffers);
 
 	if (SPA_RESULT_IS_OK(res)) {
-		spa_node_port_use_buffers(port->mix,
+		res2 = spa_node_port_use_buffers(port->mix,
 			     pw_direction_reverse(port->direction), 0,
 			     0, buffers, n_buffers);
+		if (res2 < 0) {
+			if (res2 != -ENOTSUP && n_buffers > 0) {
+				pw_log_warn("%p: mix use buffers failed: %d (%s)",
+						port, res2, spa_strerror(res2));
+				return res2;
+			}
+		}
 	}
 	if (n_buffers > 0) {
 		spa_node_port_set_io(node->node,

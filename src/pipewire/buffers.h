@@ -29,9 +29,6 @@ extern "C" {
 						  *  the data types on the buffers don't contain
 						  *  any MemPtr, only fd based memory. */
 #define PW_BUFFERS_FLAG_DYNAMIC		(1<<2)	/**< buffers have dynamic data */
-#define PW_BUFFERS_FLAG_SHARED_MEM	(1<<3)	/**< buffers need shared memory. This will
-						  *  allocate the metadata, chunks and possibly
-						  *  data in shared mem. */
 #define PW_BUFFERS_FLAG_IN_PRIORITY	(1<<4)	/**< input parameters have priority */
 #define PW_BUFFERS_FLAG_ASYNC		(1<<5)	/**< one of the nodes is async */
 

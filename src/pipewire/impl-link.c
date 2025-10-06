@@ -698,13 +698,11 @@ static int do_allocation(struct pw_impl_link *this)
 		uint32_t in_port, out_port;
 
 		flags = 0;
-		/* always shared buffers for the link */
-		alloc_flags = PW_BUFFERS_FLAG_SHARED;
 		/* always enable async mode */
-		alloc_flags |= PW_BUFFERS_FLAG_ASYNC;
+		alloc_flags = PW_BUFFERS_FLAG_ASYNC;
 
 		if (output->node->remote || input->node->remote)
-			alloc_flags |= PW_BUFFERS_FLAG_SHARED_MEM;
+			alloc_flags |= PW_BUFFERS_FLAG_SHARED;
 
 		if (output->node->driver)
 			alloc_flags |= PW_BUFFERS_FLAG_IN_PRIORITY;

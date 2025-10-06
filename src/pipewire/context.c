@@ -1114,7 +1114,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 	 * made the driver active. If the node is a leaf it can not be activated in any other
 	 * way and we will also make it, and all its peers, runnable */
 	spa_list_for_each(n, collect, sort_link) {
-		if (!n->driver && n->driver_node->runnable && !n->runnable && n->leaf) {
+		if (!n->driver && n->driver_node->runnable && !n->runnable && n->leaf && n->active) {
 			n->runnable = true;
 			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT, 0);
 			run_nodes(context, n, collect, PW_DIRECTION_INPUT, 0);

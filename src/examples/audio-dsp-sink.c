@@ -87,7 +87,6 @@ static void on_remove_buffer(void *_data, void *_port_data, struct pw_buffer *bu
 	d = buf->datas;
 	pw_log_info("remove buffer %p", buffer);
 
-	munmap(d[0].data, d[0].maxsize);
 	close(d[0].fd);
 }
 
@@ -125,13 +124,6 @@ static void on_add_buffer(void *_data, void *_port_data, struct pw_buffer *buffe
 	/* truncate to the right size */
 	if (ftruncate(d[0].fd, d[0].maxsize) < 0) {
 		pw_log_error("can't truncate to %d: %m", d[0].maxsize);
-		return;
-	}
-	/* now mmap so we can read it in the process function above */
-	d[0].data = mmap(NULL, d[0].maxsize, PROT_READ | PROT_WRITE,
-			MAP_SHARED, d[0].fd, d[0].mapoffset);
-	if (d[0].data == MAP_FAILED) {
-		pw_log_error("can't mmap memory: %m");
 		return;
 	}
 }

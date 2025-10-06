@@ -1743,7 +1743,7 @@ static void add_audio_dsp_port_params(struct filter *impl, struct port *port)
 			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_DSP_F32)));
 
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
-	add_param(impl, port, SPA_PARAM_Buffers, PARAM_FLAG_LOCKED,
+	add_param(impl, port, SPA_PARAM_Buffers, 0,
 		spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(1, 1, MAX_BUFFERS),

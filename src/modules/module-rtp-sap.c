@@ -658,14 +658,15 @@ static void update_ts_refclk(struct impl *impl)
 	memcpy(impl->gm_id, gmid, 8);
 }
 
-static int make_sdp(struct impl *impl, struct session *sess, char *buffer, size_t buffer_size)
+static int make_sdp(struct impl *impl, struct session *sess, char *buffer, size_t buffer_size, bool new)
 {
 	char src_addr[64], dst_addr[64], dst_ttl[8];
 	struct sdp_info *sdp = &sess->info;
 	bool src_ip4, dst_ip4;
 	bool multicast;
-	const char *user_name;
+	const char *user_name, *str;
 	struct spa_strbuf buf;
+	struct pw_properties *props = sess->props;
 	int res;
 
 	if ((res = pw_net_get_ip(&impl->src_addr, src_addr, sizeof(src_addr), &src_ip4, NULL)) < 0)
@@ -673,6 +674,30 @@ static int make_sdp(struct impl *impl, struct session *sess, char *buffer, size_
 
 	if ((res = pw_net_get_ip(&sdp->dst_addr, dst_addr, sizeof(dst_addr), &dst_ip4, NULL)) < 0)
 		return res;
+
+	if (new) {
+		/* update the version and hash */
+		sdp->hash = pw_rand32();
+		if ((str = pw_properties_get(props, "sess.id")) != NULL) {
+			if (!spa_atou32(str, &sdp->session_id, 10)) {
+				pw_log_error("Invalid session id: %s (must be a uint32)", str);
+				return -EINVAL;
+			}
+			sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp",
+					(uint32_t) time(NULL) + 2208988800U + impl->n_sessions);
+		} else {
+			sdp->session_id = (uint32_t) time(NULL) + 2208988800U + impl->n_sessions;
+			sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp", sdp->session_id);
+		}
+		if ((str = pw_properties_get(props, "sess.version")) != NULL) {
+			if (!spa_atou32(str, &sdp->session_version, 10)) {
+				pw_log_error("Invalid session version: %s (must be a uint32)", str);
+				return -EINVAL;
+			}
+		} else {
+			sdp->session_version = sdp->t_ntp;
+		}
+	}
 
 	if ((user_name = pw_get_user_name()) == NULL)
 		user_name = "-";
@@ -835,7 +860,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
          * socket needs to be open for us to get the interface address (which
          * happens above. So let's create the SDP now, if needed. */
         if (!sess->has_sdp) {
-		res = make_sdp(impl, sess, sess->sdp, sizeof(sess->sdp));
+		res = make_sdp(impl, sess, sess->sdp, sizeof(sess->sdp), true);
 		if (res != 0) {
 			pw_log_error("Failed to create SDP: %s", spa_strerror(res));
 			return res;
@@ -872,7 +897,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	msg.msg_controllen = 0;
 	msg.msg_flags = 0;
 
-	pw_log_debug("sending SAP for %u %s", sess->node->id, sess->sdp);
+	pw_log_info("sending SAP for %u %s", sess->node->id, sess->sdp);
 
 	res = sendmsg(impl->sap_fd, &msg, MSG_NOSIGNAL);
 	if (res < 0)
@@ -1021,37 +1046,15 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 
 	/* see if we can make an SDP, will fail for the first session because we
 	 * haven't got the SAP socket open yet */
-	res = make_sdp(impl, sess, buffer, sizeof(buffer));
+	res = make_sdp(impl, sess, buffer, sizeof(buffer), false);
 
 	/* we had no sdp or something changed */
 	if (res == 0 && (!sess->has_sdp || strcmp(buffer, sess->sdp) != 0)) {
 		/*  send bye on the old session */
 		send_sap(impl, sess, 1);
 
-		/* update the version and hash */
-		sdp->hash = pw_rand32();
-		if ((str = pw_properties_get(props, "sess.id")) != NULL) {
-			if (!spa_atou32(str, &sdp->session_id, 10)) {
-				pw_log_error("Invalid session id: %s (must be a uint32)", str);
-				goto error_free;
-			}
-			sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp",
-					(uint32_t) time(NULL) + 2208988800U + impl->n_sessions);
-		} else {
-			sdp->session_id = (uint32_t) time(NULL) + 2208988800U + impl->n_sessions;
-			sdp->t_ntp = pw_properties_get_uint32(props, "rtp.ntp", sdp->session_id);
-		}
-		if ((str = pw_properties_get(props, "sess.version")) != NULL) {
-			if (!spa_atou32(str, &sdp->session_version, 10)) {
-				pw_log_error("Invalid session version: %s (must be a uint32)", str);
-				goto error_free;
-			}
-		} else {
-			sdp->session_version = sdp->t_ntp;
-		}
-
 		/* make an updated SDP for sending, this should not actually fail */
-		res = make_sdp(impl, sess, sess->sdp, sizeof(sess->sdp));
+		res = make_sdp(impl, sess, sess->sdp, sizeof(sess->sdp), true);
 
 		if (res == 0)
 			sess->has_sdp = true;

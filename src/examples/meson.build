@@ -6,6 +6,7 @@ examples = [
   'audio-dsp-src',
   'audio-dsp-filter',
   'audio-dsp-sink',
+  'audio-dsp-sink2',
   'audio-capture',
   'video-play',
   'video-src',

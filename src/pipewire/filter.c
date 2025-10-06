@@ -885,8 +885,7 @@ static int impl_port_use_buffers(void *object,
 	struct port *port;
 	struct pw_filter *filter = &impl->this;
 	uint32_t i, j, impl_flags;
-	int prot, res;
-	int size = 0;
+	int res, size = 0;
 
 	pw_log_debug("%p: port:%d.%d buffers:%u disconnecting:%d", impl,
 			direction, port_id, n_buffers, impl->disconnecting);
@@ -900,7 +899,6 @@ static int impl_port_use_buffers(void *object,
 	clear_buffers(port);
 
 	impl_flags = port->flags;
-	prot = PROT_READ | (direction == SPA_DIRECTION_OUTPUT ? PROT_WRITE : 0);
 
 	if (n_buffers > MAX_BUFFERS)
 		return -ENOSPC;
@@ -915,7 +913,12 @@ static int impl_port_use_buffers(void *object,
 		if (SPA_FLAG_IS_SET(impl_flags, PW_FILTER_PORT_FLAG_MAP_BUFFERS)) {
 			for (j = 0; j < buffers[i]->n_datas; j++) {
 				struct spa_data *d = &buffers[i]->datas[j];
-				if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_MAPPABLE)) {
+				if (d->data == NULL && SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_MAPPABLE)) {
+					int prot = 0;
+					if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_READABLE))
+						prot |= PROT_READ;
+					if (SPA_FLAG_IS_SET(d->flags, SPA_DATA_FLAG_WRITABLE))
+						prot |= PROT_WRITE;
 					if ((res = map_data(impl, d, prot)) < 0)
 						return res;
 					SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);

@@ -28,15 +28,22 @@ if find.found()
 endif
 
 benchmark_apps = [
-  'stress-ringbuffer',
-  'benchmark-pod',
-  'benchmark-dict',
+  ['stress-ringbuffer', []],
+  ['benchmark-pod', []],
+  ['benchmark-dict', []],
 ]
 
+if sndfile_dep.found()
+  benchmark_apps += [
+    ['benchmark-aec', [sndfile_dep]]
+  ]
+endif
+
 foreach a : benchmark_apps
-  benchmark('spa-' + a,
-    executable('spa-' + a, a + '.c',
-      dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib ],
+  benchmark('spa-' + a[0],
+    executable('spa-' + a[0], a[0] + '.c',
+      dependencies : [ spa_dep, dl_lib, pthread_lib, mathlib ] + a[1],
+      include_directories : [configinc],
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir,
     ),

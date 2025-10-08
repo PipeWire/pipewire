@@ -1,3 +1,44 @@
+# PipeWire 1.4.9 (2025-10-09)
+
+This is a small bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Fix a regression in node unprepare that would leave nodes running
+    and error.
+  - Improve ALSA recovery when 3 periods is not supported. Also Improve
+    headroom for SOF cards by setting it to the minimal period size by
+    default.
+  - Remove RestrictNamespaces from the systemd files to allow libcamera
+    to load sandboxed IPA modules again.
+  - Small fixes and updates.
+
+
+## PipeWire
+  - Fix a regression in node unprepare that would leave nodes running
+    and error. (#4893)
+  - Remove RestrictNamespaces from the systemd files to allow libcamera
+    to load sandboxed IPA modules.
+
+## Modules
+  - Handle fd allocation errors in avahi. (#4913)
+  - Fix initial SDP session hash and session-id. (#4852)
+  - Fix a potential NULL deref in the profiler. (#4922)
+
+## SPA
+  - Fix the UMP event compare function. (#4899)
+  - Backport a lot of libcamera patches, such as support for colorimetry,
+    thread-safety fixes, a lot of cleanups and improvements.
+  - Improve ALSA recovery when 3 periods is not supported.
+  - Fix a regression in the adapter where it would not always start and
+    resume correctly. (#4911)
+  - Improve headroom for SOF cards by setting it to the minimal period
+    size by default. (#4489)
+  - Adapt to newer libcamera changes.
+
+
+Older versions:
+
 # PipeWire 1.4.8 (2025-09-11)
 
 This is a bugfix release that is API and ABI compatible with
@@ -41,9 +82,6 @@ previous 1.x releases.
 ## Tools
   - Fix the -C option in pw-dump.
   - Log more info from sndfile when opening a file failed.
-
-
-Older versions:
 
 # PipeWire 1.4.7 (2025-07-23)
 

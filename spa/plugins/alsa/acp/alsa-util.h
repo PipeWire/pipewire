@@ -175,7 +175,9 @@ void pa_alsa_mixer_free(pa_alsa_mixer *mixer);
 typedef struct pa_hdmi_eld pa_hdmi_eld;
 struct pa_hdmi_eld {
     char monitor_name[17];
+    uint8_t speakers;
     uint64_t iec958_codecs;
+    uint8_t lpcm_channels;
 };
 
 int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld);

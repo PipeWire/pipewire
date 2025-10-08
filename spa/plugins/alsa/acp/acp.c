@@ -10,6 +10,7 @@
 #include <spa/utils/json.h>
 #include <spa/utils/cleanup.h>
 #include <spa/param/audio/iec958-types.h>
+#include <spa/param/audio/raw.h>
 
 int _acp_log_level = 1;
 acp_log_func _acp_log_func;
@@ -1064,8 +1065,8 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 {
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
 	snd_hctl_elem_t **_elem = snd_mixer_elem_get_private(melem), *elem;
-	int device, i;
-	const char *old_monitor_name, *old_iec958_codec_list;
+	int device;
+	const char *old_monitor_name, *old_iec958_codec_list, *old_channels, *old_position;
 	pa_device_port *p;
 	pa_hdmi_eld eld;
 	bool changed = false;
@@ -1087,7 +1088,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 		memset(&eld, 0, sizeof(eld));
 
 	// Strip trailing whitespace from monitor_name (primarily an NVidia driver bug for now)
-	for (i = strlen(eld.monitor_name) - 1; i >= 0; i--) {
+	for (int i = strlen(eld.monitor_name) - 1; i >= 0; i--) {
 		if (eld.monitor_name[i] == '\n' || eld.monitor_name[i] == '\r' || eld.monitor_name[i] == '\t' ||
 				eld.monitor_name[i] == ' ')
 			eld.monitor_name[i] = 0;
@@ -1113,6 +1114,68 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 		acp_iec958_codec_mask_to_json(eld.iec958_codecs, codecs, sizeof(codecs));
 		changed |= (old_iec958_codec_list == NULL) || (!spa_streq(old_iec958_codec_list, codecs));
 		pa_proplist_sets(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED, codecs);
+	}
+
+	old_channels = pa_proplist_gets(p->proplist, ACP_KEY_AUDIO_CHANNELS_DETECTED);
+	if (eld.lpcm_channels == 0) {
+		changed |= old_channels != NULL;
+		pa_proplist_unset(p->proplist, ACP_KEY_AUDIO_CHANNELS_DETECTED);
+	} else {
+		char channels[4];
+		snprintf(channels, sizeof(channels), "%u", eld.lpcm_channels);
+		changed |= (old_channels == NULL) || (!spa_streq(old_channels, channels));
+		pa_proplist_sets(p->proplist, ACP_KEY_AUDIO_CHANNELS_DETECTED, channels);
+	}
+
+	old_position = pa_proplist_gets(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED);
+	if (eld.speakers == 0) {
+		changed |= old_position != NULL;
+		pa_proplist_unset(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED);
+	} else {
+		uint32_t positions[eld.lpcm_channels];
+		char position[64];
+		int i = 0, pos = 0;
+
+		if (eld.speakers & 0x01) {
+			positions[i++] = ACP_CHANNEL_FL;
+			positions[i++] = ACP_CHANNEL_FR;
+		}
+		if (eld.speakers & 0x02) {
+			positions[i++] = ACP_CHANNEL_LFE;
+		}
+		if (eld.speakers & 0x04) {
+			positions[i++] = ACP_CHANNEL_FC;
+		}
+		if (eld.speakers & 0x08) {
+			positions[i++] = ACP_CHANNEL_RL;
+			positions[i++] = ACP_CHANNEL_RR;
+		}
+		/* The rest are out of order in order of what channels we would prefer to use/expose first */
+		if (eld.speakers & 0x40) {
+			/* Use SL/SR instead of RLC/RRC */
+			positions[i++] = ACP_CHANNEL_SL;
+			positions[i++] = ACP_CHANNEL_SR;
+		}
+		if (eld.speakers & 0x20) {
+			positions[i++] = ACP_CHANNEL_RLC;
+			positions[i++] = ACP_CHANNEL_RRC;
+		}
+		if (eld.speakers & 0x10) {
+			positions[i++] = ACP_CHANNEL_RC;
+		}
+
+		while (i < eld.lpcm_channels)
+			positions[i++] = ACP_CHANNEL_UNKNOWN;
+
+		for (i = 0, pos = 0; i < eld.lpcm_channels; i++) {
+			pos += snprintf(&position[pos], sizeof(position) - pos, "%s,", channel_names[positions[i]]);
+		}
+
+		/* Overwrite trailing , */
+		position[pos - 1] = 0;
+
+		changed |= (old_position == NULL) || (!spa_streq(old_position, position));
+		pa_proplist_sets(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED, position);
 	}
 
 	pa_proplist_as_dict(p->proplist, &p->port.props);

@@ -54,10 +54,10 @@ foreach a : benchmark_apps
 
   if installed_tests_enabled
     test_conf = configuration_data()
-    test_conf.set('exec', installed_tests_execdir / 'spa-' + a)
+    test_conf.set('exec', installed_tests_execdir / 'spa-' + a[0])
     configure_file(
       input: installed_tests_template,
-      output: 'spa-' + a + '.test',
+      output: 'spa-' + a[0] + '.test',
       install_dir: installed_tests_metadir,
       configuration: test_conf,
     )

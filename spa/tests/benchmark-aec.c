@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <libgen.h>
 
 #include <sndfile.h>
 
@@ -293,7 +294,7 @@ static void interleave(float *data, uint32_t channels, uint32_t samples)
 	memcpy(data, temp, sizeof(temp));
 }
 
-static void usage(const char *exe)
+static void usage(char *exe)
 {
 	printf("Usage: %s rec_file play_file out_file <\"aec args\">\n", basename(exe));
 }

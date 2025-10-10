@@ -618,6 +618,7 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 		double dbl_val;
 		bool bool_val;
 		int32_t int_val;
+		int64_t long_val;
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
@@ -628,6 +629,9 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 			val = &value;
 		} else if (spa_pod_parser_get_int(&prs, &int_val) >= 0) {
 			value = int_val;
+			val = &value;
+		} else if (spa_pod_parser_get_long(&prs, &long_val) >= 0) {
+			value = long_val;
 			val = &value;
 		} else if (spa_pod_parser_get_bool(&prs, &bool_val) >= 0) {
 			value = bool_val ? 1.0f : 0.0f;

@@ -613,7 +613,7 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 		return 0;
 
 	while (true) {
-		const char *name;
+		const char *name, *str_val;
 		float value, *val = NULL;
 		double dbl_val;
 		bool bool_val;
@@ -635,6 +635,9 @@ static int parse_params(struct graph *graph, const struct spa_pod *pod)
 			val = &value;
 		} else if (spa_pod_parser_get_bool(&prs, &bool_val) >= 0) {
 			value = bool_val ? 1.0f : 0.0f;
+			val = &value;
+		} else if (spa_pod_parser_get_string(&prs, &str_val) >= 0 &&
+			spa_json_parse_float(str_val, strlen(str_val), &value) >= 0) {
 			val = &value;
 		} else {
 			struct spa_pod *pod;

@@ -147,6 +147,15 @@ char *acp_channel_str(char *buf, size_t len, enum acp_channel ch)
 	return buf;
 }
 
+static enum acp_channel acp_channel_from_str(const char *buf, size_t len)
+{
+	for (unsigned long i = 0; i < ACP_N_ELEMENTS(channel_names); i++) {
+		if (strncmp(channel_names[i], buf, len) == 0)
+			return i;
+	}
+
+	return ACP_CHANNEL_UNKNOWN;
+}
 
 const char *acp_available_str(enum acp_available status)
 {
@@ -1682,7 +1691,6 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 {
 	const char *mod_name;
 	uint32_t i, port_index;
-	const char *codecs;
 	pa_device_port *p;
 	void *state = NULL;
 	int res;
@@ -1721,6 +1729,29 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	if (dev->active_port)
 		dev->active_port->port.flags |= ACP_PORT_ACTIVE;
 
+	if (impl->use_eld_channels) {
+		while ((p = pa_hashmap_iterate(dev->ports, &state, NULL))) {
+			const char *channels = pa_proplist_gets(p->proplist, ACP_KEY_AUDIO_CHANNELS_DETECTED);
+			const char *positions = pa_proplist_gets(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED);
+
+			if (channels && positions) {
+				const char *position, *split_state = NULL;
+				size_t i = 0, n;
+
+				dev->device.format.channels = atoi(channels);
+				free(dev->device.format.map);
+				dev->device.format.map = calloc(dev->device.format.channels, sizeof(uint32_t));
+
+				while ((position = pa_split_in_place(positions, ",", &n, &split_state)) != NULL &&
+						i < dev->device.format.channels) {
+					dev->device.format.map[i++] = acp_channel_from_str(position, n);
+				}
+
+				break;
+			}
+		}
+	}
+
 	if ((res = setup_mixer(impl, dev, impl->ignore_dB)) < 0)
 		return res;
 
@@ -1735,13 +1766,16 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	else
 		dev->muted = false;
 
+	state = NULL;
 	while ((p = pa_hashmap_iterate(dev->ports, &state, NULL))) {
-		codecs = pa_proplist_gets(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED);
+		const char *codecs = pa_proplist_gets(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED);
 		if (codecs) {
 			dev->device.n_codecs = acp_iec958_codecs_from_json(codecs, dev->device.codecs,
 									   ACP_N_ELEMENTS(dev->device.codecs));
-			break;
 		}
+
+		if (codecs)
+			break;
 	}
 
 	return 0;
@@ -1933,6 +1967,8 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->ucm.split_enable = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.acp.disable-pro-audio")) != NULL)
 			impl->disable_pro_audio = spa_atob(s);
+		if ((s = acp_dict_lookup(props, "api.acp.use-eld-channels")) != NULL)
+			impl->use_eld_channels = spa_atob(s);
 	}
 
 #if SND_LIB_VERSION < 0x10207

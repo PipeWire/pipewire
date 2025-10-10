@@ -49,6 +49,7 @@ struct pa_card {
 	bool auto_port;
 	bool ignore_dB;
 	bool disable_pro_audio;
+	bool use_eld_channels;
 	uint32_t rate;
 	uint32_t pro_channels;
 

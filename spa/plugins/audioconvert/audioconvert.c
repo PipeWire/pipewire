@@ -1506,6 +1506,9 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 		} else if (spa_pod_is_int(pod)) {
 			snprintf(value, sizeof(value), "%d",
 					SPA_POD_VALUE(struct spa_pod_int, pod));
+		} else if (spa_pod_is_long(pod)) {
+			snprintf(value, sizeof(value), "%"PRIi64,
+					SPA_POD_VALUE(struct spa_pod_long, pod));
 		} else if (spa_pod_is_bool(pod)) {
 			snprintf(value, sizeof(value), "%s",
 					SPA_POD_VALUE(struct spa_pod_bool, pod) ?

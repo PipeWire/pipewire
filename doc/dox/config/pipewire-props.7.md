@@ -822,6 +822,13 @@ some devices.
 \copydoc SPA_KEY_API_ALSA_SPLIT_ENABLE
 \endparblock
 
+@PAR@ device-prop api.acp.disable-pro-audio = false  # boolean
+Disable the "Pro Audio" profile for this device.
+
+@PAR@ device-prop api.acp.use-eld-channels = false  # boolean
+Use the channel count and mapping the connected HDMI device
+provides via ELD information.
+
 ## Node properties
 
 @PAR@ node-prop  audio.channels    # integer

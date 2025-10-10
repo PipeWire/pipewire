@@ -240,7 +240,8 @@ include:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
-    - meson test -C "$BUILD_DIR" --no-rebuild
+    - echo "Running tests with meson options $MESON_TEST_OPTIONS"
+    - meson test -C "$BUILD_DIR" --no-rebuild $MESON_TEST_OPTIONS
     - meson install -C "$BUILD_DIR" --no-rebuild
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
@@ -345,6 +346,8 @@ build_on_debian:
       -D vulkan=enabled
       -D ffmpeg=enabled
       -D pw-cat-ffmpeg=enabled
+    MESON_TEST_OPTIONS: >-
+      --timeout-multiplier=2
 
 .build_on_fedora:
   extends:

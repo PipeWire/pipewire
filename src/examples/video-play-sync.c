@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <getopt.h>
 
 #include <spa/utils/result.h>
 #include <spa/param/video/format-utils.h>
@@ -439,6 +440,22 @@ static void do_quit(void *userdata, int signal_number)
 	pw_main_loop_quit(data->loop);
 }
 
+static void show_help(struct data *data, const char *name, bool is_error)
+{
+	FILE *fp;
+
+	fp = is_error ? stderr : stdout;
+
+	fprintf(fp,
+		"%s [options]\n"
+		"  -h, --help                            Show this help\n"
+		"      --version                         Show version\n"
+		"  -r, --remote                          Remote daemon name\n"
+		"  -S, --sync                            Enable SyncTimeline\n"
+		"  -R, --release                         Enable RELEASE feature\n"
+		"\n", name);
+}
+
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
@@ -447,11 +464,46 @@ int main(int argc, char *argv[])
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_properties *props;
 	int res, n_params;
+	static const struct option long_options[] = {
+		{ "help",	no_argument,		NULL, 'h' },
+		{ "version",	no_argument,		NULL, 'V' },
+		{ "remote",	required_argument,	NULL, 'r' },
+		{ "sync",	no_argument,		NULL, 'S' },
+		{ "release",	no_argument,		NULL, 'R' },
+		{ NULL,	0, NULL, 0}
+	};
+	char *opt_remote = NULL;
+	int c;
 
 	pw_init(&argc, &argv);
 
-	data.with_synctimeline = true;
-	data.with_synctimeline_release = true;
+	while ((c = getopt_long(argc, argv, "hVr:SR", long_options, NULL)) != -1) {
+		switch (c) {
+		case 'h':
+			show_help(&data, argv[0], false);
+			return 0;
+		case 'V':
+			printf("%s\n"
+				"Compiled with libpipewire %s\n"
+				"Linked with libpipewire %s\n",
+				argv[0],
+				pw_get_headers_version(),
+				pw_get_library_version());
+			return 0;
+		case 'r':
+			opt_remote = optarg;
+			break;
+		case 'S':
+			data.with_synctimeline = true;
+			break;
+		case 'R':
+			data.with_synctimeline_release = true;
+			break;
+		default:
+			show_help(&data, argv[0], true);
+			return -1;
+		}
+	}
 
 	/* create a main loop */
 	data.loop = pw_main_loop_new(NULL);
@@ -473,8 +525,10 @@ int main(int argc, char *argv[])
 	props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video",
 			PW_KEY_MEDIA_CATEGORY, "Capture",
 			PW_KEY_MEDIA_ROLE, "Camera",
+			PW_KEY_REMOTE_NAME, opt_remote,
 			NULL),
-	data.path = argc > 1 ? argv[1] : NULL;
+
+	data.path = optind < argc ? argv[optind++] : "video-src-sync";
 	if (data.path)
 		pw_properties_set(props, PW_KEY_TARGET_OBJECT, data.path);
 

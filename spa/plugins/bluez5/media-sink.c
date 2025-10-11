@@ -652,6 +652,9 @@ static uint64_t get_reference_time(struct impl *this, uint64_t *duration_ns_ret)
 	if (this->process_rate_diff > 0)
 		t = (int64_t)(t / this->process_rate_diff);
 
+	if (this->transport && this->transport->iso_io && this->transport->iso_io->size)
+		t -= this->transport->iso_io->duration;
+
 	return this->process_time + t;
 }
 
@@ -1233,6 +1236,7 @@ static void media_iso_rate_match(struct impl *this)
 
 	if (this->resync || !this->position) {
 		spa_bt_rate_control_init(&port->ratectl, 0);
+		setup_matching(this);
 		return;
 	}
 
@@ -1249,8 +1253,6 @@ static void media_iso_rate_match(struct impl *this)
 	 */
 
 	ref_time = get_reference_time(this, &duration_ns);
-	if (iso_io->size)
-		ref_time -= iso_io->duration;
 
 	value = (int64_t)iso_io->now - (int64_t)ref_time;
 	if (this->process_rate)
@@ -1644,7 +1646,7 @@ static int transport_start(struct impl *this)
 		spa_loop_add_source(this->data_loop, &this->flush_source);
 	}
 
-	this->resync = RESYNC_CYCLES;
+	this->resync = 0;
 	this->flush_pending = false;
 	this->iso_pending = false;
 
@@ -1689,6 +1691,7 @@ fail:
 
 static int do_start(struct impl *this)
 {
+	struct port *port = &this->port;
 	int res;
 
 	if (this->started)
@@ -1717,6 +1720,7 @@ static int do_start(struct impl *this)
 	this->source.rmask = 0;
 	spa_loop_add_source(this->data_loop, &this->source);
 
+	spa_bt_rate_control_init(&port->ratectl, 0);
 	setup_matching(this);
 
 	set_timers(this);

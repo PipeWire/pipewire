@@ -93,7 +93,7 @@ struct media_codec {
 				 * called again to parse the remaining data. */
 
 	int (*get_bis_config)(const struct media_codec *codec, uint8_t *caps,
-				uint8_t *caps_size,	struct spa_dict *settings,
+				uint8_t *caps_size, struct spa_dict *settings,
 				struct bap_codec_qos *qos);
 
 	/** If fill_caps is NULL, no endpoint is registered (for sharing with another codec). */
@@ -263,5 +263,25 @@ int media_codec_get_config(const struct media_codec_config configs[], size_t n,
 bool media_codec_check_caps(const struct media_codec *codec, unsigned int codec_id,
 	const void *caps, size_t caps_size, const struct media_codec_audio_info *info,
 	const struct spa_dict *global_settings);
+
+struct __attribute__((packed)) ltv {
+	uint8_t  len;
+	uint8_t  type;
+	uint8_t  value[];
+};
+
+struct ltv_writer {
+	void *buf;
+	uint16_t size;
+	size_t max_size;
+};
+
+#define LTV_WRITER(ptr, max) ((struct ltv_writer) { .buf = (ptr), .max_size = (max) })
+
+void ltv_writer_data(struct ltv_writer *w, uint8_t type, void* value, size_t len);
+void ltv_writer_uint8(struct ltv_writer *w, uint8_t type, uint8_t v);
+void ltv_writer_uint16(struct ltv_writer *w, uint8_t type, uint16_t value);
+void ltv_writer_uint32(struct ltv_writer *w, uint8_t type, uint32_t value);
+int ltv_writer_end(struct ltv_writer *w);
 
 #endif

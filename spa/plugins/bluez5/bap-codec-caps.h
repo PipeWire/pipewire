@@ -137,12 +137,6 @@
 #define BT_ISO_QOS_TARGET_LATENCY_BALANCED	0x02
 #define BT_ISO_QOS_TARGET_LATENCY_RELIABILITY	0x03
 
-struct __attribute__((packed)) ltv {
-	uint8_t  len;
-	uint8_t  type;
-	uint8_t  value[];
-};
-
 struct bap_endpoint_qos {
 	uint8_t	framing;
 	uint8_t	phy;

@@ -5816,6 +5816,7 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	int sync_cte_type = 0;
 	int sync_timeout = 2000;
 	int timeout = 2000;
+	int ret;
 
 	/* Configure each BIS from a BIG */
 	spa_list_for_each(metadata_entry, &bis->metadata_list, link) {
@@ -5839,7 +5840,12 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	setting_items[1] = SPA_DICT_ITEM_INIT("preset", bis->qos_preset);
 	settings = SPA_DICT_INIT(setting_items, 2);
 
-	codec->get_bis_config(codec, caps, &caps_size, &settings, &qos);
+	caps_size = sizeof(caps);
+	ret = codec->get_bis_config(codec, caps, &caps_size, &settings, &qos);
+	if (ret < 0) {
+		spa_log_warn(monitor->log, "Getting BIS config failed");
+		return;
+	}
 
 	msg = dbus_message_new_method_call(BLUEZ_SERVICE,
 				object_path,

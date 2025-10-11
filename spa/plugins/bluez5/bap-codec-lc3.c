@@ -191,32 +191,6 @@ static unsigned int get_duration_mask(uint8_t rate) {
 	return 0;
 }
 
-static int write_ltv(uint8_t *dest, uint8_t type, void* value, size_t len)
-{
-	struct ltv *ltv = (struct ltv *)dest;
-
-	ltv->len = len + 1;
-	ltv->type = type;
-	memcpy(ltv->value, value, len);
-
-	return len + 2;
-}
-
-static int write_ltv_uint8(uint8_t *dest, uint8_t type, uint8_t value)
-{
-	return write_ltv(dest, type, &value, sizeof(value));
-}
-
-static int write_ltv_uint16(uint8_t *dest, uint8_t type, uint16_t value)
-{
-	return write_ltv(dest, type, &value, sizeof(value));
-}
-
-static int write_ltv_uint32(uint8_t *dest, uint8_t type, uint32_t value)
-{
-	return write_ltv(dest, type, &value, sizeof(value));
-}
-
 static uint16_t parse_rates(const char *str)
 {
 	struct spa_json it;
@@ -319,7 +293,6 @@ static uint8_t parse_channel_counts(const char *str)
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
-	uint8_t *data = caps;
 	const char *str;
 	uint16_t framelen[2];
 	uint16_t rate_mask = LC3_FREQ_48KHZ | LC3_FREQ_44KHZ | LC3_FREQ_32KHZ | \
@@ -330,6 +303,7 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	uint16_t framelen_max = LC3_MAX_FRAME_BYTES;
 	uint8_t max_frames = 2;
 	uint32_t value;
+	struct ltv_writer writer = LTV_WRITER(caps, A2DP_MAX_CAPS_SIZE);
 
 	if (settings && (str = spa_dict_lookup(settings, "bluez5.bap-server-capabilities.rates")))
 		rate_mask = parse_rates(str);
@@ -355,17 +329,17 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	framelen[0] = htobs(framelen_min);
 	framelen[1] = htobs(framelen_max);
 
-	data += write_ltv_uint16(data, LC3_TYPE_FREQ, htobs(rate_mask));
-	data += write_ltv_uint8(data, LC3_TYPE_DUR, duration_mask);
-	data += write_ltv_uint8(data, LC3_TYPE_CHAN, channel_counts);
-	data += write_ltv(data, LC3_TYPE_FRAMELEN, framelen, sizeof(framelen));
+	ltv_writer_uint16(&writer, LC3_TYPE_FREQ, rate_mask);
+	ltv_writer_uint8(&writer, LC3_TYPE_DUR, duration_mask);
+	ltv_writer_uint8(&writer, LC3_TYPE_CHAN, channel_counts);
+	ltv_writer_data(&writer, LC3_TYPE_FRAMELEN, framelen, sizeof(framelen));
 	/* XXX: we support only one frame block -> max 2 frames per SDU */
 	if (max_frames > 2)
 		max_frames = 2;
 
-	data += write_ltv_uint8(data, LC3_TYPE_BLKS, max_frames);
+	ltv_writer_uint8(&writer, LC3_TYPE_BLKS, max_frames);
 
-	return data - caps;
+	return ltv_writer_end(&writer);
 }
 
 static void debugc_ltv(struct spa_debug_context *debug_ctx, int pac, struct ltv *ltv)
@@ -845,10 +819,10 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	struct pac_data pacs[MAX_PACS];
 	int npacs;
 	bap_lc3_t conf;
-	uint8_t *data = config;
 	struct spa_debug_log_ctx debug_ctx;
 	struct settings s;
 	int i;
+	struct ltv_writer writer = LTV_WRITER(config, A2DP_MAX_CAPS_SIZE);
 
 	if (caps == NULL)
 		return -EINVAL;
@@ -875,17 +849,17 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	if (!select_config(&conf, &pacs[0], &debug_ctx.ctx))
 		return -ENOTSUP;
 
-	data += write_ltv_uint8(data, LC3_TYPE_FREQ, conf.rate);
-	data += write_ltv_uint8(data, LC3_TYPE_DUR, conf.frame_duration);
+	ltv_writer_uint8(&writer, LC3_TYPE_FREQ, conf.rate);
+	ltv_writer_uint8(&writer, LC3_TYPE_DUR, conf.frame_duration);
 
 	/* Indicate MONO with absent Audio_Channel_Allocation (BAP v1.0.1 Sec. 4.3.2) */
 	if (conf.channels != 0)
-		data += write_ltv_uint32(data, LC3_TYPE_CHAN, htobl(conf.channels));
+		ltv_writer_uint32(&writer, LC3_TYPE_CHAN, conf.channels);
 
-	data += write_ltv_uint16(data, LC3_TYPE_FRAMELEN, htobs(conf.framelen));
-	data += write_ltv_uint8(data, LC3_TYPE_BLKS, conf.n_blks);
+	ltv_writer_uint16(&writer, LC3_TYPE_FRAMELEN, conf.framelen);
+	ltv_writer_uint8(&writer, LC3_TYPE_BLKS, conf.n_blks);
 
-	return data - config;
+	return ltv_writer_end(&writer);
 }
 
 static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
@@ -1378,80 +1352,60 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 				uint8_t *caps_size, struct spa_dict *settings,
 				struct bap_codec_qos *qos)
 {
-	int index = 0x0;
-	bool preset_found = false;
-	const char *preset = NULL;
+	const char *preset_name = NULL;
 	int channel_allocation = 0;
-	uint8_t *data = caps;
+	int i, ret;
+	struct ltv_writer writer = LTV_WRITER(caps, *caps_size);
+	const struct bap_qos *preset = NULL;
+
 	*caps_size = 0;
-	int i;
 
 	if (settings) {
 		for (i = 0; i < (int)settings->n_items; ++i) {
 			if (spa_streq(settings->items[i].key, "channel_allocation"))
 				sscanf(settings->items[i].value, "%"PRIu32, &channel_allocation);
 			if (spa_streq(settings->items[i].key, "preset"))
-				preset = spa_dict_lookup(settings, "preset");
+				preset_name = settings->items[i].value;
 		}
 	}
 
-	if (preset == NULL)
+	if (preset_name == NULL)
 		return -EINVAL;
 
 	SPA_FOR_EACH_ELEMENT_VAR(bap_bcast_qos_configs, c) {
-		if (spa_streq(c->name, preset)) {
-			preset_found = true;
+		if (spa_streq(c->name, preset_name)) {
+			preset = c;
 			break;
 		}
-		index++;
 	}
 
-	if (!preset_found)
+	if (!preset)
 		return -EINVAL;
 
-	switch (bap_bcast_qos_configs[index].rate) {
-	case LC3_CONFIG_FREQ_48KHZ:
-		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_48KHZ);
-		break;
-	case LC3_CONFIG_FREQ_44KHZ:
-		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_44KHZ);
-		break;
-	case LC3_CONFIG_FREQ_32KHZ:
-		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_32KHZ);
-		break;
-	case LC3_CONFIG_FREQ_24KHZ:
-		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_24KHZ);
-		break;
-	case LC3_CONFIG_FREQ_16KHZ:
-		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_16KHZ);
-		break;
-	case LC3_CONFIG_FREQ_8KHZ:
-		data += write_ltv_uint8(data, LC3_TYPE_FREQ, LC3_CONFIG_FREQ_8KHZ);
-		break;
-	default:
-		return -EINVAL;
-	}
-	*caps_size += 3;
+	ltv_writer_uint8(&writer, LC3_TYPE_FREQ, preset->rate);
+	ltv_writer_uint16(&writer, LC3_TYPE_FRAMELEN, preset->framelen);
+	ltv_writer_uint8(&writer, LC3_TYPE_DUR, preset->frame_duration);
+	ltv_writer_uint32(&writer, LC3_TYPE_CHAN, channel_allocation);
 
-	data += write_ltv_uint16(data, LC3_TYPE_FRAMELEN, htobs(bap_bcast_qos_configs[index].framelen));
-	*caps_size += 4;
-	data += write_ltv_uint8(data, LC3_TYPE_DUR, bap_bcast_qos_configs[index].frame_duration);
-	*caps_size += 3;
-	data += write_ltv_uint32(data, LC3_TYPE_CHAN, htobl(channel_allocation));
-	*caps_size += 6;
-
-	if(bap_bcast_qos_configs[index].framing)
+	if (preset->framing)
 		qos->framing = 1;
 	else
 		qos->framing = 0;
-	qos->sdu = bap_bcast_qos_configs[index].framelen * get_channel_count(channel_allocation);
-	qos->retransmission = bap_bcast_qos_configs[index].retransmission;
-	qos->latency = bap_bcast_qos_configs[index].latency;
-	qos->delay = bap_bcast_qos_configs[index].delay;
+	qos->sdu = preset->framelen * get_channel_count(channel_allocation);
+	qos->retransmission = preset->retransmission;
+	qos->latency = preset->latency;
+	qos->delay = preset->delay;
 	qos->phy = 2;
-	qos->interval = (bap_bcast_qos_configs[index].frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
+	qos->interval = (preset->frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
 
-	return true;
+	ret = ltv_writer_end(&writer);
+	if (ret < 0)
+		return ret;
+	if (ret > UINT8_MAX)
+		return -ENOSPC;
+
+	*caps_size = ret;
+	return 0;
 }
 
 const struct media_codec bap_codec_lc3 = {

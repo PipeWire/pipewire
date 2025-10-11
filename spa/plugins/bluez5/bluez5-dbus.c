@@ -3868,6 +3868,21 @@ static void transport_acquire_reply(DBusPendingCall *pending, void *user_data)
 		spa_log_error(monitor->log, "Acquire %s returned error: %s",
 				transport->path,
 				dbus_message_get_error_name(r));
+
+		/* If no reply, BlueZ may consider operation still active, so release to
+		 * try to get to a known state.
+		 */
+		if (spa_streq(dbus_message_get_error_name(r), DBUS_ERROR_NO_REPLY)) {
+			spa_autoptr(DBusMessage) m = NULL;
+
+			spa_log_info(monitor->log, "Releasing transport %s (clean up NoReply)",
+					transport->path);
+			m = dbus_message_new_method_call(BLUEZ_SERVICE, transport->path,
+					BLUEZ_MEDIA_TRANSPORT_INTERFACE, "Release");
+			if (m)
+				dbus_connection_send(monitor->conn, m, NULL);
+		}
+
 		ret = -EIO;
 		goto finish;
 	}

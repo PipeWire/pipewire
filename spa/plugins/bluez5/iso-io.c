@@ -613,12 +613,10 @@ void spa_bt_iso_io_set_cb(struct spa_bt_iso_io *this, spa_bt_iso_io_pull_t pull,
 	}
 
 	stream->idle = true;
-	stream->this.resync = true;
 
-	if (pull == NULL) {
-		stream->this.size = 0;
-		return;
-	}
+	stream->this.resync = true;
+	stream->this.size = 0;
+	stream->this.now = stream->group->next;
 }
 
 /** Must be called from data thread */

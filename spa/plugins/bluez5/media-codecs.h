@@ -113,10 +113,11 @@ struct media_codec {
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info);
 	int (*get_qos)(const struct media_codec *codec,
-			const void *config, size_t config_size,
 			const struct bap_endpoint_qos *endpoint_qos,
 			const void *config_data,
 			struct bap_codec_qos *qos);
+	int (*get_metadata)(const struct media_codec *codec, const void *config_data,
+			uint8_t *meta, size_t meta_max_size);
 	void (*free_config_data)(const struct media_codec *codec, void *config_data);
 
 	/** qsort comparison sorting caps in order of preference for the codec.

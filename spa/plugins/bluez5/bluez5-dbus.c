@@ -1035,6 +1035,9 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	void *config_data = NULL;
 	char locations[64] = {0};
 	char channel_allocation[64] = {0};
+	char supported_context[64] = {0};
+	char available_context[64] = {0};
+	char metadata_len[64] = {0};
 	int conf_size;
 	DBusMessageIter dict;
 
@@ -1092,6 +1095,10 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	if (ep->qos.channel_allocation)
 		spa_scnprintf(channel_allocation, sizeof(channel_allocation), "%"PRIu32, ep->qos.channel_allocation);
 
+	spa_scnprintf(supported_context, sizeof(supported_context), "%"PRIu16, ep->qos.supported_context);
+	spa_scnprintf(available_context, sizeof(available_context), "%"PRIu16, ep->qos.context);
+	spa_scnprintf(metadata_len, sizeof(metadata_len), "%zu", ep->metadata_len);
+
 	if (!ep->device->preferred_profiles)
 		ep->device->preferred_profiles = ep->device->profiles;
 
@@ -1100,9 +1107,13 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	i = 0;
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.locations", locations);
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.channel-allocation", channel_allocation);
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.supported-context", supported_context);
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.available-context", available_context);
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.sink", sink ? "true" : "false");
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.duplex", duplex ? "true" : "false");
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.debug", "true");
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.metadata", (void *)ep->metadata);
+	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.metadata-len", metadata_len);
 	if (ep->device->settings)
 		for (j = 0; j < ep->device->settings->n_items && i < SPA_N_ELEMENTS(setting_items); ++i, ++j)
 			setting_items[i] = ep->device->settings->items[j];
@@ -1136,7 +1147,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 		spa_zero(qos);
 
-		res = codec->get_qos(codec, config, conf_size, &ep->qos, config_data, &qos);
+		res = codec->get_qos(codec, &ep->qos, config_data, &qos);
 		if (res < 0) {
 			spa_log_error(monitor->log, "can't select QOS config: %d (%s)",
 					res, spa_strerror(res));
@@ -1182,6 +1193,25 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		dbus_message_iter_close_container(&variant, &qos_dict);
 		dbus_message_iter_close_container(&entry, &variant);
 		dbus_message_iter_close_container(&dict, &entry);
+	}
+
+	if (codec->get_metadata) {
+		uint8_t meta[4096] = {};
+		size_t meta_size;
+
+		meta_size = res = codec->get_metadata(codec, config_data, meta, sizeof(meta));
+		if (res < 0) {
+			spa_log_error(monitor->log, "can't select metadata config: %d (%s)",
+					res, spa_strerror(res));
+			goto error_invalid;
+		}
+
+		if (meta_size) {
+			spa_log_info(monitor->log, "%p: selected metadata %d", monitor, (int)meta_size);
+			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', meta, meta_size);
+
+			append_basic_array_variant_dict_entry(&dict, "Metadata", "ay", "y", DBUS_TYPE_BYTE, &meta, meta_size);
+		}
 	}
 
 	dbus_message_iter_close_container(&iter, &dict);

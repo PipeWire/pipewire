@@ -152,8 +152,10 @@ struct spa_bt_remote_endpoint {
 	char *uuid;
 	unsigned int codec;
 	struct spa_bt_device *device;
-	uint8_t capabilities[A2DP_MAX_CAPS_SIZE];
-	int capabilities_len;
+	uint8_t *capabilities;
+	size_t capabilities_len;
+	uint8_t *metadata;
+	size_t metadata_len;
 	bool delay_reporting;
 	bool acceptor;
 
@@ -878,8 +880,9 @@ static void parse_endpoint_qos(struct spa_bt_monitor *monitor, DBusMessageIter *
 }
 
 static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter *iter,
-		uint8_t caps[A2DP_MAX_CAPS_SIZE], int *caps_size, const char **endpoint_path,
-		struct bap_endpoint_qos *qos)
+		uint8_t **caps, size_t *caps_size,
+		uint8_t **meta, size_t *meta_size,
+		const char **endpoint_path, struct bap_endpoint_qos *qos)
 {
 	DBusMessageIter dict_iter = *iter;
 	const char *key = NULL;
@@ -900,11 +903,24 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 
 		type = dbus_message_iter_get_arg_type(&it[1]);
 
-		if (spa_streq(key, "Capabilities")) {
-			uint8_t *buf;
+		if (spa_streq(key, "Capabilities") || spa_streq(key, "Metadata")) {
+			uint8_t **dest;
+			size_t *size;
+			uint8_t *data, *buf;
+			int n;
 
-			if (!caps)
+			if (spa_streq(key, "Capabilities")) {
+				dest = caps;
+				size = caps_size;
+			} else {
+				dest = meta;
+				size = meta_size;
+			}
+
+			if (!dest)
 				goto next;
+
+			spa_assert(dest && size);
 
 			if (type != DBUS_TYPE_ARRAY)
 				goto bad_property;
@@ -914,15 +930,19 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 			if (type != DBUS_TYPE_BYTE)
 				goto bad_property;
 
-			dbus_message_iter_get_fixed_array(&it[2], &buf, caps_size);
-			if (*caps_size > A2DP_MAX_CAPS_SIZE) {
-				spa_log_error(monitor->log, "%s size:%d too large", key, (int)*caps_size);
-				return -EINVAL;
-			}
-			memcpy(caps, buf, *caps_size);
+			dbus_message_iter_get_fixed_array(&it[2], &data, &n);
 
-			spa_log_info(monitor->log, "%p: %s size:%d", monitor, key, *caps_size);
-			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', caps, (size_t)*caps_size);
+			buf = malloc(n);
+			if (!buf)
+				return -ENOMEM;
+
+			free(*dest);
+			*dest = buf;
+			*size = n;
+			memcpy(buf, data, n);
+
+			spa_log_info(monitor->log, "%p: %s size:%zu", monitor, key, *size);
+			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', *dest, *size);
 		} else if (spa_streq(key, "Endpoint")) {
 			if (!endpoint_path)
 				goto next;
@@ -1043,7 +1063,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	/* Find endpoint */
 	iter = props;
-	if (parse_endpoint_props(monitor, &iter, NULL, NULL, &endpoint_path, NULL) < 0)
+	if (parse_endpoint_props(monitor, &iter, NULL, NULL, NULL, NULL, &endpoint_path, NULL) < 0)
 		goto error_invalid;
 
 	ep = remote_endpoint_find(monitor, endpoint_path);
@@ -1059,7 +1079,8 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	/* Parse endpoint properties */
 	iter = props;
-	if (parse_endpoint_props(monitor, &iter, ep->capabilities, &ep->capabilities_len, NULL, &ep->qos) < 0)
+	if (parse_endpoint_props(monitor, &iter, &ep->capabilities, &ep->capabilities_len,
+					&ep->metadata, &ep->metadata_len, NULL, &ep->qos) < 0)
 		goto error_invalid;
 
 	if (ep->qos.locations)
@@ -2805,8 +2826,9 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 	DBusMessageIter copy_iter = *props_iter;
 
 	parse_endpoint_props(monitor, &copy_iter,
-			remote_endpoint->capabilities, &remote_endpoint->capabilities_len, NULL,
-			&remote_endpoint->qos);
+			&remote_endpoint->capabilities, &remote_endpoint->capabilities_len,
+			&remote_endpoint->metadata, &remote_endpoint->metadata_len,
+			NULL, &remote_endpoint->qos);
 
 	while (dbus_message_iter_get_arg_type(props_iter) != DBUS_TYPE_INVALID) {
 		DBusMessageIter it[2];
@@ -2820,7 +2842,8 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 		type = dbus_message_iter_get_arg_type(&it[1]);
 
-		if (spa_streq(key, "Capabilities") || spa_streq(key, "Locations") ||
+		if (spa_streq(key, "Capabilities") || spa_streq(key, "Metadata") ||
+				spa_streq(key, "Locations") ||
 				spa_streq(key, "QoS") || spa_streq(key, "Context") ||
 				spa_streq(key, "SupportedContext")) {
 			/* parsed by parse_endpoint_props */
@@ -2990,6 +3013,8 @@ static void remote_endpoint_free(struct spa_bt_remote_endpoint *remote_endpoint)
 	free(remote_endpoint->path);
 	free(remote_endpoint->transport_path);
 	free(remote_endpoint->uuid);
+	free(remote_endpoint->capabilities);
+	free(remote_endpoint->metadata);
 	free(remote_endpoint);
 }
 

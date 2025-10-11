@@ -206,6 +206,7 @@ struct impl {
 	uint8_t tmp_buffer[BUFFER_SIZE];
 	uint32_t tmp_buffer_used;
 	uint32_t fd_buffer_size;
+	uint32_t silence_frames;
 
 	struct spa_bt_asha *asha;
 	struct spa_list asha_link;
@@ -604,6 +605,8 @@ static uint32_t get_queued_frames(struct impl *this)
 	else
 		bytes = 0;
 
+	bytes += this->silence_frames * this->block_size;
+
 	/* Count (partially) encoded packet */
 	bytes += this->tmp_buffer_used;
 	bytes += this->block_count * this->block_size;
@@ -929,6 +932,20 @@ again:
 		}
 	}
 
+	while (this->silence_frames && !this->need_flush) {
+		static const uint8_t empty[1024] = {};
+		uint32_t avail = SPA_MIN(this->silence_frames, sizeof(empty) / port->frame_size)
+			* port->frame_size;
+
+		written = add_data(this, empty, avail);
+		if (written <= 0)
+			break;
+
+		this->silence_frames -= written / port->frame_size;
+		spa_log_trace(this->log, "%p: written %d silence frames", this,
+				written / port->frame_size);
+	}
+
 	while (!spa_list_is_empty(&port->ready) && !this->need_flush) {
 		uint8_t *src;
 		uint32_t n_bytes, n_frames;
@@ -1165,6 +1182,14 @@ static void drop_frames(struct impl *this, uint32_t req)
 {
 	struct port *port = &this->port;
 
+	if (this->silence_frames > req) {
+		this->silence_frames -= req;
+		req = 0;
+	} else {
+		req -= this->silence_frames;
+		this->silence_frames = 0;
+	}
+
 	while (req > 0 && !spa_list_is_empty(&port->ready)) {
 		struct buffer *b;
 		struct spa_data *d;
@@ -1246,12 +1271,10 @@ static void media_iso_rate_match(struct impl *this)
 		spa_log_debug(this->log, "%p: ISO sync skip frames:%u", this, req);
 	} else if (iso_io->resync && -err >= 0) {
 		unsigned int req = (unsigned int)(-err * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC);
-		static const uint8_t empty[8192] = {0};
 
 		if (req > 0) {
 			spa_bt_rate_control_init(&port->ratectl, 0);
-			req = SPA_MIN(req, sizeof(empty) / port->frame_size);
-			add_data(this, empty, req * port->frame_size);
+			this->silence_frames += req;
 		}
 		spa_log_debug(this->log, "%p: ISO sync pad frames:%u", this, req);
 	} else if (err > max_err || -err > max_err) {

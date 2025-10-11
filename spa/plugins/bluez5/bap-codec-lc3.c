@@ -16,6 +16,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
+#include <spa/utils/cleanup.h>
 #include <spa/debug/log.h>
 
 #include <lc3.h>
@@ -47,11 +48,15 @@ struct settings {
 	uint32_t channel_allocation;
 	bool sink;
 	bool duplex;
-	const char *qos_name;
+	char *qos_name;
 	int retransmission;
 	int latency;
 	int64_t delay;
 	int framing;
+};
+
+struct config_data {
+	struct settings settings;
 };
 
 struct pac_data {
@@ -771,7 +776,7 @@ static void parse_settings(struct settings *s, const struct spa_dict *settings,
 		return;
 
 	if ((str = spa_dict_lookup(settings, "bluez5.bap.preset")))
-		s->qos_name = str;
+		s->qos_name = strdup(str);
 
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.bap.rtn"), &value, 0))
 		s->retransmission = value;
@@ -811,23 +816,38 @@ static void parse_settings(struct settings *s, const struct spa_dict *settings,
 			(int)s->sink, (int)s->duplex);
 }
 
+static void free_config_data(struct config_data *d)
+{
+	if (!d)
+		return;
+	free(d->settings.qos_name);
+	free(d);
+}
+
+SPA_DEFINE_AUTOPTR_CLEANUP(config_data, struct config_data, { spa_clear_ptr(*thing, free_config_data); });
+
 static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
 		const struct media_codec_audio_info *info,
-		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE],
+		void **config_data)
 {
 	struct pac_data pacs[MAX_PACS];
 	int npacs;
 	bap_lc3_t conf;
 	struct spa_debug_log_ctx debug_ctx;
-	struct settings s;
-	int i;
+	spa_autoptr(config_data) d = NULL;
+	int i, ret;
 	struct ltv_writer writer = LTV_WRITER(config, A2DP_MAX_CAPS_SIZE);
 
 	if (caps == NULL)
 		return -EINVAL;
 
-	parse_settings(&s, settings, &debug_ctx);
+	d = calloc(1, sizeof(*d));
+	if (!d)
+		return -ENOMEM;
+
+	parse_settings(&d->settings, settings, &debug_ctx);
 
 	/* Select best conf from those possible */
 	npacs = parse_bluez_pacs(caps, caps_size, pacs, &debug_ctx.ctx);
@@ -840,7 +860,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	}
 
 	for (i = 0; i < npacs; ++i)
-		pacs[i].settings = &s;
+		pacs[i].settings = &d->settings;
 
 	qsort(pacs, npacs, sizeof(struct pac_data), pac_cmp);
 
@@ -859,7 +879,12 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	ltv_writer_uint16(&writer, LC3_TYPE_FRAMELEN, conf.framelen);
 	ltv_writer_uint8(&writer, LC3_TYPE_BLKS, conf.n_blks);
 
-	return ltv_writer_end(&writer);
+	ret = ltv_writer_end(&writer);
+
+	if (ret >= 0 && config_data)
+		*config_data = spa_steal_ptr(d);
+
+	return ret;
 }
 
 static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t flags, const void *caps1, size_t caps1_size,
@@ -869,8 +894,8 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 	int res1, res2;
 
 	/* Order selected configurations by preference */
-	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, global_settings, (uint8_t *)&conf1);
-	res2 = codec->select_config(codec, 0, caps2, caps2_size, info, global_settings, (uint8_t *)&conf2);
+	res1 = codec->select_config(codec, 0, caps1, caps1_size, info, global_settings, (uint8_t *)&conf1, NULL);
+	res2 = codec->select_config(codec, 0, caps2, caps2_size, info, global_settings, (uint8_t *)&conf2, NULL);
 
 	return conf_cmp(&conf1, res1, &conf2, res2);
 }
@@ -1038,22 +1063,22 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 static int codec_get_qos(const struct media_codec *codec,
 		const void *config, size_t config_size,
 		const struct bap_endpoint_qos *endpoint_qos,
-		struct bap_codec_qos *qos, const struct spa_dict *settings)
+		const void *config_data,
+		struct bap_codec_qos *qos)
 {
 	struct bap_qos bap_qos;
 	bap_lc3_t conf;
 	bool found = false;
-	struct settings s;
-	struct spa_debug_log_ctx debug_ctx;
+	const struct config_data *d = config_data;
 
 	spa_zero(*qos);
 
+	if (!d)
+		return -EINVAL;
 	if (!parse_conf(&conf, config, config_size))
 		return -EINVAL;
 
-	parse_settings(&s, settings, &debug_ctx);
-
-	found = select_bap_qos(&bap_qos, &s, get_rate_mask(conf.rate), get_duration_mask(conf.frame_duration),
+	found = select_bap_qos(&bap_qos, &d->settings, get_rate_mask(conf.rate), get_duration_mask(conf.frame_duration),
 			conf.framelen, conf.framelen);
 	if (!found) {
 		/* shouldn't happen: select_config should pick existing one */
@@ -1094,6 +1119,11 @@ static int codec_get_qos(const struct media_codec *codec,
 	 */
 
 	return 0;
+}
+
+static void codec_free_config_data(const struct media_codec *codec, void *config_data)
+{
+	free_config_data(config_data);
 }
 
 static void *codec_init(const struct media_codec *codec, uint32_t flags,
@@ -1419,6 +1449,7 @@ const struct media_codec bap_codec_lc3 = {
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,
 	.get_qos = codec_get_qos,
+	.free_config_data = codec_free_config_data,
 	.caps_preference_cmp = codec_caps_preference_cmp,
 	.init = codec_init,
 	.deinit = codec_deinit,

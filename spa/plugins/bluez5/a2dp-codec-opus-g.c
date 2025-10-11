@@ -74,7 +74,8 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
 		const struct media_codec_audio_info *info,
-		const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE],
+		void **config_data)
 {
 	a2dp_opus_g_t conf;
 	int frequency, duration, channels;
@@ -126,8 +127,8 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 	int a, b;
 
 	/* Order selected configurations by preference */
-	res1 = codec->select_config(codec, flags, caps1, caps1_size, info, global_settings, (uint8_t *)&conf1);
-	res2 = codec->select_config(codec, flags, caps2, caps2_size, info, global_settings, (uint8_t *)&conf2);
+	res1 = codec->select_config(codec, flags, caps1, caps1_size, info, global_settings, (uint8_t *)&conf1, NULL);
+	res2 = codec->select_config(codec, flags, caps2, caps2_size, info, global_settings, (uint8_t *)&conf2, NULL);
 
 #define PREFER_EXPR(expr)			\
 		do {				\

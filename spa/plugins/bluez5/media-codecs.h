@@ -26,7 +26,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		15
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		16
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -103,7 +103,8 @@ struct media_codec {
 	int (*select_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			const struct media_codec_audio_info *info,
-			const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE]);
+			const struct spa_dict *global_settings, uint8_t config[A2DP_MAX_CAPS_SIZE],
+			void **config_data);
 	int (*enum_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 			struct spa_pod_builder *builder, struct spa_pod **param);
@@ -113,7 +114,9 @@ struct media_codec {
 	int (*get_qos)(const struct media_codec *codec,
 			const void *config, size_t config_size,
 			const struct bap_endpoint_qos *endpoint_qos,
-			struct bap_codec_qos *qos, const struct spa_dict *settings);
+			const void *config_data,
+			struct bap_codec_qos *qos);
+	void (*free_config_data)(const struct media_codec *codec, void *config_data);
 
 	/** qsort comparison sorting caps in order of preference for the codec.
 	 * Used in codec switching to select best remote endpoints.

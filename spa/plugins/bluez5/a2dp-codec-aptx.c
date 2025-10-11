@@ -110,7 +110,8 @@ aptx_frequencies[] = {
 static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
 		const struct media_codec_audio_info *info,
-		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE],
+		void **config_data)
 {
 	a2dp_aptx_t conf;
 	int i;
@@ -146,7 +147,8 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 static int codec_select_config_ll(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size,
 		const struct media_codec_audio_info *info,
-		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE])
+		const struct spa_dict *settings, uint8_t config[A2DP_MAX_CAPS_SIZE],
+		void **config_data)
 {
 	a2dp_aptx_ll_ext_t conf = { 0 };
 	size_t actual_conf_size;
@@ -166,7 +168,7 @@ static int codec_select_config_ll(const struct media_codec *codec, uint32_t flag
 	if (codec->duplex_codec && !conf.base.bidirect_link)
 		return -ENOTSUP;
 
-	if ((res = codec_select_config(codec, flags, caps, caps_size, info, settings, config)) < 0)
+	if ((res = codec_select_config(codec, flags, caps, caps_size, info, settings, config, NULL)) < 0)
 		return res;
 
 	memcpy(&conf.base.aptx, config, sizeof(conf.base.aptx));

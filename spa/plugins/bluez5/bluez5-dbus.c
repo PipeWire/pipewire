@@ -695,7 +695,7 @@ static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBu
 		 * by codec switching.
 		  */
 		res = codec->select_config(codec, sink ? MEDIA_CODEC_FLAG_SINK : 0, cap, size, &monitor->default_audio_info,
-				&monitor->global_settings, config);
+				&monitor->global_settings, config, NULL);
 	else
 		res = -ENOTSUP;
 
@@ -1032,6 +1032,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	const char *endpoint_path = NULL;
 	uint8_t config[A2DP_MAX_CAPS_SIZE];
+	void *config_data = NULL;
 	char locations[64] = {0};
 	char channel_allocation[64] = {0};
 	int conf_size;
@@ -1047,6 +1048,9 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
 	path = dbus_message_get_path(m);
+
+	if ((r = dbus_message_new_method_return(m)) == NULL)
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
 	/* TODO: for codecs with shared endpoint, this currently always picks the default
 	 * one. However, currently we don't have BAP codecs with shared endpoint, so
@@ -1105,7 +1109,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	settings = SPA_DICT_INIT(setting_items, i);
 
 	conf_size = codec->select_config(codec, 0, ep->capabilities, ep->capabilities_len,
-			&monitor->default_audio_info, &settings, config);
+			&monitor->default_audio_info, &settings, config, &config_data);
 	if (conf_size < 0) {
 		spa_log_error(monitor->log, "can't select config: %d (%s)",
 				conf_size, spa_strerror(conf_size));
@@ -1114,8 +1118,6 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	spa_log_info(monitor->log, "%p: selected conf %d", monitor, conf_size);
 	spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', (uint8_t *)config, (size_t)conf_size);
 
-	if ((r = dbus_message_new_method_return(m)) == NULL)
-		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	dbus_message_iter_init_append(r, &iter);
 
 	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
@@ -1134,7 +1136,7 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 		spa_zero(qos);
 
-		res = codec->get_qos(codec, config, conf_size, &ep->qos, &qos, &settings);
+		res = codec->get_qos(codec, config, conf_size, &ep->qos, config_data, &qos);
 		if (res < 0) {
 			spa_log_error(monitor->log, "can't select QOS config: %d (%s)",
 					res, spa_strerror(res));
@@ -1184,6 +1186,9 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 
 	dbus_message_iter_close_container(&iter, &dict);
 
+	if (config_data && codec->free_config_data)
+		codec->free_config_data(codec, config_data);
+
 	if (!dbus_connection_send(conn, r, NULL))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 
@@ -1194,6 +1199,9 @@ error_invalid:
 	goto error;
 
 error:
+	if (config_data && codec->free_config_data)
+		codec->free_config_data(codec, config_data);
+
 	if (!reply_with_error(conn, m, "org.bluez.Error.InvalidArguments", err_msg))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	return DBUS_HANDLER_RESULT_HANDLED;
@@ -4506,7 +4514,7 @@ static bool codec_switch_configure_a2dp(struct spa_bt_codec_switch *sw, const ch
 	}
 
 	res = codec->select_config(codec, sink ? MEDIA_CODEC_FLAG_SINK : 0, ep->capabilities, ep->capabilities_len,
-				   &monitor->default_audio_info, &monitor->global_settings, config);
+			&monitor->default_audio_info, &monitor->global_settings, config, NULL);
 	if (res < 0) {
 		spa_log_error(monitor->log, "media codec switch %p: incompatible capabilities (%d)",
 		              sw, res);

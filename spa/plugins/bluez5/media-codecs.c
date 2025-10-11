@@ -92,7 +92,7 @@ bool media_codec_check_caps(const struct media_codec *codec, unsigned int codec_
 	if (caps == NULL)
 		return false;
 
-	res = codec->select_config(codec, 0, caps, caps_size, info, global_settings, config);
+	res = codec->select_config(codec, 0, caps, caps_size, info, global_settings, config, NULL);
 	if (res < 0)
 		return false;
 

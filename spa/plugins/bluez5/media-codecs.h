@@ -15,6 +15,7 @@
 #include <spa/pod/pod.h>
 #include <spa/pod/builder.h>
 #include <spa/support/log.h>
+#include <spa/debug/log.h>
 
 #include "a2dp-codec-caps.h"
 #include "bap-codec-caps.h"
@@ -286,5 +287,25 @@ void ltv_writer_uint8(struct ltv_writer *w, uint8_t type, uint8_t v);
 void ltv_writer_uint16(struct ltv_writer *w, uint8_t type, uint16_t value);
 void ltv_writer_uint32(struct ltv_writer *w, uint8_t type, uint32_t value);
 int ltv_writer_end(struct ltv_writer *w);
+
+static inline const struct ltv *ltv_next(const void **data, size_t *size)
+{
+	const struct ltv *ltv;
+
+	if (*size == 0) {
+		*data = NULL;
+		return NULL;
+	}
+	if (*size < sizeof(struct ltv))
+		return NULL;
+
+	ltv = *data;
+	if (ltv->len >= *size)
+		return NULL;
+
+	*data = SPA_PTROFF(*data, ltv->len + 1, void);
+	*size -= ltv->len + 1;
+	return ltv;
+}
 
 #endif

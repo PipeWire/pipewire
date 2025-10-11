@@ -60,7 +60,7 @@ struct config_data {
 };
 
 struct pac_data {
-	const uint8_t *data;
+	const void *data;
 	size_t size;
 	int index;
 	const struct settings *settings;
@@ -528,7 +528,7 @@ static int select_channels(uint8_t channel_counts, uint32_t locations, uint32_t 
 
 static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct spa_debug_context *debug_ctx)
 {
-	const uint8_t *data = pac->data;
+	const void *data = pac->data;
 	size_t data_size = pac->size;
 	uint16_t framelen_min = 0, framelen_max = 0;
 	int max_frames = -1;
@@ -539,6 +539,7 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	struct bap_qos bap_qos;
 	unsigned int i;
 	bool found = false;
+	const struct ltv *ltv;
 
 	if (!data_size)
 		return false;
@@ -550,14 +551,7 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	/* XXX: we always use one frame block */
 	conf->n_blks = 1;
 
-	while (data_size > 0) {
-		struct ltv *ltv = (struct ltv *)data;
-
-		if (ltv->len < sizeof(struct ltv) || ltv->len >= data_size) {
-			spa_debugc(debug_ctx, "invalid LTV data");
-			return false;
-		}
-
+	while ((ltv = ltv_next(&data, &data_size))) {
 		switch (ltv->type) {
 		case LC3_TYPE_FREQ:
 			spa_return_val_if_fail(ltv->len == 3, false);
@@ -584,8 +578,10 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 			spa_debugc(debug_ctx, "unknown LTV type: 0x%02x", ltv->type);
 			break;
 		}
-		data_size -= ltv->len + 1;
-		data += ltv->len + 1;
+	}
+	if (data) {
+		spa_debugc(debug_ctx, "invalid LTV data");
+		return false;
 	}
 
 	for (i = 0; i < 8; ++i)
@@ -653,8 +649,10 @@ static bool select_config(bap_lc3_t *conf, const struct pac_data *pac,	struct sp
 	return true;
 }
 
-static bool parse_conf(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
+static bool parse_conf(bap_lc3_t *conf, const void *data, size_t data_size)
 {
+	const struct ltv *ltv;
+
 	if (!data_size)
 		return false;
 	memset(conf, 0, sizeof(*conf));
@@ -664,12 +662,7 @@ static bool parse_conf(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
 	/* Absent Codec_Frame_Blocks_Per_SDU means 0x1 (BAP v1.0.1 Sec 4.3.2) */
 	conf->n_blks = 1;
 
-	while (data_size > 0) {
-		struct ltv *ltv = (struct ltv *)data;
-
-		if (ltv->len < sizeof(struct ltv) || ltv->len >= data_size)
-			return false;
-
+	while ((ltv = ltv_next(&data, &data_size))) {
 		switch (ltv->type) {
 		case LC3_TYPE_FREQ:
 			spa_return_val_if_fail(ltv->len == 2, false);
@@ -697,9 +690,9 @@ static bool parse_conf(bap_lc3_t *conf, const uint8_t *data, size_t data_size)
 		default:
 			return false;
 		}
-		data_size -= ltv->len + 1;
-		data += ltv->len + 1;
 	}
+	if (data)
+		return false;
 
 	if (conf->frame_duration == 0xFF || !conf->rate)
 		return false;
@@ -801,7 +794,7 @@ static void parse_settings(struct settings *s, const struct spa_dict *settings,
 	else
 		*debug_ctx = SPA_LOG_DEBUG_INIT(NULL, SPA_LOG_LEVEL_TRACE);
 
-	/* Is remote endpoint sink or source */
+	/* Is local endpoint sink or source */
 	s->sink = spa_atob(spa_dict_lookup(settings, "bluez5.bap.sink"));
 
 	/* Is remote endpoint duplex */

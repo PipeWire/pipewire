@@ -51,11 +51,13 @@ struct data {
 
 	int counter;
 	uint32_t seq;
+	uint32_t n_buffers;
 
 	int res;
 
 	bool with_synctimeline;
 	bool with_synctimeline_release;
+	bool force_synctimeline_release;
 };
 
 static void on_process(void *userdata)
@@ -227,8 +229,13 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 			SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_sync_timeline)),
 			0);
 		if (data->with_synctimeline_release) {
-			/* drop features flags if not provided by both sides */
-			spa_pod_builder_prop(&b, SPA_PARAM_META_features, SPA_POD_PROP_FLAG_DROP);
+			uint32_t flags = data->force_synctimeline_release ?
+				/* both sides need compatible features */
+				SPA_POD_PROP_FLAG_MANDATORY :
+				/* drop features flags if not provided by both sides */
+				SPA_POD_PROP_FLAG_DROP;
+
+			spa_pod_builder_prop(&b, SPA_PARAM_META_features, flags);
 			spa_pod_builder_int(&b, SPA_META_FEATURE_SYNC_TIMELINE_RELEASE);
 		}
 		params[n_params++] = spa_pod_builder_pop(&b, &f);
@@ -330,15 +337,38 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 			return;
 		}
 	}
-	if (spa_buffer_has_meta_features(buf, SPA_META_SyncTimeline,
-				SPA_META_FEATURE_SYNC_TIMELINE_RELEASE)) {
-		pw_log_debug("got sync timeline release");
+
+	if (data->n_buffers++ == 0) {
+		struct spa_dict_item items[2];
+		uint32_t n_items = 0;
+		bool reliable = false, exclusive = false;
+
+		if (s != NULL) {
+			/* sync timeline is always exclusive */
+			exclusive = true;
+			if (spa_buffer_has_meta_features(buf, SPA_META_SyncTimeline,
+						SPA_META_FEATURE_SYNC_TIMELINE_RELEASE)) {
+				pw_log_info("got sync timeline with release");
+			} else {
+				pw_log_info("got sync timeline");
+				/* we need reliable transport without release */
+				reliable = true;
+			}
+		}
+		else {
+			pw_log_info("did not get sync timeline");
+		}
+		items[n_items++] = SPA_DICT_ITEM(PW_KEY_NODE_EXCLUSIVE, exclusive ? "true" : "false");
+		items[n_items++] = SPA_DICT_ITEM(PW_KEY_NODE_RELIABLE, reliable ? "true" : "false");
+
+		pw_stream_update_properties(data->stream, &SPA_DICT(items, n_items));
 	}
 }
 
 /* close the memfd we set on the buffers here */
 static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
 {
+	struct data *data = _data;
 	struct spa_buffer *buf = buffer->buffer;
 	struct spa_data *d;
 
@@ -351,6 +381,7 @@ static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
 		close(d[1].fd);
 		close(d[2].fd);
 	}
+	data->n_buffers--;
  }
 
 
@@ -382,6 +413,7 @@ static void show_help(struct data *data, const char *name, bool is_error)
 		"  -r, --remote                          Remote daemon name\n"
 		"  -S, --sync                            Enable SyncTimeline\n"
 		"  -R, --release                         Enable RELEASE feature\n"
+		"  -F, --force-release                   RELEASE feature needs to be present\n"
 		"\n", name);
 }
 
@@ -393,11 +425,12 @@ int main(int argc, char *argv[])
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	static const struct option long_options[] = {
-		{ "help",	no_argument,		NULL, 'h' },
-		{ "version",	no_argument,		NULL, 'V' },
-		{ "remote",	required_argument,	NULL, 'r' },
-		{ "sync",	no_argument,		NULL, 'S' },
-		{ "release",	no_argument,		NULL, 'R' },
+		{ "help",		no_argument,		NULL, 'h' },
+		{ "version",		no_argument,		NULL, 'V' },
+		{ "remote",		required_argument,	NULL, 'r' },
+		{ "sync",		no_argument,		NULL, 'S' },
+		{ "release",		no_argument,		NULL, 'R' },
+		{ "force-release",	no_argument,		NULL, 'F' },
 		{ NULL,	0, NULL, 0}
 	};
 	char *opt_remote = NULL;
@@ -405,7 +438,7 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVr:SR", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:SRF", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);
@@ -421,11 +454,14 @@ int main(int argc, char *argv[])
 		case 'r':
 			opt_remote = optarg;
 			break;
-		case 'S':
-			data.with_synctimeline = true;
-			break;
+		case 'F':
+			data.force_synctimeline_release = true;
+			SPA_FALLTHROUGH;
 		case 'R':
 			data.with_synctimeline_release = true;
+			SPA_FALLTHROUGH;
+		case 'S':
+			data.with_synctimeline = true;
 			break;
 		default:
 			show_help(&data, argv[0], true);

@@ -498,7 +498,7 @@ static int check_properties(struct pw_impl_port *port)
 {
 	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
 	struct pw_impl_node *node = port->node;
-	bool is_control, is_network, is_monitor, is_device, is_duplex, is_virtual;
+	bool is_control, is_network, is_monitor, is_device, is_duplex, is_virtual, new_bool;
 	const char *media_class, *override_device_prefix, *channel_names;
 	const char *str, *prefix, *path, *desc, *nick, *name;
 	const struct pw_properties *nprops;
@@ -520,14 +520,19 @@ static int check_properties(struct pw_impl_port *port)
 	}
 
 	port->ignore_latency = pw_properties_get_bool(port->properties, PW_KEY_PORT_IGNORE_LATENCY, false);
-	port->exclusive = pw_properties_get_bool(port->properties, PW_KEY_PORT_EXCLUSIVE, node->exclusive);
-	port->reliable = pw_properties_get_bool(port->properties, PW_KEY_PORT_RELIABLE, node->reliable);
+	new_bool = pw_properties_get_bool(port->properties, PW_KEY_PORT_EXCLUSIVE, node->exclusive);
+	if (new_bool != port->exclusive) {
+		pw_log_info("%p: exclusive %d->%d", port, port->exclusive, new_bool);
+		port->exclusive = new_bool;
+	}
 
-	if (port->direction == PW_DIRECTION_OUTPUT) {
-		if (port->reliable)
-			impl->mix_node.iface.cb.funcs = &schedule_tee_node_reliable;
-		else
-			impl->mix_node.iface.cb.funcs = &schedule_tee_node;
+	new_bool = pw_properties_get_bool(port->properties, PW_KEY_PORT_RELIABLE, node->reliable);
+	if (new_bool != port->reliable && port->direction == PW_DIRECTION_OUTPUT) {
+		pw_log_info("%p: reliable %d->%d", port, port->reliable, new_bool);
+		port->reliable = new_bool;
+		impl->mix_node.iface.cb.funcs = new_bool ?
+			&schedule_tee_node_reliable :
+			&schedule_tee_node;
 	}
 
 	/* inherit passive state from parent node */

@@ -59,6 +59,7 @@ struct data {
 
 	bool with_synctimeline;
 	bool with_synctimeline_release;
+	bool force_synctimeline_release;
 };
 
 static void handle_events(struct data *data)
@@ -371,8 +372,13 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 			SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_sync_timeline)),
 			0);
 		if (data->with_synctimeline_release) {
-			/* drop features flags if not provided by both sides */
-			spa_pod_builder_prop(&b, SPA_PARAM_META_features, SPA_POD_PROP_FLAG_DROP);
+			uint32_t flags = data->force_synctimeline_release ?
+				/* both sides need compatible features */
+				SPA_POD_PROP_FLAG_MANDATORY :
+				/* drop features flags if not provided by both sides */
+				SPA_POD_PROP_FLAG_DROP;
+
+			spa_pod_builder_prop(&b, SPA_PARAM_META_features, flags);
 			spa_pod_builder_int(&b, SPA_META_FEATURE_SYNC_TIMELINE_RELEASE);
 		}
 		params[n_params++] = spa_pod_builder_pop(&b, &f);
@@ -397,10 +403,6 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	pw_stream_update_params(stream, params, n_params);
 }
 
-static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
-{
-}
-
 /* these are the stream events we listen for */
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
@@ -408,7 +410,6 @@ static const struct pw_stream_events stream_events = {
 	.io_changed = on_stream_io_changed,
 	.param_changed = on_stream_param_changed,
 	.process = on_process,
-	.add_buffer = on_stream_add_buffer,
 };
 
 static int build_format(struct data *data, struct spa_pod_builder *b, const struct spa_pod **params)
@@ -453,6 +454,7 @@ static void show_help(struct data *data, const char *name, bool is_error)
 		"  -r, --remote                          Remote daemon name\n"
 		"  -S, --sync                            Enable SyncTimeline\n"
 		"  -R, --release                         Enable RELEASE feature\n"
+		"  -F, --force-release                   RELEASE feature needs to be present\n"
 		"\n", name);
 }
 
@@ -465,11 +467,12 @@ int main(int argc, char *argv[])
 	struct pw_properties *props;
 	int res, n_params;
 	static const struct option long_options[] = {
-		{ "help",	no_argument,		NULL, 'h' },
-		{ "version",	no_argument,		NULL, 'V' },
-		{ "remote",	required_argument,	NULL, 'r' },
-		{ "sync",	no_argument,		NULL, 'S' },
-		{ "release",	no_argument,		NULL, 'R' },
+		{ "help",		no_argument,		NULL, 'h' },
+		{ "version",		no_argument,		NULL, 'V' },
+		{ "remote",		required_argument,	NULL, 'r' },
+		{ "sync",		no_argument,		NULL, 'S' },
+		{ "release",		no_argument,		NULL, 'R' },
+		{ "force-release",	no_argument,		NULL, 'F' },
 		{ NULL,	0, NULL, 0}
 	};
 	char *opt_remote = NULL;
@@ -477,7 +480,7 @@ int main(int argc, char *argv[])
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVr:SR", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:SRF", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);
@@ -493,11 +496,14 @@ int main(int argc, char *argv[])
 		case 'r':
 			opt_remote = optarg;
 			break;
-		case 'S':
-			data.with_synctimeline = true;
-			break;
+		case 'F':
+			data.force_synctimeline_release = true;
+			SPA_FALLTHROUGH;
 		case 'R':
 			data.with_synctimeline_release = true;
+			SPA_FALLTHROUGH;
+		case 'S':
+			data.with_synctimeline = true;
 			break;
 		default:
 			show_help(&data, argv[0], true);

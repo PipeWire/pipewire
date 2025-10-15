@@ -1873,6 +1873,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		return -errno;
 
 	impl->sap_fd = -1;
+	impl->ptp_fd = -1;
 	spa_list_init(&impl->sessions);
 
 	if (args == NULL)

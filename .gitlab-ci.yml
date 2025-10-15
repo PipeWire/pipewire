@@ -38,8 +38,8 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2025-07-17.0'
-    FDO_DISTRIBUTION_VERSION: '41'
+    FDO_DISTRIBUTION_TAG: '2025-10-15.0'
+    FDO_DISTRIBUTION_VERSION: '42'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
       avahi-devel

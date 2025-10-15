@@ -14,6 +14,7 @@ context.properties = {
     #mem.allow-mlock = true
     #mem.mlock-all   = false
     #log.level       = 2
+    #rlimit.nofile   = -1
 
     #default.clock.quantum-limit = 8192
 }

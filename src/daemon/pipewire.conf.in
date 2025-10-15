@@ -21,6 +21,7 @@ context.properties = {
     #clock.power-of-two-quantum            = true
     #log.level                             = 2
     #cpu.zero.denormals                    = false
+    #rlimit.nofile                         = -1
 
     #loop.rt-prio = -1            # -1 = use module-rt prio, 0 disable rt
     #loop.class = data.rt

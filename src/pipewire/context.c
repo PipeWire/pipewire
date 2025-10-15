@@ -9,6 +9,7 @@
 #include <regex.h>
 #include <limits.h>
 #include <sys/mman.h>
+#include <sys/resource.h>
 #include <fnmatch.h>
 
 #include <pipewire/log.h>
@@ -300,6 +301,88 @@ static void data_loop_stop(struct impl *impl, struct data_loop *loop)
 	loop->started = false;
 }
 
+static int adjust_rlimit(int resource, const char *name, int value)
+{
+	struct rlimit rlim, highest, fixed;
+
+	rlim = (struct rlimit) { .rlim_cur = value, .rlim_max = value, };
+
+	if (setrlimit(resource, &rlim) >= 0) {
+		pw_log_info("set rlimit %s to %d", name, value);
+		return 0;
+	}
+	if (errno != EPERM)
+		return -errno;
+
+	/* So we failed to set the desired setrlimit, then let's try
+	* to get as close as we can */
+	if (getrlimit(resource, &highest) < 0)
+		return -errno;
+
+	/* If the hard limit is unbounded anyway, then the EPERM had other reasons,
+	 * let's propagate the original EPERM then */
+	if (highest.rlim_max == RLIM_INFINITY)
+		return -EPERM;
+
+        fixed = (struct rlimit) {
+		.rlim_cur = SPA_MIN(rlim.rlim_cur, highest.rlim_max),
+		.rlim_max = SPA_MIN(rlim.rlim_max, highest.rlim_max),
+	};
+
+	/* Shortcut things if we wouldn't change anything. */
+	if (fixed.rlim_cur == highest.rlim_cur &&
+	    fixed.rlim_max == highest.rlim_max)
+		return 0;
+
+	pw_log_info("set rlimit %s to %d/%d instead of %d", name,
+			(int)fixed.rlim_cur, (int)fixed.rlim_max, value);
+	if (setrlimit(resource, &fixed) < 0)
+		return -errno;
+
+	return 0;
+}
+
+static int adjust_rlimits(const struct spa_dict *dict)
+{
+	const struct spa_dict_item *it;
+	static const char* rlimit_table[] = {
+		[RLIMIT_AS]         = "as",
+		[RLIMIT_CORE]       = "core",
+		[RLIMIT_CPU]        = "cpu",
+		[RLIMIT_DATA]       = "data",
+		[RLIMIT_FSIZE]      = "fsize",
+		[RLIMIT_LOCKS]      = "locks",
+		[RLIMIT_MEMLOCK]    = "memlock",
+		[RLIMIT_MSGQUEUE]   = "msgqueue",
+		[RLIMIT_NICE]       = "nice",
+		[RLIMIT_NOFILE]     = "nofile",
+		[RLIMIT_NPROC]      = "nproc",
+		[RLIMIT_RSS]        = "rss",
+		[RLIMIT_RTPRIO]     = "rtprio",
+		[RLIMIT_RTTIME]     = "rttime",
+		[RLIMIT_SIGPENDING] = "sigpending",
+		[RLIMIT_STACK]      = "stack",
+	};
+	int res;
+	spa_dict_for_each(it, dict) {
+		if (!spa_strstartswith(it->key, "rlimit."))
+			continue;
+		for (size_t i = 0; i < SPA_N_ELEMENTS(rlimit_table); i++) {
+			const char *name = rlimit_table[i];
+			int64_t val;
+			if (!spa_streq(it->key+7, name))
+				continue;
+			if (!spa_atoi64(it->value, &val, 0)) {
+				pw_log_warn("invalid number %s", it->value);
+			} else if ((res = adjust_rlimit(i, name, val)) < 0)
+				pw_log_warn("can't set rlimit %s to %s: %s",
+						name, it->value, spa_strerror(res));
+			break;
+		}
+	}
+	return 0;
+}
+
 /** Create a new context object
  *
  * \param main_loop the main loop to use
@@ -420,6 +503,7 @@ struct pw_context *pw_context_new(struct pw_loop *main_loop,
 		else
 			pw_log_info("%p: mlockall succeeded", impl);
 	}
+	adjust_rlimits(&properties->dict);
 
 	pw_settings_init(this);
 	this->settings = this->defaults;

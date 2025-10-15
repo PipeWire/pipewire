@@ -275,6 +275,20 @@ Warn about failures to lock memory.
 @PAR@ pipewire.conf  mem.mlock-all = false
 Try to mlock all current and future memory by the process.
 
+@PAR@ pipewire.conf  rlimit.nofile = 4096
+Try to set the max file descriptor number resource limit of the process.
+A value of -1 raises the limit to the system defined hard maximum value.
+The file resource limit is usually 1024 and should only be raised if the
+program does not use the select() system call. PipeWire does normally not
+use select().
+
+@PAR@ pipewire.conf  rlimit.*resource* = *value*
+Set resource limits. *resource* can be one of: as, core, cpu,
+data, fsize, locks, memlock, msgqueue, nice, nofile, nproc, rss, rtprio,
+rttime, sigpending or stack. See the documentation of setrlimit to get the
+meaning of these resources. A value of -1 will set the maximum allowed
+limit.
+
 @PAR@ pipewire.conf  settings.check-quantum = false
 Check if the quantum in the settings metadata update is compatible
 with the configured limits.

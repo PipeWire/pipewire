@@ -104,8 +104,8 @@ static void link_update_state(struct pw_impl_link *link, enum pw_link_state stat
 		     pw_link_state_as_string(state), error);
 
 	if (state == PW_LINK_STATE_ERROR) {
-		pw_log_error("(%s) %s -> error (%s) (%s-%s)", link->name,
-				pw_link_state_as_string(old), error,
+		pw_log_error("(%s) %s -> error %s (%d) (%s-%s)", link->name,
+				pw_link_state_as_string(old), error, res,
 				pw_impl_port_state_as_string(link->output->state),
 				pw_impl_port_state_as_string(link->input->state));
 	} else {
@@ -174,7 +174,7 @@ static void complete_ready(void *obj, void *data, int res, uint32_t id)
 		    this->output->state >= PW_IMPL_PORT_STATE_READY)
 			link_update_state(this, PW_LINK_STATE_ALLOCATING, 0, NULL);
 	} else {
-		link_update_state(this, PW_LINK_STATE_ERROR, -EIO, strdup("Format negotiation failed"));
+		link_update_state(this, PW_LINK_STATE_ERROR, res, strdup("Format negotiation failed"));
 	}
 }
 
@@ -192,8 +192,8 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 			return;
 	}
 
-	pw_log_debug("%p: obj:%p port %p complete state:%d: %s", this, obj, port,
-			port->state, spa_strerror(res));
+	pw_log_debug("%p: obj:%p port %p complete state:%d: %s (%d)", this, obj, port,
+			port->state, spa_strerror(res), res);
 
 	if (SPA_RESULT_IS_OK(res)) {
 		if (port->state < PW_IMPL_PORT_STATE_PAUSED)
@@ -205,7 +205,7 @@ static void complete_paused(void *obj, void *data, int res, uint32_t id)
 			link_update_state(this, PW_LINK_STATE_PAUSED, 0, NULL);
 	} else {
 		mix->have_buffers = false;
-		link_update_state(this, PW_LINK_STATE_ERROR, -EIO, strdup("Buffer allocation failed"));
+		link_update_state(this, PW_LINK_STATE_ERROR, res, strdup("Buffer allocation failed"));
 	}
 }
 

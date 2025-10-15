@@ -139,7 +139,8 @@ static int client_error(void *object, uint32_t id, int res, const char *error)
 			goto error_no_id;
 	}
 
-	pw_log_debug("%p: sender %p: error for global %u", client, sender, id);
+	pw_log_debug("%p: sender %p: error for global %u: %s (%d)",
+			client, sender, id, error, res);
 	pw_map_for_each(&client->objects, error_resource, &d);
 	return 0;
 

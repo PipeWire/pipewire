@@ -1719,11 +1719,15 @@ static bool element_probe_volume(pa_alsa_element *e, snd_mixer_elem_t *me) {
     else
         e->has_dB = snd_mixer_selem_get_capture_dB_range(me, &min_dB, &max_dB) >= 0;
 
-    /* Assume decibel data to be incorrect if max_dB is negative. */
-    if (e->has_dB && max_dB < 0 && !e->db_fix) {
+    /* Assume decibel data to be incorrect if max_dB is negative and dB range is
+     * suspiciously small (< 10 dB). This can happen eg. if USB device is using volume
+     * values as arbitrary scale ignoring USB standard on their meaning.
+     */
+    if (e->has_dB && max_dB < 0 && SPA_ABS(max_dB - min_dB) < 10*100 && !e->db_fix) {
         pa_alsa_mixer_id_to_string(buf, sizeof(buf), &e->alsa_id);
-        pa_log_warn("The decibel volume range for element %s (%li dB - %li dB) has negative maximum. "
-                    "Disabling the decibel range.", buf, min_dB, max_dB);
+        pa_log_warn("The decibel volume range for element %s (%0.2f dB to %0.2f dB) has negative maximum "
+                    "and suspiciously small range. "
+                    "Disabling the decibel range.", buf, min_dB/100.0, max_dB/100.0);
         e->has_dB = false;
     }
 

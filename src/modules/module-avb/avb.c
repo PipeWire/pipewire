@@ -41,6 +41,7 @@ struct pw_avb *pw_avb_new(struct pw_context *context,
 
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
+	impl->timer_queue = pw_context_get_timer_queue(context);
 	impl->props = props;
 	impl->core = pw_context_get_object(context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

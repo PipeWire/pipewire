@@ -204,7 +204,7 @@ struct session {
 #define SESSION_STATE_ESTABLISHED	4
 	int state;
 	int ck_count;
-	uint64_t next_time;
+	struct pw_timer timer;
 
 	uint32_t ctrl_initiator;
 	uint32_t data_initiator;
@@ -237,14 +237,12 @@ struct impl {
 
 	struct pw_loop *loop;
 	struct pw_loop *data_loop;
+	struct pw_timer_queue *timer_queue;
 
 	struct pw_core *core;
 	struct spa_hook core_listener;
 	struct spa_hook core_proxy_listener;
 	unsigned int do_disconnect:1;
-
-	struct spa_source *timer;
-	uint64_t next_time;
 
 	struct spa_source *ctrl_source;
 	struct spa_source *data_source;
@@ -276,34 +274,19 @@ static ssize_t send_packet(int fd, struct msghdr *msg)
 	return n;
 }
 
-static uint64_t current_time_ns(void)
+static uint64_t current_time_ns(struct timespec *ts)
 {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
+	clock_gettime(CLOCK_MONOTONIC, ts);
+	return SPA_TIMESPEC_TO_NSEC(ts);
 }
 
-static void set_timeout(struct impl *impl, uint64_t time)
-{
-	struct itimerspec ts;
-	ts.it_value.tv_sec = time / SPA_NSEC_PER_SEC;
-	ts.it_value.tv_nsec = time % SPA_NSEC_PER_SEC;
-	ts.it_interval.tv_sec = 0;
-	ts.it_interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->loop, impl->timer, &ts.it_value, &ts.it_interval, true);
-	impl->next_time = time;
-}
+static void send_apple_midi_cmd_ck0(struct session *sess);
 
-static void schedule_timeout(struct impl *impl)
+static void on_timer_event(void *data)
 {
-	struct session *sess;
-	uint64_t next_time = 0;
-	spa_list_for_each(sess, &impl->sessions, link) {
-		if (next_time == 0 ||
-		    (sess->next_time != 0 && sess->next_time < next_time))
-			next_time = sess->next_time;
-	}
-	set_timeout(impl, next_time);
+	struct session *sess = data;
+	pw_log_debug("timeout");
+	send_apple_midi_cmd_ck0(sess);
 }
 
 static void send_apple_midi_cmd_ck0(struct session *sess)
@@ -312,14 +295,14 @@ static void send_apple_midi_cmd_ck0(struct session *sess)
 	struct iovec iov[3];
 	struct msghdr msg;
 	struct rtp_apple_midi_ck hdr;
-	uint64_t current_time, ts;
+	struct timespec now;
+	uint64_t timeout, ts;
 
 	spa_zero(hdr);
 	hdr.cmd = htonl(APPLE_MIDI_CMD_CK);
 	hdr.ssrc = htonl(sess->ssrc);
 
-	current_time = current_time_ns();
-	ts = current_time / 10000;
+	ts = current_time_ns(&now) / 10000;
 	hdr.ts1_h = htonl(ts >> 32);
 	hdr.ts1_l = htonl(ts);
 
@@ -335,11 +318,15 @@ static void send_apple_midi_cmd_ck0(struct session *sess)
 	send_packet(impl->data_source->fd, &msg);
 
 	if (sess->ck_count++ < 8)
-		sess->next_time = current_time + SPA_NSEC_PER_SEC;
+		timeout = 1;
 	else if (sess->ck_count++ < 16)
-		sess->next_time = current_time + 2 * SPA_NSEC_PER_SEC;
+		timeout = 2;
 	else
-		sess->next_time = current_time + 5 * SPA_NSEC_PER_SEC;
+		timeout = 5;
+
+	pw_timer_queue_add(impl->timer_queue, &sess->timer,
+			&now, timeout * SPA_NSEC_PER_SEC,
+			on_timer_event, sess);
 }
 
 static void session_update_state(struct session *sess, int state)
@@ -355,12 +342,10 @@ static void session_update_state(struct session *sess, int state)
 		if (sess->we_initiated) {
 			sess->ck_count = 0;
 			send_apple_midi_cmd_ck0(sess);
-			schedule_timeout(sess->impl);
 		}
 		break;
 	case SESSION_STATE_INIT:
-		sess->next_time = 0;
-		schedule_timeout(sess->impl);
+		pw_timer_queue_cancel(&sess->timer);
 		break;
 	default:
 		break;
@@ -601,6 +586,7 @@ static void free_session(struct session *sess)
 	pw_loop_locked(impl->data_loop, do_unlink_session, 1, NULL, 0, sess);
 
 	sess->impl->n_sessions--;
+	pw_timer_queue_cancel(&sess->timer);
 
 	if (sess->send)
 		rtp_stream_destroy(sess->send);
@@ -859,8 +845,9 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 	struct msghdr msg;
 	struct rtp_apple_midi_ck reply;
 	struct session *sess;
-	uint64_t now, t1, t2, t3;
+	uint64_t ts, t1, t2, t3;
 	uint32_t ssrc = ntohl(hdr->ssrc);
+	struct timespec now;
 
 	sess = find_session_by_ssrc(impl, ssrc);
 	if (sess == NULL) {
@@ -870,7 +857,7 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 
 	pw_log_trace("got CK count %d", hdr->count);
 
-	now = current_time_ns() / 10000;
+	ts = current_time_ns(&now) / 10000;
 	reply = *hdr;
 	reply.ssrc = htonl(sess->ssrc);
 	reply.count++;
@@ -882,11 +869,11 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 
 	switch (hdr->count) {
 	case 0:
-		t2 = now;
+		t2 = ts;
 		break;
 	case 1:
 		t2 = ((uint64_t)ntohl(hdr->ts2_h) << 32) | ntohl(hdr->ts2_l);
-		t3 = now;
+		t3 = ts;
 		break;
 	case 2:
 		t3 = ((uint64_t)ntohl(hdr->ts3_h) << 32) | ntohl(hdr->ts3_l);
@@ -1223,8 +1210,6 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	if (impl->timer)
-		pw_loop_destroy_source(impl->loop, impl->timer);
 	if (impl->ctrl_source)
 		pw_loop_destroy_source(impl->loop, impl->ctrl_source);
 	if (impl->data_source)
@@ -1646,24 +1631,6 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *userda
 	}
 }
 
-static void on_timer_event(void *data, uint64_t expirations)
-{
-	struct impl *impl = data;
-	struct session *sess;
-	uint64_t current_time = impl->next_time;
-
-	pw_log_debug("timeout");
-	spa_list_for_each(sess, &impl->sessions, link) {
-		if (sess->state != SESSION_STATE_ESTABLISHED)
-			continue;
-		if (sess->next_time < current_time)
-			continue;
-
-		send_apple_midi_cmd_ck0(sess);
-	}
-	schedule_timeout(impl);
-}
-
 static void copy_props(struct impl *impl, struct pw_properties *props, const char *key)
 {
 	const char *str;
@@ -1681,7 +1648,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props = NULL, *stream_props = NULL;
 	uint16_t port;
 	const char *str;
-	struct timespec value, interval;
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -1719,6 +1685,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
 	impl->data_loop = pw_context_acquire_loop(context, &props->dict);
+	impl->timer_queue = pw_context_get_timer_queue(context);
 
 	pw_properties_set(props, PW_KEY_NODE_LOOP_NAME, impl->data_loop->name);
 
@@ -1819,18 +1786,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_core_add_listener(impl->core,
 			&impl->core_listener,
 			&core_events, impl);
-
-	impl->timer = pw_loop_add_timer(impl->loop, on_timer_event, impl);
-	if (impl->timer == NULL) {
-		res = -errno;
-		pw_log_error("can't create timer source: %m");
-		goto out;
-	}
-	value.tv_sec = 0;
-	value.tv_nsec = 1;
-	interval.tv_sec = 1;
-	interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->loop, impl->timer, &value, &interval, false);
 
 	if ((res = setup_apple_session(impl)) < 0)
 		goto out;

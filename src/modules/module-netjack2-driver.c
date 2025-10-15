@@ -225,6 +225,7 @@ struct impl {
 	struct pw_loop *main_loop;
 	struct pw_loop *data_loop;
 	struct spa_system *system;
+	struct pw_timer_queue *timer_queue;
 
 #define MODE_SINK	(1<<0)
 #define MODE_SOURCE	(1<<1)
@@ -263,7 +264,7 @@ struct impl {
 
 	struct spa_source *setup_socket;
 	struct spa_source *socket;
-	struct spa_source *timer;
+	struct pw_timer timer;
 	int32_t init_retry;
 
 	struct netjack2_peer peer;
@@ -801,14 +802,14 @@ error:
 	return res;
 }
 
+static void on_timer_event(void *data);
+
 static void update_timer(struct impl *impl, uint64_t timeout)
 {
-	struct timespec value, interval;
-	value.tv_sec = 0;
-	value.tv_nsec = timeout ? 1 : 0;
-	interval.tv_sec = timeout;
-	interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->main_loop, impl->timer, &value, &interval, false);
+	pw_timer_queue_cancel(&impl->timer);
+	pw_timer_queue_add(impl->timer_queue, &impl->timer,
+			NULL, timeout * SPA_NSEC_PER_SEC,
+			on_timer_event, impl);
 }
 
 static bool encoding_supported(uint32_t encoder)
@@ -1132,7 +1133,7 @@ static void restart_netjack2_socket(struct impl *impl)
 	create_netjack2_socket(impl);
 }
 
-static void on_timer_event(void *data, uint64_t expirations)
+static void on_timer_event(void *data)
 {
 	struct impl *impl = data;
 
@@ -1193,8 +1194,7 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	if (impl->timer)
-		pw_loop_destroy_source(impl->main_loop, impl->timer);
+	pw_timer_queue_cancel(&impl->timer);
 
 	if (impl->data_loop)
 		pw_context_release_loop(impl->context, impl->data_loop);
@@ -1283,6 +1283,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	impl->main_loop = pw_context_get_main_loop(context);
+	impl->timer_queue = pw_context_get_timer_queue(context);
 	impl->system = impl->main_loop->system;
 
 	impl->source.impl = impl;
@@ -1369,13 +1370,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_core_add_listener(impl->core,
 			&impl->core_listener,
 			&core_events, impl);
-
-	impl->timer = pw_loop_add_timer(impl->main_loop, on_timer_event, impl);
-	if (impl->timer == NULL) {
-		res = -errno;
-		pw_log_error("can't create timer source: %m");
-		goto error;
-	}
 
 	if ((res = create_netjack2_socket(impl)) < 0)
 		goto error;

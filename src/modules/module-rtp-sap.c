@@ -251,6 +251,7 @@ struct impl {
 	struct pw_properties *props;
 
 	struct pw_loop *loop;
+	struct pw_timer_queue *timer_queue;
 
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
@@ -263,7 +264,7 @@ struct impl {
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
-	struct spa_source *timer;
+	struct pw_timer timer;
 
 	char *ifname;
 	uint32_t ttl;
@@ -920,7 +921,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	return res;
 }
 
-static void on_timer_event(void *data, uint64_t expirations)
+static void on_timer_event(void *data)
 {
 	struct impl *impl = data;
 	struct session *sess, *tmp;
@@ -954,6 +955,9 @@ static void on_timer_event(void *data, uint64_t expirations)
 
 		}
 	}
+	pw_timer_queue_add(impl->timer_queue, &impl->timer,
+			&impl->timer.timeout, SAP_INTERVAL_SEC * SPA_NSEC_PER_SEC,
+			on_timer_event, impl);
 }
 
 static struct session *session_find(struct impl *impl, const struct sdp_info *info)
@@ -1647,22 +1651,15 @@ on_sap_io(void *data, int fd, uint32_t mask)
 static int start_sap(struct impl *impl)
 {
 	int fd = -1, res;
-	struct timespec value, interval;
 	char addr[128] = "invalid";
 
 	pw_log_info("starting SAP timer");
-	impl->timer = pw_loop_add_timer(impl->loop, on_timer_event, impl);
-	if (impl->timer == NULL) {
-		res = -errno;
-		pw_log_error("can't create timer source: %m");
+	if ((res = pw_timer_queue_add(impl->timer_queue, &impl->timer,
+			NULL, SAP_INTERVAL_SEC * SPA_NSEC_PER_SEC,
+			on_timer_event, impl)) < 0) {
+		pw_log_error("can't add timer: %s", spa_strerror(res));
 		goto error;
 	}
-	value.tv_sec = 0;
-	value.tv_nsec = 1;
-	interval.tv_sec = SAP_INTERVAL_SEC;
-	interval.tv_nsec = 0;
-	pw_loop_update_timer(impl->loop, impl->timer, &value, &interval, false);
-
 	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0)
 		return fd;
 
@@ -1809,8 +1806,7 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	if (impl->timer)
-		pw_loop_destroy_source(impl->loop, impl->timer);
+	pw_timer_queue_cancel(&impl->timer);
 	if (impl->sap_source)
 		pw_loop_destroy_source(impl->loop, impl->sap_source);
 
@@ -1890,6 +1886,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->module = module;
 	impl->loop = pw_context_get_main_loop(context);
+	impl->timer_queue = pw_context_get_timer_queue(context);
 
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;

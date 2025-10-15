@@ -71,7 +71,7 @@ struct module_combine_sink_data {
 	struct pw_properties *combine_props;
 	struct pw_properties *stream_props;
 
-	struct spa_source *sinks_timeout;
+	struct pw_timer sinks_timeout;
 
 	unsigned int sinks_pending;
 	unsigned int load_emitted:1;
@@ -128,7 +128,7 @@ static const struct pw_manager_events manager_events = {
 	.added = manager_added,
 };
 
-static void on_sinks_timeout(void *d, uint64_t count)
+static void on_sinks_timeout(void *d)
 {
 	struct module_combine_sink_data *data = d;
 
@@ -214,13 +214,10 @@ static int module_combine_sink_load(struct module *module)
 	pw_manager_add_listener(data->manager, &data->manager_listener,
 			&manager_events, data);
 
-	data->sinks_timeout = pw_loop_add_timer(module->impl->main_loop, on_sinks_timeout, data);
-	if (data->sinks_timeout) {
-		struct timespec timeout = {0};
-		timeout.tv_sec = TIMEOUT_SINKS_MSEC / 1000;
-		timeout.tv_nsec = (TIMEOUT_SINKS_MSEC % 1000) * SPA_NSEC_PER_MSEC;
-		pw_loop_update_timer(module->impl->main_loop, data->sinks_timeout, &timeout, NULL, false);
-	}
+	pw_timer_queue_add(module->impl->timer_queue, &data->sinks_timeout,
+			NULL, TIMEOUT_SINKS_MSEC * SPA_NSEC_PER_MSEC,
+			on_sinks_timeout, data);
+
 	return data->load_emitted ? 0 : SPA_RESULT_RETURN_ASYNC(0);
 }
 
@@ -228,8 +225,7 @@ static int module_combine_sink_unload(struct module *module)
 {
 	struct module_combine_sink_data *d = module->user_data;
 
-	if (d->sinks_timeout != NULL)
-		pw_loop_destroy_source(module->impl->main_loop, d->sinks_timeout);
+	pw_timer_queue_cancel(&d->sinks_timeout);
 
 	if (d->mod != NULL) {
 		spa_hook_remove(&d->mod_listener);

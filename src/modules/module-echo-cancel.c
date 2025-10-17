@@ -431,22 +431,21 @@ static void process(struct impl *impl)
 
 	avail = spa_ringbuffer_get_read_index(&impl->out_ring, &oindex);
 	while (avail >= size) {
-		if ((cout = pw_stream_dequeue_buffer(impl->source)) == NULL) {
+		if ((cout = pw_stream_dequeue_buffer(impl->source)) != NULL) {
+			for (i = 0; i < impl->out_info.channels; i++) {
+				dd = &cout->buffer->datas[i];
+				spa_ringbuffer_read_data(&impl->out_ring, impl->out_buffer[i],
+						impl->out_ringsize, oindex % impl->out_ringsize,
+						(void *)dd->data, size);
+				dd->chunk->offset = 0;
+				dd->chunk->size = size;
+				dd->chunk->stride = sizeof(float);
+			}
+			pw_stream_queue_buffer(impl->source, cout);
+		} else {
+			/* drop data as to not cause delay */
 			pw_log_debug("out of source buffers: %m");
-			break;
 		}
-
-		for (i = 0; i < impl->out_info.channels; i++) {
-			dd = &cout->buffer->datas[i];
-			spa_ringbuffer_read_data(&impl->out_ring, impl->out_buffer[i],
-					impl->out_ringsize, oindex % impl->out_ringsize,
-					(void *)dd->data, size);
-			dd->chunk->offset = 0;
-			dd->chunk->size = size;
-			dd->chunk->stride = sizeof(float);
-		}
-
-		pw_stream_queue_buffer(impl->source, cout);
 
 		oindex += size;
 		spa_ringbuffer_read_update(&impl->out_ring, oindex);

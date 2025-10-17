@@ -174,12 +174,12 @@ ie. for example `device.Param.Props = { ... }` to set `Props`.
 
 @PAR@ device-prop  device.product.id # integer
 \parblock
-\copydoc PW_KEY_DEVICE_PRODUCT_NAME
+\copydoc PW_KEY_DEVICE_PRODUCT_ID
 \endparblock
 
 @PAR@ device-prop  device.product.name # string
 \parblock
-\copydoc PW_KEY_DEVICE_PRODUCT_ID
+\copydoc PW_KEY_DEVICE_PRODUCT_NAME
 \endparblock
 
 @PAR@ device-prop  device.class # string

@@ -797,7 +797,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	 * till we make it (or get timed out) */
 	pw_properties_set(stream_props, "rtp.receiving", "true");
 
-	impl->cleanup_interval = pw_properties_get_uint32(props,
+	impl->cleanup_interval = pw_properties_get_uint32(stream_props,
 			"cleanup.sec", DEFAULT_CLEANUP_SEC);
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);

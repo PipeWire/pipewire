@@ -433,7 +433,7 @@ static void stream_open_connection(void *data, int *result)
 		 * stream_start() call after some time. The stream_start_retry_timer exists
 		 * precisely for that purpose. This means that ENODEV is not treated as
 		 * an error, but instead, it triggers the creation of that timer. */
-		if (errno == ENODEV) {
+		if (fd == -ENODEV) {
 			pw_log_warn("failed to create socket because network device is not ready "
 				"and present yet; will try again");
 
@@ -449,12 +449,12 @@ static void stream_open_connection(void *data, int *result)
 			res = 0;
 			goto finish;
 		} else {
-			pw_log_error("failed to create socket: %m");
+			pw_log_error("failed to create socket: %s", spa_strerror(fd));
 			/* If ENODEV was returned earlier, and the stream_start_retry_timer
 			 * was consequently created, but then a non-ENODEV error occurred,
 			 * the timer must be stopped and removed. */
 			pw_timer_queue_cancel(&impl->stream_start_retry_timer);
-			res = -errno;
+			res = fd;
 			goto finish;
 		}
 	}

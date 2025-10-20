@@ -901,12 +901,12 @@ static int codec_caps_preference_cmp(const struct media_codec *codec, uint32_t f
 	return conf_cmp(&conf1, res1, &conf2, res2);
 }
 
-static uint8_t channels_to_positions(uint32_t channels, uint32_t *position)
+static uint8_t channels_to_positions(uint32_t channels, uint32_t *position, uint32_t max_position)
 {
 	uint32_t n_channels = get_channel_count(channels);
 	uint8_t n_positions = 0;
 
-	spa_assert(n_channels <= SPA_AUDIO_MAX_CHANNELS);
+	spa_assert(n_channels <= max_position);
 
 	if (channels == 0) {
 		position[0] = SPA_AUDIO_CHANNEL_MONO;
@@ -932,7 +932,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 	bap_lc3_t conf;
 	struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t position[LC3_MAX_CHANNELS];
 	uint32_t i = 0;
 	uint8_t res;
 
@@ -990,7 +990,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 	if (i == 0)
 		return -EINVAL;
 
-	res = channels_to_positions(conf.channels, position);
+	res = channels_to_positions(conf.channels, position, SPA_N_ELEMENTS(position));
 	if (res == 0)
 		return -EINVAL;
 	spa_pod_builder_add(b,
@@ -1044,7 +1044,8 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 		return -EINVAL;
 	}
 
-	res = channels_to_positions(conf.channels, info->info.raw.position);
+	res = channels_to_positions(conf.channels, info->info.raw.position,
+			SPA_N_ELEMENTS(info->info.raw.position));
 	if (res == 0)
 		return -EINVAL;
 	info->info.raw.channels = res;

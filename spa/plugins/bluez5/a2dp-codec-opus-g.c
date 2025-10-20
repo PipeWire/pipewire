@@ -164,7 +164,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 {
 	a2dp_opus_g_t conf;
 	struct spa_pod_frame f[1];
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t position[2];
 	int channels;
 
 	if (caps_size < sizeof(conf))

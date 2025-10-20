@@ -649,7 +649,7 @@ handle_video_fields (ConvertData *d)
 static void
 set_default_channels (struct spa_pod_builder *b, uint32_t channels)
 {
-  uint32_t position[SPA_AUDIO_MAX_CHANNELS] = {0};
+  uint32_t position[8] = {0};
   gboolean ok = TRUE;
 
   switch (channels) {

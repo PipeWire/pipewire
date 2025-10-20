@@ -175,7 +175,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 	a2dp_lc3plus_hr_t conf;
 	struct spa_pod_frame f[2];
 	struct spa_pod_choice *choice;
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t position[2];
 	uint32_t i = 0;
 
 	if (caps_size < sizeof(conf))

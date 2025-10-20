@@ -334,8 +334,11 @@ static void rtp_opus_deinit(struct impl *impl, enum spa_direction direction)
 static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
 {
 	int err;
-	unsigned char mapping[SPA_AUDIO_MAX_CHANNELS];
+	unsigned char mapping[255];
 	uint32_t i;
+
+	if (impl->info.info.opus.channels > 255)
+		return -EINVAL;
 
 	if (impl->psamples >= 2880)
 		impl->psamples = 2880;

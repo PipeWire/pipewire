@@ -34,7 +34,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
 	struct spa_pod_frame f[1];
-	const uint32_t position[SPA_AUDIO_MAX_CHANNELS] = { SPA_AUDIO_CHANNEL_MONO };
+	const uint32_t position[1] = { SPA_AUDIO_CHANNEL_MONO };
 	const int channels = 1;
 
 	spa_assert(caps == NULL && caps_size == 0);

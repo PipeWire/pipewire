@@ -643,7 +643,7 @@ static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
 #define _FORMAT_BE(p, fmt)  p ? SPA_AUDIO_FORMAT_UNKNOWN : SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #endif
 
-static int set_default_channels(uint32_t channels, uint32_t position[MAX_CHANNELS])
+static int set_default_channels(uint32_t channels, uint32_t position[8])
 {
 	switch (channels) {
 	case 8:

@@ -112,6 +112,7 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
 #define MAX_PORTS	128
 #define FFADO_RT_PRIORITY_PACKETIZER_RELATIVE   5
 
@@ -179,7 +180,7 @@ struct port {
 struct volume {
 	bool mute;
 	uint32_t n_volumes;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
 };
 
 struct stream {
@@ -760,7 +761,7 @@ static int make_stream_ports(struct stream *s)
 		struct port *port = s->ports[i];
 		char channel[32];
 
-		snprintf(channel, sizeof(channel), "AUX%u", n_channels % SPA_AUDIO_MAX_CHANNELS);
+		snprintf(channel, sizeof(channel), "AUX%u", n_channels % MAX_CHANNELS);
 
 		switch (port->stream_type) {
 		case ffado_stream_type_audio:
@@ -873,7 +874,7 @@ static void parse_props(struct stream *s, const struct spa_pod *param)
 		case SPA_PROP_channelVolumes:
 		{
 			uint32_t n;
-			float vols[SPA_AUDIO_MAX_CHANNELS];
+			float vols[MAX_CHANNELS];
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
 				s->volume.n_volumes = n;
@@ -1228,7 +1229,7 @@ static int probe_ffado_device(struct impl *impl)
 	}
 	if (impl->source.info.channels != n_channels) {
 		impl->source.info.channels = n_channels;
-		for (i = 0; i < SPA_MIN(impl->source.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+		for (i = 0; i < SPA_MIN(impl->source.info.channels, MAX_CHANNELS); i++)
 			impl->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 
@@ -1254,7 +1255,7 @@ static int probe_ffado_device(struct impl *impl)
 	}
 	if (impl->sink.info.channels != n_channels) {
 		impl->sink.info.channels = n_channels;
-		for (i = 0; i < SPA_MIN(impl->sink.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+		for (i = 0; i < SPA_MIN(impl->sink.info.channels, MAX_CHANNELS); i++)
 			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 

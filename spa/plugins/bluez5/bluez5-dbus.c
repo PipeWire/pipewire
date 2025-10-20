@@ -6850,7 +6850,7 @@ static void parse_bap_locations(struct spa_bt_monitor *this, const struct spa_di
 		const char *key, uint32_t *value)
 {
 	const char *str;
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t position[MAX_CHANNELS];
 	uint32_t n_channels;
 	uint32_t locations;
 	unsigned int i, j;

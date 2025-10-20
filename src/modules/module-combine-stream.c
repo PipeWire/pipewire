@@ -231,8 +231,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 			"( stream.props=<properties> ) "					\
 			"( stream.rules=<properties> ) "
 
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
 #define DELAYBUF_MAX_SIZE	(20 * sizeof(float) * 96000)
-
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -312,10 +312,10 @@ struct stream {
 	struct spa_latency_info latency;
 
 	struct spa_audio_info_raw info;
-	uint32_t remap[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t remap[MAX_CHANNELS];
 
 	void *delaybuf;
-	struct ringbuffer delay[SPA_AUDIO_MAX_CHANNELS];
+	struct ringbuffer delay[MAX_CHANNELS];
 
 	int64_t delay_samples;		/* for main loop */
 	int64_t data_delay_samples;	/* for data loop */
@@ -509,7 +509,7 @@ static void update_latency(struct impl *impl)
 struct replace_delay_info {
 	struct stream *stream;
 	void *buf;
-	struct ringbuffer delay[SPA_AUDIO_MAX_CHANNELS];
+	struct ringbuffer delay[MAX_CHANNELS];
 };
 
 static int do_replace_delay(struct spa_loop *loop, bool async, uint32_t seq,
@@ -1228,7 +1228,7 @@ static void combine_output_process(void *d)
 	struct pw_buffer *in, *out;
 	struct stream *s;
 	bool delay_changed = false;
-	bool mix[SPA_AUDIO_MAX_CHANNELS];
+	bool mix[MAX_CHANNELS];
 
 	if ((out = pw_stream_dequeue_buffer(impl->combine)) == NULL) {
 		pw_log_debug("%p: out of output buffers: %m", impl);

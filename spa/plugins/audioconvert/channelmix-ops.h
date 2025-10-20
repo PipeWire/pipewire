@@ -24,6 +24,7 @@
 
 #define BUFFER_SIZE 4096
 #define MAX_TAPS 255u
+#define MAX_CHANNELS SPA_AUDIO_MAX_CHANNELS
 
 #define CHANNELMIX_OPS_MAX_ALIGN 16
 
@@ -50,8 +51,8 @@ struct channelmix {
 #define CHANNELMIX_FLAG_EQUAL		(1<<2)		/**< all values are equal */
 #define CHANNELMIX_FLAG_COPY		(1<<3)		/**< 1 on diagonal, can be nxm */
 	uint32_t flags;
-	float matrix_orig[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
-	float matrix[SPA_AUDIO_MAX_CHANNELS][SPA_AUDIO_MAX_CHANNELS];
+	float matrix_orig[MAX_CHANNELS][MAX_CHANNELS];
+	float matrix[MAX_CHANNELS][MAX_CHANNELS];
 
 	float freq;					/* sample frequency */
 	float lfe_cutoff;				/* in Hz, 0 is disabled */
@@ -59,7 +60,7 @@ struct channelmix {
 	float rear_delay;				/* in ms, 0 is disabled */
 	float widen;					/* stereo widen. 0 is disabled */
 	uint32_t hilbert_taps;				/* to phase shift, 0 disabled */
-	struct lr4 lr4[SPA_AUDIO_MAX_CHANNELS];
+	struct lr4 lr4[MAX_CHANNELS];
 
 	float buffer_mem[2 * BUFFER_SIZE*2 + CHANNELMIX_OPS_MAX_ALIGN/4];
 	float *buffer[2];

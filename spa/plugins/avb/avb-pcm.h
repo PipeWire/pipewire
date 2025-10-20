@@ -109,6 +109,7 @@ static inline char *format_streamid(char *str, size_t size, const uint64_t strea
 	return str;
 }
 
+#define MAX_CHANNELS SPA_AUDIO_MAX_CHANNELS
 #define MAX_BUFFERS 32
 
 struct buffer {
@@ -127,7 +128,7 @@ struct buffer {
 
 struct channel_map {
 	uint32_t channels;
-	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t pos[MAX_CHANNELS];
 };
 
 struct port {

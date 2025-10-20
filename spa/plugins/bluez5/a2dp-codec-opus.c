@@ -58,6 +58,8 @@ static struct spa_log *log;
 
 #define BITRATE_DUPLEX_BIDI		160000
 
+#define MAX_CHANNELS		SPA_AUDIO_MAX_CHANNELS
+
 #define OPUS_05_MAX_BYTES	(15 * 1024)
 
 struct props {
@@ -313,14 +315,14 @@ static void parse_settings(struct props *props, const struct spa_dict *settings)
 		return;
 
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.a2dp.opus.pro.channels"), &v, 0))
-		props->channels = SPA_CLAMP(v, 1u, SPA_AUDIO_MAX_CHANNELS);
+		props->channels = SPA_CLAMP(v, 1u, MAX_CHANNELS);
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.a2dp.opus.pro.max-bitrate"), &v, 0))
 		props->max_bitrate = SPA_MAX(v, (uint32_t)BITRATE_MIN);
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.a2dp.opus.pro.coupled-streams"), &v, 0))
 		props->coupled_streams = SPA_CLAMP(v, 0u, props->channels / 2);
 
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.a2dp.opus.pro.bidi.channels"), &v, 0))
-		props->bidi_channels = SPA_CLAMP(v, 0u, SPA_AUDIO_MAX_CHANNELS);
+		props->bidi_channels = SPA_CLAMP(v, 0u, MAX_CHANNELS);
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.a2dp.opus.pro.bidi.max-bitrate"), &v, 0))
 		props->bidi_max_bitrate = SPA_MAX(v, (uint32_t)BITRATE_MIN);
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.a2dp.opus.pro.bidi.coupled-streams"), &v, 0))
@@ -503,7 +505,7 @@ static int get_mapping(const struct media_codec *codec, const a2dp_opus_05_direc
 	const uint8_t *permutation = NULL;
 	size_t i, j;
 
-	if (channels > SPA_AUDIO_MAX_CHANNELS)
+	if (channels > MAX_CHANNELS)
 		return -EINVAL;
 	if (2 * coupled_streams > channels)
 		return -EINVAL;
@@ -561,7 +563,7 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 	a2dp_opus_05_t a2dp_opus_05 = {
 		.info = codec->vendor,
 		.main = {
-			.channels = SPA_MIN(255u, SPA_AUDIO_MAX_CHANNELS),
+			.channels = SPA_MIN(255u, MAX_CHANNELS),
 			.frame_duration = (OPUS_05_FRAME_DURATION_25 |
 					OPUS_05_FRAME_DURATION_50 |
 					OPUS_05_FRAME_DURATION_100 |
@@ -571,7 +573,7 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 			OPUS_05_INIT_BITRATE(0)
 		},
 		.bidi = {
-			.channels = SPA_MIN(255u, SPA_AUDIO_MAX_CHANNELS),
+			.channels = SPA_MIN(255u, MAX_CHANNELS),
 			.frame_duration = (OPUS_05_FRAME_DURATION_25 |
 					OPUS_05_FRAME_DURATION_50 |
 					OPUS_05_FRAME_DURATION_100 |
@@ -771,7 +773,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 	a2dp_opus_05_t conf;
 	a2dp_opus_05_direction_t *dir;
 	struct spa_pod_frame f[1];
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t position[MAX_CHANNELS];
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;

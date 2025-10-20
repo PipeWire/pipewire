@@ -31,6 +31,7 @@ PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.pcm");
 #define MAX_BUFFERS	64u
 
 #define MAX_RATE	(48000*8)
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
 
 #define MIN_PERIOD	64
 
@@ -642,7 +643,7 @@ static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
 #define _FORMAT_BE(p, fmt)  p ? SPA_AUDIO_FORMAT_UNKNOWN : SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #endif
 
-static int set_default_channels(uint32_t channels, uint32_t position[SPA_AUDIO_MAX_CHANNELS])
+static int set_default_channels(uint32_t channels, uint32_t position[MAX_CHANNELS])
 {
 	switch (channels) {
 	case 8:
@@ -1097,7 +1098,7 @@ struct param_info infos[] = {
 	{ "alsa.rate", SND_PCM_IOPLUG_HW_RATE, TYPE_MIN_MAX,
 		{ 1, MAX_RATE }, 2, collect_int },
 	{ "alsa.channels", SND_PCM_IOPLUG_HW_CHANNELS, TYPE_MIN_MAX,
-		{ 1, SPA_AUDIO_MAX_CHANNELS }, 2, collect_int },
+		{ 1, MAX_CHANNELS }, 2, collect_int },
 	{ "alsa.buffer-bytes", SND_PCM_IOPLUG_HW_BUFFER_BYTES, TYPE_MIN_MAX,
 		{ MIN_BUFFER_BYTES, MAX_BUFFER_BYTES }, 2, collect_int },
 	{ "alsa.period-bytes", SND_PCM_IOPLUG_HW_PERIOD_BYTES, TYPE_MIN_MAX,

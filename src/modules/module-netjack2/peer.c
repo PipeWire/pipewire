@@ -7,10 +7,12 @@
 #include <opus/opus_custom.h>
 #endif
 
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
+
 struct volume {
 	bool mute;
 	uint32_t n_volumes;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
 };
 
 static inline float bswap_f32(float f)

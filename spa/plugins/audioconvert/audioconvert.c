@@ -47,10 +47,11 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.audioconvert");
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
 #define MAX_ALIGN	FMT_OPS_MAX_ALIGN
 #define MAX_BUFFERS	32
-#define MAX_DATAS	SPA_AUDIO_MAX_CHANNELS
-#define MAX_PORTS	(SPA_AUDIO_MAX_CHANNELS+1)
+#define MAX_DATAS	MAX_CHANNELS
+#define MAX_PORTS	(MAX_CHANNELS+1)
 #define MAX_STAGES	64
 #define MAX_GRAPH	9	/* 8 active + 1 replacement slot */
 
@@ -62,7 +63,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.audioconvert");
 struct volumes {
 	bool mute;
 	uint32_t n_volumes;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
 };
 
 static void init_volumes(struct volumes *vol)
@@ -70,7 +71,7 @@ static void init_volumes(struct volumes *vol)
 	uint32_t i;
 	vol->mute = DEFAULT_MUTE;
 	vol->n_volumes = 0;
-	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+	for (i = 0; i < MAX_CHANNELS; i++)
 		vol->volumes[i] = DEFAULT_VOLUME;
 }
 
@@ -91,7 +92,7 @@ struct props {
 	float max_volume;
 	float prev_volume;
 	uint32_t n_channels;
-	uint32_t channel_map[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t channel_map[MAX_CHANNELS];
 	struct volumes channel;
 	struct volumes soft;
 	struct volumes monitor;
@@ -112,7 +113,7 @@ static void props_reset(struct props *props)
 	props->min_volume = DEFAULT_MIN_VOLUME;
 	props->max_volume = DEFAULT_MAX_VOLUME;
 	props->n_channels = 0;
-	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++)
+	for (i = 0; i < MAX_CHANNELS; i++)
 		props->channel_map[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
 	init_volumes(&props->channel);
 	init_volumes(&props->soft);
@@ -241,9 +242,9 @@ struct filter_graph {
 	struct spa_filter_graph *graph;
 	struct spa_hook listener;
 	uint32_t n_inputs;
-	uint32_t inputs_position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t inputs_position[MAX_CHANNELS];
 	uint32_t n_outputs;
-	uint32_t outputs_position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t outputs_position[MAX_CHANNELS];
 	uint32_t latency;
 	bool removing;
 	bool setup;
@@ -1966,7 +1967,7 @@ static int node_set_param_port_config(struct impl *this, uint32_t flags,
 			return -EINVAL;
 
 		if (info.info.raw.channels == 0 ||
-		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+		    info.info.raw.channels > MAX_CHANNELS)
 			return -EINVAL;
 
 		infop = &info;
@@ -2153,7 +2154,7 @@ static void set_volume(struct impl *this)
 {
 	struct volumes *vol;
 	uint32_t i;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
 	struct dir *dir = &this->dir[this->direction];
 
 	spa_log_debug(this->log, "%p set volume %f have_format:%d", this, this->props.volume, dir->have_format);
@@ -2671,7 +2672,7 @@ static int port_param_enum_formats(struct impl *impl, struct port *port, uint32_
 			}
 			spa_pod_builder_add(b,
 				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
-					DEFAULT_CHANNELS, 1, SPA_AUDIO_MAX_CHANNELS),
+					DEFAULT_CHANNELS, 1, MAX_CHANNELS),
 				0);
 			*param = spa_pod_builder_pop(b, &f[0]);
 		}
@@ -3064,7 +3065,7 @@ static int port_set_format(void *object,
 			if (info.info.raw.format == 0 ||
 			    (!this->props.resample_disabled && info.info.raw.rate == 0) ||
 			    info.info.raw.channels == 0 ||
-			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS) {
+			    info.info.raw.channels > MAX_CHANNELS) {
 				spa_log_error(this->log, "invalid format:%d rate:%d channels:%d",
 						info.info.raw.format, info.info.raw.rate,
 						info.info.raw.channels);

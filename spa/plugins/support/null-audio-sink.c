@@ -35,12 +35,13 @@
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.null-audio-sink");
 
 #define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
 
 struct props {
 	uint32_t format;
 	uint32_t channels;
 	uint32_t rate;
-	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t pos[MAX_CHANNELS];
 	char clock_name[64];
 	unsigned int debug:1;
 	unsigned int driver:1;

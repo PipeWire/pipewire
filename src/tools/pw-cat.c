@@ -70,6 +70,8 @@
 #define DEFAULT_VOLUME		1.0
 #define DEFAULT_QUALITY		4
 
+#define MAX_CHANNELS		SPA_AUDIO_MAX_CHANNELS
+
 enum mode {
 	mode_none,
 	mode_playback,
@@ -91,7 +93,7 @@ typedef int (*fill_fn)(struct data *d, void *dest, unsigned int n_frames, bool *
 
 struct channelmap {
 	uint32_t n_channels;
-	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t channels[MAX_CHANNELS];
 };
 
 struct data {

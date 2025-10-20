@@ -156,6 +156,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_LOOP		false
 
 #define MAX_SDP			2048
+#define MAX_CHANNELS		SPA_AUDIO_MAX_CHANNELS
 
 #define USAGE	"( local.ifname=<local interface name to use> ) "					\
 		"( sap.ip=<SAP IP address to send announce, default:"DEFAULT_SAP_IP"> ) "		\
@@ -1404,7 +1405,7 @@ static int parse_sdp_i(struct impl *impl, char *c, struct sdp_info *info)
 	c[strcspn(c, " ")] = '\0';
 
 	uint32_t channels;
-	if (sscanf(c, "%u", &channels) != 1 || channels <= 0 || channels > SPA_AUDIO_MAX_CHANNELS)
+	if (sscanf(c, "%u", &channels) != 1 || channels <= 0 || channels > MAX_CHANNELS)
 		return 0;
 
 	c += strcspn(c, "\0");

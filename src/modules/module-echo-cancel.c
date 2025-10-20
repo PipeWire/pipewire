@@ -154,6 +154,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 #define DEFAULT_RATE 48000
 #define DEFAULT_POSITION "[ FL FR ]"
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
 
 /* Hopefully this is enough for any combination of AEC engine and resampler
  * input requirement for rate matching */
@@ -203,7 +204,7 @@ struct impl {
 	struct spa_hook source_listener;
 	struct spa_audio_info_raw source_info;
 
-	void *rec_buffer[SPA_AUDIO_MAX_CHANNELS];
+	void *rec_buffer[MAX_CHANNELS];
 	uint32_t rec_ringsize;
 	struct spa_ringbuffer rec_ring;
 
@@ -215,13 +216,13 @@ struct impl {
 	struct pw_properties *sink_props;
 	struct pw_stream *sink;
 	struct spa_hook sink_listener;
-	void *play_buffer[SPA_AUDIO_MAX_CHANNELS];
+	void *play_buffer[MAX_CHANNELS];
 	uint32_t play_ringsize;
 	struct spa_ringbuffer play_ring;
 	struct spa_ringbuffer play_delayed_ring;
 	struct spa_audio_info_raw sink_info;
 
-	void *out_buffer[SPA_AUDIO_MAX_CHANNELS];
+	void *out_buffer[MAX_CHANNELS];
 	uint32_t out_ringsize;
 	struct spa_ringbuffer out_ring;
 

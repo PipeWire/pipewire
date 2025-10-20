@@ -22,9 +22,11 @@ PW_LOG_TOPIC_STATIC(alsa_log_topic, "alsa.ctl");
 #define VOLUME_MIN ((uint32_t) 0U)
 #define VOLUME_MAX ((uint32_t) 0x10000U)
 
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
+
 struct volume {
 	uint32_t channels;
-	long values[SPA_AUDIO_MAX_CHANNELS];
+	long values[MAX_CHANNELS];
 };
 
 typedef struct {
@@ -498,7 +500,7 @@ static struct spa_pod *build_volume_mute(struct spa_pod_builder *b, struct volum
 	spa_pod_builder_push_object(b, &f[0],
 			SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 	if (volume) {
-		float volumes[SPA_AUDIO_MAX_CHANNELS];
+		float volumes[MAX_CHANNELS];
 		uint32_t i, n_volumes = 0;
 
 		n_volumes = volume->channels;
@@ -850,7 +852,7 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 			break;
 		case SPA_PROP_channelVolumes:
 		{
-			float volumes[SPA_AUDIO_MAX_CHANNELS];
+			float volumes[MAX_CHANNELS];
 			uint32_t n_volumes, i;
 
 			n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,

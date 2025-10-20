@@ -39,6 +39,7 @@
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
 
 #define MAX_HNDL 64
+#define MAX_CHANNELS SPA_AUDIO_MAX_CHANNELS
 
 #define DEFAULT_RATE	48000
 
@@ -154,15 +155,15 @@ struct graph_hndl {
 struct volume {
 	bool mute;
 	uint32_t n_volumes;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
 
 	uint32_t n_ports;
-	struct port *ports[SPA_AUDIO_MAX_CHANNELS];
-	float min[SPA_AUDIO_MAX_CHANNELS];
-	float max[SPA_AUDIO_MAX_CHANNELS];
+	struct port *ports[MAX_CHANNELS];
+	float min[MAX_CHANNELS];
+	float max[MAX_CHANNELS];
 #define SCALE_LINEAR	0
 #define SCALE_CUBIC	1
-	int scale[SPA_AUDIO_MAX_CHANNELS];
+	int scale[MAX_CHANNELS];
 };
 
 struct graph {
@@ -194,9 +195,9 @@ struct graph {
 
 	uint32_t n_inputs;
 	uint32_t n_outputs;
-	uint32_t inputs_position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t inputs_position[MAX_CHANNELS];
 	uint32_t n_inputs_position;
-	uint32_t outputs_position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t outputs_position[MAX_CHANNELS];
 	uint32_t n_outputs_position;
 
 	float min_latency;
@@ -256,8 +257,8 @@ static void emit_filter_graph_info(struct impl *impl, bool full)
 		char n_inputs[64], n_outputs[64], latency[64];
 		struct spa_dict_item items[6];
 		struct spa_dict dict = SPA_DICT(items, 0);
-		char in_pos[SPA_AUDIO_MAX_CHANNELS * 8];
-		char out_pos[SPA_AUDIO_MAX_CHANNELS * 8];
+		char in_pos[MAX_CHANNELS * 8];
+		char out_pos[MAX_CHANNELS * 8];
 
 		snprintf(n_inputs, sizeof(n_inputs), "%d", impl->graph.n_inputs);
 		snprintf(n_outputs, sizeof(n_outputs), "%d", impl->graph.n_outputs);
@@ -745,7 +746,7 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 		case SPA_PROP_channelVolumes:
 		{
 			uint32_t i, n_vols;
-			float vols[SPA_AUDIO_MAX_CHANNELS];
+			float vols[MAX_CHANNELS];
 
 			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float, vols,
 					SPA_AUDIO_MAX_CHANNELS)) > 0) {
@@ -772,7 +773,7 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 		}
 	}
 	if (do_volume && vol->n_ports != 0) {
-		float soft_vols[SPA_AUDIO_MAX_CHANNELS];
+		float soft_vols[MAX_CHANNELS];
 		uint32_t i;
 
 		for (i = 0; i < vol->n_volumes; i++)
@@ -1264,7 +1265,7 @@ static int parse_volume(struct graph *graph, struct spa_json *json, enum spa_dir
 		spa_log_error(impl->log, "unknown control port %s", control);
 		return -ENOENT;
 	}
-	if (vol->n_ports >= SPA_AUDIO_MAX_CHANNELS) {
+	if (vol->n_ports >= MAX_CHANNELS) {
 		spa_log_error(impl->log, "too many volume controls");
 		return -ENOSPC;
 	}

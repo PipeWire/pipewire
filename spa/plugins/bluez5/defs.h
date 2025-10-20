@@ -157,6 +157,8 @@ extern "C" {
 
 #define SPA_BT_NO_BATTERY			((uint8_t)255)
 
+#define MAX_CHANNELS	(SPA_AUDIO_MAX_CHANNELS)
+
 enum spa_bt_media_direction {
 	SPA_BT_MEDIA_SOURCE,
 	SPA_BT_MEDIA_SINK,
@@ -678,7 +680,7 @@ struct spa_bt_transport {
 	struct spa_list bap_transport_linked;
 
 	uint32_t n_channels;
-	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t channels[MAX_CHANNELS];
 
 	struct spa_bt_transport_volume volumes[SPA_BT_VOLUME_ID_TERM];
 

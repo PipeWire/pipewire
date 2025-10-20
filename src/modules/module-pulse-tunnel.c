@@ -117,6 +117,8 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_CHANNELS 2
 #define DEFAULT_POSITION "[ FL FR ]"
 
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
+
 #define MODULE_USAGE	"( remote.name=<remote> ] "				\
 			"( node.latency=<latency as fraction> ] "		\
 			"( node.name=<name of the nodes> ] "			\
@@ -295,7 +297,7 @@ static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *par
 		{
 			struct pa_cvolume volume;
 			uint32_t n;
-			float vols[SPA_AUDIO_MAX_CHANNELS];
+			float vols[MAX_CHANNELS];
 
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
@@ -832,10 +834,10 @@ do_stream_sync_volumes(struct spa_loop *loop,
 	struct spa_pod_frame f[1];
 	struct spa_pod *param;
 	uint32_t i, channels;
-	float vols[SPA_AUDIO_MAX_CHANNELS];
-	float soft_vols[SPA_AUDIO_MAX_CHANNELS];
+	float vols[MAX_CHANNELS];
+	float soft_vols[MAX_CHANNELS];
 
-	channels = SPA_MIN(impl->volume.channels, SPA_AUDIO_MAX_CHANNELS);
+	channels = SPA_MIN(impl->volume.channels, MAX_CHANNELS);
 	for (i = 0; i < channels; i++) {
 		vols[i] = (float)pa_sw_volume_to_linear(impl->volume.values[i]);
 		soft_vols[i] = 1.0f;

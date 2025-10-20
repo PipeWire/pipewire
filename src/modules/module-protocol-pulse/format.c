@@ -12,6 +12,8 @@
 
 #include "format.h"
 
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
+
 static const struct format audio_formats[] = {
 	[SAMPLE_U8] = { SAMPLE_U8, SPA_AUDIO_FORMAT_U8, "u8", 1 },
 	[SAMPLE_ALAW] = { SAMPLE_ALAW, SPA_AUDIO_FORMAT_ALAW, "alaw", 1 },

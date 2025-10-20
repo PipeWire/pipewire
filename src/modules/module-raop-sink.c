@@ -158,6 +158,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define RAOP_LATENCY_MS		250
 #define DEFAULT_LATENCY_MS	1500
 
+#define MAX_CHANNELS		SPA_AUDIO_MAX_CHANNELS
 #define VOLUME_MAX		0.0
 #define VOLUME_MIN		-30.0
 #define VOLUME_MUTE		-144.0
@@ -1612,8 +1613,8 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 		case SPA_PROP_channelVolumes:
 		{
 			uint32_t i, n_vols;
-			float vols[SPA_AUDIO_MAX_CHANNELS], volume;
-			float soft_vols[SPA_AUDIO_MAX_CHANNELS];
+			float vols[MAX_CHANNELS], volume;
+			float soft_vols[MAX_CHANNELS];
 
 			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {

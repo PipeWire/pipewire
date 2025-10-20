@@ -38,6 +38,7 @@
 extern struct spa_i18n *acp_i18n;
 
 #define MAX_POLL	16
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
 
 #define DEFAULT_DEVICE		"hw:0"
 #define DEFAULT_AUTO_PROFILE	true
@@ -156,7 +157,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	uint32_t n_items, i;
 	char device_name[128], path[210], channels[16], ch[12], routes[16];
 	char card_index[16], card_name[64], *p;
-	char positions[SPA_AUDIO_MAX_CHANNELS * 12];
+	char positions[MAX_CHANNELS * 12];
 	char codecs[512];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
@@ -673,8 +674,8 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) props;
 	int changed = 0;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
-	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
+	uint32_t channels[MAX_CHANNELS];
 	uint32_t n_volumes = 0;
 
 	if (!spa_pod_is_object_type(props, SPA_TYPE_OBJECT_Props))

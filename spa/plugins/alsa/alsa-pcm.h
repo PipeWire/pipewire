@@ -36,6 +36,7 @@ extern "C" {
 #endif
 
 #define MAX_RATES	16
+#define MAX_CHANNELS SPA_AUDIO_MAX_CHANNELS
 
 #define DEFAULT_PERIOD		1024u
 #define DEFAULT_RATE		48000u
@@ -72,7 +73,7 @@ struct buffer {
 
 struct channel_map {
 	uint32_t channels;
-	uint32_t pos[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t pos[MAX_CHANNELS];
 };
 
 struct card {

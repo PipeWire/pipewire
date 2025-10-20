@@ -1439,7 +1439,7 @@ static int port_set_format(struct impl *this, struct port *port,
 
 		if (info.info.raw.rate == 0 ||
 		    info.info.raw.channels == 0 ||
-		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+		    info.info.raw.channels > MAX_CHANNELS)
 			return -EINVAL;
 
 		port->frame_size = info.info.raw.channels;

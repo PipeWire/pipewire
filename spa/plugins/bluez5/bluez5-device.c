@@ -38,7 +38,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.device");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 
-#define MAX_NODES		(2*SPA_AUDIO_MAX_CHANNELS)
+#define MAX_NODES		(2*MAX_CHANNELS)
 
 #define DEVICE_ID_SOURCE	0
 #define DEVICE_ID_SINK		1
@@ -99,9 +99,9 @@ struct node {
 	unsigned int offload_acquired:1;
 	uint32_t n_channels;
 	int64_t latency_offset;
-	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
-	float soft_volumes[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t channels[MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
+	float soft_volumes[MAX_CHANNELS];
 };
 
 struct dynamic_node
@@ -129,8 +129,8 @@ struct device_set {
 	bool leader;
 	uint32_t sinks;
 	uint32_t sources;
-	struct device_set_member sink[SPA_AUDIO_MAX_CHANNELS];
-	struct device_set_member source[SPA_AUDIO_MAX_CHANNELS];
+	struct device_set_member sink[MAX_CHANNELS];
+	struct device_set_member source[MAX_CHANNELS];
 };
 
 struct impl {
@@ -182,7 +182,7 @@ static void init_node(struct impl *this, struct node *node, uint32_t id)
 
 	spa_zero(*node);
 	node->id = id;
-	for (i = 0; i < SPA_AUDIO_MAX_CHANNELS; i++) {
+	for (i = 0; i < MAX_CHANNELS; i++) {
 		node->volumes[i] = 1.0f;
 		node->soft_volumes[i] = 1.0f;
 	}
@@ -546,7 +546,7 @@ static void emit_device_set_node(struct impl *this, uint32_t id)
 				if (node->channels[k] == t->channels[j])
 					break;
 			}
-			if (k == node->n_channels && node->n_channels < SPA_AUDIO_MAX_CHANNELS)
+			if (k == node->n_channels && node->n_channels < MAX_CHANNELS)
 				node->channels[node->n_channels++] = t->channels[j];
 		}
 	}
@@ -2946,8 +2946,8 @@ static int apply_device_props(struct impl *this, struct node *node, struct spa_p
 	struct spa_pod_prop *prop;
 	struct spa_pod_object *obj = (struct spa_pod_object *) props;
 	int changed = 0;
-	float volumes[SPA_AUDIO_MAX_CHANNELS];
-	uint32_t channels[SPA_AUDIO_MAX_CHANNELS];
+	float volumes[MAX_CHANNELS];
+	uint32_t channels[MAX_CHANNELS];
 	uint32_t n_volumes = 0, SPA_UNUSED n_channels = 0;
 	int64_t latency_offset = 0;
 

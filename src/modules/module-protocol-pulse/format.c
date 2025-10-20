@@ -451,7 +451,8 @@ void channel_map_parse(const char *str, struct channel_map *map)
 void channel_map_parse_position(const char *str, struct channel_map *map)
 {
 	uint32_t channels = 0, position[SPA_AUDIO_MAX_CHANNELS];
-	spa_audio_parse_position(str, strlen(str), position, &channels);
+	spa_audio_parse_position_n(str, strlen(str), position,
+			SPA_N_ELEMENTS(position), &channels);
 	positions_to_channel_map(position, channels, map);
 }
 
@@ -535,7 +536,7 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 			if (info.info.raw.format == 0 ||
 			    info.info.raw.rate == 0 ||
 			    info.info.raw.channels == 0 ||
-			    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+			    info.info.raw.channels > SPA_N_ELEMENTS(info.info.raw.position))
 				return -ENOTSUP;
 		}
 		break;

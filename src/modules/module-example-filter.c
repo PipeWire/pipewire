@@ -299,7 +299,7 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 			return;
 		if (info.rate == 0 ||
 		    info.channels == 0 ||
-		    info.channels > SPA_AUDIO_MAX_CHANNELS)
+		    info.channels > SPA_N_ELEMENTS(info.position))
 			return;
 		break;
 	}

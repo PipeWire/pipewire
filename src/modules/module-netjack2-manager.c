@@ -679,7 +679,7 @@ static void parse_props(struct stream *s, const struct spa_pod *param)
 			uint32_t n;
 			float vols[MAX_CHANNELS];
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					vols, SPA_N_ELEMENTS(vols))) > 0) {
 				s->volume.n_volumes = n;
 				for (n = 0; n < s->volume.n_volumes; n++)
 					s->volume.volumes[n] = vols[n];
@@ -1026,14 +1026,16 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	follower->source.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
 	follower->source.info.rate = peer->params.sample_rate;
 	if ((uint32_t)peer->params.recv_audio_channels != follower->source.info.channels) {
-		follower->source.info.channels = SPA_MIN(peer->params.recv_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
+		follower->source.info.channels = SPA_MIN(peer->params.recv_audio_channels,
+				(int)SPA_N_ELEMENTS(follower->source.info.position));
 		for (i = 0; i < follower->source.info.channels; i++)
 			follower->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 	follower->sink.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
 	follower->sink.info.rate = peer->params.sample_rate;
 	if ((uint32_t)peer->params.send_audio_channels != follower->sink.info.channels) {
-		follower->sink.info.channels = SPA_MIN(peer->params.send_audio_channels, (int)SPA_AUDIO_MAX_CHANNELS);
+		follower->sink.info.channels = SPA_MIN(peer->params.send_audio_channels,
+				(int)SPA_N_ELEMENTS(follower->sink.info.position));
 		for (i = 0; i < follower->sink.info.channels; i++)
 			follower->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}

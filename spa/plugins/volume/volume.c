@@ -455,7 +455,7 @@ static int port_set_format(void *object,
 
 		if (info.info.raw.format != SPA_AUDIO_FORMAT_S16 ||
 		    info.info.raw.channels == 0 ||
-		    info.info.raw.channels > SPA_AUDIO_MAX_CHANNELS)
+		    info.info.raw.channels > SPA_N_ELEMENTS(info.info.raw.position))
 			return -EINVAL;
 
 		this->bpf = 2 * info.info.raw.channels;

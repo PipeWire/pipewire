@@ -28,8 +28,8 @@ extern "C" {
 #endif
 
 SPA_API_AUDIO_RAW_JSON int
-spa_audio_parse_position(const char *str, size_t len,
-		uint32_t *position, uint32_t *n_channels)
+spa_audio_parse_position_n(const char *str, size_t len,
+		uint32_t *position, uint32_t max_channels, uint32_t *n_channels)
 {
 	struct spa_json iter;
         char v[256];
@@ -39,11 +39,17 @@ spa_audio_parse_position(const char *str, size_t len,
                 return 0;
 
         while (spa_json_get_string(&iter, v, sizeof(v)) > 0 &&
-		channels < SPA_AUDIO_MAX_CHANNELS) {
+		channels < max_channels) {
                 position[channels++] = spa_type_audio_channel_from_short_name(v);
         }
 	*n_channels = channels;
 	return channels;
+}
+SPA_API_AUDIO_RAW_JSON int
+spa_audio_parse_position(const char *str, size_t len,
+		uint32_t *position, uint32_t *n_channels)
+{
+	return spa_audio_parse_position_n(str, len, position, SPA_AUDIO_MAX_CHANNELS, n_channels);
 }
 
 SPA_API_AUDIO_RAW_JSON int
@@ -58,10 +64,11 @@ spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, cons
 			info->rate = v;
 	} else if (spa_streq(key, SPA_KEY_AUDIO_CHANNELS)) {
 		if (spa_atou32(val, &v, 0) && (force || info->channels == 0))
-			info->channels = SPA_MIN(v, SPA_AUDIO_MAX_CHANNELS);
+			info->channels = SPA_MIN(v, SPA_N_ELEMENTS(info->position));
 	} else if (spa_streq(key, SPA_KEY_AUDIO_POSITION)) {
 		if (force || info->channels == 0) {
-			if (spa_audio_parse_position(val, strlen(val), info->position, &info->channels) > 0)
+			if (spa_audio_parse_position_n(val, strlen(val), info->position,
+						SPA_N_ELEMENTS(info->position), &info->channels) > 0)
 				SPA_FLAG_CLEAR(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 		}
 	}

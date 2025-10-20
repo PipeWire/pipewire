@@ -53,7 +53,7 @@ int volume_parse_param(const struct spa_pod *param, struct volume_info *info, bo
 			if (monitor)
 				continue;
 			info->volume.channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					info->volume.values, CHANNELS_MAX);
+					info->volume.values, SPA_N_ELEMENTS(info->volume.values));
 			SPA_FLAG_UPDATE(info->flags, VOLUME_HW_VOLUME,
 					prop->flags & SPA_POD_PROP_FLAG_HARDWARE);
 			break;
@@ -68,7 +68,7 @@ int volume_parse_param(const struct spa_pod *param, struct volume_info *info, bo
 			if (!monitor)
 				continue;
 			info->volume.channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					info->volume.values, CHANNELS_MAX);
+					info->volume.values, SPA_N_ELEMENTS(info->volume.values));
 			SPA_FLAG_CLEAR(info->flags, VOLUME_HW_VOLUME);
 			break;
 		case SPA_PROP_volumeBase:
@@ -84,7 +84,7 @@ int volume_parse_param(const struct spa_pod *param, struct volume_info *info, bo
 		}
 		case SPA_PROP_channelMap:
 			info->map.channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					info->map.map, CHANNELS_MAX);
+					info->map.map, SPA_N_ELEMENTS(info->map.map));
 			break;
 		default:
 			break;

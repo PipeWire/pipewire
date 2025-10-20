@@ -539,7 +539,7 @@ static void param_format_changed(struct impl *impl, const struct spa_pod *param,
 	if (param != NULL) {
 		if (spa_format_audio_raw_parse(param, &info) < 0 ||
 		    info.channels == 0 ||
-		    info.channels > SPA_AUDIO_MAX_CHANNELS)
+		    info.channels > SPA_N_ELEMENTS(info.position))
 			return;
 
 		if ((impl->info.format != 0 && impl->info.format != info.format) ||

@@ -55,7 +55,7 @@ spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_r
 			SPA_FORMAT_AUDIO_channels,	SPA_POD_OPT_Int(&info->channels),
 			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
 	if (position == NULL ||
-	    !spa_pod_copy_array(position, SPA_TYPE_Id, info->position, SPA_AUDIO_MAX_CHANNELS))
+	    !spa_pod_copy_array(position, SPA_TYPE_Id, info->position, SPA_N_ELEMENTS(info->position)))
 		SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
 	return res;

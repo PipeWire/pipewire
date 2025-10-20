@@ -749,7 +749,7 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 			float vols[MAX_CHANNELS];
 
 			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float, vols,
-					SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					SPA_N_ELEMENTS(vols))) > 0) {
 				if (vol->n_volumes != n_vols)
 					do_volume = true;
 				vol->n_volumes = n_vols;
@@ -2119,8 +2119,9 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
-			spa_audio_parse_position(val, len, graph->inputs_position,
-						&graph->n_inputs_position);
+			spa_audio_parse_position_n(val, len, graph->inputs_position,
+					SPA_N_ELEMENTS(graph->inputs_position),
+					&graph->n_inputs_position);
 			impl->info.n_inputs = graph->n_inputs_position;
 		}
 		else if (spa_streq("outputs.audio.position", key)) {
@@ -2129,8 +2130,9 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 				spa_log_error(impl->log, "%s expects an array", key);
 				return -EINVAL;
 			}
-			spa_audio_parse_position(val, len, graph->outputs_position,
-						&graph->n_outputs_position);
+			spa_audio_parse_position_n(val, len, graph->outputs_position,
+					SPA_N_ELEMENTS(graph->outputs_position),
+					&graph->n_outputs_position);
 			impl->info.n_outputs = graph->n_outputs_position;
 		}
 		else if (spa_streq("nodes", key)) {

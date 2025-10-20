@@ -866,13 +866,15 @@ static int create_stream(struct stream_info *info)
 
 	s->info = impl->info;
 	if ((str = pw_properties_get(info->stream_props, SPA_KEY_AUDIO_POSITION)) != NULL)
-		spa_audio_parse_position(str, strlen(str), s->info.position, &s->info.channels);
+		spa_audio_parse_position_n(str, strlen(str), s->info.position,
+				SPA_N_ELEMENTS(s->info.position), &s->info.channels);
 	if (s->info.channels == 0)
 		s->info = impl->info;
 
 	spa_zero(remap_info);
 	if ((str = pw_properties_get(info->stream_props, "combine.audio.position")) != NULL)
-		spa_audio_parse_position(str, strlen(str), remap_info.position, &remap_info.channels);
+		spa_audio_parse_position_n(str, strlen(str), remap_info.position,
+				SPA_N_ELEMENTS(remap_info.position), &remap_info.channels);
 	if (remap_info.channels == 0)
 		remap_info = s->info;
 

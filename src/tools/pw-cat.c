@@ -704,7 +704,8 @@ static int parse_channelmap(const char *channel_map, struct channelmap *map)
 		}
 	}
 
-	spa_audio_parse_position(channel_map, strlen(channel_map), map->channels, &map->n_channels);
+	spa_audio_parse_position_n(channel_map, strlen(channel_map),
+			map->channels, SPA_N_ELEMENTS(map->channels), &map->n_channels);
 	return 0;
 }
 

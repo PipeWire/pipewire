@@ -876,7 +876,7 @@ static void parse_props(struct stream *s, const struct spa_pod *param)
 			uint32_t n;
 			float vols[MAX_CHANNELS];
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					vols, SPA_N_ELEMENTS(vols))) > 0) {
 				s->volume.n_volumes = n;
 				for (n = 0; n < s->volume.n_volumes; n++)
 					s->volume.volumes[n] = vols[n];

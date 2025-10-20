@@ -2972,11 +2972,11 @@ static int apply_device_props(struct impl *this, struct node *node, struct spa_p
 			break;
 		case SPA_PROP_channelVolumes:
 			n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					volumes, SPA_AUDIO_MAX_CHANNELS);
+					volumes, SPA_N_ELEMENTS(volumes));
 			break;
 		case SPA_PROP_channelMap:
 			n_channels = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					channels, SPA_AUDIO_MAX_CHANNELS);
+					channels, SPA_N_ELEMENTS(channels));
 			break;
 		case SPA_PROP_latencyOffsetNsec:
 			if (spa_pod_get_long(&prop->value, &latency_offset) == 0) {

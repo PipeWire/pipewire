@@ -300,7 +300,7 @@ static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *par
 			float vols[MAX_CHANNELS];
 
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					vols, SPA_N_ELEMENTS(vols))) > 0) {
 				volume.channels = SPA_MIN(PA_CHANNELS_MAX, n);
 				for (n = 0; n < volume.channels; n++)
 					volume.values[n] = pa_sw_volume_from_linear(vols[n]);

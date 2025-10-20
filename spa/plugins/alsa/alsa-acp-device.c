@@ -697,13 +697,13 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 			break;
 		case SPA_PROP_channelVolumes:
 			if ((n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					volumes, SPA_N_ELEMENTS(volumes))) > 0) {
 				changed++;
 			}
 			break;
 		case SPA_PROP_channelMap:
 			if (spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					channels, SPA_AUDIO_MAX_CHANNELS) > 0) {
+					channels, SPA_N_ELEMENTS(channels)) > 0) {
 				changed++;
 			}
 			break;

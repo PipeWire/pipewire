@@ -1371,21 +1371,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if ((str = pw_properties_get(impl->capture_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		spa_audio_parse_position(str, strlen(str),
-				impl->capture_info.position, &impl->capture_info.channels);
+		spa_audio_parse_position_n(str, strlen(str), impl->capture_info.position,
+				SPA_N_ELEMENTS(impl->capture_info.position), &impl->capture_info.channels);
 	}
 	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		spa_audio_parse_position(str, strlen(str),
-				impl->source_info.position, &impl->source_info.channels);
+		spa_audio_parse_position_n(str, strlen(str), impl->source_info.position,
+				SPA_N_ELEMENTS(impl->source_info.position), &impl->source_info.channels);
 	}
 	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		spa_audio_parse_position(str, strlen(str),
-				impl->sink_info.position, &impl->sink_info.channels);
+		spa_audio_parse_position_n(str, strlen(str), impl->sink_info.position,
+				SPA_N_ELEMENTS(impl->sink_info.position), &impl->sink_info.channels);
 		impl->playback_info = impl->sink_info;
 	}
 	if ((str = pw_properties_get(impl->playback_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
-		spa_audio_parse_position(str, strlen(str),
-				impl->playback_info.position, &impl->playback_info.channels);
+		spa_audio_parse_position_n(str, strlen(str), impl->playback_info.position,
+				SPA_N_ELEMENTS(impl->playback_info.position), &impl->playback_info.channels);
 		if (impl->playback_info.channels != impl->sink_info.channels)
 			impl->playback_info = impl->sink_info;
 	}

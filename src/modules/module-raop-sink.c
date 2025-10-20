@@ -1617,7 +1617,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 			float soft_vols[MAX_CHANNELS];
 
 			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					vols, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					vols, SPA_N_ELEMENTS(vols))) > 0) {
 				volume = 0.0f;
 				for (i = 0; i < n_vols; i++) {
 					volume += vols[i];

@@ -6861,7 +6861,8 @@ static void parse_bap_locations(struct spa_bt_monitor *this, const struct spa_di
 	if (spa_atou32(str, value, 0))
 		return;
 
-	if (!spa_audio_parse_position(str, strlen(str), position, &n_channels)) {
+	if (!spa_audio_parse_position_n(str, strlen(str), position,
+				SPA_N_ELEMENTS(position), &n_channels)) {
 		spa_log_error(this->log, "property %s '%s' is not valid position array", key, str);
 		return;
 	}

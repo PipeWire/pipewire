@@ -315,7 +315,7 @@ void spa_alsa_emit_port_info(struct state *state, bool full);
 
 static inline void spa_alsa_parse_position(struct channel_map *map, const char *val, size_t len)
 {
-	spa_audio_parse_position(val, len, map->pos, &map->channels);
+	spa_audio_parse_position_n(val, len, map->pos, SPA_N_ELEMENTS(map->pos), &map->channels);
 }
 
 static inline uint32_t spa_alsa_parse_rates(uint32_t *rates, uint32_t max, const char *val, size_t len)

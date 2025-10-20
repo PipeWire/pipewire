@@ -269,7 +269,7 @@ static int port_set_format(void *object,
 			return -EINVAL;
 		if (d->format.rate == 0 ||
 		    d->format.channels == 0 ||
-		    d->format.channels > SPA_AUDIO_MAX_CHANNELS)
+		    d->format.channels > SPA_N_ELEMENTS(d->format.position))
 			return -EINVAL;
 	}
 

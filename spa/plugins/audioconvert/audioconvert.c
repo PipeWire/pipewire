@@ -1104,11 +1104,11 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 		else if (spa_streq(k, "n_outputs"))
 			spa_atou32(s, &g->n_outputs, 0);
 		else if (spa_streq(k, "inputs.audio.position"))
-			spa_audio_parse_position(s, strlen(s),
-					g->inputs_position, &g->n_inputs);
+			spa_audio_parse_position_n(s, strlen(s), g->inputs_position,
+					SPA_N_ELEMENTS(g->inputs_position), &g->n_inputs);
 		else if (spa_streq(k, "outputs.audio.position"))
-			spa_audio_parse_position(s, strlen(s),
-					g->outputs_position, &g->n_outputs);
+			spa_audio_parse_position_n(s, strlen(s), g->outputs_position,
+					SPA_N_ELEMENTS(g->outputs_position), &g->n_outputs);
 		else if (spa_streq(k, "latency")) {
 			double latency;
 			if (spa_atod(s, &latency))
@@ -1749,7 +1749,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		case SPA_PROP_channelVolumes:
 			if (!p->lock_volumes &&
 			    (n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					p->channel.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					p->channel.volumes, SPA_N_ELEMENTS(p->channel.volumes))) > 0) {
 				have_channel_volume = true;
 				p->channel.n_volumes = n;
 				changed++;
@@ -1757,7 +1757,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		case SPA_PROP_channelMap:
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
-					p->channel_map, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					p->channel_map, SPA_N_ELEMENTS(p->channel_map))) > 0) {
 				p->n_channels = n;
 				changed++;
 			}
@@ -1772,7 +1772,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		case SPA_PROP_softVolumes:
 			if (!p->lock_volumes &&
 			    (n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					p->soft.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					p->soft.volumes, SPA_N_ELEMENTS(p->soft.volumes))) > 0) {
 				have_soft_volume = true;
 				p->soft.n_volumes = n;
 				changed++;
@@ -1784,7 +1784,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		case SPA_PROP_monitorVolumes:
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					p->monitor.volumes, SPA_AUDIO_MAX_CHANNELS)) > 0) {
+					p->monitor.volumes, SPA_N_ELEMENTS(p->monitor.volumes))) > 0) {
 				p->monitor.n_volumes = n;
 				changed++;
 			}
@@ -4297,8 +4297,9 @@ impl_init(const struct spa_handle_factory *factory,
 		}
 		else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			if (s != NULL)
-				spa_audio_parse_position(s, strlen(s), this->props.channel_map,
-						&this->props.n_channels);
+				spa_audio_parse_position_n(s, strlen(s),
+					this->props.channel_map, SPA_N_ELEMENTS(this->props.channel_map),
+					&this->props.n_channels);
 		}
 		else if (spa_streq(k, SPA_KEY_PORT_IGNORE_LATENCY))
 			this->port_ignore_latency = spa_atob(s);

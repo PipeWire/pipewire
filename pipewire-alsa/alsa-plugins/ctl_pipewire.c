@@ -856,7 +856,7 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 			uint32_t n_volumes, i;
 
 			n_volumes = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					volumes, SPA_AUDIO_MAX_CHANNELS);
+					volumes, SPA_N_ELEMENTS(volumes));
 
 			g->node.channel_volume.channels = n_volumes;
 			for (i = 0; i < n_volumes; i++)

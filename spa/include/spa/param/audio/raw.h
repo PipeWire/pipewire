@@ -18,7 +18,7 @@ extern "C" {
  * \{
  */
 
-#define SPA_AUDIO_MAX_CHANNELS	128u
+#define SPA_AUDIO_MAX_CHANNELS	64u
 
 enum spa_audio_format {
 	SPA_AUDIO_FORMAT_UNKNOWN,

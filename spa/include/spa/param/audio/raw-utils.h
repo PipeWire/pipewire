@@ -69,7 +69,8 @@ spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id,
 		if (!SPA_FLAG_IS_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
 			spa_pod_builder_add(builder, SPA_FORMAT_AUDIO_position,
 				SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id,
-					info->channels, info->position), 0);
+					SPA_MIN(info->channels, SPA_N_ELEMENTS(info->position)),
+					info->position), 0);
 		}
 	}
 	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);

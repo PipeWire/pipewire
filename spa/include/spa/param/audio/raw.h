@@ -25,7 +25,7 @@ extern "C" {
 /* The suggested number of max channels, can be a compile time constant and
  * does not affect ABI or API */
 #ifndef SPA_AUDIO_MAX_CHANNELS
-#define SPA_AUDIO_MAX_CHANNELS	64u
+#define SPA_AUDIO_MAX_CHANNELS	128u
 #endif
 
 enum spa_audio_format {

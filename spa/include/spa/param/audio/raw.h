@@ -18,6 +18,7 @@ extern "C" {
  * \{
  */
 
+/* this is the max number of channels for position info */
 #define SPA_AUDIO_MAX_CHANNELS	64u
 
 enum spa_audio_format {
@@ -259,6 +260,8 @@ enum spa_audio_channel {
 	SPA_AUDIO_CHANNEL_START_Custom	= 0x10000,
 };
 
+#define SPA_AUDIO_CHANNEL_IS_AUX(ch)	((ch)>=SPA_AUDIO_CHANNEL_START_Aux && (ch)<=SPA_AUDIO_CHANNEL_LAST_Aux)
+
 enum spa_audio_volume_ramp_scale {
 	SPA_AUDIO_VOLUME_RAMP_INVALID,
 	SPA_AUDIO_VOLUME_RAMP_LINEAR,
@@ -274,7 +277,9 @@ struct spa_audio_info_raw {
 	enum spa_audio_format format;		/*< format, one of enum spa_audio_format */
 	uint32_t flags;				/*< extra flags */
 	uint32_t rate;				/*< sample rate */
-	uint32_t channels;			/*< number of channels */
+	uint32_t channels;			/*< number of channels. This can be larger than
+						 *  SPA_AUDIO_MAX_CHANNELS, the position is taken
+						 *  (index % SPA_AUDIO_MAX_CHANNELS) */
 	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
 };
 

@@ -28,6 +28,20 @@ extern "C" {
  #endif
 #endif
 
+SPA_API_AUDIO_RAW_UTILS uint32_t
+spa_format_audio_get_position(struct spa_audio_info_raw *info, uint32_t idx)
+{
+	uint32_t pos;
+	if (idx < SPA_AUDIO_MAX_CHANNELS) {
+		pos = info->position[idx];
+	} else {
+		pos = info->position[idx % SPA_AUDIO_MAX_CHANNELS];
+		if (SPA_AUDIO_CHANNEL_IS_AUX(pos))
+			pos += (idx / SPA_AUDIO_MAX_CHANNELS) * SPA_AUDIO_MAX_CHANNELS;
+	}
+	return pos;
+}
+
 SPA_API_AUDIO_RAW_UTILS int
 spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_raw *info)
 {

@@ -196,7 +196,7 @@ enum channel_position channel_id2pa(uint32_t id, uint32_t *aux);
 const char *channel_id2paname(uint32_t id, uint32_t *aux);
 uint32_t channel_paname2id(const char *name, size_t size);
 
-void channel_map_to_positions(const struct channel_map *map, uint32_t *pos);
+void channel_map_to_positions(const struct channel_map *map, uint32_t *pos, uint32_t max_pos);
 void channel_map_parse(const char *str, struct channel_map *map);
 bool channel_map_valid(const struct channel_map *map);
 void channel_map_parse_position(const char *str, struct channel_map *map);

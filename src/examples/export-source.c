@@ -268,8 +268,7 @@ static int port_set_format(void *object,
 		    d->format.format != SPA_AUDIO_FORMAT_F32)
 			return -EINVAL;
 		if (d->format.rate == 0 ||
-		    d->format.channels == 0 ||
-		    d->format.channels > SPA_N_ELEMENTS(d->format.position))
+		    d->format.channels == 0)
 			return -EINVAL;
 	}
 

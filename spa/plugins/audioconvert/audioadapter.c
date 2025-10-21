@@ -2046,11 +2046,12 @@ static int do_auto_port_config(struct impl *this, const char *str)
 		return -ENOENT;
 
 	if (format.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+		uint32_t n_pos = SPA_MIN(SPA_AUDIO_MAX_CHANNELS, format.info.raw.channels);
 		if (position == POSITION_AUX) {
-			for (i = 0; i < format.info.raw.channels; i++)
+			for (i = 0; i < n_pos; i++)
 				format.info.raw.position[i] = SPA_AUDIO_CHANNEL_START_Aux + i;
 		} else if (position == POSITION_UNKNOWN) {
-			for (i = 0; i < format.info.raw.channels; i++)
+			for (i = 0; i < n_pos; i++)
 				format.info.raw.position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
 		}
 	}

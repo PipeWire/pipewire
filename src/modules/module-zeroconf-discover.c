@@ -192,7 +192,7 @@ static void pw_properties_from_avahi_string(const char *key, const char *value,
 
 		spa_zero(channel_map);
 		channel_map_parse(value, &channel_map);
-		channel_map_to_positions(&channel_map, pos);
+		channel_map_to_positions(&channel_map, pos, CHANNELS_MAX);
 
 		p = s = alloca(4 + channel_map.channels * 8);
 		p += spa_scnprintf(p, 2, "[");

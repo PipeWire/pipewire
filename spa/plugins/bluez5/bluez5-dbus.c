@@ -35,6 +35,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa-private/dbus-helpers.h>
+#include <spa/param/audio/raw-utils.h>
 #include <spa/param/audio/raw-json.h>
 
 #include "codec-loader.h"
@@ -5038,8 +5039,8 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 		}
 		transport->n_channels = info.info.raw.channels;
-		memcpy(transport->channels, info.info.raw.position,
-				transport->n_channels * sizeof(uint32_t));
+		spa_format_audio_raw_copy_positions(&info.info.raw,
+				transport->channels, SPA_N_ELEMENTS(transport->channels));
 	} else {
 		transport->n_channels = 2;
 		transport->channels[0] = SPA_AUDIO_CHANNEL_FL;

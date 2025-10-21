@@ -637,7 +637,7 @@ port_set_format(struct impl *this,
 
 		if (info.info.raw.rate == 0 ||
 		    info.info.raw.channels == 0 ||
-		    info.info.raw.channels > SPA_N_ELEMENTS(info.info.raw.position))
+		    info.info.raw.channels > MAX_CHANNELS)
 			return -EINVAL;
 
 		if (this->props.format != 0) {

@@ -497,7 +497,7 @@ static void get_default_bitrates(const struct media_codec *codec, bool bidi, int
 
 static int get_mapping(const struct media_codec *codec, const a2dp_opus_05_direction_t *conf,
 		bool use_surround_encoder, uint8_t *streams_ret, uint8_t *coupled_streams_ret,
-		const uint8_t **surround_mapping, uint32_t *positions)
+		const uint8_t **surround_mapping, uint32_t *positions, uint32_t max_positions)
 {
 	const uint32_t channels = conf->channels;
 	const uint32_t location = OPUS_05_GET_LOCATION(*conf);
@@ -544,13 +544,13 @@ static int get_mapping(const struct media_codec *codec, const a2dp_opus_05_direc
 			const struct audio_location loc = audio_locations[i];
 
 			if (location & loc.mask) {
-				if (permutation)
-					positions[permutation[j++]] = loc.position;
-				else
-					positions[j++] = loc.position;
+				uint32_t idx = permutation ? permutation[j] : j;
+				if (idx < max_positions)
+					positions[idx] = loc.position;
+				j++;
 			}
 		}
-		for (i = SPA_AUDIO_CHANNEL_START_Aux; j < channels; ++i, ++j)
+		for (i = SPA_AUDIO_CHANNEL_START_Aux; j < channels && j < max_positions; ++i, ++j)
 			positions[j] = i;
 	}
 
@@ -785,7 +785,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 
 	dir = !is_duplex_codec(codec) ? &conf.main : &conf.bidi;
 
-	if (get_mapping(codec, dir, surround_encoder, NULL, NULL, NULL, position) < 0)
+	if (get_mapping(codec, dir, surround_encoder, NULL, NULL, NULL, position, MAX_CHANNELS) < 0)
 		return -EINVAL;
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, id);
@@ -837,9 +837,10 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	}
 
 	info->info.raw.channels = dir1->channels;
-	if (get_mapping(codec, dir1, surround_encoder, NULL, NULL, NULL, info->info.raw.position) < 0)
+	if (get_mapping(codec, dir1, surround_encoder, NULL, NULL, NULL,
+				info->info.raw.position, SPA_N_ELEMENTS(info->info.raw.position)) < 0)
 		return -EINVAL;
-	if (get_mapping(codec, dir2, surround_encoder, NULL, NULL, NULL, NULL) < 0)
+	if (get_mapping(codec, dir2, surround_encoder, NULL, NULL, NULL, NULL, 0) < 0)
 		return -EINVAL;
 
 	return 0;
@@ -930,7 +931,7 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	if ((res = codec_validate_config(codec, flags, config, config_len, &config_info)) < 0)
 		goto error;
 	if ((res = get_mapping(codec, dir, surround_encoder, &this->streams, &this->coupled_streams,
-							&enc_mapping, NULL)) < 0)
+							&enc_mapping, NULL, 0)) < 0)
 		goto error;
 	if (config_info.info.raw.channels != info->info.raw.channels) {
 		res = -EINVAL;

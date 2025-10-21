@@ -348,9 +348,9 @@ uint32_t channel_paname2id(const char *name, size_t size)
 }
 
 
-void channel_map_to_positions(const struct channel_map *map, uint32_t *pos)
+void channel_map_to_positions(const struct channel_map *map, uint32_t *pos, uint32_t max_pos)
 {
-	uint32_t i, channels = SPA_MIN(map->channels, SPA_AUDIO_MAX_CHANNELS);
+	uint32_t i, channels = SPA_MIN(map->channels, max_pos);
 	for (i = 0; i < channels; i++)
 		pos[i] = map->map[i];
 }
@@ -535,8 +535,7 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 				info.info.raw.rate = 48000;
 			if (info.info.raw.format == 0 ||
 			    info.info.raw.rate == 0 ||
-			    info.info.raw.channels == 0 ||
-			    info.info.raw.channels > SPA_N_ELEMENTS(info.info.raw.position))
+			    info.info.raw.channels == 0)
 				return -ENOTSUP;
 		}
 		break;
@@ -586,7 +585,7 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 		if (info.info.raw.channels) {
 			map->channels = SPA_MIN(info.info.raw.channels, CHANNELS_MAX);
 			for (i = 0; i < map->channels; i++)
-				map->map[i] = info.info.raw.position[i];
+				map->map[i] = spa_format_audio_raw_get_position(&info.info.raw, i);
 		}
 	}
 	return 0;
@@ -634,8 +633,8 @@ const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
 			SPA_FORMAT_AUDIO_channels,      SPA_POD_Int(spec->channels), 0);
 
 		if (map && map->channels == spec->channels) {
-			uint32_t positions[SPA_AUDIO_MAX_CHANNELS];
-			channel_map_to_positions(map, positions);
+			uint32_t positions[spec->channels];
+			channel_map_to_positions(map, positions, spec->channels);
                         spa_pod_builder_add(b, SPA_FORMAT_AUDIO_position,
                                 SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id,
                                         spec->channels, positions), 0);

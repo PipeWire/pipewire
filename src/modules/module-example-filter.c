@@ -298,8 +298,7 @@ static void capture_param_changed(void *data, uint32_t id, const struct spa_pod 
 		if (spa_format_audio_raw_parse(param, &info) < 0)
 			return;
 		if (info.rate == 0 ||
-		    info.channels == 0 ||
-		    info.channels > SPA_N_ELEMENTS(info.position))
+		    info.channels == 0)
 			return;
 		break;
 	}

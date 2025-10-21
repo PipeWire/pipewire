@@ -12,6 +12,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/string.h>
+#include <spa/param/audio/raw-utils.h>
 #include <pipewire/log.h>
 #include <pipewire/map.h>
 #include <pipewire/properties.h>
@@ -226,14 +227,15 @@ int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props
 					info->channels, map.channels);
 			return -EINVAL;
 		}
-		channel_map_to_positions(&map, info->position);
+		channel_map_to_positions(&map, info->position, SPA_N_ELEMENTS(info->position));
 		pw_properties_set(props, key_channel_map, NULL);
 	} else {
 		if (info->channels == 0)
 			info->channels = impl->defs.sample_spec.channels;
 
 		if (info->channels == impl->defs.channel_map.channels) {
-			channel_map_to_positions(&impl->defs.channel_map, info->position);
+			channel_map_to_positions(&impl->defs.channel_map,
+					info->position, SPA_N_ELEMENTS(info->position));
 		} else if (info->channels == 1) {
 			info->position[0] = SPA_AUDIO_CHANNEL_MONO;
 		} else if (info->channels == 2) {
@@ -242,7 +244,7 @@ int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props
 		} else {
 			/* FIXME add more mappings */
 			for (i = 0; i < info->channels; i++)
-				info->position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
+				spa_format_audio_raw_set_position(info, i, SPA_AUDIO_CHANNEL_UNKNOWN);
 		}
 		if (info->position[0] == SPA_AUDIO_CHANNEL_UNKNOWN)
 			info->flags |= SPA_AUDIO_FLAG_UNPOSITIONED;
@@ -288,7 +290,7 @@ void audioinfo_to_properties(struct spa_audio_info_raw *info, struct pw_properti
 		p = s = alloca(info->channels * 8);
 		for (i = 0; i < info->channels; i++)
 			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ", ",
-					channel_id2name(info->position[i]));
+				channel_id2name(spa_format_audio_raw_get_position(info, i)));
 		pw_properties_setf(props, SPA_KEY_AUDIO_POSITION, "[ %s ]", s);
 	}
 }

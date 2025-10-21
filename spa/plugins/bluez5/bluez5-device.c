@@ -26,6 +26,7 @@
 #include <spa/pod/parser.h>
 #include <spa/param/param.h>
 #include <spa/param/audio/raw.h>
+#include <spa/param/audio/raw-utils.h>
 #include <spa/param/bluetooth/audio.h>
 #include <spa/param/bluetooth/type-info.h>
 #include <spa/debug/pod.h>
@@ -451,7 +452,8 @@ static int node_offload_set_active(struct node *node, bool active)
 	return res;
 }
 
-static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t *n_channels, uint32_t *channels)
+static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t *n_channels, uint32_t *channels,
+		uint32_t max_channels)
 {
 	const struct media_codec *codec;
 	struct spa_audio_info info = { 0 };
@@ -473,9 +475,7 @@ static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t 
 		return;
 	}
 
-	*n_channels = info.info.raw.channels;
-	memcpy(channels, info.info.raw.position,
-			info.info.raw.channels * sizeof(uint32_t));
+	*n_channels = spa_format_audio_raw_copy_positions(&info.info.raw, channels, max_channels);
 }
 
 static const char *get_channel_name(uint32_t channel)
@@ -686,7 +686,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		this->nodes[id].active = true;
 		this->nodes[id].offload_acquired = false;
 		this->nodes[id].a2dp_duplex = a2dp_duplex;
-		get_channels(t, a2dp_duplex, &this->nodes[id].n_channels, this->nodes[id].channels);
+		get_channels(t, a2dp_duplex, &this->nodes[id].n_channels, this->nodes[id].channels, MAX_CHANNELS);
 		if (this->nodes[id].transport)
 			spa_hook_remove(&this->nodes[id].transport_listener);
 		this->nodes[id].transport = t;

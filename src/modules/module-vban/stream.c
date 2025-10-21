@@ -215,16 +215,16 @@ static const struct spa_audio_layout_info layouts[] = {
 	{ SPA_AUDIO_LAYOUT_7_1 },
 };
 
-static void default_layout(uint32_t channels, uint32_t *position)
+static void default_layout(uint32_t channels, uint32_t *position, uint32_t max_position)
 {
 	SPA_FOR_EACH_ELEMENT_VAR(layouts, l) {
 		if (l->n_channels == channels) {
-			for (uint32_t i = 0; i < l->n_channels; i++)
+			for (uint32_t i = 0; i < l->n_channels && i < max_position; i++)
 				position[i] = l->position[i];
 			return;
 		}
 	}
-	for (uint32_t i = 0; i < channels; i++)
+	for (uint32_t i = 0; i < channels && i < max_position; i++)
 		position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 }
 
@@ -276,7 +276,9 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 	case SPA_MEDIA_SUBTYPE_raw:
 		parse_audio_info(props, &impl->info.info.raw);
 		if (SPA_FLAG_IS_SET(impl->info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED))
-			default_layout(impl->info.info.raw.channels, impl->info.info.raw.position);
+			default_layout(impl->info.info.raw.channels,
+					impl->info.info.raw.position,
+					SPA_N_ELEMENTS(impl->info.info.raw.position));
 		impl->stream_info = impl->info;
 		impl->format_info = find_audio_format_info(&impl->info);
 		if (impl->format_info == NULL) {

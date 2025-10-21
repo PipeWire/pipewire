@@ -2347,9 +2347,11 @@ int main(int argc, char *argv[])
 			.rate = data.rate,
 			.channels = data.channels);
 
-		if (data.channelmap.n_channels)
-			memcpy(info.position, data.channelmap.channels, data.channels * sizeof(int));
-
+		if (data.channelmap.n_channels) {
+			uint32_t i, n_pos = SPA_MIN(data.channels, SPA_N_ELEMENTS(info.position));
+			for (i = 0; i < n_pos; i++)
+				info.position[i] = data.channelmap.channels[i];
+		}
 		params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
 		break;
 	}

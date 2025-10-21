@@ -18,8 +18,15 @@ extern "C" {
  * \{
  */
 
-/* this is the max number of channels for position info */
+/* This is the max number of position info, changing this will change the
+ * ABI */
+#define SPA_AUDIO_MAX_POSITION	64u
+
+/* The suggested number of max channels, can be a compile time constant and
+ * does not affect ABI or API */
+#ifndef SPA_AUDIO_MAX_CHANNELS
 #define SPA_AUDIO_MAX_CHANNELS	64u
+#endif
 
 enum spa_audio_format {
 	SPA_AUDIO_FORMAT_UNKNOWN,
@@ -278,9 +285,9 @@ struct spa_audio_info_raw {
 	uint32_t flags;				/*< extra flags */
 	uint32_t rate;				/*< sample rate */
 	uint32_t channels;			/*< number of channels. This can be larger than
-						 *  SPA_AUDIO_MAX_CHANNELS, the position is taken
-						 *  (index % SPA_AUDIO_MAX_CHANNELS) */
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
+						 *  SPA_AUDIO_MAX_POSITION, the position is taken
+						 *  (index % SPA_AUDIO_MAX_POSITION) */
+	uint32_t position[SPA_AUDIO_MAX_POSITION];	/*< channel position from enum spa_audio_channel */
 };
 
 #define SPA_AUDIO_INFO_RAW_INIT(...)		((struct spa_audio_info_raw) { __VA_ARGS__ })

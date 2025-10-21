@@ -20,7 +20,7 @@ extern "C" {
 
 struct spa_audio_layout_info {
 	uint32_t n_channels;
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t position[SPA_AUDIO_MAX_POSITION];
 };
 
 #define SPA_AUDIO_LAYOUT_Mono		1, { SPA_AUDIO_CHANNEL_MONO, }

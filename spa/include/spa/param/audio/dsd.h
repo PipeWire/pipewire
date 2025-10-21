@@ -45,7 +45,7 @@ struct spa_audio_info_dsd {
 	int32_t interleave;				/*< interleave bytes */
 	uint32_t rate;					/*< sample rate (in bytes per second) */
 	uint32_t channels;				/*< channels */
-	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
+	uint32_t position[SPA_AUDIO_MAX_POSITION];	/*< channel position from enum spa_audio_channel */
 };
 
 #define SPA_AUDIO_INFO_DSD_INIT(...)		((struct spa_audio_info_dsd) { __VA_ARGS__ })

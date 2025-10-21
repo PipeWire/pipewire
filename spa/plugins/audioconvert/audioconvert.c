@@ -2060,8 +2060,9 @@ static int setup_in_convert(struct impl *this)
 			dst_info.info.raw.channels,
 			dst_info.info.raw.rate);
 
-	qsort(dst_info.info.raw.position, SPA_MIN(dst_info.info.raw.channels, SPA_AUDIO_MAX_CHANNELS),
-					sizeof(uint32_t), int32_cmp);
+	qsort(dst_info.info.raw.position, SPA_MIN(dst_info.info.raw.channels,
+			SPA_N_ELEMENTS(dst_info.info.raw.position)),
+			sizeof(uint32_t), int32_cmp);
 
 	for (i = 0; i < src_info.info.raw.channels; i++) {
 		for (j = 0; j < dst_info.info.raw.channels; j++) {
@@ -2222,7 +2223,8 @@ static int setup_channelmix(struct impl *this, uint32_t channels, uint32_t *posi
 	spa_log_info(this->log, "in  %s (%016"PRIx64")", format_position(str, sizeof(str),
 				src_chan, position, max_position), src_mask);
 	spa_log_info(this->log, "out %s (%016"PRIx64")", format_position(str, sizeof(str),
-				dst_chan, out->format.info.raw.position, SPA_AUDIO_MAX_CHANNELS), dst_mask);
+				dst_chan, out->format.info.raw.position,
+				SPA_N_ELEMENTS(out->format.info.raw.position)), dst_mask);
 
 	spa_log_info(this->log, "%p: %s/%d@%d->%s/%d@%d %08"PRIx64":%08"PRIx64, this,
 			spa_debug_type_find_name(spa_type_audio_format, SPA_AUDIO_FORMAT_DSP_F32),
@@ -2350,8 +2352,9 @@ static int setup_out_convert(struct impl *this)
 			dst_info.info.raw.channels,
 			dst_info.info.raw.rate);
 
-	qsort(src_info.info.raw.position, SPA_MIN(src_info.info.raw.channels, SPA_AUDIO_MAX_CHANNELS),
-					sizeof(uint32_t), int32_cmp);
+	qsort(src_info.info.raw.position, SPA_MIN(src_info.info.raw.channels,
+			SPA_N_ELEMENTS(src_info.info.raw.position)),
+			sizeof(uint32_t), int32_cmp);
 
 	for (i = 0; i < src_info.info.raw.channels; i++) {
 		for (j = 0; j < dst_info.info.raw.channels; j++) {

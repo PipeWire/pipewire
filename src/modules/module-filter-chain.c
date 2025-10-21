@@ -1691,7 +1691,8 @@ static void copy_position(struct spa_audio_info_raw *dst, const struct spa_audio
 {
 	if (SPA_FLAG_IS_SET(dst->flags, SPA_AUDIO_FLAG_UNPOSITIONED) &&
 	    !SPA_FLAG_IS_SET(src->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
-		for (uint32_t i = 0; i < SPA_MIN(src->channels, SPA_AUDIO_MAX_CHANNELS); i++)
+		uint32_t i, n_pos = SPA_MIN(src->channels, SPA_N_ELEMENTS(dst->position));
+		for (i = 0; i < n_pos; i++)
 			dst->position[i] = src->position[i];
 		SPA_FLAG_CLEAR(dst->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 	}

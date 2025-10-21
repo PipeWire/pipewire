@@ -450,7 +450,7 @@ void channel_map_parse(const char *str, struct channel_map *map)
 
 void channel_map_parse_position(const char *str, struct channel_map *map)
 {
-	uint32_t channels = 0, position[SPA_AUDIO_MAX_CHANNELS];
+	uint32_t channels = 0, position[CHANNELS_MAX];
 	spa_audio_parse_position_n(str, strlen(str), position,
 			SPA_N_ELEMENTS(position), &channels);
 	positions_to_channel_map(position, channels, map);

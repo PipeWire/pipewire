@@ -546,7 +546,7 @@ static void param_format_changed(struct impl *impl, const struct spa_pod *param,
 		    (impl->info.channels != 0 &&
 		     (impl->info.channels != info.channels ||
 		      memcmp(impl->info.position, info.position,
-			      SPA_MIN(info.channels, SPA_AUDIO_MAX_CHANNELS) * sizeof(uint32_t)) != 0))) {
+			      SPA_MIN(info.channels, SPA_N_ELEMENTS(info.position)) * sizeof(uint32_t)) != 0))) {
 			uint8_t buffer[1024];
 			struct spa_pod_builder b;
 			const struct spa_pod *params[1];

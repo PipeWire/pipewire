@@ -1228,8 +1228,9 @@ static int probe_ffado_device(struct impl *impl)
 		impl->source.ports[i] = port;
 	}
 	if (impl->source.info.channels != n_channels) {
+		uint32_t n_pos = SPA_MIN(n_channels, SPA_N_ELEMENTS(impl->source.info.position));
 		impl->source.info.channels = n_channels;
-		for (i = 0; i < SPA_MIN(impl->source.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+		for (i = 0; i < n_pos; i++)
 			impl->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 
@@ -1254,8 +1255,9 @@ static int probe_ffado_device(struct impl *impl)
 		impl->sink.ports[i] = port;
 	}
 	if (impl->sink.info.channels != n_channels) {
+		uint32_t n_pos = SPA_MIN(n_channels, SPA_N_ELEMENTS(impl->sink.info.position));
 		impl->sink.info.channels = n_channels;
-		for (i = 0; i < SPA_MIN(impl->sink.info.channels, SPA_AUDIO_MAX_CHANNELS); i++)
+		for (i = 0; i < n_pos; i++)
 			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 

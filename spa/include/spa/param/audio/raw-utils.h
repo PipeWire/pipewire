@@ -31,20 +31,20 @@ extern "C" {
 SPA_API_AUDIO_RAW_UTILS uint32_t
 spa_format_audio_raw_get_position(const struct spa_audio_info_raw *info, uint32_t idx)
 {
-	uint32_t pos;
-	if (idx < SPA_AUDIO_MAX_CHANNELS) {
+	uint32_t pos, max_position = SPA_N_ELEMENTS(info->position);
+	if (idx < max_position) {
 		pos = info->position[idx];
 	} else {
-		pos = info->position[idx % SPA_AUDIO_MAX_CHANNELS];
+		pos = info->position[idx % max_position];
 		if (SPA_AUDIO_CHANNEL_IS_AUX(pos))
-			pos += (idx / SPA_AUDIO_MAX_CHANNELS) * SPA_AUDIO_MAX_CHANNELS;
+			pos += (idx / max_position) * max_position;
 	}
 	return pos;
 }
 SPA_API_AUDIO_RAW_UTILS void
 spa_format_audio_raw_set_position(struct spa_audio_info_raw *info, uint32_t idx, uint32_t position)
 {
-	if (idx < SPA_AUDIO_MAX_CHANNELS)
+	if (idx < SPA_N_ELEMENTS(info->position))
 		info->position[idx] = position;
 }
 

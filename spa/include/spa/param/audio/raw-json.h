@@ -64,7 +64,7 @@ spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, cons
 			info->rate = v;
 	} else if (spa_streq(key, SPA_KEY_AUDIO_CHANNELS)) {
 		if (spa_atou32(val, &v, 0) && (force || info->channels == 0))
-			info->channels = SPA_MIN(v, SPA_N_ELEMENTS(info->position));
+			info->channels = v;
 	} else if (spa_streq(key, SPA_KEY_AUDIO_POSITION)) {
 		if (force || info->channels == 0) {
 			if (spa_audio_parse_position_n(val, strlen(val), info->position,

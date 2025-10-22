@@ -38,7 +38,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2025-10-15.0'
+    FDO_DISTRIBUTION_TAG: '2025-10-22.0'
     FDO_DISTRIBUTION_VERSION: '42'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -48,6 +48,7 @@ include:
       dbus-devel
       doxygen
       fdk-aac-free-devel
+      file
       findutils
       gcc
       gcc-c++

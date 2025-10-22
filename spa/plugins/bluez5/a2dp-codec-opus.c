@@ -253,14 +253,8 @@ static const struct surround_encoder_mapping surround_encoders[] = {
 static uint32_t bt_channel_from_name(const char *name)
 {
 	size_t i;
-	enum spa_audio_channel position = SPA_AUDIO_CHANNEL_UNKNOWN;
+	enum spa_audio_channel position = spa_type_audio_channel_from_short_name(name);
 
-	for (i = 0; spa_type_audio_channel[i].name; i++) {
-		if (spa_streq(name, spa_debug_type_short_name(spa_type_audio_channel[i].name))) {
-			position = spa_type_audio_channel[i].type;
-			break;
-		}
-	}
 	for (i = 0; i < SPA_N_ELEMENTS(audio_locations); i++) {
 		if (position == audio_locations[i].position)
 			return audio_locations[i].mask;

@@ -232,16 +232,17 @@ struct impl {
 	float *discard_data;
 };
 
-static inline void print_channels(char *buffer, size_t max_size, uint32_t n_channels, uint32_t *positions)
+static inline void print_channels(char *buffer, size_t max_size, uint32_t n_positions, uint32_t *positions)
 {
 	uint32_t i;
 	struct spa_strbuf buf;
 
 	spa_strbuf_init(&buf, buffer, max_size);
 	spa_strbuf_append(&buf, "[");
-	for (i = 0; i < n_channels; i++) {
+	for (i = 0; i < n_positions; i++) {
 		spa_strbuf_append(&buf, "%s%s", i ? "," : "",
 			spa_type_audio_channel_to_short_name(positions[i]));
+
 	}
 	spa_strbuf_append(&buf, "]");
 }

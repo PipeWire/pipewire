@@ -29,7 +29,7 @@ extern "C" {
 
 SPA_API_AUDIO_RAW_JSON int
 spa_audio_parse_position_n(const char *str, size_t len,
-		uint32_t *position, uint32_t max_channels, uint32_t *n_channels)
+		uint32_t *position, uint32_t max_position, uint32_t *n_channels)
 {
 	struct spa_json iter;
         char v[256];
@@ -38,9 +38,10 @@ spa_audio_parse_position_n(const char *str, size_t len,
         if (spa_json_begin_array_relax(&iter, str, len) <= 0)
                 return 0;
 
-        while (spa_json_get_string(&iter, v, sizeof(v)) > 0 &&
-		channels < max_channels) {
-                position[channels++] = spa_type_audio_channel_from_short_name(v);
+        while (spa_json_get_string(&iter, v, sizeof(v)) > 0) {
+		if (channels < max_position)
+	                position[channels] = spa_type_audio_channel_from_short_name(v);
+		channels++;
         }
 	*n_channels = channels;
 	return channels;

@@ -243,7 +243,7 @@ static int position_to_string(struct channel_map *map, char *val, size_t len)
 	uint32_t i, o = 0;
 	int r;
 	o += snprintf(val, len, "[ ");
-	for (i = 0; i < map->channels; i++) {
+	for (i = 0; i < map->n_pos; i++) {
 		r = snprintf(val+o, len-o, "%s%s", i == 0 ? "" : ", ",
 				spa_debug_type_find_short_name(spa_type_audio_channel,
 					map->pos[i]));
@@ -1645,7 +1645,7 @@ skip_channels:
 		} else {
 			const struct channel_map *map = NULL;
 			spa_pod_builder_int(b, min);
-			if (state->default_pos.channels == min) {
+			if (state->default_pos.n_pos == min) {
 				map = &state->default_pos;
 				spa_log_debug(state->log, "%p: using provided default", state);
 			} else if (min <= 8) {
@@ -1655,7 +1655,7 @@ skip_channels:
 			if (map) {
 				spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_position, 0);
 				spa_pod_builder_push_array(b, &f[0]);
-				for (i = 0; i < map->channels; i++) {
+				for (i = 0; i < map->n_pos; i++) {
 					spa_log_debug(state->log, "%p: position %zd %d", state, i, map->pos[i]);
 					spa_pod_builder_id(b, map->pos[i]);
 				}

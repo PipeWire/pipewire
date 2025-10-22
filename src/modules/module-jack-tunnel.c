@@ -514,6 +514,7 @@ static void make_stream_ports(struct stream *s)
 	for (i = 0; i < s->n_ports; i++) {
 		struct port *port = s->ports[i];
 		char *link_port = NULL;
+		char pos[8];
 
 		if (port != NULL) {
 			s->ports[i] = NULL;
@@ -523,8 +524,9 @@ static void make_stream_ports(struct stream *s)
 		}
 
 		if (i < s->info.channels) {
-			str = spa_debug_type_find_short_name(spa_type_audio_channel,
-					spa_format_audio_raw_get_position(&s->info, i));
+			str = spa_type_audio_channel_make_short_name(
+					spa_format_audio_raw_get_position(&s->info, i),
+					pos, sizeof(pos), NULL);
 			if (str)
 				snprintf(name, sizeof(name), "%s_%s", prefix, str);
 			else

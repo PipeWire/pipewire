@@ -236,13 +236,14 @@ static inline void print_channels(char *buffer, size_t max_size, uint32_t n_posi
 {
 	uint32_t i;
 	struct spa_strbuf buf;
+	char pos[8];
 
 	spa_strbuf_init(&buf, buffer, max_size);
 	spa_strbuf_append(&buf, "[");
 	for (i = 0; i < n_positions; i++) {
 		spa_strbuf_append(&buf, "%s%s", i ? "," : "",
-			spa_type_audio_channel_to_short_name(positions[i]));
-
+			spa_type_audio_channel_make_short_name(positions[i],
+				pos, sizeof(pos), "UNK"));
 	}
 	spa_strbuf_append(&buf, "]");
 }

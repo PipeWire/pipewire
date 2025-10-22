@@ -601,12 +601,12 @@ static void make_stream_ports(struct stream *s)
 		}
 
 		if (i < s->info.channels) {
-			str = spa_debug_type_find_short_name(spa_type_audio_channel,
-					spa_format_audio_raw_get_position(&s->info, i));
-
+			str = spa_type_audio_channel_make_short_name(
+					spa_format_audio_raw_get_position(&s->info, i),
+					name, sizeof(name), "UNK");
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
-					PW_KEY_AUDIO_CHANNEL, str ? str : "UNK",
+					PW_KEY_AUDIO_CHANNEL, str,
 					PW_KEY_PORT_PHYSICAL, "true",
 					NULL);
 

@@ -190,7 +190,7 @@ void sample_spec_fix(struct sample_spec *ss, struct channel_map *map,
 		struct spa_dict *props);
 
 uint32_t channel_pa2id(enum channel_position channel);
-const char *channel_id2name(uint32_t channel);
+const char *channel_id2name(uint32_t channel, char *buf, size_t size);
 uint32_t channel_name2id(const char *name);
 enum channel_position channel_id2pa(uint32_t id, uint32_t *aux);
 const char *channel_id2paname(uint32_t id, uint32_t *aux);

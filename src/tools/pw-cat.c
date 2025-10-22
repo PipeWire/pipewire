@@ -747,10 +747,11 @@ static int channelmap_default(struct channelmap *map, int n_channels)
 static void channelmap_print(struct channelmap *map)
 {
 	uint32_t i;
-
+	char pos[8];
 	for (i = 0; i < map->n_channels; i++) {
-		const char *name = spa_type_audio_channel_to_short_name(map->channels[i]);
-		fprintf(stderr, "%s%s", name, i + 1 < map->n_channels ? "," : "");
+		fprintf(stderr, "%s%s", i ? "," : "",
+				spa_type_audio_channel_make_short_name(map->channels[i],
+					pos, sizeof(pos), "UNK"));
 	}
 }
 

@@ -925,11 +925,12 @@ static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
 	}
 	for (i = 0; i < map->channels; i++) {
 		uint32_t pos = chmap_to_channel(map->pos[i]);
+		char buf[8];
 		if (i < max_position)
 			position[i] = pos;
 		pw_log_debug("map %d: %s / %s", i,
 				snd_pcm_chmap_name(map->pos[i]),
-				spa_debug_type_find_short_name(spa_type_audio_channel, pos));
+				spa_type_audio_channel_make_short_name(pos, buf, sizeof(buf), "UNK"));
 	}
 	return 1;
 }

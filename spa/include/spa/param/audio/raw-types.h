@@ -267,11 +267,33 @@ static const struct spa_type_info spa_type_audio_channel[] = {
 
 SPA_API_AUDIO_RAW_TYPES uint32_t spa_type_audio_channel_from_short_name(const char *name)
 {
-	return spa_type_from_short_name(name, spa_type_audio_channel, SPA_AUDIO_CHANNEL_UNKNOWN);
+	uint32_t res;
+	if (spa_strstartswith(name, "AUX")) {
+		if (spa_atou32(name+3, &res, 10) && res < 0x1000)
+			res = SPA_AUDIO_CHANNEL_AUX0 + res;
+		else
+			res = SPA_AUDIO_CHANNEL_UNKNOWN;
+	} else {
+		res = spa_type_from_short_name(name, spa_type_audio_channel, SPA_AUDIO_CHANNEL_UNKNOWN);
+	}
+	return res;
 }
 SPA_API_AUDIO_RAW_TYPES const char * spa_type_audio_channel_to_short_name(uint32_t type)
 {
 	return spa_type_to_short_name(type, spa_type_audio_channel, "UNK");
+}
+SPA_API_AUDIO_RAW_TYPES const char * spa_type_audio_channel_make_short_name(uint32_t type,
+		char *buf, size_t size, const char *unknown)
+{
+	if (SPA_AUDIO_CHANNEL_IS_AUX(type)) {
+		snprintf(buf, size, "AUX%u", type - SPA_AUDIO_CHANNEL_AUX0);
+	} else {
+		const char *str = spa_type_to_short_name(type, spa_type_audio_channel, NULL);
+		if (str == NULL)
+			return unknown;
+		snprintf(buf, size, "%.7s", str);
+	}
+	return buf;
 }
 
 #define SPA_TYPE_INFO_AudioVolumeRampScale		SPA_TYPE_INFO_ENUM_BASE "AudioVolumeRampScale"

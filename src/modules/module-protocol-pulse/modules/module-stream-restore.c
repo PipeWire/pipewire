@@ -295,9 +295,11 @@ static int do_extension_stream_restore_write(struct module *module, struct clien
 			fprintf(f, " ]");
 		}
 		if (map.channels > 0) {
+			char pos[8];
 			fprintf(f, ", \"channels\": [");
 			for (i = 0; i < map.channels; i++)
-				fprintf(f, "%s\"%s\"", (i == 0 ? " ":", "), channel_id2name(map.map[i]));
+				fprintf(f, "%s\"%s\"", (i == 0 ? " ":", "),
+						channel_id2name(map.map[i], pos, sizeof(pos)));
 			fprintf(f, " ]");
 		}
 		if (device_name != NULL && device_name[0] &&

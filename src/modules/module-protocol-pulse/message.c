@@ -761,11 +761,13 @@ int message_dump(enum spa_log_level level, const char *prefix, struct message *m
 		case TAG_CHANNEL_MAP:
 		{
 			struct channel_map map;
+			char pos[8];
 			if ((res = read_channel_map(m, &map)) < 0)
 				return res;
 			pw_log(level, "%s %u: channelmap: channels:%u", prefix, o, map.channels);
 			for (i = 0; i < map.channels; i++)
-				pw_log(level, "%s     %d: %s", prefix, i, channel_id2name(map.map[i]));
+				pw_log(level, "%s     %d: %s", prefix, i,
+						channel_id2name(map.map[i], pos, sizeof(pos)));
 			break;
 		}
 		case TAG_CVOLUME:

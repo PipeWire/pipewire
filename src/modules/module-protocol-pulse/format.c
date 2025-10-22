@@ -298,9 +298,9 @@ uint32_t channel_pa2id(enum channel_position channel)
 	return audio_channels[channel].channel;
 }
 
-const char *channel_id2name(uint32_t channel)
+const char *channel_id2name(uint32_t channel, char *buf, size_t size)
 {
-	return spa_type_audio_channel_to_short_name(channel);
+	return spa_type_audio_channel_make_short_name(channel, buf, size, "UNK");
 }
 
 uint32_t channel_name2id(const char *name)

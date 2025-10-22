@@ -241,12 +241,13 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 static int position_to_string(struct channel_map *map, char *val, size_t len)
 {
 	uint32_t i, o = 0;
+	char pos[8];
 	int r;
 	o += snprintf(val, len, "[ ");
 	for (i = 0; i < map->n_pos; i++) {
 		r = snprintf(val+o, len-o, "%s%s", i == 0 ? "" : ", ",
-				spa_debug_type_find_short_name(spa_type_audio_channel,
-					map->pos[i]));
+				spa_type_audio_channel_make_short_name(map->pos[i],
+					pos, sizeof(pos), "UNK"));
 		if (r < 0 || o + r >= len)
 			return -ENOSPC;
 		o += r;

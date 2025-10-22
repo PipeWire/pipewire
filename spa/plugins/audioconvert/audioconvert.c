@@ -424,7 +424,6 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 		uint32_t position, bool is_dsp, bool is_monitor, bool is_control)
 {
 	struct port *port = GET_PORT(this, direction, port_id);
-	const char *name;
 
 	spa_assert(port_id < MAX_PORTS);
 
@@ -439,8 +438,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 	port->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
-	name = spa_debug_type_find_short_name(spa_type_audio_channel, position);
-	snprintf(port->position, sizeof(port->position), "%s", name ? name : "UNK");
+	spa_type_audio_channel_make_short_name(position, port->position, sizeof(port->position), "UNK");
 
 	port->info = SPA_PORT_INFO_INIT();
 	port->info.change_mask = port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
@@ -2067,6 +2065,7 @@ static int setup_in_convert(struct impl *this)
 	for (i = 0; i < src_info.info.raw.channels; i++) {
 		for (j = 0; j < dst_info.info.raw.channels; j++) {
 			uint32_t pi, pj;
+			char b1[8], b2[8];
 
 			pi = spa_format_audio_raw_get_position(&src_info.info.raw, i);
 			pj = spa_format_audio_raw_get_position(&dst_info.info.raw, j);
@@ -2077,8 +2076,8 @@ static int setup_in_convert(struct impl *this)
 				remap = true;
 			spa_log_debug(this->log, "%p: channel %d (%d) -> %d (%s -> %s)", this,
 					i, in->remap[i], j,
-					spa_debug_type_find_short_name(spa_type_audio_channel, pi),
-					spa_debug_type_find_short_name(spa_type_audio_channel, pj));
+					spa_type_audio_channel_make_short_name(pi, b1, 8, "UNK"),
+					spa_type_audio_channel_make_short_name(pj, b2, 8, "UNK"));
 			spa_format_audio_raw_set_position(&dst_info.info.raw, j, -1);
 			break;
 		}
@@ -2192,10 +2191,11 @@ static void set_volume(struct impl *this)
 static char *format_position(char *str, size_t len, uint32_t channels, uint32_t *position, uint32_t max_position)
 {
 	uint32_t i, idx = 0;
+	char buf[8];
 	for (i = 0; i < channels; i++)
 		idx += snprintf(str + idx, len - idx, "%s%s", i == 0 ? "" : " ",
-				spa_debug_type_find_short_name(spa_type_audio_channel,
-					position[i % max_position]));
+				spa_type_audio_channel_make_short_name(position[i % max_position],
+				buf, sizeof(buf), "UNK"));
 	return str;
 }
 
@@ -2359,6 +2359,7 @@ static int setup_out_convert(struct impl *this)
 	for (i = 0; i < src_info.info.raw.channels; i++) {
 		for (j = 0; j < dst_info.info.raw.channels; j++) {
 			uint32_t pi, pj;
+			char b1[8], b2[8];
 
 			pi = spa_format_audio_raw_get_position(&src_info.info.raw, i);
 			pj = spa_format_audio_raw_get_position(&dst_info.info.raw, j);
@@ -2370,8 +2371,8 @@ static int setup_out_convert(struct impl *this)
 
 			spa_log_debug(this->log, "%p: channel %d (%d) -> %d (%s -> %s)", this,
 					i, out->remap[i], j,
-					spa_debug_type_find_short_name(spa_type_audio_channel, pi),
-					spa_debug_type_find_short_name(spa_type_audio_channel, pj));
+					spa_type_audio_channel_make_short_name(pi, b1, 8, "UNK"),
+					spa_type_audio_channel_make_short_name(pj, b2, 8, "UNK"));
 
 			spa_format_audio_raw_set_position(&dst_info.info.raw, j, -1);
 			break;

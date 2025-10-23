@@ -467,9 +467,9 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
+static int parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	spa_audio_info_raw_init_dict_keys(info,
+	return spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
 				SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P"),
 				SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
@@ -573,8 +573,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(impl->playback_props, PW_KEY_NODE_DESCRIPTION) == NULL)
 		pw_properties_set(impl->playback_props, PW_KEY_NODE_DESCRIPTION, str);
 
-	parse_audio_info(impl->capture_props, &impl->capture_info);
-	parse_audio_info(impl->playback_props, &impl->playback_info);
+	if ((res = parse_audio_info(impl->capture_props, &impl->capture_info)) < 0 ||
+	    (res = parse_audio_info(impl->playback_props, &impl->playback_info)) < 0) {
+		pw_log_error( "can't parse formats: %s", spa_strerror(res));
+		goto error;
+	}
 
 	if (!impl->capture_info.rate && !impl->playback_info.rate) {
 		if (pw_properties_get(impl->playback_props, "resample.disable") == NULL)

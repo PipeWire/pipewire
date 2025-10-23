@@ -503,9 +503,11 @@ static int add_snapcast_stream(struct impl *impl, struct tunnel *t,
 	return -ENOENT;
 }
 
-static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
+static int parse_audio_info(struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	spa_audio_info_raw_init_dict_keys(info,
+	int res;
+
+	if ((res = spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, DEFAULT_FORMAT),
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, SPA_STRINGIFY(DEFAULT_RATE)),
@@ -514,12 +516,14 @@ static void parse_audio_info(struct pw_properties *props, struct spa_audio_info_
 			SPA_KEY_AUDIO_FORMAT,
 			SPA_KEY_AUDIO_RATE,
 			SPA_KEY_AUDIO_CHANNELS,
-			SPA_KEY_AUDIO_POSITION, NULL);
+			SPA_KEY_AUDIO_POSITION, NULL)) < 0)
+		return res;
 
 	pw_properties_set(props, PW_KEY_AUDIO_FORMAT,
 			spa_type_audio_format_to_short_name(info->format));
 	pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%d", info->rate);
 	pw_properties_setf(props, PW_KEY_AUDIO_CHANNELS, "%d", info->channels);
+	return res;
 }
 
 static int create_stream(struct impl *impl, struct pw_properties *props,
@@ -545,7 +549,10 @@ static int create_stream(struct impl *impl, struct pw_properties *props,
 	if ((str = pw_properties_get(props, "capture.props")) == NULL)
 		pw_properties_set(props, "capture.props", "{ media.class = Audio/Sink }");
 
-	parse_audio_info(props, &t->audio_info);
+	if ((res = parse_audio_info(props, &t->audio_info)) < 0) {
+		pw_log_error("Can't parse format: %s", spa_strerror(res));
+		goto done;
+	}
 
 	if ((f = open_memstream(&args, &size)) == NULL) {
 		res = -errno;

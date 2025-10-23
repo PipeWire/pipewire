@@ -326,9 +326,9 @@ struct stream {
 	unsigned int have_latency:1;
 };
 
-static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
+static int parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	spa_audio_info_raw_init_dict_keys(info,
+	return spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
 				SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P"),
 				SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
@@ -1638,7 +1638,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(props, impl->combine_props, "resample.prefill");
 	copy_props(props, impl->combine_props, "resample.disable");
 
-	parse_audio_info(impl->combine_props, &impl->info);
+	if ((res = parse_audio_info(impl->combine_props, &impl->info)) < 0) {
+		pw_log_error( "can't create format: %s", spa_strerror(res));
+		goto error;
+	}
 
 	copy_props(props, impl->stream_props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(props, impl->stream_props, PW_KEY_NODE_GROUP);

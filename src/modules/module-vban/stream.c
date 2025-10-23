@@ -185,9 +185,9 @@ static const struct format_info *find_audio_format_info(const struct spa_audio_i
 	return NULL;
 }
 
-static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
+static int parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	spa_audio_info_raw_init_dict_keys(info,
+	return spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, DEFAULT_FORMAT),
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, SPA_STRINGIFY(DEFAULT_RATE)),
@@ -274,7 +274,10 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 
 	switch (impl->info.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
-		parse_audio_info(props, &impl->info.info.raw);
+		if ((res = parse_audio_info(props, &impl->info.info.raw)) < 0) {
+			pw_log_error("can't parse format: %s", spa_strerror(res));
+			goto out;
+		}
 		if (SPA_FLAG_IS_SET(impl->info.info.raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED))
 			default_layout(impl->info.info.raw.channels,
 					impl->info.info.raw.position,

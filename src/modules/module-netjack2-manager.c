@@ -181,7 +181,7 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info);
+static int parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info);
 
 struct port {
 	enum spa_direction direction;
@@ -969,8 +969,11 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	follower->sink.direction = PW_DIRECTION_INPUT;
 	follower->sink.props = pw_properties_copy(impl->sink_props);
 
-	parse_audio_info(follower->source.props, &follower->source.info);
-	parse_audio_info(follower->sink.props, &follower->sink.info);
+	if ((res = parse_audio_info(follower->source.props, &follower->source.info)) < 0 ||
+	    (res = parse_audio_info(follower->sink.props, &follower->sink.info)) < 0) {
+		pw_log_error("can't parse format: %s", spa_strerror(res));
+		return res;
+	}
 
 	follower->source.n_audio = pw_properties_get_uint32(follower->source.props,
 			"audio.ports", follower->source.info.channels ?
@@ -1292,9 +1295,9 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
+static int parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	spa_audio_info_raw_init_dict_keys(info,
+	return spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P")),
 			&props->dict,

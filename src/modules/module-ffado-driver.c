@@ -1429,9 +1429,9 @@ static void parse_devices(struct impl *impl, const char *val, size_t len)
 	}
 }
 
-static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
+static int parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	spa_audio_info_raw_init_dict_keys(info,
+	return spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, "F32P"),
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
@@ -1582,8 +1582,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, PW_KEY_NODE_PAUSE_ON_IDLE);
 
-	parse_audio_info(impl->source.props, &impl->source.info);
-	parse_audio_info(impl->sink.props, &impl->sink.info);
+	if ((res = parse_audio_info(impl->source.props, &impl->source.info)) < 0 ||
+	    (res = parse_audio_info(impl->sink.props, &impl->sink.info)) < 0) {
+		pw_log_error( "can't parse format: %s", spa_strerror(res));
+		goto error;
+	}
 
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

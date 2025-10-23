@@ -569,9 +569,9 @@ static const struct format_info *find_audio_format_info(const struct spa_audio_i
 	return NULL;
 }
 
-static void parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
+static int parse_audio_info(const struct pw_properties *props, struct spa_audio_info_raw *info)
 {
-	spa_audio_info_raw_init_dict_keys(info,
+	return spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, DEFAULT_FORMAT),
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, SPA_STRINGIFY(DEFAULT_RATE)),
@@ -675,7 +675,10 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	switch (impl->info.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
-		parse_audio_info(props, &impl->info.info.raw);
+		if ((res = parse_audio_info(props, &impl->info.info.raw)) < 0) {
+			pw_log_error("can't parse format: %s", spa_strerror(res));
+			goto out;
+		}
 		impl->stream_info = impl->info;
 		impl->format_info = find_audio_format_info(&impl->info);
 		if (impl->format_info == NULL) {
@@ -704,7 +707,10 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	case SPA_MEDIA_SUBTYPE_opus:
 		impl->stream_info.media_type = SPA_MEDIA_TYPE_audio;
 		impl->stream_info.media_subtype = SPA_MEDIA_SUBTYPE_raw;
-		parse_audio_info(props, &impl->stream_info.info.raw);
+		if ((res = parse_audio_info(props, &impl->stream_info.info.raw)) < 0) {
+			pw_log_error("can't parse format: %s", spa_strerror(res));
+			goto out;
+		}
 		impl->stream_info.info.raw.format = SPA_AUDIO_FORMAT_F32;
 		impl->info.info.opus.rate = impl->stream_info.info.raw.rate;
 		impl->info.info.opus.channels = impl->stream_info.info.raw.channels;

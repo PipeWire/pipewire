@@ -267,6 +267,10 @@ struct impl {
 
 	struct pw_timer sap_send_timer;
 
+	/* This timer is used when the first start_sap() call fails because
+	 * of an ENODEV error (see the start_sap() code for details) */
+	struct pw_timer start_sap_retry_timer;
+
 	char *ifname;
 	uint32_t ttl;
 	bool mcast_loop;
@@ -322,6 +326,7 @@ static const struct format_info *find_audio_format_info(const char *mime)
 	return NULL;
 }
 
+static int start_sap(struct impl *impl);
 static int send_sap(struct impl *impl, struct session *sess, bool bye);
 
 
@@ -976,6 +981,13 @@ static void on_sap_send_timer_event(void *data)
 	pw_timer_queue_add(impl->timer_queue, &impl->sap_send_timer,
 			&impl->sap_send_timer.timeout, SAP_INTERVAL_SEC * SPA_NSEC_PER_SEC,
 			on_sap_send_timer_event, impl);
+}
+
+static void on_start_sap_retry_timer_event(void *data)
+{
+	struct impl *impl = data;
+	pw_log_debug("trying again to start SAP send after previous attempt failed with ENODEV");
+	start_sap(impl);
 }
 
 static struct session *session_find(struct impl *impl, const struct sdp_info *info)
@@ -1668,18 +1680,62 @@ on_sap_io(void *data, int fd, uint32_t mask)
 
 static int start_sap(struct impl *impl)
 {
-	int fd = -1, res;
+	int fd = -1, res = 0;
 	char addr[128] = "invalid";
 
 	pw_log_info("starting SAP send timer");
+	/* start_sap() might be called more than once. See the make_recv_socket()
+	 * call below for why that can happen. In such a case, the timer was
+	 * started already. The easiest way of handling it is to just cancel it.
+	 * Such cases are not expected to occur often, so canceling and then
+	 * adding the timer again is acceptable. */
+	pw_timer_queue_cancel(&impl->sap_send_timer);
 	if ((res = pw_timer_queue_add(impl->timer_queue, &impl->sap_send_timer,
 			NULL, SAP_INTERVAL_SEC * SPA_NSEC_PER_SEC,
 			on_sap_send_timer_event, impl)) < 0) {
 		pw_log_error("can't add SAP send timer: %s", spa_strerror(res));
 		goto error;
 	}
-	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0)
-		return fd;
+	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0) {
+		/* If make_recv_socket() tries to create a socket and join to a multicast
+		 * group while the network interfaces are not ready yet to do so
+		 * (usually because a network manager component is still setting up
+		 * those network interfaces), ENODEV will be returned. This is essentially
+		 * a race condition. There is no discernible way to be notified when the
+		 * network interfaces are ready for that operation, so the next best
+		 * approach is to essentially do a form of polling by retrying the
+		 * start_sap() call after some time. The start_sap_retry_timer exists
+		 * precisely for that purpose. This means that ENODEV is not treated as
+		 * an error, but instead, it triggers the creation of that timer. */
+		if (fd == -ENODEV) {
+			pw_log_warn("failed to create receiver socket because network device "
+				"is not ready and present yet; will try again");
+
+			pw_timer_queue_cancel(&impl->start_sap_retry_timer);
+			/* Use a 1-second retry interval. The network interfaces
+			 * are likely to be up and running then. */
+			pw_timer_queue_add(impl->timer_queue, &impl->start_sap_retry_timer,
+					NULL, 1 * SPA_NSEC_PER_SEC,
+					on_start_sap_retry_timer_event, impl);
+
+			/* It is important to return 0 in this case. Otherwise, the nonzero return
+			 * value will later be propagated through the core as an error. */
+			res = 0;
+			goto finish;
+		} else {
+			pw_log_error("failed to create socket: %s", spa_strerror(-fd));
+			/* If ENODEV was returned earlier, and the start_sap_retry_timer
+			 * was consequently created, but then a non-ENODEV error occurred,
+			 * the timer must be stopped and removed. */
+			pw_timer_queue_cancel(&impl->start_sap_retry_timer);
+			res = fd;
+			goto error;
+		}
+	}
+
+	/* Cleanup the timer in case ENODEV occurred earlier, and this time,
+	 * the socket creation succeeded. */
+	pw_timer_queue_cancel(&impl->start_sap_retry_timer);
 
 	pw_net_get_ip(&impl->sap_addr, addr, sizeof(addr), NULL, NULL);
 	pw_log_info("starting SAP listener on %s", addr);
@@ -1690,11 +1746,13 @@ static int start_sap(struct impl *impl)
 		goto error;
 	}
 
-	return 0;
+finish:
+	return res;
+
 error:
 	if (fd > 0)
 		close(fd);
-	return res;
+	goto finish;
 }
 
 static void node_event_info(void *data, const struct pw_node_info *info)
@@ -1825,6 +1883,7 @@ static void impl_destroy(struct impl *impl)
 		pw_core_disconnect(impl->core);
 
 	pw_timer_queue_cancel(&impl->sap_send_timer);
+	pw_timer_queue_cancel(&impl->start_sap_retry_timer);
 	if (impl->sap_source)
 		pw_loop_destroy_source(impl->loop, impl->sap_source);
 

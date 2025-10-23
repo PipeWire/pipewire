@@ -248,6 +248,16 @@ struct node {
 	struct session *session;
 };
 
+struct igmp_recovery {
+	struct pw_timer timer;
+	int socket_fd;
+	struct sockaddr_storage mcast_addr;
+	socklen_t mcast_len;
+	uint32_t if_index;
+	bool is_ipv6;
+	uint32_t deadline;
+};
+
 struct impl {
 	struct pw_properties *props;
 
@@ -284,6 +294,10 @@ struct impl {
 	int sap_fd;
 	struct spa_source *sap_source;
 	uint32_t cleanup_interval;
+
+	/* IGMP recovery (triggers when no SAP packets are
+	 * received after the recovery deadline is reached) */
+	struct igmp_recovery igmp_recovery;
 
 	uint32_t max_sessions;
 	uint32_t n_sessions;
@@ -466,7 +480,7 @@ error:
 }
 
 static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
-		char *ifname)
+		char *ifname, struct igmp_recovery *igmp_recovery)
 {
 	int af, fd, val, res;
 	struct ifreq req;
@@ -535,6 +549,16 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 		pw_log_error("join mcast failed: %m");
 		goto error;
 	}
+
+	/* Store multicast info for recovery */
+	igmp_recovery->socket_fd = fd;
+	igmp_recovery->mcast_addr = ba;
+	igmp_recovery->mcast_len = salen;
+	igmp_recovery->if_index = req.ifr_ifindex;
+	igmp_recovery->is_ipv6 = (af == AF_INET6);
+	pw_log_debug("stored %s multicast info: socket_fd=%d, "
+			"if_index=%d", igmp_recovery->is_ipv6 ?
+			"IPv6" : "IPv4", fd, req.ifr_ifindex);
 
 	if (bind(fd, (struct sockaddr*)&ba, salen) < 0) {
 		res = -errno;
@@ -942,6 +966,97 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 		sess->has_sent_sap = true;
 
 	return res;
+}
+
+static void on_igmp_recovery_timer_event(void *data)
+{
+	struct impl *impl = data;
+	char addr[128];
+	int res = 0;
+
+	/* Only attempt recovery if we have a valid socket and multicast address */
+	if (impl->igmp_recovery.socket_fd < 0) {
+		pw_log_debug("no socket, skipping IGMP recovery");
+		goto finish;
+	}
+
+	pw_net_get_ip(&impl->igmp_recovery.mcast_addr, addr, sizeof(addr), NULL, NULL);
+	pw_log_info("IGMP recovery triggered for %s", addr);
+
+	/* Force IGMP membership refresh by leaving the group first, then rejoin */
+	if (impl->igmp_recovery.is_ipv6) {
+		struct ipv6_mreq mr6;
+		memset(&mr6, 0, sizeof(mr6));
+		mr6.ipv6mr_multiaddr = ((struct sockaddr_in6*)&impl->igmp_recovery.mcast_addr)->sin6_addr;
+		mr6.ipv6mr_interface = impl->igmp_recovery.if_index;
+
+		/* Leave the group first */
+		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
+					&mr6, sizeof(mr6));
+		if (SPA_LIKELY(res == 0)) {
+			pw_log_info("left IPv6 multicast group");
+		} else {
+			if (errno == EADDRNOTAVAIL) {
+				pw_log_info("attempted to leave IPv6 multicast group, but "
+						"membership was already silently dropped");
+			} else {
+				pw_log_warn("failed to leave IPv6 multicast group: %m");
+			}
+		}
+
+		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
+				&mr6, sizeof(mr6));
+		if (res < 0) {
+			pw_log_warn("failed to re-join IPv6 multicast group: %m");
+		} else {
+			pw_log_info("re-joined IPv6 multicast group successfully");
+		}
+	} else {
+		struct ip_mreqn mr4;
+		memset(&mr4, 0, sizeof(mr4));
+		mr4.imr_multiaddr = ((struct sockaddr_in*)&impl->igmp_recovery.mcast_addr)->sin_addr;
+		mr4.imr_ifindex = impl->igmp_recovery.if_index;
+
+		/* Leave the group first */
+		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+					&mr4, sizeof(mr4));
+		if (SPA_LIKELY(res == 0)) {
+			pw_log_info("left IPv4 multicast group");
+		} else {
+			if (errno == EADDRNOTAVAIL) {
+				pw_log_info("attempted to leave IPv4 multicast group, but "
+						"membership was already silently dropped");
+			} else {
+				pw_log_warn("failed to leave IPv4 multicast group: %m");
+			}
+		}
+
+		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+				&mr4, sizeof(mr4));
+		if (res < 0) {
+			pw_log_warn("failed to re-join IPv4 multicast group: %m");
+		} else {
+			pw_log_info("re-joined IPv4 multicast group successfully");
+		}
+	}
+
+finish:
+	/* If rejoining failed, try again in 1 second. This can happen
+	 * for example when the network interface went down, and is not
+	 * yet up and running again, and ENODEV is returned as a result.
+	 * Otherwise, continue with the usual deadline. */
+	pw_timer_queue_add(impl->timer_queue, &impl->igmp_recovery.timer,
+			&impl->igmp_recovery.timer.timeout,
+			((res == 0) ? impl->igmp_recovery.deadline : 1) * SPA_NSEC_PER_SEC,
+			on_igmp_recovery_timer_event, impl);
+}
+
+static void rearm_igmp_recovery_timer(struct impl *impl)
+{
+	pw_timer_queue_cancel(&impl->igmp_recovery.timer);
+	pw_timer_queue_add(impl->timer_queue, &impl->igmp_recovery.timer,
+			NULL, impl->igmp_recovery.deadline * SPA_NSEC_PER_SEC,
+			on_igmp_recovery_timer_event, impl);
 }
 
 static void on_sap_send_timer_event(void *data)
@@ -1675,6 +1790,8 @@ on_sap_io(void *data, int fd, uint32_t mask)
 		buffer[len] = 0;
 		if ((res = parse_sap(impl, buffer, len)) < 0)
 			pw_log_warn("error parsing SAP: %s", spa_strerror(res));
+
+		rearm_igmp_recovery_timer(impl);
 	}
 }
 
@@ -1696,7 +1813,8 @@ static int start_sap(struct impl *impl)
 		pw_log_error("can't add SAP send timer: %s", spa_strerror(res));
 		goto error;
 	}
-	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0) {
+	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname,
+					&(impl->igmp_recovery))) < 0) {
 		/* If make_recv_socket() tries to create a socket and join to a multicast
 		 * group while the network interfaces are not ready yet to do so
 		 * (usually because a network manager component is still setting up
@@ -1745,6 +1863,8 @@ static int start_sap(struct impl *impl)
 		res = -errno;
 		goto error;
 	}
+
+	rearm_igmp_recovery_timer(impl);
 
 finish:
 	return res;
@@ -1884,6 +2004,7 @@ static void impl_destroy(struct impl *impl)
 
 	pw_timer_queue_cancel(&impl->sap_send_timer);
 	pw_timer_queue_cancel(&impl->start_sap_retry_timer);
+	pw_timer_queue_cancel(&impl->igmp_recovery.timer);
 	if (impl->sap_source)
 		pw_loop_destroy_source(impl->loop, impl->sap_source);
 
@@ -1950,6 +2071,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ptp_fd = -1;
 	spa_list_init(&impl->sessions);
 
+	impl->igmp_recovery.socket_fd = -1;
+	impl->igmp_recovery.if_index = -1;
+
 	if (args == NULL)
 		args = "";
 
@@ -1984,6 +2108,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	impl->cleanup_interval = pw_properties_get_uint32(impl->props,
 			"sap.cleanup.sec", DEFAULT_CLEANUP_SEC);
+
+	/* We will use half of the cleanup interval for IGMP deadline, minimum 1 second */
+	impl->igmp_recovery.deadline = SPA_MAX(impl->cleanup_interval / 2, 1u);
+	pw_log_info("using IGMP deadline of %" PRIu32 " second(s)",
+			impl->igmp_recovery.deadline);
 
 	impl->ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
 	impl->mcast_loop = pw_properties_get_bool(props, "net.loop", DEFAULT_LOOP);

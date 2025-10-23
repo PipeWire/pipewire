@@ -99,7 +99,8 @@ static void rtp_opus_process_playback(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
+static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
+			uint64_t current_time)
 {
 	struct rtp_header *hdr;
 	ssize_t hlen, plen;

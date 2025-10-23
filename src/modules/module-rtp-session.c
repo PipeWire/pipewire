@@ -1043,8 +1043,11 @@ on_data_io(void *data, int fd, uint32_t mask)
 			if (sess == NULL)
 				goto unknown_ssrc;
 
-			if (sess->data_ready && sess->receiving)
-				rtp_stream_receive_packet(sess->recv, buffer, len);
+			if (sess->data_ready && sess->receiving) {
+				uint64_t current_time = rtp_stream_get_nsec(sess->recv);
+				rtp_stream_receive_packet(sess->recv, buffer, len,
+							current_time);
+			}
 		}
 	}
 	return;

@@ -233,7 +233,8 @@ static void rtp_audio_process_playback(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
+static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
+				uint64_t current_time)
 {
 	struct rtp_header *hdr;
 	ssize_t hlen, plen;
@@ -273,7 +274,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	timestamp = ntohl(hdr->timestamp) - impl->ts_offset;
 
 	impl->receiving = true;
-	impl->last_recv_timestamp = pw_stream_get_nsec(impl->stream);
+	impl->last_recv_timestamp = current_time;
 
 	plen = len - hlen;
 	samples = plen / stride;

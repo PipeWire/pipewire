@@ -227,13 +227,6 @@ struct impl {
 	bool waiting;
 };
 
-static inline uint64_t get_time_ns(void)
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return SPA_TIMESPEC_TO_NSEC(&ts);
-}
-
 static int do_start(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 		size_t size, void *user_data)
 {
@@ -261,6 +254,9 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	struct impl *impl = data;
 	ssize_t len;
 	int suppressed;
+	uint64_t current_time;
+
+	current_time = rtp_stream_get_nsec(impl->stream);
 
 	if (mask & SPA_IO_IN) {
 		if ((len = recv(fd, impl->buffer, impl->buffer_size, 0)) < 0)
@@ -270,9 +266,16 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			goto short_packet;
 
 		if (SPA_LIKELY(impl->stream)) {
-			if (rtp_stream_receive_packet(impl->stream, impl->buffer, len) < 0)
+			if (rtp_stream_receive_packet(impl->stream, impl->buffer, len,
+							current_time) < 0)
 				goto receive_error;
 		}
+
+		/* Update last packet timestamp for IGMP recovery.
+		 * The recovery timer will check this to see if recovery
+		 * is necessary. Do this _before_ invoking do_start()
+		 * in case the stream is waking up from standby. */
+		SPA_ATOMIC_STORE(impl->last_packet_time, current_time);
 
 		if (SPA_ATOMIC_LOAD(impl->state) != STATE_RECEIVING) {
 			if (!SPA_ATOMIC_CAS(impl->state, STATE_PROBE, STATE_RECEIVING)) {
@@ -284,11 +287,11 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	return;
 
 receive_error:
-	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, get_time_ns())) >= 0)
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
 		pw_log_warn("(%d suppressed) recv() error: %m", suppressed);
 	return;
 short_packet:
-	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, get_time_ns())) >= 0)
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
 		pw_log_warn("(%d suppressed) short packet of len %zd received",
 				suppressed, len);
 	return;

@@ -151,7 +151,8 @@ struct impl {
 	 * access below for the reason why. */
 	uint8_t timer_running;
 
-	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len);
+	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len,
+			uint64_t current_time);
 	/* Used for resetting the ring buffer before the stream starts, to prevent
 	 * reading from uninitialized memory. This can otherwise happen in direct
 	 * timestamp mode when the read index is set to an uninitialized location.
@@ -1036,10 +1037,17 @@ int rtp_stream_update_properties(struct rtp_stream *s, const struct spa_dict *di
 	return pw_stream_update_properties(impl->stream, dict);
 }
 
-int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len)
+int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
+				uint64_t current_time)
 {
 	struct impl *impl = (struct impl*)s;
-	return impl->receive_rtp(impl, buffer, len);
+	return impl->receive_rtp(impl, buffer, len, current_time);
+}
+
+uint64_t rtp_stream_get_nsec(struct rtp_stream *s)
+{
+	struct impl *impl = (struct impl*)s;
+	return pw_stream_get_nsec(impl->stream);
 }
 
 uint64_t rtp_stream_get_time(struct rtp_stream *s, uint32_t *rate)

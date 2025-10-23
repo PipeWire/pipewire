@@ -265,7 +265,7 @@ struct impl {
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
-	struct pw_timer timer;
+	struct pw_timer sap_send_timer;
 
 	char *ifname;
 	uint32_t ttl;
@@ -288,7 +288,7 @@ struct impl {
 	char *extra_attrs_preamble;
 	char *extra_attrs_end;
 
-	char *ptp_mgmt_socket;
+	char *ptp_mgmt_socket_path;
 	int ptp_fd;
 	uint32_t ptp_seq;
 	uint8_t clock_id[8];
@@ -383,7 +383,7 @@ static bool is_multicast(struct sockaddr *sa, socklen_t salen)
 	return false;
 }
 
-static int make_unix_socket(const char *path) {
+static int make_unix_ptp_mgmt_socket(const char *path) {
 	struct sockaddr_un addr;
 
 	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -419,7 +419,7 @@ static int make_send_socket(
 
 	af = src->ss_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
-		pw_log_error("socket failed: %m");
+		pw_log_error("socket() failed: %m");
 		return -errno;
 	}
 	if (bind(fd, (struct sockaddr*)src, src_len) < 0) {
@@ -451,6 +451,9 @@ static int make_send_socket(
 				pw_log_warn("setsockopt(IPV6_MULTICAST_HOPS) failed: %m");
 		}
 	}
+
+	pw_log_info("sender socket up and running");
+
 	return fd;
 error:
 	close(fd);
@@ -468,13 +471,13 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 
 	af = sa->ss_family;
 	if ((fd = socket(af, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0)) < 0) {
-		pw_log_error("socket failed: %m");
+		pw_log_error("socket() failed: %m");
 		return -errno;
 	}
 	val = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
 		res = -errno;
-		pw_log_error("setsockopt failed: %m");
+		pw_log_error("setsockopt() failed: %m");
 		goto error;
 	}
 	spa_zero(req);
@@ -540,6 +543,9 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			goto error;
 		}
 	}
+
+	pw_log_info("receiver socket up and running");
+
 	return fd;
 error:
 	close(fd);
@@ -548,10 +554,10 @@ error:
 
 static bool update_ts_refclk(struct impl *impl)
 {
-	if (!impl->ptp_mgmt_socket)
+	if (!impl->ptp_mgmt_socket_path)
 		return false;
 	if (impl->ptp_fd < 0) {
-		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket);
+		impl->ptp_fd = make_unix_ptp_mgmt_socket(impl->ptp_mgmt_socket_path);
 		if (impl->ptp_fd < 0)
 			return false;
 	}
@@ -589,7 +595,7 @@ static bool update_ts_refclk(struct impl *impl)
 		if (errno != ENOTCONN)
 			return false;
 		close(impl->ptp_fd);
-		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket);
+		impl->ptp_fd = make_unix_ptp_mgmt_socket(impl->ptp_mgmt_socket_path);
 		if (impl->ptp_fd > -1)
 			pw_log_info("Reopened PTP management socket");
 		return false;
@@ -933,7 +939,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 	return res;
 }
 
-static void on_timer_event(void *data)
+static void on_sap_send_timer_event(void *data)
 {
 	struct impl *impl = data;
 	struct session *sess, *tmp;
@@ -967,9 +973,9 @@ static void on_timer_event(void *data)
 
 		}
 	}
-	pw_timer_queue_add(impl->timer_queue, &impl->timer,
-			&impl->timer.timeout, SAP_INTERVAL_SEC * SPA_NSEC_PER_SEC,
-			on_timer_event, impl);
+	pw_timer_queue_add(impl->timer_queue, &impl->sap_send_timer,
+			&impl->sap_send_timer.timeout, SAP_INTERVAL_SEC * SPA_NSEC_PER_SEC,
+			on_sap_send_timer_event, impl);
 }
 
 static struct session *session_find(struct impl *impl, const struct sdp_info *info)
@@ -1665,11 +1671,11 @@ static int start_sap(struct impl *impl)
 	int fd = -1, res;
 	char addr[128] = "invalid";
 
-	pw_log_info("starting SAP timer");
-	if ((res = pw_timer_queue_add(impl->timer_queue, &impl->timer,
+	pw_log_info("starting SAP send timer");
+	if ((res = pw_timer_queue_add(impl->timer_queue, &impl->sap_send_timer,
 			NULL, SAP_INTERVAL_SEC * SPA_NSEC_PER_SEC,
-			on_timer_event, impl)) < 0) {
-		pw_log_error("can't add timer: %s", spa_strerror(res));
+			on_sap_send_timer_event, impl)) < 0) {
+		pw_log_error("can't add SAP send timer: %s", spa_strerror(res));
 		goto error;
 	}
 	if ((fd = make_recv_socket(&impl->sap_addr, impl->sap_len, impl->ifname)) < 0)
@@ -1818,7 +1824,7 @@ static void impl_destroy(struct impl *impl)
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 
-	pw_timer_queue_cancel(&impl->timer);
+	pw_timer_queue_cancel(&impl->sap_send_timer);
 	if (impl->sap_source)
 		pw_loop_destroy_source(impl->loop, impl->sap_source);
 
@@ -1832,7 +1838,7 @@ static void impl_destroy(struct impl *impl)
 	free(impl->extra_attrs_preamble);
 	free(impl->extra_attrs_end);
 
-	free(impl->ptp_mgmt_socket);
+	free(impl->ptp_mgmt_socket_path);
 	free(impl->ifname);
 	free(impl);
 }
@@ -1904,11 +1910,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->ifname = str ? strdup(str) : NULL;
 
 	str = pw_properties_get(props, "ptp.management-socket");
-	impl->ptp_mgmt_socket = str ? strdup(str) : NULL;
+	impl->ptp_mgmt_socket_path = str ? strdup(str) : NULL;
 
 	// TODO: support UDP management access as well
-	if (impl->ptp_mgmt_socket)
-		impl->ptp_fd = make_unix_socket(impl->ptp_mgmt_socket);
+	if (impl->ptp_mgmt_socket_path)
+		impl->ptp_fd = make_unix_ptp_mgmt_socket(impl->ptp_mgmt_socket_path);
 
 	if ((str = pw_properties_get(props, "sap.ip")) == NULL)
 		str = DEFAULT_SAP_IP;

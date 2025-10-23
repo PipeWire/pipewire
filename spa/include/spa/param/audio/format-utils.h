@@ -47,7 +47,7 @@ extern "C" {
 #endif
 
 SPA_API_AUDIO_FORMAT_UTILS int
-spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info)
+spa_format_audio_ext_parse(const struct spa_pod *format, struct spa_audio_info *info, size_t size)
 {
 	int res;
 
@@ -59,7 +59,7 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 
 	switch (info->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
-		return spa_format_audio_raw_parse(format, &info->info.raw);
+		return spa_format_audio_raw_ext_parse(format, &info->info.raw, size);
 	case SPA_MEDIA_SUBTYPE_dsp:
 		return spa_format_audio_dsp_parse(format, &info->info.dsp);
 	case SPA_MEDIA_SUBTYPE_iec958:
@@ -98,13 +98,19 @@ spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info
 	return -ENOTSUP;
 }
 
+SPA_API_AUDIO_FORMAT_UTILS int
+spa_format_audio_parse(const struct spa_pod *format, struct spa_audio_info *info)
+{
+	return spa_format_audio_ext_parse(format, info, sizeof(*info));
+}
+
 SPA_API_AUDIO_FORMAT_UTILS struct spa_pod *
-spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id,
-		       const struct spa_audio_info *info)
+spa_format_audio_ext_build(struct spa_pod_builder *builder, uint32_t id,
+		       const struct spa_audio_info *info, size_t size)
 {
 	switch (info->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
-		return spa_format_audio_raw_build(builder, id, &info->info.raw);
+		return spa_format_audio_raw_ext_build(builder, id, &info->info.raw, size);
 	case SPA_MEDIA_SUBTYPE_dsp:
 		return spa_format_audio_dsp_build(builder, id, &info->info.dsp);
 	case SPA_MEDIA_SUBTYPE_iec958:
@@ -142,6 +148,13 @@ spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id,
 	}
 	errno = ENOTSUP;
 	return NULL;
+}
+
+SPA_API_AUDIO_FORMAT_UTILS struct spa_pod *
+spa_format_audio_build(struct spa_pod_builder *builder, uint32_t id,
+		       const struct spa_audio_info *info)
+{
+	return spa_format_audio_ext_build(builder, id, info, sizeof(*info));
 }
 /**
  * \}

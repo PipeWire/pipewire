@@ -284,13 +284,17 @@ struct spa_audio_info_raw {
 	enum spa_audio_format format;		/*< format, one of enum spa_audio_format */
 	uint32_t flags;				/*< extra flags */
 	uint32_t rate;				/*< sample rate */
-	uint32_t channels;			/*< number of channels. This can be larger than
-						 *  SPA_AUDIO_MAX_POSITION, the position is taken
-						 *  (index % SPA_AUDIO_MAX_POSITION) */
+	uint32_t channels;			/*< number of channels. This can be more than SPA_AUDIO_MAX_POSITION
+						 *  and you may assume there is enough padding for the extra
+						 *  channel positions. */
 	uint32_t position[SPA_AUDIO_MAX_POSITION];	/*< channel position from enum spa_audio_channel */
+	/* more channels can be added here */
 };
 
 #define SPA_AUDIO_INFO_RAW_INIT(...)		((struct spa_audio_info_raw) { __VA_ARGS__ })
+
+#define SPA_AUDIO_INFO_RAW_MAX_POSITION(size)	(((size)-offsetof(struct spa_audio_info_raw,position))/sizeof(uint32_t))
+
 
 #define SPA_KEY_AUDIO_FORMAT		"audio.format"		/**< an audio format as string,
 								  *  Ex. "S16LE" */

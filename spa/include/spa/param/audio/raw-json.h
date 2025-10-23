@@ -46,6 +46,7 @@ spa_audio_parse_position_n(const char *str, size_t len,
 	*n_channels = channels;
 	return channels;
 }
+
 SPA_API_AUDIO_RAW_JSON int
 spa_audio_parse_position(const char *str, size_t len,
 		uint32_t *position, uint32_t *n_channels)
@@ -54,9 +55,11 @@ spa_audio_parse_position(const char *str, size_t len,
 }
 
 SPA_API_AUDIO_RAW_JSON int
-spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, const char *val, bool force)
+spa_audio_info_raw_ext_update(struct spa_audio_info_raw *info, size_t size,
+		const char *key, const char *val, bool force)
 {
 	uint32_t v;
+	uint32_t max_position = SPA_AUDIO_INFO_RAW_MAX_POSITION(size);
 	if (spa_streq(key, SPA_KEY_AUDIO_FORMAT)) {
 		if (force || info->format == 0)
 			info->format = (enum spa_audio_format)spa_type_audio_format_from_short_name(val);
@@ -64,16 +67,71 @@ spa_audio_info_raw_update(struct spa_audio_info_raw *info, const char *key, cons
 		if (spa_atou32(val, &v, 0) && (force || info->rate == 0))
 			info->rate = v;
 	} else if (spa_streq(key, SPA_KEY_AUDIO_CHANNELS)) {
-		if (spa_atou32(val, &v, 0) && (force || info->channels == 0))
+		if (spa_atou32(val, &v, 0) && (force || info->channels == 0)) {
+			if (v > max_position)
+				return -ECHRNG;
 			info->channels = v;
+		}
 	} else if (spa_streq(key, SPA_KEY_AUDIO_POSITION)) {
 		if (force || info->channels == 0) {
 			if (spa_audio_parse_position_n(val, strlen(val), info->position,
-						SPA_N_ELEMENTS(info->position), &info->channels) > 0)
+						max_position, &v) > 0) {
+				if (v > max_position)
+					return -ECHRNG;
 				SPA_FLAG_CLEAR(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+			}
 		}
 	}
 	return 0;
+}
+
+SPA_API_AUDIO_RAW_JSON int
+spa_audio_info_raw_update(struct spa_audio_info_raw *info,
+		const char *key, const char *val, bool force)
+{
+	return spa_audio_info_raw_ext_update(info, sizeof(*info), key, val, force);
+}
+
+SPA_API_AUDIO_RAW_JSON int
+spa_audio_info_raw_ext_init_dict_keys_va(struct spa_audio_info_raw *info, size_t size,
+		const struct spa_dict *defaults,
+		const struct spa_dict *dict, va_list args)
+{
+	int res;
+
+	memset(info, 0, size);
+	SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+	if (dict) {
+		const char *val, *key;
+		while ((key = va_arg(args, const char *))) {
+			if ((val = spa_dict_lookup(dict, key)) == NULL)
+				continue;
+			if ((res = spa_audio_info_raw_ext_update(info, size,
+							key, val, true)) < 0)
+				return res;
+		}
+	}
+	if (defaults) {
+		const struct spa_dict_item *it;
+		spa_dict_for_each(it, defaults)
+			if ((res = spa_audio_info_raw_ext_update(info, size,
+							it->key, it->value, false)) < 0)
+				return res;
+	}
+	return 0;
+}
+
+SPA_API_AUDIO_RAW_JSON int SPA_SENTINEL
+spa_audio_info_raw_ext_init_dict_keys(struct spa_audio_info_raw *info, size_t size,
+		const struct spa_dict *defaults,
+		const struct spa_dict *dict, ...)
+{
+	va_list args;
+	int res;
+	va_start(args, dict);
+	res = spa_audio_info_raw_ext_init_dict_keys_va(info, size, defaults, dict, args);
+	va_end(args);
+	return res;
 }
 
 SPA_API_AUDIO_RAW_JSON int SPA_SENTINEL
@@ -81,25 +139,12 @@ spa_audio_info_raw_init_dict_keys(struct spa_audio_info_raw *info,
 		const struct spa_dict *defaults,
 		const struct spa_dict *dict, ...)
 {
-	spa_zero(*info);
-	SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-	if (dict) {
-		const char *val, *key;
-		va_list args;
-		va_start(args, dict);
-		while ((key = va_arg(args, const char *))) {
-			if ((val = spa_dict_lookup(dict, key)) == NULL)
-				continue;
-			spa_audio_info_raw_update(info, key, val, true);
-		}
-		va_end(args);
-	}
-	if (defaults) {
-		const struct spa_dict_item *it;
-		spa_dict_for_each(it, defaults)
-			spa_audio_info_raw_update(info, it->key, it->value, false);
-	}
-	return 0;
+	va_list args;
+	int res;
+	va_start(args, dict);
+	res = spa_audio_info_raw_ext_init_dict_keys_va(info, sizeof(*info), defaults, dict, args);
+	va_end(args);
+	return res;
 }
 
 /**

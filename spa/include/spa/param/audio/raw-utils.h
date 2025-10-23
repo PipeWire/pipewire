@@ -58,10 +58,12 @@ spa_format_audio_raw_copy_positions(const struct spa_audio_info_raw *info, uint3
 }
 
 SPA_API_AUDIO_RAW_UTILS int
-spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_raw *info)
+spa_format_audio_raw_ext_parse(const struct spa_pod *format, struct spa_audio_info_raw *info, size_t size)
 {
 	struct spa_pod *position = NULL;
 	int res;
+	uint32_t max_position = SPA_AUDIO_INFO_RAW_MAX_POSITION(size);
+
 	info->flags = 0;
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
@@ -69,19 +71,29 @@ spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_r
 			SPA_FORMAT_AUDIO_rate,		SPA_POD_OPT_Int(&info->rate),
 			SPA_FORMAT_AUDIO_channels,	SPA_POD_OPT_Int(&info->channels),
 			SPA_FORMAT_AUDIO_position,	SPA_POD_OPT_Pod(&position));
+	if (info->channels > max_position)
+		return -ENOTSUP;
 	if (position == NULL ||
-	    !spa_pod_copy_array(position, SPA_TYPE_Id, info->position, SPA_N_ELEMENTS(info->position)))
+	    spa_pod_copy_array(position, SPA_TYPE_Id, info->position, max_position) != info->channels)
 		SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
 	return res;
 }
 
-SPA_API_AUDIO_RAW_UTILS struct spa_pod *
-spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id,
-			   const struct spa_audio_info_raw *info)
+SPA_API_AUDIO_RAW_UTILS int
+spa_format_audio_raw_parse(const struct spa_pod *format, struct spa_audio_info_raw *info)
 {
-	struct spa_pod_frame f[2];
-	spa_pod_builder_push_object(builder, &f[0], SPA_TYPE_OBJECT_Format, id);
+	return spa_format_audio_raw_ext_parse(format, info, sizeof(*info));
+}
+
+SPA_API_AUDIO_RAW_UTILS struct spa_pod *
+spa_format_audio_raw_ext_build(struct spa_pod_builder *builder, uint32_t id,
+			   const struct spa_audio_info_raw *info, size_t size)
+{
+	struct spa_pod_frame f;
+	uint32_t max_position = SPA_AUDIO_INFO_RAW_MAX_POSITION(size);
+
+	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);
 	spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,		SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,	SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
@@ -95,17 +107,21 @@ spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id,
 	if (info->channels != 0) {
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_AUDIO_channels,	SPA_POD_Int(info->channels), 0);
-		if (!SPA_FLAG_IS_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
-			uint32_t i;
-			spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
-			spa_pod_builder_push_array(builder, &f[1]);
-			for (i = 0; i < info->channels; i++)
-				spa_pod_builder_id(builder,
-						spa_format_audio_raw_get_position(info, i));
-			spa_pod_builder_pop(builder, &f[1]);
+		if (!SPA_FLAG_IS_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED) &&
+		    max_position > info->channels) {
+			spa_pod_builder_add(builder, SPA_FORMAT_AUDIO_position,
+				SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id,
+					info->channels, info->position), 0);
 		}
 	}
-	return (struct spa_pod*)spa_pod_builder_pop(builder, &f[0]);
+	return (struct spa_pod*)spa_pod_builder_pop(builder, &f);
+}
+
+SPA_API_AUDIO_RAW_UTILS struct spa_pod *
+spa_format_audio_raw_build(struct spa_pod_builder *builder, uint32_t id,
+			   const struct spa_audio_info_raw *info)
+{
+	return spa_format_audio_raw_ext_build(builder, id, info, sizeof(*info));
 }
 
 /**

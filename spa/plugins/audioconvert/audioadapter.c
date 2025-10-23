@@ -808,6 +808,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		if (spa_format_audio_parse(param, &info) < 0) {
 			spa_log_error(this->log, "%p: cannot set Format param: "
 					"parsing the POD failed", this);
+			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_ERROR, 0, NULL, param);
 			return -EINVAL;
 		}
 		if (info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
@@ -841,6 +842,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0) {
 			spa_log_error(this->log, "%p: cannot set PortConfig param: "
 					"parsing the POD failed", this);
+			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_ERROR, 0, NULL, param);
 			return -EINVAL;
 		}
 
@@ -848,8 +850,12 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			struct spa_audio_info info;
 
 			spa_zero(info);
-			if ((res = spa_format_audio_parse(format, &info)) < 0)
+			if ((res = spa_format_audio_parse(format, &info)) < 0) {
+				spa_log_error(this->log, "%p: cannot set PortConfig param: "
+						"parsing format failed: %s", this, spa_strerror(res));
+				spa_debug_log_pod(this->log, SPA_LOG_LEVEL_ERROR, 0, NULL, format);
 				return res;
+			}
 
 			if (info.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 				info.info.raw.rate = 0;

@@ -643,11 +643,8 @@ static int snd_pcm_pipewire_pause(snd_pcm_ioplug_t * io, int enable)
 #define _FORMAT_BE(p, fmt)  p ? SPA_AUDIO_FORMAT_UNKNOWN : SPA_AUDIO_FORMAT_ ## fmt ## _OE
 #endif
 
-static int set_default_channels(uint32_t channels, uint32_t *position, uint32_t max_position)
+static int set_default_channels(uint32_t channels, uint32_t position[MAX_CHANNELS])
 {
-	if (max_position < 8)
-		return -ENOSPC;
-
 	switch (channels) {
 	case 8:
 		position[6] = SPA_AUDIO_CHANNEL_SL;
@@ -775,8 +772,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 	case SPA_MEDIA_SUBTYPE_raw:
 		pw->requested.info.raw.channels = io->channels;
 		pw->requested.info.raw.rate = io->rate;
-		set_default_channels(io->channels, pw->requested.info.raw.position,
-				SPA_N_ELEMENTS(pw->requested.info.raw.position));
+		set_default_channels(io->channels, pw->requested.info.raw.position);
 		fmt_str = spa_type_audio_format_to_short_name(pw->requested.info.raw.format);
 		pw->format = pw->requested;
 		break;
@@ -784,8 +780,7 @@ static int snd_pcm_pipewire_hw_params(snd_pcm_ioplug_t * io,
 		pw->requested.info.dsd.bitorder = SPA_PARAM_BITORDER_msb;
 		pw->requested.info.dsd.channels = io->channels;
 		pw->requested.info.dsd.rate = io->rate * SPA_ABS(pw->requested.info.dsd.interleave);
-		set_default_channels(io->channels, pw->requested.info.dsd.position,
-				SPA_N_ELEMENTS(pw->requested.info.dsd.position));
+		set_default_channels(io->channels, pw->requested.info.dsd.position);
 		pw->format = pw->requested;
 		/* we need to let the server decide these values */
 		pw->format.info.dsd.bitorder = 0;
@@ -907,30 +902,30 @@ static int snd_pcm_pipewire_set_chmap(snd_pcm_ioplug_t * io,
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	unsigned int i;
-	uint32_t *position, max_position;
+	uint32_t *position;
 
 	switch (pw->requested.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		pw->requested.info.raw.channels = map->channels;
 		position = pw->requested.info.raw.position;
-		max_position = SPA_N_ELEMENTS(pw->requested.info.raw.position);
 		break;
 	case SPA_MEDIA_SUBTYPE_dsd:
 		pw->requested.info.dsd.channels = map->channels;
 		position = pw->requested.info.dsd.position;
-		max_position = SPA_N_ELEMENTS(pw->requested.info.dsd.position);
 		break;
 	default:
 		return -EINVAL;
 	}
+	if (map->channels > MAX_CHANNELS)
+		return -ENOTSUP;
+
 	for (i = 0; i < map->channels; i++) {
-		uint32_t pos = chmap_to_channel(map->pos[i]);
 		char buf[8];
-		if (i < max_position)
-			position[i] = pos;
+		position[i] = chmap_to_channel(map->pos[i]);
 		pw_log_debug("map %d: %s / %s", i,
 				snd_pcm_chmap_name(map->pos[i]),
-				spa_type_audio_channel_make_short_name(pos, buf, sizeof(buf), "UNK"));
+				spa_type_audio_channel_make_short_name(position[i],
+					buf, sizeof(buf), "UNK"));
 	}
 	return 1;
 }
@@ -939,18 +934,16 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
 	snd_pcm_chmap_t *map;
-	uint32_t i, channels, *position, max_position;
+	uint32_t i, channels, *position;
 
 	switch (pw->requested.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		channels = pw->requested.info.raw.channels;
 		position = pw->requested.info.raw.position;
-		max_position = SPA_N_ELEMENTS(pw->requested.info.raw.position);
 		break;
 	case SPA_MEDIA_SUBTYPE_dsd:
 		channels = pw->requested.info.dsd.channels;
 		position = pw->requested.info.dsd.position;
-		max_position = SPA_N_ELEMENTS(pw->requested.info.dsd.position);
 		break;
 	default:
 		return NULL;
@@ -960,7 +953,7 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 				 channels * sizeof(unsigned int));
 	map->channels = channels;
 	for (i = 0; i < channels; i++)
-		map->pos[i] = channel_to_chmap(position[i % max_position]);
+		map->pos[i] = channel_to_chmap(position[i]);
 
 	return map;
 }

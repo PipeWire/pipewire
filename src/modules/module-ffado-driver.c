@@ -761,7 +761,7 @@ static int make_stream_ports(struct stream *s)
 		struct port *port = s->ports[i];
 		char channel[32];
 
-		snprintf(channel, sizeof(channel), "AUX%u", n_channels % MAX_CHANNELS);
+		snprintf(channel, sizeof(channel), "AUX%u", n_channels);
 
 		switch (port->stream_type) {
 		case ffado_stream_type_audio:
@@ -1229,7 +1229,7 @@ static int probe_ffado_device(struct impl *impl)
 	}
 	if (impl->source.info.channels != n_channels) {
 		uint32_t n_pos = SPA_MIN(n_channels, SPA_N_ELEMENTS(impl->source.info.position));
-		impl->source.info.channels = n_channels;
+		impl->source.info.channels = n_pos;
 		for (i = 0; i < n_pos; i++)
 			impl->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
@@ -1256,7 +1256,7 @@ static int probe_ffado_device(struct impl *impl)
 	}
 	if (impl->sink.info.channels != n_channels) {
 		uint32_t n_pos = SPA_MIN(n_channels, SPA_N_ELEMENTS(impl->sink.info.position));
-		impl->sink.info.channels = n_channels;
+		impl->sink.info.channels = n_pos;
 		for (i = 0; i < n_pos; i++)
 			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}

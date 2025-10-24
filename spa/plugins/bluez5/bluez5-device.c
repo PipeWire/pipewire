@@ -452,8 +452,7 @@ static int node_offload_set_active(struct node *node, bool active)
 	return res;
 }
 
-static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t *n_channels, uint32_t *channels,
-		uint32_t max_channels)
+static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t *n_channels, uint32_t *channels)
 {
 	const struct media_codec *codec;
 	struct spa_audio_info info = { 0 };
@@ -689,7 +688,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 		this->nodes[id].active = true;
 		this->nodes[id].offload_acquired = false;
 		this->nodes[id].a2dp_duplex = a2dp_duplex;
-		get_channels(t, a2dp_duplex, &this->nodes[id].n_channels, this->nodes[id].channels, MAX_CHANNELS);
+		get_channels(t, a2dp_duplex, &this->nodes[id].n_channels, this->nodes[id].channels);
 		if (this->nodes[id].transport)
 			spa_hook_remove(&this->nodes[id].transport_listener);
 		this->nodes[id].transport = t;

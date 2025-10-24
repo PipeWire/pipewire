@@ -2348,10 +2348,22 @@ int main(int argc, char *argv[])
 			.rate = data.rate,
 			.channels = data.channels);
 
+		if (data.channels > MAX_CHANNELS) {
+			fprintf(stderr, "error: too many channels %d > %d\n",
+					data.channels, MAX_CHANNELS);
+			goto error_bad_file;
+		}
 		if (data.channelmap.n_channels) {
-			uint32_t i, n_pos = SPA_MIN(data.channels, SPA_N_ELEMENTS(info.position));
-			for (i = 0; i < n_pos; i++)
+			if (data.channels > MAX_CHANNELS) {
+				fprintf(stderr, "error: too many channels in channelmap %d > %d\n",
+						data.channelmap.n_channels, MAX_CHANNELS);
+				goto error_bad_file;
+			}
+			uint32_t i;
+			for (i = 0; i < data.channelmap.n_channels; i++)
 				info.position[i] = data.channelmap.channels[i];
+			for (; i < data.channels; i++)
+				info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 		}
 		params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat, &info);
 		break;

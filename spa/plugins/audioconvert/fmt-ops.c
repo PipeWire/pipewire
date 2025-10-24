@@ -551,7 +551,7 @@ int convert_init(struct convert *conv)
 	const struct dither_info *dinfo;
 	const struct noise_info *ninfo;
 	const struct clear_info *cinfo;
-	uint32_t i, conv_flags, data_size[3];
+	uint32_t i, conv_flags, data_size[4];
 
 	/* we generate int32 bits of random values. With this scale
 	 * factor, we bring this in the [-1.0, 1.0] range */
@@ -615,15 +615,17 @@ int convert_init(struct convert *conv)
 	data_size[0] = SPA_ROUND_UP(conv->noise_size * sizeof(float), FMT_OPS_MAX_ALIGN);
 	data_size[1] = SPA_ROUND_UP(RANDOM_SIZE * sizeof(uint32_t), FMT_OPS_MAX_ALIGN);
 	data_size[2] = SPA_ROUND_UP(RANDOM_SIZE * sizeof(int32_t), FMT_OPS_MAX_ALIGN);
+	data_size[3] = SPA_ROUND_UP(conv->n_channels * sizeof(struct shaper), FMT_OPS_MAX_ALIGN);
 
 	conv->data = calloc(FMT_OPS_MAX_ALIGN +
-			data_size[0] + data_size[1] + data_size[2], 1);
+			data_size[0] + data_size[1] + data_size[2] + data_size[3], 1);
 	if (conv->data == NULL)
 		return -errno;
 
 	conv->noise = SPA_PTR_ALIGN(conv->data, FMT_OPS_MAX_ALIGN, float);
 	conv->random = SPA_PTROFF(conv->noise, data_size[0], uint32_t);
 	conv->prev = SPA_PTROFF(conv->random, data_size[1], int32_t);
+	conv->shaper = SPA_PTROFF(conv->prev, data_size[2], struct shaper);
 
 	for (i = 0; i < RANDOM_SIZE; i++)
 		conv->random[i] = random();

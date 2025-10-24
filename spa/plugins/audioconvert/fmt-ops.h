@@ -236,7 +236,7 @@ struct convert {
 	uint32_t noise_size;
 	const float *ns;
 	uint32_t n_ns;
-	struct shaper shaper[64];
+	struct shaper *shaper;
 
 	void (*update_noise) (struct convert *conv, float *noise, uint32_t n_samples);
 	void (*process) (struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],

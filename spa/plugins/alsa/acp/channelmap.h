@@ -27,7 +27,11 @@
 extern "C" {
 #endif
 
-#define PA_CHANNELS_MAX	128
+#ifdef SPA_AUDIO_MAX_CHANNELS
+#define PA_CHANNELS_MAX	((int)SPA_AUDIO_MAX_CHANNELS)
+#else
+#define PA_CHANNELS_MAX	64
+#endif
 
 #define PA_CHANNEL_MAP_SNPRINT_MAX (PA_CHANNELS_MAX * 32)
 

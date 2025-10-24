@@ -27,7 +27,7 @@
 extern "C" {
 #endif
 
-#define PA_CHANNELS_MAX	64
+#define PA_CHANNELS_MAX	128
 
 #define PA_CHANNEL_MAP_SNPRINT_MAX (PA_CHANNELS_MAX * 32)
 

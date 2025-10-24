@@ -51,7 +51,7 @@ SPA_API_AUDIO_RAW_JSON int
 spa_audio_parse_position(const char *str, size_t len,
 		uint32_t *position, uint32_t *n_channels)
 {
-	return spa_audio_parse_position_n(str, len, position, SPA_AUDIO_MAX_POSITION, n_channels);
+	return spa_audio_parse_position_n(str, len, position, SPA_AUDIO_MAX_CHANNELS, n_channels);
 }
 
 SPA_API_AUDIO_RAW_JSON int

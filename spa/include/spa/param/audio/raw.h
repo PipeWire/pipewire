@@ -18,14 +18,10 @@ extern "C" {
  * \{
  */
 
-/* This is the max number of position info, changing this will change the
- * ABI */
-#define SPA_AUDIO_MAX_POSITION	64u
-
-/* The suggested number of max channels, can be a compile time constant and
- * does not affect ABI or API */
+/* This is the max number of channels, changing this will change the
+ * size of some helper structures. This value should be at least 64 */
 #ifndef SPA_AUDIO_MAX_CHANNELS
-#define SPA_AUDIO_MAX_CHANNELS	128u
+#define SPA_AUDIO_MAX_CHANNELS	64u
 #endif
 
 enum spa_audio_format {
@@ -279,16 +275,18 @@ enum spa_audio_volume_ramp_scale {
 #define SPA_AUDIO_FLAG_NONE		(0)		/*< no valid flag */
 #define SPA_AUDIO_FLAG_UNPOSITIONED	(1 << 0)	/*< the position array explicitly
 							 *  contains unpositioned channels. */
-/** Audio information description */
+/** Audio information description. You can assume when you receive this structure
+ * that there is enought padding to accomodate all channel positions in case the
+ * channel count is more than SPA_AUDIO_MAX_CHANNELS. */
 struct spa_audio_info_raw {
 	enum spa_audio_format format;		/*< format, one of enum spa_audio_format */
 	uint32_t flags;				/*< extra flags */
 	uint32_t rate;				/*< sample rate */
-	uint32_t channels;			/*< number of channels. This can be more than SPA_AUDIO_MAX_POSITION
+	uint32_t channels;			/*< number of channels. This can be more than SPA_AUDIO_MAX_CHANNELS
 						 *  and you may assume there is enough padding for the extra
 						 *  channel positions. */
-	uint32_t position[SPA_AUDIO_MAX_POSITION];	/*< channel position from enum spa_audio_channel */
-	/* more channels can be added here */
+	uint32_t position[SPA_AUDIO_MAX_CHANNELS];	/*< channel position from enum spa_audio_channel */
+	/* padding follows here when channels > SPA_AUDIO_MAX_CHANNELS */
 };
 
 #define SPA_AUDIO_INFO_RAW_INIT(...)		((struct spa_audio_info_raw) { __VA_ARGS__ })

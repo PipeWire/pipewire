@@ -1,4 +1,6 @@
 
+#undef SPA_AUDIO_MAX_CHANNELS
+
 #define SPA_API_IMPL	SPA_EXPORT
 #include <spa/utils/defs.h>
 #include <spa/buffer/alloc.h>
@@ -165,9 +167,3 @@
 #include <spa/utils/string.h>
 #include <spa/utils/type.h>
 #include <spa/utils/type-info.h>
-
-
-
-
-
-

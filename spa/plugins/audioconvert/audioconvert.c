@@ -1897,7 +1897,7 @@ static int reconfigure_mode(struct impl *this, enum spa_param_port_config_mode m
 			this->dir[SPA_DIRECTION_OUTPUT].n_ports = dir->n_ports + 1;
 
 		for (i = 0; i < dir->n_ports; i++) {
-			uint32_t pos = spa_format_audio_raw_get_position(&info->info.raw, i);
+			uint32_t pos = info->info.raw.position[i];
 			init_port(this, direction, i, pos, true, false, false);
 			if (this->monitor && direction == SPA_DIRECTION_INPUT)
 				init_port(this, SPA_DIRECTION_OUTPUT, i+1,
@@ -2067,8 +2067,8 @@ static int setup_in_convert(struct impl *this)
 			uint32_t pi, pj;
 			char b1[8], b2[8];
 
-			pi = spa_format_audio_raw_get_position(&src_info.info.raw, i);
-			pj = spa_format_audio_raw_get_position(&dst_info.info.raw, j);
+			pi = src_info.info.raw.position[i];
+			pj = dst_info.info.raw.position[j];
 			if (pi != pj)
 				continue;
 			in->remap[i] = j;
@@ -2078,7 +2078,7 @@ static int setup_in_convert(struct impl *this)
 					i, in->remap[i], j,
 					spa_type_audio_channel_make_short_name(pi, b1, 8, "UNK"),
 					spa_type_audio_channel_make_short_name(pj, b2, 8, "UNK"));
-			spa_format_audio_raw_set_position(&dst_info.info.raw, j, -1);
+			dst_info.info.raw.position[j] = -1;
 			break;
 		}
 	}
@@ -2126,7 +2126,7 @@ static int remap_volumes(struct impl *this, const struct spa_audio_info *info)
 
 	for (i = 0; i < p->n_channels; i++) {
 		for (j = i; j < target; j++) {
-			uint32_t pj = spa_format_audio_raw_get_position(&info->info.raw, j);
+			uint32_t pj = info->info.raw.position[j];
 			spa_log_debug(this->log, "%d %d: %d <-> %d", i, j,
 					p->channel_map[i], pj);
 			if (p->channel_map[i] != pj)
@@ -2142,7 +2142,7 @@ static int remap_volumes(struct impl *this, const struct spa_audio_info *info)
 	}
 	p->n_channels = target;
 	for (i = 0; i < p->n_channels; i++)
-		p->channel_map[i] = spa_format_audio_raw_get_position(&info->info.raw, i);
+		p->channel_map[i] = info->info.raw.position[i];
 
 	if (target == 0)
 		return 0;
@@ -2216,7 +2216,7 @@ static int setup_channelmix(struct impl *this, uint32_t channels, uint32_t *posi
 		src_mask |= 1ULL << (p < 64 ? p : 0);
 	}
 	for (i = 0, dst_mask = 0; i < dst_chan; i++) {
-		p = spa_format_audio_raw_get_position(&out->format.info.raw, i);
+		p = out->format.info.raw.position[i];
 		dst_mask |= 1ULL << (p < 64 ? p : 0);
 	}
 
@@ -2361,8 +2361,8 @@ static int setup_out_convert(struct impl *this)
 			uint32_t pi, pj;
 			char b1[8], b2[8];
 
-			pi = spa_format_audio_raw_get_position(&src_info.info.raw, i);
-			pj = spa_format_audio_raw_get_position(&dst_info.info.raw, j);
+			pi = src_info.info.raw.position[i];
+			pj = dst_info.info.raw.position[j];
 			if (pi != pj)
 				continue;
 			out->remap[i] = j;
@@ -2374,7 +2374,7 @@ static int setup_out_convert(struct impl *this)
 					spa_type_audio_channel_make_short_name(pi, b1, 8, "UNK"),
 					spa_type_audio_channel_make_short_name(pj, b2, 8, "UNK"));
 
-			spa_format_audio_raw_set_position(&dst_info.info.raw, j, -1);
+			dst_info.info.raw.position[j] = -1;
 			break;
 		}
 	}

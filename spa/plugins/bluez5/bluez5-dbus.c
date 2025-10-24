@@ -5038,9 +5038,13 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 			spa_log_error(monitor->log, "invalid transport configuration");
 			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 		}
+		if (info.info.raw.channels > MAX_CHANNELS) {
+			spa_log_error(monitor->log, "too many channels in transport");
+			return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+		}
 		transport->n_channels = info.info.raw.channels;
-		spa_format_audio_raw_copy_positions(&info.info.raw,
-				transport->channels, SPA_N_ELEMENTS(transport->channels));
+		memcpy(transport->channels, info.info.raw.position,
+				transport->n_channels * sizeof(uint32_t));
 	} else {
 		transport->n_channels = 2;
 		transport->channels[0] = SPA_AUDIO_CHANNEL_FL;

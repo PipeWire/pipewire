@@ -602,8 +602,7 @@ static void make_stream_ports(struct stream *s)
 
 		if (i < s->info.channels) {
 			str = spa_type_audio_channel_make_short_name(
-					spa_format_audio_raw_get_position(&s->info, i),
-					name, sizeof(name), "UNK");
+					s->info.position[i], name, sizeof(name), "UNK");
 			props = pw_properties_new(
 					PW_KEY_FORMAT_DSP, "32 bit float mono audio",
 					PW_KEY_AUDIO_CHANNEL, str,
@@ -1031,16 +1030,14 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	if ((uint32_t)peer->params.recv_audio_channels != follower->source.info.channels) {
 		follower->source.info.channels = peer->params.recv_audio_channels;
 		for (i = 0; i < follower->source.info.channels; i++)
-			spa_format_audio_raw_set_position(&follower->source.info, i,
-					SPA_AUDIO_CHANNEL_AUX0 + i);
+			follower->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 	follower->sink.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
 	follower->sink.info.rate = peer->params.sample_rate;
 	if ((uint32_t)peer->params.send_audio_channels != follower->sink.info.channels) {
 		follower->sink.info.channels = peer->params.send_audio_channels;
 		for (i = 0; i < follower->sink.info.channels; i++)
-			spa_format_audio_raw_set_position(&follower->sink.info, i,
-					SPA_AUDIO_CHANNEL_AUX0 + i);
+			follower->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 
 	if (follower->source.n_ports > MAX_PORTS || follower->sink.n_ports > MAX_PORTS) {

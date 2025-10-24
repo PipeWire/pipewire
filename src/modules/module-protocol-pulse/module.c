@@ -244,7 +244,7 @@ int module_args_to_audioinfo_keys(struct impl *impl, struct pw_properties *props
 		} else {
 			/* FIXME add more mappings */
 			for (i = 0; i < info->channels; i++)
-				spa_format_audio_raw_set_position(info, i, SPA_AUDIO_CHANNEL_UNKNOWN);
+				info->position[i] = SPA_AUDIO_CHANNEL_UNKNOWN;
 		}
 		if (info->position[0] == SPA_AUDIO_CHANNEL_UNKNOWN)
 			info->flags |= SPA_AUDIO_FLAG_UNPOSITIONED;
@@ -290,8 +290,7 @@ void audioinfo_to_properties(struct spa_audio_info_raw *info, struct pw_properti
 		p = s = alloca(info->channels * 8);
 		for (i = 0; i < info->channels; i++)
 			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ", ",
-				channel_id2name(spa_format_audio_raw_get_position(info, i),
-					pos, sizeof(pos)));
+				channel_id2name(info->position[i], pos, sizeof(pos)));
 		pw_properties_setf(props, SPA_KEY_AUDIO_POSITION, "[ %s ]", s);
 	}
 }

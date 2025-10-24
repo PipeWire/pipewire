@@ -883,8 +883,8 @@ static int create_stream(struct stream_info *info)
 		s->remap[i] = i;
 		for (j = 0; j < tmp_info.channels; j++) {
 			uint32_t pj, pi;
-			pj = spa_format_audio_raw_get_position(&tmp_info, j);
-			pi = spa_format_audio_raw_get_position(&remap_info, i);
+			pj = tmp_info.position[j];
+			pi = remap_info.position[i];
 			if (pj == pi) {
 				s->remap[i] = j;
 				break;

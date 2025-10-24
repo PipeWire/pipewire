@@ -525,8 +525,7 @@ static void make_stream_ports(struct stream *s)
 
 		if (i < s->info.channels) {
 			str = spa_type_audio_channel_make_short_name(
-					spa_format_audio_raw_get_position(&s->info, i),
-					pos, sizeof(pos), NULL);
+					s->info.position[i], pos, sizeof(pos), NULL);
 			if (str)
 				snprintf(name, sizeof(name), "%s_%s", prefix, str);
 			else

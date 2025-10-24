@@ -585,7 +585,7 @@ int format_parse_param(const struct spa_pod *param, bool collect,
 		if (info.info.raw.channels) {
 			map->channels = SPA_MIN(info.info.raw.channels, CHANNELS_MAX);
 			for (i = 0; i < map->channels; i++)
-				map->map[i] = spa_format_audio_raw_get_position(&info.info.raw, i);
+				map->map[i] = info.info.raw.position[i];
 		}
 	}
 	return 0;

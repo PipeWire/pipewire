@@ -475,7 +475,10 @@ static void get_channels(struct spa_bt_transport *t, bool a2dp_duplex, uint32_t 
 		return;
 	}
 
-	*n_channels = spa_format_audio_raw_copy_positions(&info.info.raw, channels, max_channels);
+	*n_channels = info.info.raw.channels;
+	memcpy(channels, info.info.raw.position,
+			info.info.raw.channels * sizeof(uint32_t));
+
 }
 
 static const char *get_channel_name(uint32_t channel)

@@ -755,7 +755,7 @@ static int create_pulse_stream(struct impl *impl)
 	map.channels = impl->info.channels;
 	for (i = 0; i < map.channels; i++)
 		map.map[i] = (pa_channel_position_t)channel_id2pa(
-				spa_format_audio_raw_get_position(&impl->info, i), &aux);
+				impl->info.position[i], &aux);
 
 	snprintf(stream_name, sizeof(stream_name), _("Tunnel for %s@%s"),
 			pw_get_user_name(), pw_get_host_name());

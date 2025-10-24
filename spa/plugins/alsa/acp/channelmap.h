@@ -451,7 +451,6 @@ static inline int pa_channel_map_equal(const pa_channel_map *a, const pa_channel
 
 static inline char* pa_channel_map_snprint(char *s, size_t l, const pa_channel_map *map) {
     unsigned channel;
-    bool first = true;
     char *e;
     if (!pa_channel_map_valid(map)) {
         pa_snprintf(s, l, "%s", _("(invalid)"));
@@ -460,12 +459,10 @@ static inline char* pa_channel_map_snprint(char *s, size_t l, const pa_channel_m
     *(e = s) = 0;
     for (channel = 0; channel < map->channels && l > 1; channel++) {
         l -= pa_snprintf(e, l, "%s%s",
-                      first ? "" : ",",
+                      channel == 0 ? "" : ",",
                       pa_channel_position_to_string(map->map[channel]));
         e = strchr(e, 0);
-        first = false;
     }
-
     return s;
 }
 

@@ -156,12 +156,13 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	const struct acp_dict_item *it;
 	uint32_t n_items, i;
 	char device_name[128], path[210], channels[16], ch[12], routes[16];
-	char card_index[16], card_name[64], *p;
+	char card_index[16], card_name[64];
 	char positions[MAX_CHANNELS * 12];
 	char codecs[512];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
 	const char *stream, *card_id, *bus;
+	struct spa_strbuf b;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
 	info.type = SPA_TYPE_INTERFACE_Node;
@@ -200,11 +201,13 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	snprintf(channels, sizeof(channels), "%d", dev->format.channels);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_CHANNELS, channels);
 
-	p = positions;
+	spa_strbuf_init(&b, positions, sizeof(positions));
+	spa_strbuf_append(&b, "[");
 	for (i = 0; i < dev->format.channels; i++) {
-		p += snprintf(p, 12, "%s%s", i == 0 ? "" : ",",
+		spa_strbuf_append(&b, "%s%s", i == 0 ? " " : ", ",
 				acp_channel_str(ch, sizeof(ch), dev->format.map[i]));
 	}
+	spa_strbuf_append(&b, " ]");
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_AUDIO_POSITION, positions);
 
 	if (dev->n_codecs > 0) {

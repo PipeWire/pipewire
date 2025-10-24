@@ -245,7 +245,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 		pa_proplist_update(dev->proplist, PA_UPDATE_REPLACE, m->input_proplist);
 	}
 	if (m->split) {
-		char pos[2048];
+		char pos[PA_CHANNELS_MAX*8];
 		struct spa_strbuf b;
 		int i;
 
@@ -1142,8 +1142,9 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 		pa_proplist_unset(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED);
 	} else {
 		uint32_t positions[eld.lpcm_channels];
-		char position[64];
-		int i = 0, pos = 0;
+		char position[eld.lpcm_channels * 8];
+		struct spa_strbuf b;
+		int i = 0;
 
 		if (eld.speakers & 0x01) {
 			positions[i++] = ACP_CHANNEL_FL;
@@ -1172,16 +1173,14 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 		if (eld.speakers & 0x10) {
 			positions[i++] = ACP_CHANNEL_RC;
 		}
-
 		while (i < eld.lpcm_channels)
 			positions[i++] = ACP_CHANNEL_UNKNOWN;
 
-		for (i = 0, pos = 0; i < eld.lpcm_channels; i++) {
-			pos += snprintf(&position[pos], sizeof(position) - pos, "%s,", channel_names[positions[i]]);
-		}
-
-		/* Overwrite trailing , */
-		position[pos - 1] = 0;
+		spa_strbuf_init(&b, position, sizeof(position));
+		spa_strbuf_append(&b, "[");
+		for (i = 0; i < eld.lpcm_channels; i++)
+			spa_strbuf_append(&b, "%s%s", i ? "," : "", channel_names[positions[i]]);
+		spa_strbuf_append(&b, "]");
 
 		changed |= (old_position == NULL) || (!spa_streq(old_position, position));
 		pa_proplist_sets(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED, position);

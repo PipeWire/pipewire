@@ -245,24 +245,21 @@ void pw_settings_init(struct pw_context *this)
 static void expose_settings(struct pw_context *context, struct pw_impl_metadata *metadata)
 {
 	struct settings *s = &context->settings;
-	uint32_t i, o;
-	char rates[MAX_RATES*16] = "";
+	uint32_t i;
+	char rates[MAX_RATES*16];
+	struct spa_strbuf b;
 
 	pw_impl_metadata_set_propertyf(metadata,
 			PW_ID_CORE, "log.level", "", "%d", s->log_level);
 	pw_impl_metadata_set_propertyf(metadata,
 			PW_ID_CORE, "clock.rate", "", "%d", s->clock_rate);
-	for (i = 0, o = 0; i < s->n_clock_rates; i++) {
-		int r = snprintf(rates+o, sizeof(rates)-o, "%s%d", i == 0 ? "" : ", ",
+
+	spa_strbuf_init(&b, rates, sizeof(rates));
+	for (i = 0; i < s->n_clock_rates; i++)
+		spa_strbuf_append(&b, "%s%d", i == 0 ? "" : ", ",
 				s->clock_rates[i]);
-		if (r < 0 || o + r >= (int)sizeof(rates)) {
-			snprintf(rates, sizeof(rates), "%d", s->clock_rate);
-			break;
-		}
-		o += r;
-	}
 	if (s->n_clock_rates == 0)
-		snprintf(rates, sizeof(rates), "%d", s->clock_rate);
+		spa_strbuf_append(&b, "%d", s->clock_rate);
 
 	pw_impl_metadata_set_propertyf(metadata,
 			PW_ID_CORE, "clock.allowed-rates", "", "[ %s ]", rates);

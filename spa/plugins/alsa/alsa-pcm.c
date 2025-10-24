@@ -240,36 +240,33 @@ static int alsa_set_param(struct state *state, const char *k, const char *s)
 
 static int position_to_string(struct channel_map *map, char *val, size_t len)
 {
-	uint32_t i, o = 0;
+	uint32_t i;
 	char pos[8];
-	int r;
-	o += snprintf(val, len, "[ ");
+	struct spa_strbuf b;
+
+	spa_strbuf_init(&b, val, len);
+	spa_strbuf_append(&b, "[");
 	for (i = 0; i < map->n_pos; i++) {
-		r = snprintf(val+o, len-o, "%s%s", i == 0 ? "" : ", ",
+		spa_strbuf_append(&b, "%s%s", i == 0 ? " " : ", ",
 				spa_type_audio_channel_make_short_name(map->pos[i],
 					pos, sizeof(pos), "UNK"));
-		if (r < 0 || o + r >= len)
-			return -ENOSPC;
-		o += r;
 	}
-	if (len > o)
-		o += snprintf(val+o, len-o, " ]");
+	if (spa_strbuf_append(&b, " ]") < 2)
+		return -ENOSPC;
 	return 0;
 }
 
 static int uint32_array_to_string(uint32_t *vals, uint32_t n_vals, char *val, size_t len)
 {
-	uint32_t i, o = 0;
-	int r;
-	o += snprintf(val, len, "[ ");
-	for (i = 0; i < n_vals; i++) {
-		r = snprintf(val+o, len-o, "%s%d", i == 0 ? "" : ", ", vals[i]);
-		if (r < 0 || o + r >= len)
-			return -ENOSPC;
-		o += r;
-	}
-	if (len > o)
-		o += snprintf(val+o, len-o, " ]");
+	uint32_t i;
+	struct spa_strbuf b;
+
+	spa_strbuf_init(&b, val, len);
+	spa_strbuf_append(&b, "[");
+	for (i = 0; i < n_vals; i++)
+		spa_strbuf_append(&b, "%s%d", i == 0 ? " " : ", ", vals[i]);
+	if (spa_strbuf_append(&b, " ]") < 2)
+		return -ENOSPC;
 	return 0;
 }
 

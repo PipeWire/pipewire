@@ -578,7 +578,7 @@ static int make_nodes(struct data *data)
 		SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(SPA_DIRECTION_OUTPUT),
 		SPA_PARAM_PORT_CONFIG_mode,		SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
 		SPA_PARAM_PORT_CONFIG_format,		SPA_POD_Pod(param));
-	if ((res = spa_node_set_param(data->source_node, SPA_PARAM_PortConfig, 0, param) < 0)) {
+	if ((res = spa_node_set_param(data->source_node, SPA_PARAM_PortConfig, 0, param)) < 0) {
 		printf("can't setup source node %d\n", res);
 		return res;
 	}
@@ -647,7 +647,7 @@ static int make_nodes(struct data *data)
 			SPA_PARAM_PORT_CONFIG_format, SPA_POD_Pod(param));
 
 
-	if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_PortConfig, 0, param) < 0)) {
+	if ((res = spa_node_set_param(data->sink_node, SPA_PARAM_PortConfig, 0, param)) < 0) {
 		printf("can't setup sink node %d\n", res);
 		return res;
 	}
@@ -987,7 +987,7 @@ int main(int argc, char *argv[])
 
 	setlocale(LC_ALL, "");
 
-	while ((c = getopt_long(argc, argv, "hdmstiac:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hd:m:s:t:i:a:c:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);

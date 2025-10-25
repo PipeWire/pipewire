@@ -1538,8 +1538,6 @@ static int get_ramp_samples(struct impl *this, struct volume_ramp_params *vrp)
 		samples = (vrp->volume_ramp_time * vrp->rate) / 1000;
 		spa_log_info(this->log, "volume ramp samples calculated from time is %d", samples);
 	}
-	if (!samples)
-		samples = -1;
 	return samples;
 }
 
@@ -1550,12 +1548,10 @@ static int get_ramp_step_samples(struct impl *this, struct volume_ramp_params *v
 	if (vrp->volume_ramp_step_samples)
 		samples = vrp->volume_ramp_step_samples;
 	else if (vrp->volume_ramp_step_time) {
-		/* convert the step time which is in nano seconds to seconds */
-		samples = (vrp->volume_ramp_step_time/1000) * (vrp->rate/1000);
+		/* convert the step time which is in nano seconds to seconds, round up */
+		samples = SPA_MAX(1u, vrp->volume_ramp_step_time/1000) * (vrp->rate/1000);
 		spa_log_debug(this->log, "volume ramp step samples calculated from time is %d", samples);
 	}
-	if (!samples)
-		samples = -1;
 	return samples;
 }
 
@@ -1568,76 +1564,52 @@ static float get_volume_at_scale(struct volume_ramp_params *vrp, float value)
 	return 0.0;
 }
 
-static struct spa_pod *generate_ramp_up_seq(struct impl *this, struct volume_ramp_params *vrp,
+static struct spa_pod *generate_ramp_seq(struct impl *this, struct volume_ramp_params *vrp,
 		void *buffer, size_t size)
 {
 	struct spa_pod_dynamic_builder b;
 	struct spa_pod_frame f[1];
-	float start = vrp->start, end = vrp->end, volume_accum = start;
-	int ramp_samples = get_ramp_samples(this, vrp);
-	int ramp_step_samples = get_ramp_step_samples(this, vrp);
-	float volume_step = ((end - start) / (ramp_samples / ramp_step_samples));
-	uint32_t volume_offs = 0;
+	float start = vrp->start, end = vrp->end;
+	int samples = get_ramp_samples(this, vrp);
+	int step = get_ramp_step_samples(this, vrp);
+	int offs = 0;
+
+	if (samples < 0 || step < 0 || (samples > 0 && step == 0))
+		return NULL;
 
 	spa_pod_dynamic_builder_init(&b, buffer, size, 4096);
 
 	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
-	spa_log_info(this->log, "generating ramp up sequence from %f to %f with a"
-		" step value %f at scale %d", start, end, volume_step, vrp->scale);
-	do {
-		float vas = get_volume_at_scale(vrp, volume_accum);
-		spa_log_trace(this->log, "volume accum %f", vas);
-		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
-		spa_pod_builder_add_object(&b.b,
-				SPA_TYPE_OBJECT_Props, 0,
-				SPA_PROP_volume, SPA_POD_Float(vas));
-		volume_accum += volume_step;
-		volume_offs += ramp_step_samples;
-	} while (volume_accum < end);
-	return spa_pod_builder_pop(&b.b, &f[0]);
-}
+	spa_log_info(this->log, "generating ramp sequence from %f to %f with "
+			"step %d/%d at scale %d", start, end, step, samples, vrp->scale);
 
-static struct spa_pod *generate_ramp_down_seq(struct impl *this, struct volume_ramp_params *vrp,
-		void *buffer, size_t size)
-{
-	struct spa_pod_dynamic_builder b;
-	struct spa_pod_frame f[1];
-	int ramp_samples = get_ramp_samples(this, vrp);
-	int ramp_step_samples = get_ramp_step_samples(this, vrp);
-	float start = vrp->start, end = vrp->end, volume_accum = start;
-	float volume_step = ((start - end) / (ramp_samples / ramp_step_samples));
-	uint32_t volume_offs = 0;
+	while (1) {
+		float pos = (samples == 0) ? end :
+			SPA_CLAMP(start + (end - start) * offs / samples,
+					SPA_MIN(start, end), SPA_MAX(start, end));
+		float vas = get_volume_at_scale(vrp, pos);
 
-	spa_pod_dynamic_builder_init(&b, buffer, size, 4096);
-
-	spa_pod_builder_push_sequence(&b.b, &f[0], 0);
-	spa_log_info(this->log, "generating ramp down sequence from %f to %f with a"
-		" step value %f at scale %d", start, end, volume_step, vrp->scale);
-	do {
-		float vas = get_volume_at_scale(vrp, volume_accum);
-		spa_log_trace(this->log, "volume accum %f", vas);
-		spa_pod_builder_control(&b.b, volume_offs, SPA_CONTROL_Properties);
+		spa_log_trace(this->log, "volume %d accum %f", offs, vas);
+		spa_pod_builder_control(&b.b, offs, SPA_CONTROL_Properties);
 		spa_pod_builder_add_object(&b.b,
 				SPA_TYPE_OBJECT_Props, 0,
 				SPA_PROP_volume, SPA_POD_Float(vas));
 
-		volume_accum -= volume_step;
-		volume_offs += ramp_step_samples;
-	} while (volume_accum > end);
+		if (offs >= samples)
+			break;
+
+		offs = SPA_MIN(samples, offs + step);
+	}
+
 	return spa_pod_builder_pop(&b.b, &f[0]);
 }
 
 static void generate_volume_ramp(struct impl *this, struct volume_ramp_params *vrp,
 		void *buffer, size_t size)
 {
-	void *sequence = NULL;
-	if (vrp->start == vrp->end)
-		spa_log_error(this->log, "no change in volume, cannot ramp volume");
-	else if (vrp->end > vrp->start)
-		sequence = generate_ramp_up_seq(this, vrp, buffer, size);
-	else
-		sequence = generate_ramp_down_seq(this, vrp, buffer, size);
+	void *sequence;
 
+	sequence = generate_ramp_seq(this, vrp, buffer, size);
 	if (!sequence)
 		spa_log_error(this->log, "unable to generate sequence");
 

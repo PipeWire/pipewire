@@ -773,7 +773,7 @@ static void bind_ctl_event(struct spa_source *source)
 	snd_ctl_elem_id_alloca(&bound_id);
 	snd_ctl_elem_value_alloca(&old_value);
 
-	while ((err = snd_ctl_read(state->ctl, ev) > 0)) {
+	while ((err = snd_ctl_read(state->ctl, ev)) > 0) {
 		bool changed = false;
 
 		if (snd_ctl_event_get_type(ev) != SND_CTL_EVENT_ELEM)

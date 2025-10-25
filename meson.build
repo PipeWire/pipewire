@@ -118,8 +118,8 @@ cc_flags = common_flags + [
   '-DSPA_AUDIO_MAX_CHANNELS=128u',
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
-
-cc_flags_native = cc_native.get_supported_arguments(cc_flags)
+add_project_arguments(cc_native.get_supported_arguments(cc_flags),
+                      language: 'c', native: true)
 
 have_cpp = add_languages('cpp', native: false, required : false)
 

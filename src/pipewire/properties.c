@@ -252,7 +252,8 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 				continue;
 			}
 			/* item changed or added, apply changes later */
-			if ((errno = -add_item(&changes, key, false, val, true) < 0)) {
+			if ((res = add_item(&changes, key, false, val, true)) < 0) {
+				errno = -res;
 				it[0].state = SPA_JSON_ERROR_FLAG;
 				break;
 			}

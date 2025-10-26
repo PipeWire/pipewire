@@ -78,6 +78,7 @@ spa_audio_info_raw_ext_update(struct spa_audio_info_raw *info, size_t size,
 						max_position, &v) > 0) {
 				if (v > max_position)
 					return -ECHRNG;
+				info->channels = v;
 				SPA_FLAG_CLEAR(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 			}
 		}

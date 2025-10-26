@@ -35,6 +35,9 @@ spa_format_audio_raw_ext_parse(const struct spa_pod *format, struct spa_audio_in
 	int res;
 	uint32_t max_position = SPA_AUDIO_INFO_RAW_MAX_POSITION(size);
 
+	if (!SPA_AUDIO_INFO_RAW_VALID_SIZE(size))
+		return -EINVAL;
+
 	info->flags = 0;
 	res = spa_pod_parse_object(format,
 			SPA_TYPE_OBJECT_Format, NULL,
@@ -63,6 +66,11 @@ spa_format_audio_raw_ext_build(struct spa_pod_builder *builder, uint32_t id,
 {
 	struct spa_pod_frame f;
 	uint32_t max_position = SPA_AUDIO_INFO_RAW_MAX_POSITION(size);
+
+	if (!SPA_AUDIO_INFO_RAW_VALID_SIZE(size)) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	spa_pod_builder_push_object(builder, &f, SPA_TYPE_OBJECT_Format, id);
 	spa_pod_builder_add(builder,

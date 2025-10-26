@@ -293,6 +293,8 @@ struct spa_audio_info_raw {
 
 #define SPA_AUDIO_INFO_RAW_MAX_POSITION(size)	(((size)-offsetof(struct spa_audio_info_raw,position))/sizeof(uint32_t))
 
+#define SPA_AUDIO_INFO_RAW_VALID_SIZE(size)	((size) >= offsetof(struct spa_audio_info_raw, position))
+
 
 #define SPA_KEY_AUDIO_FORMAT		"audio.format"		/**< an audio format as string,
 								  *  Ex. "S16LE" */

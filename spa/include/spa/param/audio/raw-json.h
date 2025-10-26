@@ -60,6 +60,10 @@ spa_audio_info_raw_ext_update(struct spa_audio_info_raw *info, size_t size,
 {
 	uint32_t v;
 	uint32_t max_position = SPA_AUDIO_INFO_RAW_MAX_POSITION(size);
+
+	if (!SPA_AUDIO_INFO_RAW_VALID_SIZE(size))
+		return -EINVAL;
+
 	if (spa_streq(key, SPA_KEY_AUDIO_FORMAT)) {
 		if (force || info->format == 0)
 			info->format = (enum spa_audio_format)spa_type_audio_format_from_short_name(val);
@@ -99,6 +103,9 @@ spa_audio_info_raw_ext_init_dict_keys_va(struct spa_audio_info_raw *info, size_t
 		const struct spa_dict *dict, va_list args)
 {
 	int res;
+
+	if (!SPA_AUDIO_INFO_RAW_VALID_SIZE(size))
+		return -EINVAL;
 
 	memset(info, 0, size);
 	SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);

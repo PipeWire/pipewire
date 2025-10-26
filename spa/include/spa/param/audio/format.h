@@ -59,6 +59,8 @@ struct spa_audio_info {
 		struct spa_audio_info_dts dts;
 		struct spa_audio_info_mpegh mpegh;
 	} info;
+
+	/* padding follows here when info has flexible size */
 };
 
 /**

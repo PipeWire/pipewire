@@ -46,18 +46,58 @@ extern "C" {
  #endif
 #endif
 
+SPA_API_AUDIO_FORMAT_UTILS bool
+spa_format_audio_ext_valid_size(uint32_t media_subtype, size_t size)
+{
+	switch (media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		return size >= offsetof(struct spa_audio_info, info.raw) &&
+			SPA_AUDIO_INFO_RAW_VALID_SIZE(size - offsetof(struct spa_audio_info, info.raw));
+
+#define _SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(format)	\
+		case SPA_MEDIA_SUBTYPE_ ## format: \
+			return size >= offsetof(struct spa_audio_info, info.format) + sizeof(struct spa_audio_info_ ## format);
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(dsp)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(iec958)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(dsd)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(mp3)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(aac)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(vorbis)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(wma)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(ra)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(amr)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(alac)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(flac)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(ape)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(ac3)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(eac3)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(truehd)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(dts)
+	_SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE(mpegh)
+#undef _SPA_FORMAT_AUDIO_EXT_VALID_SIZE_CASE
+	}
+	return false;
+}
+
 SPA_API_AUDIO_FORMAT_UTILS int
 spa_format_audio_ext_parse(const struct spa_pod *format, struct spa_audio_info *info, size_t size)
 {
 	int res;
+	uint32_t media_type, media_subtype;
 
-	if ((res = spa_format_parse(format, &info->media_type, &info->media_subtype)) < 0)
+	if ((res = spa_format_parse(format, &media_type, &media_subtype)) < 0)
 		return res;
 
-	if (info->media_type != SPA_MEDIA_TYPE_audio)
+	if (media_type != SPA_MEDIA_TYPE_audio)
 		return -EINVAL;
 
-	switch (info->media_subtype) {
+	if (!spa_format_audio_ext_valid_size(media_subtype, size))
+		return -EINVAL;
+
+	info->media_type = media_type;
+	info->media_subtype = media_subtype;
+
+	switch (media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		return spa_format_audio_raw_ext_parse(format, &info->info.raw,
 				size - offsetof(struct spa_audio_info, info.raw));
@@ -109,6 +149,11 @@ SPA_API_AUDIO_FORMAT_UTILS struct spa_pod *
 spa_format_audio_ext_build(struct spa_pod_builder *builder, uint32_t id,
 		       const struct spa_audio_info *info, size_t size)
 {
+	if (!spa_format_audio_ext_valid_size(info->media_subtype, size)) {
+		errno = EINVAL;
+		return NULL;
+	}
+
 	switch (info->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
 		return spa_format_audio_raw_ext_build(builder, id, &info->info.raw,

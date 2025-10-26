@@ -59,7 +59,8 @@ spa_format_audio_ext_parse(const struct spa_pod *format, struct spa_audio_info *
 
 	switch (info->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
-		return spa_format_audio_raw_ext_parse(format, &info->info.raw, size);
+		return spa_format_audio_raw_ext_parse(format, &info->info.raw,
+				size - offsetof(struct spa_audio_info, info.raw));
 	case SPA_MEDIA_SUBTYPE_dsp:
 		return spa_format_audio_dsp_parse(format, &info->info.dsp);
 	case SPA_MEDIA_SUBTYPE_iec958:
@@ -110,7 +111,8 @@ spa_format_audio_ext_build(struct spa_pod_builder *builder, uint32_t id,
 {
 	switch (info->media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
-		return spa_format_audio_raw_ext_build(builder, id, &info->info.raw, size);
+		return spa_format_audio_raw_ext_build(builder, id, &info->info.raw,
+				size - offsetof(struct spa_audio_info, info.raw));
 	case SPA_MEDIA_SUBTYPE_dsp:
 		return spa_format_audio_dsp_build(builder, id, &info->info.dsp);
 	case SPA_MEDIA_SUBTYPE_iec958:

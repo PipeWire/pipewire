@@ -309,15 +309,15 @@ static void process(struct impl *impl)
 	const float *play_delayed[impl->play_info.channels];
 	float *out[impl->out_info.channels];
 	struct spa_data *dd;
-	uint32_t i, size;
-	uint32_t rindex, pindex, oindex, pdindex, avail;
-	int32_t pavail, pdavail;
+	uint32_t i;
+	uint32_t rindex, pindex, oindex, pdindex, size;
+	int32_t avail, pavail, pdavail;
 
 	size = impl->aec_blocksize;
 
 	/* First read a block from the capture ring buffer */
 	avail = spa_ringbuffer_get_read_index(&impl->rec_ring, &rindex);
-	while (avail > size) {
+	while (avail > (int32_t)size) {
 		/* drop samples from previous graph cycles */
 		spa_ringbuffer_read_update(&impl->rec_ring, rindex + size);
 		avail = spa_ringbuffer_get_read_index(&impl->rec_ring, &rindex);
@@ -352,12 +352,12 @@ static void process(struct impl *impl)
 		goto done;
 	}
 
-	while (pavail > size) {
+	while (pavail > (int32_t)size) {
 		/* drop samples from previous graph cycles */
 		spa_ringbuffer_read_update(&impl->play_ring, pindex + size);
 		pavail = spa_ringbuffer_get_read_index(&impl->play_ring, &pindex);
 	}
-	while (pdavail > size) {
+	while (pdavail > (int32_t)size) {
 		/* drop samples from previous graph cycles */
 		spa_ringbuffer_read_update(&impl->play_delayed_ring, pdindex + size);
 		pdavail = spa_ringbuffer_get_read_index(&impl->play_delayed_ring, &pdindex);
@@ -450,7 +450,7 @@ static void process(struct impl *impl)
 	 * available on the source */
 
 	avail = spa_ringbuffer_get_read_index(&impl->out_ring, &oindex);
-	while (avail >= size) {
+	while (avail >= (int32_t)size) {
 		if ((cout = pw_stream_dequeue_buffer(impl->source)) != NULL) {
 			for (i = 0; i < impl->out_info.channels; i++) {
 				dd = &cout->buffer->datas[i];

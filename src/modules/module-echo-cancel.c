@@ -317,10 +317,15 @@ static void process(struct impl *impl)
 
 	/* First read a block from the capture ring buffer */
 	avail = spa_ringbuffer_get_read_index(&impl->rec_ring, &rindex);
-	while (avail > (int32_t)size) {
-		/* drop samples from previous graph cycles */
+	while (avail >= (int32_t)size * 2) {
+		/* drop samples that are not needed this or next cycle. Note
+		 * that samples are kept in the ringbuffer until next cycle if
+		 * size is not equal to or divisible by quantum, to avoid
+		 * discontinuity */
+		pw_log_debug("avail %d", avail);
 		spa_ringbuffer_read_update(&impl->rec_ring, rindex + size);
 		avail = spa_ringbuffer_get_read_index(&impl->rec_ring, &rindex);
+		pw_log_debug("new avail %d, size %u", avail, size);
 	}
 
 	for (i = 0; i < impl->rec_info.channels; i++) {
@@ -352,15 +357,19 @@ static void process(struct impl *impl)
 		goto done;
 	}
 
-	while (pavail > (int32_t)size) {
-		/* drop samples from previous graph cycles */
-		spa_ringbuffer_read_update(&impl->play_ring, pindex + size);
+	if (pavail > avail) {
+		/* drop too old samples from previous graph cycles */
+		pw_log_debug("pavail %d, dropping %d", pavail, pavail - avail);
+		spa_ringbuffer_read_update(&impl->play_ring, pindex + pavail - avail);
 		pavail = spa_ringbuffer_get_read_index(&impl->play_ring, &pindex);
+		pw_log_debug("new pavail %d, avail %d", pavail, avail);
 	}
-	while (pdavail > (int32_t)size) {
-		/* drop samples from previous graph cycles */
-		spa_ringbuffer_read_update(&impl->play_delayed_ring, pdindex + size);
+	if (pdavail > avail) {
+		/* drop too old samples from previous graph cycles */
+		pw_log_debug("pdavail %d, dropping %d", pdavail, pdavail - avail);
+		spa_ringbuffer_read_update(&impl->play_delayed_ring, pdindex + pdavail - avail);
 		pdavail = spa_ringbuffer_get_read_index(&impl->play_delayed_ring, &pdindex);
+		pw_log_debug("new pdavail %d, avail %d", pdavail, avail);
 	}
 
 	for (i = 0; i < impl->play_info.channels; i++) {

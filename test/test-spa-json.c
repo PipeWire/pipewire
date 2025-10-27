@@ -609,7 +609,7 @@ static void test_array(const char *str, const char * const vals[])
 
 	spa_json_init(&it[0], str, strlen(str));
 	if (spa_json_enter_array(&it[0], &it[1]) <= 0)
-		spa_json_init(&it[1], str, strlen(str));
+		spa_json_init_relax(&it[1], '[', str, strlen(str));
 	for (i = 0; vals[i]; i++) {
 		pwtest_int_gt(spa_json_get_string(&it[1], val, sizeof(val)), 0);
 		pwtest_str_eq(val, vals[i]);
@@ -624,6 +624,7 @@ PWTEST(json_array)
 	test_array("[FL FR]", (const char *[]){ "FL", "FR", NULL });
 	test_array("FL FR", (const char *[]){ "FL", "FR", NULL });
 	test_array("[ FL FR ]", (const char *[]){ "FL", "FR", NULL });
+	test_array("FL FR FC", (const char *[]){ "FL", "FR", "FC", NULL });
 
 	return PWTEST_PASS;
 }

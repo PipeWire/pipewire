@@ -105,7 +105,7 @@ SPA_API_JSON_UTILS int spa_json_begin_container(struct spa_json * iter,
 	spa_json_init(iter, data, size);
 	res = spa_json_enter_container(iter, iter, type);
 	if (res == -EPROTO && relax)
-		spa_json_init(iter, data, size);
+		spa_json_init_relax(iter, type, data, size);
 	else if (res <= 0)
 		return res;
 	return 1;

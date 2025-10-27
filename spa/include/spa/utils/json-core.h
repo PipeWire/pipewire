@@ -54,6 +54,15 @@ SPA_API_JSON void spa_json_init(struct spa_json * iter, const char *data, size_t
 {
 	*iter =  SPA_JSON_INIT(data, size);
 }
+
+#define SPA_JSON_INIT_RELAX(type,data,size) \
+	((struct spa_json) { (data), (data)+(size), NULL, (uint32_t)((type) == '[' ? 0x10 : 0x0), 0 })
+
+SPA_API_JSON void spa_json_init_relax(struct spa_json * iter, char type, const char *data, size_t size)
+{
+	*iter =  SPA_JSON_INIT_RELAX(type, data, size);
+}
+
 #define SPA_JSON_ENTER(iter) ((struct spa_json) { (iter)->cur, (iter)->end, (iter), (iter)->state & 0xff0, 0 })
 
 SPA_API_JSON void spa_json_enter(struct spa_json * iter, struct spa_json * sub)

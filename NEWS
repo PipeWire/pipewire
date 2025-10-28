@@ -1,3 +1,66 @@
+# PipeWire 1.5.82 (2025-11-06)
+
+This is the second 1.6 release candidate that is API and ABI
+compatible with previous 1.4.x, 1.2.x and 1.0.x releases.
+
+Changes since the last pre-release:
+
+## Highlights
+  - The max channel limit is now a compile time option.
+  - The SAP and RTP module have seen some robustness improvements.
+  - Add audio.layout propperty.
+  - Cleanups to the code here and there.
+
+## PipeWire
+  - Handle Tags more like Latency with a NULL param when no ports are linked
+    and some sort of (empty) Tag when the ports are linked.
+
+## Modules
+  - Improve the echo-cancel module to keep the streams more aligned
+    and cause less latency.
+  - Improve format parsing errors in most modules.
+  - The RTP module now has extra code for better network robustness, including
+    cases when network interfaces are not yet up and running, and multicast
+    sockets are silently kicked out of IGMP groups.
+  - The direct timestamp mode in the RTP module was effectively broken and is
+    now fixed.
+  - Add support for audio.layout.
+  - Add multichannel support to ROC.
+
+## SPA
+  - Rework the maximum number of channel handling. Because this is a
+    potential ABI break, it is now a compile time option with new
+    functions to handle more than the previous 64 channels.
+  - The 64 channel limit was removed from the noise shaper.
+  - spa_strbuf is used in more places instead of custom snprintf code.
+  - The volume ramp code was simplified.
+  - The driver node now has properties to configure the clock.
+  - The adapter will try to renegotiate when the driver changes.
+  - Fix relaxed array parsing with od number of elements. (#4944)
+  - audio.layout was added to set the channel positions to some
+    predefined layouts.
+  - Added more POD choice checks to ensure the right amount of values
+    are present in the choice.
+  - Fix __has_attribute usage. (#4962)
+  - Thread RESET_ON_FORK is now disabled for JACK application so that
+    forking will preserve any real-time thread priorities, like JACK.
+    (#4966)
+  - Fix some compilation issues. (#4960 and #4961).
+
+## Pulse-server
+  - Fix missing subscription events on device port changes.
+  - Increase min.quantum to 256/48000. (#4875)
+
+## GStreamer
+  - Avoid overflow in clock time calculations.
+  - Fix renegotiation.
+
+## Docs
+  - Swap the name and id of device.product
+
+
+Older versions:
+
 # PipeWire 1.5.81 (2025-10-16)
 
 This is the first 1.6 release candidate that is API and ABI
@@ -195,9 +258,6 @@ also contains some new features:
 
 ## Docs
   - Document the client-node flow a bit more.
-
-
-Older versions:
 
 # PipeWire 1.4.0 (2025-03-06)
 

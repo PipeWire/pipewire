@@ -871,6 +871,7 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -o, --output                          List output ports\n"
 		"  -i, --input                           List input ports\n"
 		"  -l, --links                           List links\n"
+		"  -t, --latency                         List port latencies\n"
 		"  -m, --monitor                         Monitor links and ports\n"
 		"  -I, --id                              List IDs\n"
 		"  -v, --verbose                         Verbose port properties\n"

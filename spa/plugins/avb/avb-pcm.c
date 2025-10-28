@@ -548,7 +548,7 @@ static int setup_socket(struct state *state)
 	struct ifreq req;
 	struct props *p = &state->props;
 
-	fd = socket(AF_PACKET, SOCK_DGRAM|SOCK_NONBLOCK, htons(ETH_P_TSN));
+	fd = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, htons(ETH_P_TSN));
 	if (fd < 0) {
 		spa_log_error(state->log, "socket() failed: %m");
 		return -errno;

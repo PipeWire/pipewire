@@ -125,7 +125,7 @@ static void test_create(void)
 
 	unlink(temp);
 
-	listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 	spa_assert_se(listen_fd >= 0);
 
 	sockaddr.sun_family = AF_UNIX;

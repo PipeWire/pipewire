@@ -165,7 +165,7 @@ static VkShaderModule createShaderModule(struct vulkan_compute_state *s, const c
 	int fd;
 	struct stat stat;
 
-	if ((fd = open(shaderFile, 0, O_RDONLY)) == -1) {
+	if ((fd = open(shaderFile, 0, O_RDONLY | O_CLOEXEC)) == -1) {
 		spa_log_error(s->log, "can't open %s: %m", shaderFile);
 		return VK_NULL_HANDLE;
 	}

@@ -344,7 +344,7 @@ PWTEST(logger_debug_env_invalid)
 	/* The error message during pw_init() will go to stderr because no
 	 * logger has been set up yet. Intercept that in our temp file */
 	pwtest_mkstemp(fname);
-	fd = open(fname, O_RDWR);
+	fd = open(fname, O_RDWR | O_CLOEXEC);
 	pwtest_errno_ok(fd);
 	rc = dup2(fd, STDERR_FILENO);
 	setlinebuf(stderr);

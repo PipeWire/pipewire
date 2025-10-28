@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
 	spa_assert_se(loop != NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 0);
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fds) < 0) {
 		spa_assert_not_reached();
 		return -1;
 	}
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
 		int fds2[2];
 		struct pw_protocol_native_connection *in2, *out2;
 
-		if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds2) < 0)
+		if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fds2) < 0)
 			spa_assert_not_reached();
 
 		in2 = pw_protocol_native_connection_new(context, fds2[0]);

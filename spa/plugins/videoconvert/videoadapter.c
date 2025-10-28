@@ -900,6 +900,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Position:
 		this->io_position = data;
+		this->recheck_format = true;
 		break;
 	default:
 		break;

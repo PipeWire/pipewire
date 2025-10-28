@@ -756,7 +756,7 @@ static bool parse_clock_id(struct impl *this, const char *s)
 
 static bool parse_clock_device(struct impl *this, const char *s)
 {
-	int fd = open(s, O_RDONLY);
+	int fd = open(s, O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
 		spa_log_info(this->log, "failed to open clock device '%s': %m", s);
 		return false;

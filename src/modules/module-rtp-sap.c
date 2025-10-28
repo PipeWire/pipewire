@@ -880,7 +880,7 @@ static int send_sap(struct impl *impl, struct session *sess, bool bye)
 
 		if ((str = pw_properties_get(sess->props, "source.ip")) == NULL) {
 			if (impl->ifname) {
-				int fd = socket(impl->sap_addr.ss_family, SOCK_DGRAM, 0);
+				int fd = socket(impl->sap_addr.ss_family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 				if (fd >= 0) {
 					struct ifreq req;
 					spa_zero(req);

@@ -143,7 +143,7 @@ int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t m
 	struct packet_mreq mreq;
 	struct sockaddr_ll sll;
 
-	fd = socket(AF_PACKET, SOCK_RAW|SOCK_NONBLOCK, htons(ETH_P_ALL));
+	fd = socket(AF_PACKET, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, htons(ETH_P_ALL));
 	if (fd < 0) {
 		pw_log_error("socket() failed: %m");
 		return -errno;

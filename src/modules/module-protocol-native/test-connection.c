@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 	spa_assert_se(loop != NULL);
 	context = pw_context_new(pw_main_loop_get_loop(loop), NULL, 0);
 
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fds) < 0) {
 		spa_assert_not_reached();
 		return -1;
 	}

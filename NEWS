@@ -166,8 +166,11 @@ also contains some new features:
 ## Bluetooth
   - Telephony improvements.
   - ASHA support was added.
-  - Add packet loss correction with spandsp for some codecs.
-  - Synchronisation between ISO streams in the same group.
+  - Packet loss concealment was added.
+  - Improved synchronisation between LE Audio streams in the same group.
+  - Improved LE Audio device compatibility.
+  - LC3-24kHz voice codec was added (used by Airpods)
+  - LDAC decoding support added (requires separate decoder library)
 
 ## Pulse-server
   - The SUSPEND event is now correctly generated. fail-on-suspend is

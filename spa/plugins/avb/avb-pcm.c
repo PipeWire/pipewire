@@ -44,6 +44,11 @@ static int avb_set_param(struct state *state, const char *k, const char *s)
 				SPA_N_ELEMENTS(state->default_pos.pos),
 				&state->default_pos.channels);
 		fmt_change++;
+	} else if (spa_streq(k, SPA_KEY_AUDIO_LAYOUT)) {
+		spa_audio_parse_layout(s, state->default_pos.pos,
+				SPA_N_ELEMENTS(state->default_pos.pos),
+				&state->default_pos.channels);
+		fmt_change++;
 	} else if (spa_streq(k, SPA_KEY_AUDIO_ALLOWED_RATES)) {
 		state->n_allowed_rates = spa_avb_parse_rates(state->allowed_rates,
 				MAX_RATES, s, strlen(s));

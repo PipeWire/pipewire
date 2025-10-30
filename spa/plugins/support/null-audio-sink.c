@@ -952,6 +952,9 @@ impl_init(const struct spa_handle_factory *factory,
 		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
 			spa_audio_parse_position_n(s, strlen(s), this->props.pos,
 					SPA_N_ELEMENTS(this->props.pos), &this->props.channels);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_LAYOUT)) {
+			spa_audio_parse_layout(s, this->props.pos,
+					SPA_N_ELEMENTS(this->props.pos), &this->props.channels);
 		} else if (spa_streq(k, "clock.name")) {
 			spa_scnprintf(this->props.clock_name,
 					sizeof(this->props.clock_name),

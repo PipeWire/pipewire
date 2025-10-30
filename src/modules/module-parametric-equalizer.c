@@ -70,6 +70,7 @@
  * Options with well-known behaviour:
  *
  * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_LAYOUT
  * - \ref SPA_KEY_AUDIO_POSITION
  * - \ref PW_KEY_REMOTE_NAME
  *

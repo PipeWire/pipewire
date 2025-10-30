@@ -82,6 +82,7 @@
  * - \ref PW_KEY_AUDIO_FORMAT
  * - \ref PW_KEY_AUDIO_RATE
  * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_LAYOUT
  * - \ref SPA_KEY_AUDIO_POSITION
  * - \ref PW_KEY_NODE_NAME
  * - \ref PW_KEY_NODE_DESCRIPTION
@@ -148,6 +149,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "		\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "\
 		"( audio.position=<channel map, default:"DEFAULT_POSITION"> ) "			\
+		"( audio.layout=<layout name, default:"DEFAULT_LAYOUT"> ) "			\
 		"( stream.props= { key=value ... } ) "
 
 static const struct spa_dict_item module_info[] = {
@@ -1329,6 +1331,12 @@ static struct service *make_service(struct impl *impl, const struct service_info
 			} else if (spa_streq(key, "channels")) {
 				k = PW_KEY_AUDIO_CHANNELS;
 				mask |= 1<<3;
+			} else if (spa_streq(key, "position")) {
+				pw_properties_set(props,
+						SPA_KEY_AUDIO_POSITION, value);
+			} else if (spa_streq(key, "layout")) {
+				pw_properties_set(props,
+						SPA_KEY_AUDIO_LAYOUT, value);
 			} else if (spa_streq(key, "channelnames")) {
 				pw_properties_set(props,
 						PW_KEY_NODE_CHANNELNAMES, value);
@@ -1587,6 +1595,8 @@ static int make_announce(struct impl *impl)
 			txt = avahi_string_list_add_pair(txt, "channels", str);
 		if ((str = pw_properties_get(impl->stream_props, SPA_KEY_AUDIO_POSITION)) != NULL)
 			txt = avahi_string_list_add_pair(txt, "position", str);
+		if ((str = pw_properties_get(impl->stream_props, SPA_KEY_AUDIO_LAYOUT)) != NULL)
+			txt = avahi_string_list_add_pair(txt, "layout", str);
 		if ((str = pw_properties_get(impl->stream_props, PW_KEY_NODE_CHANNELNAMES)) != NULL)
 			txt = avahi_string_list_add_pair(txt, "channelnames", str);
 		if (impl->ts_refclk != NULL) {
@@ -1702,6 +1712,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_AUDIO_FORMAT);
 	copy_props(impl, props, PW_KEY_AUDIO_RATE);
 	copy_props(impl, props, PW_KEY_AUDIO_CHANNELS);
+	copy_props(impl, props, SPA_KEY_AUDIO_LAYOUT);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
 	copy_props(impl, props, PW_KEY_NODE_NAME);
 	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);

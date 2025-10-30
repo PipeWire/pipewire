@@ -75,6 +75,7 @@
  * Options with well-known behavior:
  *
  * - \ref PW_KEY_REMOTE_NAME
+ * - \ref SPA_KEY_AUDIO_LAYOUT
  * - \ref SPA_KEY_AUDIO_POSITION
  * - \ref PW_KEY_MEDIA_NAME
  * - \ref PW_KEY_MEDIA_CLASS
@@ -694,6 +695,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_update_string(stream_props, str, strlen(str));
 
 	copy_props(impl, props, PW_KEY_NODE_LOOP_NAME);
+	copy_props(impl, props, SPA_KEY_AUDIO_LAYOUT);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
 	copy_props(impl, props, PW_KEY_NODE_NAME);
 	copy_props(impl, props, PW_KEY_NODE_DESCRIPTION);

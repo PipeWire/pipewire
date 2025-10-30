@@ -4274,10 +4274,18 @@ impl_init(const struct spa_handle_factory *factory,
 				this->direction = SPA_DIRECTION_INPUT;
 		}
 		else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
-			if (s != NULL)
-				spa_audio_parse_position_n(s, strlen(s),
-					this->props.channel_map, SPA_N_ELEMENTS(this->props.channel_map),
-					&this->props.n_channels);
+			if (s == NULL)
+				continue;
+			spa_audio_parse_position_n(s, strlen(s),
+				this->props.channel_map, SPA_N_ELEMENTS(this->props.channel_map),
+				&this->props.n_channels);
+		}
+		else if (spa_streq(k, SPA_KEY_AUDIO_LAYOUT)) {
+			if (s == NULL)
+				continue;
+			spa_audio_parse_layout(s,
+				this->props.channel_map, SPA_N_ELEMENTS(this->props.channel_map),
+				&this->props.n_channels);
 		}
 		else if (spa_streq(k, SPA_KEY_PORT_IGNORE_LATENCY))
 			this->port_ignore_latency = spa_atob(s);

@@ -105,6 +105,7 @@
  *
  * - \ref PW_KEY_AUDIO_RATE
  * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_LAYOUT
  * - \ref SPA_KEY_AUDIO_POSITION
  * - \ref PW_KEY_MEDIA_CLASS
  * - \ref PW_KEY_NODE_LATENCY
@@ -1278,6 +1279,7 @@ static int parse_audio_info(struct pw_properties *props, struct spa_audio_info_r
 			&props->dict,
 			SPA_KEY_AUDIO_RATE,
 			SPA_KEY_AUDIO_CHANNELS,
+			SPA_KEY_AUDIO_LAYOUT,
 			SPA_KEY_AUDIO_POSITION, NULL);
 }
 
@@ -1416,6 +1418,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, PW_KEY_NODE_LINK_GROUP);
 	copy_props(impl, props, PW_KEY_NODE_VIRTUAL);
 	copy_props(impl, props, SPA_KEY_AUDIO_CHANNELS);
+	copy_props(impl, props, SPA_KEY_AUDIO_LAYOUT);
 	copy_props(impl, props, SPA_KEY_AUDIO_POSITION);
 	copy_props(impl, props, "resample.prefill");
 
@@ -1442,8 +1445,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		spa_audio_parse_position_n(str, strlen(str), impl->capture_info.position,
 				SPA_N_ELEMENTS(impl->capture_info.position), &impl->capture_info.channels);
 	}
+	if ((str = pw_properties_get(impl->capture_props, SPA_KEY_AUDIO_LAYOUT)) != NULL) {
+		spa_audio_parse_layout(str, impl->capture_info.position,
+				SPA_N_ELEMENTS(impl->capture_info.position), &impl->capture_info.channels);
+	}
 	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
 		spa_audio_parse_position_n(str, strlen(str), impl->source_info.position,
+				SPA_N_ELEMENTS(impl->source_info.position), &impl->source_info.channels);
+	}
+	if ((str = pw_properties_get(impl->source_props, SPA_KEY_AUDIO_LAYOUT)) != NULL) {
+		spa_audio_parse_layout(str, impl->source_info.position,
 				SPA_N_ELEMENTS(impl->source_info.position), &impl->source_info.channels);
 	}
 	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
@@ -1451,12 +1462,21 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				SPA_N_ELEMENTS(impl->sink_info.position), &impl->sink_info.channels);
 		impl->playback_info = impl->sink_info;
 	}
+	if ((str = pw_properties_get(impl->sink_props, SPA_KEY_AUDIO_LAYOUT)) != NULL) {
+		spa_audio_parse_layout(str, impl->sink_info.position,
+				SPA_N_ELEMENTS(impl->sink_info.position), &impl->sink_info.channels);
+		impl->playback_info = impl->sink_info;
+	}
 	if ((str = pw_properties_get(impl->playback_props, SPA_KEY_AUDIO_POSITION)) != NULL) {
 		spa_audio_parse_position_n(str, strlen(str), impl->playback_info.position,
 				SPA_N_ELEMENTS(impl->playback_info.position), &impl->playback_info.channels);
-		if (impl->playback_info.channels != impl->sink_info.channels)
-			impl->playback_info = impl->sink_info;
 	}
+	if ((str = pw_properties_get(impl->playback_props, SPA_KEY_AUDIO_LAYOUT)) != NULL) {
+		spa_audio_parse_layout(str, impl->playback_info.position,
+				SPA_N_ELEMENTS(impl->playback_info.position), &impl->playback_info.channels);
+	}
+	if (impl->playback_info.channels != impl->sink_info.channels)
+		impl->playback_info = impl->sink_info;
 
 	if ((str = pw_properties_get(props, "aec.method")) != NULL)
 		pw_log_warn("aec.method is not supported anymore use library.name");

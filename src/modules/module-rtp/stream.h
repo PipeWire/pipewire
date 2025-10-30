@@ -15,6 +15,7 @@ struct rtp_stream;
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_POSITION	"[ FL FR ]"
+#define DEFAULT_LAYOUT		"Stereo"
 
 #define ERROR_MSEC		2.0f
 #define DEFAULT_SESS_LATENCY	100.0f

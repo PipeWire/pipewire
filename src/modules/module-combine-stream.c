@@ -64,6 +64,7 @@
  *
  * - \ref PW_KEY_REMOTE_NAME
  * - \ref PW_KEY_AUDIO_CHANNELS
+ * - \ref SPA_KEY_AUDIO_LAYOUT
  * - \ref SPA_KEY_AUDIO_POSITION
  * - \ref PW_KEY_MEDIA_NAME
  * - \ref PW_KEY_NODE_LATENCY
@@ -76,9 +77,10 @@
  * ## Stream options
  *
  * - `audio.position`: Set the stream channel map. By default this is the same channel
- *                     map as the combine stream.
+ *                     map as the combine stream. You can also use audio.layout
  * - `combine.audio.position`: map the combine audio positions to the stream positions.
  *                     combine input channels are mapped one-by-one to stream output channels.
+ *                     You can also use combine.audio.layout.
  *
  * ## Example configuration
  *
@@ -334,6 +336,7 @@ static int parse_audio_info(const struct pw_properties *props, struct spa_audio_
 				SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
 			&props->dict,
 			SPA_KEY_AUDIO_CHANNELS,
+			SPA_KEY_AUDIO_LAYOUT,
 			SPA_KEY_AUDIO_POSITION, NULL);
 }
 
@@ -868,12 +871,18 @@ static int create_stream(struct stream_info *info)
 	if ((str = pw_properties_get(info->stream_props, SPA_KEY_AUDIO_POSITION)) != NULL)
 		spa_audio_parse_position_n(str, strlen(str), s->info.position,
 				SPA_N_ELEMENTS(s->info.position), &s->info.channels);
+	if ((str = pw_properties_get(info->stream_props, SPA_KEY_AUDIO_LAYOUT)) != NULL)
+		spa_audio_parse_layout(str, s->info.position,
+				SPA_N_ELEMENTS(s->info.position), &s->info.channels);
 	if (s->info.channels == 0)
 		s->info = impl->info;
 
 	spa_zero(remap_info);
 	if ((str = pw_properties_get(info->stream_props, "combine.audio.position")) != NULL)
 		spa_audio_parse_position_n(str, strlen(str), remap_info.position,
+				SPA_N_ELEMENTS(remap_info.position), &remap_info.channels);
+	if ((str = pw_properties_get(info->stream_props, "combine.audio.layout")) != NULL)
+		spa_audio_parse_layout(str, remap_info.position,
 				SPA_N_ELEMENTS(remap_info.position), &remap_info.channels);
 	if (remap_info.channels == 0)
 		remap_info = s->info;
@@ -1627,6 +1636,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	copy_props(props, impl->combine_props, PW_KEY_NODE_LOOP_NAME);
 	copy_props(props, impl->combine_props, PW_KEY_AUDIO_CHANNELS);
+	copy_props(props, impl->combine_props, SPA_KEY_AUDIO_LAYOUT);
 	copy_props(props, impl->combine_props, SPA_KEY_AUDIO_POSITION);
 	copy_props(props, impl->combine_props, PW_KEY_NODE_NAME);
 	copy_props(props, impl->combine_props, PW_KEY_NODE_DESCRIPTION);

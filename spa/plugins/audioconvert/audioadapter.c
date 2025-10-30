@@ -931,7 +931,6 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	switch (id) {
 	case SPA_IO_Position:
 		this->io_position = data;
-		this->recheck_format = true;
 		break;
 	default:
 		break;
@@ -1220,6 +1219,9 @@ static void follower_convert_port_info(void *data,
 			case SPA_PARAM_Tag:
 				idx = IDX_Tag;
 				break;
+			case SPA_PARAM_EnumFormat:
+				idx = IDX_EnumFormat;
+				break;
 			default:
 				continue;
 			}
@@ -1246,6 +1248,11 @@ static void follower_convert_port_info(void *data,
 				this->in_recalc--;
 				spa_log_debug(this->log, "tag: %d (%s)", res,
 						spa_strerror(res));
+			}
+			if (idx == IDX_EnumFormat) {
+				spa_log_info(this->log, "new EnumFormat from converter");
+				/* we will renegotiate when restarting */
+				this->recheck_format = true;
 			}
 			spa_log_debug(this->log, "param %d changed", info->params[i].id);
 		}
@@ -1445,7 +1452,7 @@ static void follower_port_info(void *data,
 						spa_strerror(res));
 			}
 			if (idx == IDX_EnumFormat) {
-				spa_log_debug(this->log, "new formats");
+				spa_log_debug(this->log, "new EnumFormat from follower");
 				/* we will renegotiate when restarting */
 				this->recheck_format = true;
 			}

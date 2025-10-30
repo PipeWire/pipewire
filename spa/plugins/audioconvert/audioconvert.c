@@ -282,6 +282,7 @@ struct impl {
 
 	struct props props;
 
+	struct spa_io_clock *io_clock;
 	struct spa_io_position *io_position;
 	struct spa_io_rate_match *io_rate_match;
 
@@ -1005,12 +1006,43 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	spa_log_debug(this->log, "%p: io %d %p/%zd", this, id, data, size);
 
 	switch (id) {
-	case SPA_IO_Position:
-		this->io_position = data;
+	case SPA_IO_Clock:
+		this->io_clock = data;
 		break;
+	case SPA_IO_Position:
+	{
+		struct port *p;
+		uint32_t i;
+
+		this->io_position = data;
+
+		if (this->io_position && this->io_clock &&
+		    this->io_position->clock.target_rate.denom != this->io_clock->target_rate.denom &&
+		    !this->props.resample_disabled) {
+			spa_log_warn(this->log, "driver %d changed rate:%u -> %u", this->io_position->clock.id,
+					this->io_clock->target_rate.denom,
+					this->io_position->clock.target_rate.denom);
+
+			this->io_clock->target_rate = this->io_position->clock.target_rate;
+			for (i = 0; i < this->dir[SPA_DIRECTION_INPUT].n_ports; i++) {
+				if ((p = GET_IN_PORT(this, i)) && p->valid && !p->is_dsp && !p->is_control) {
+					p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+					p->params[IDX_EnumFormat].user++;
+				}
+			}
+			for (i = 0; i < this->dir[SPA_DIRECTION_OUTPUT].n_ports; i++) {
+				if ((p = GET_OUT_PORT(this, i)) && p->valid && !p->is_dsp && !p->is_control) {
+					p->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+					p->params[IDX_EnumFormat].user++;
+				}
+			}
+		}
+		break;
+	}
 	default:
 		return -ENOENT;
 	}
+	emit_info(this, false);
 	return 0;
 }
 

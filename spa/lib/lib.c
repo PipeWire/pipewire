@@ -63,6 +63,7 @@
 #include <spa/param/audio/iec958-types.h>
 #include <spa/param/audio/iec958-utils.h>
 #include <spa/param/audio/layout.h>
+#include <spa/param/audio/layout-types.h>
 #include <spa/param/audio/mp3.h>
 #include <spa/param/audio/mp3-types.h>
 #include <spa/param/audio/mp3-utils.h>

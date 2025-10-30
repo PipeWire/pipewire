@@ -9,6 +9,7 @@
 #include <spa/utils/json.h>
 #include <spa/param/audio/raw.h>
 #include <spa/param/audio/raw-types.h>
+#include <spa/param/audio/layout-types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,6 +56,20 @@ spa_audio_parse_position(const char *str, size_t len,
 }
 
 SPA_API_AUDIO_RAW_JSON int
+spa_audio_parse_layout(const char *str, uint32_t *position, uint32_t max_position,
+		uint32_t *n_channels)
+{
+	struct spa_audio_layout_info l;
+	uint32_t i;
+	if (spa_audio_layout_info_parse_name(&l, sizeof(l), str) <= 0)
+		return 0;
+	for (i = 0; i < l.n_channels && i < max_position; i++)
+		position[i] = l.position[i];
+	*n_channels = l.n_channels;
+	return l.n_channels;
+}
+
+SPA_API_AUDIO_RAW_JSON int
 spa_audio_info_raw_ext_update(struct spa_audio_info_raw *info, size_t size,
 		const char *key, const char *val, bool force)
 {
@@ -75,6 +90,15 @@ spa_audio_info_raw_ext_update(struct spa_audio_info_raw *info, size_t size,
 			if (v > max_position)
 				return -ECHRNG;
 			info->channels = v;
+		}
+	} else if (spa_streq(key, SPA_KEY_AUDIO_LAYOUT)) {
+		if (force || info->channels == 0) {
+			if (spa_audio_parse_layout(val, info->position, max_position, &v) > 0) {
+				if (v > max_position)
+					return -ECHRNG;
+				info->channels = v;
+				SPA_FLAG_CLEAR(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+			}
 		}
 	} else if (spa_streq(key, SPA_KEY_AUDIO_POSITION)) {
 		if (force || info->channels == 0) {

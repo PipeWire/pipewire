@@ -302,6 +302,7 @@ struct spa_audio_info_raw {
 								  *  Ex. "FL" */
 #define SPA_KEY_AUDIO_CHANNELS		"audio.channels"	/**< an audio channel count as int */
 #define SPA_KEY_AUDIO_RATE		"audio.rate"		/**< an audio sample rate as int */
+#define SPA_KEY_AUDIO_LAYOUT		"audio.layout"		/**< channel positions as predefined layout */
 #define SPA_KEY_AUDIO_POSITION		"audio.position"	/**< channel positions as comma separated list
 								  *  of channels ex. "FL,FR" */
 #define SPA_KEY_AUDIO_ALLOWED_RATES	"audio.allowed-rates"	/**< a list of allowed samplerates

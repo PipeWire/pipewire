@@ -6,6 +6,7 @@
 #define SPA_AUDIO_TYPES_H
 
 #include <spa/param/audio/raw-types.h>
+#include <spa/param/audio/layout-types.h>
 #include <spa/param/audio/iec958-types.h>
 #include <spa/param/audio/mp3-types.h>
 #include <spa/param/audio/aac-types.h>

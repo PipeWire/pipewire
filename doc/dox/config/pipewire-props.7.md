@@ -843,6 +843,9 @@ The audio format to open the device in. By default this is "UNKNOWN", which will
 @PAR@ node-prop  audio.position    # JSON array of strings
 The audio position of the channels in the device. This is auto detected based on the profile. You can configure an array of channel positions, like "[ FL, FR ]".
 
+@PAR@ node-prop  audio.layout    # string
+The audio layout of the channels in the device. You can use any of the predefined layouts, like "Stereo", "5.1" etc.
+
 @PAR@ node-prop  audio.allowed-rates    # JSON array of integers
 \parblock
 The allowed audio rates to open the device with. Default is "[ ]", which means the device can be opened in any supported rate.

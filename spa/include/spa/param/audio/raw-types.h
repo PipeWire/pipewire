@@ -314,4 +314,4 @@ static const struct spa_type_info spa_type_audio_volume_ramp_scale[] = {
 }  /* extern "C" */
 #endif
 
-#endif /* SPA_AUDIO_RAW_RAW_TYPES_H */
+#endif /* SPA_AUDIO_RAW_TYPES_H */

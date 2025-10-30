@@ -89,7 +89,7 @@ spa_format_audio_raw_ext_build(struct spa_pod_builder *builder, uint32_t id,
 		/* we drop the positions here when we can't read all of them. This is
 		 * really a malformed spa_audio_info structure. */
 		if (!SPA_FLAG_IS_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED) &&
-		    max_position > info->channels) {
+		    info->channels <= max_position) {
 			spa_pod_builder_add(builder, SPA_FORMAT_AUDIO_position,
 				SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id,
 					info->channels, info->position), 0);

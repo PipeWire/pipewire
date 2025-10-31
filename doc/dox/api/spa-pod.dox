@@ -435,10 +435,11 @@ spa_pod_parser_get_object(&p,
 \endcode
 
 `spa_pod_get_values()` is a useful function. It returns a
-`struct spa_pod*` with and array of values. For normal POD's
-and choice none values, it simply returns the POD and one value.
-For other choice values it returns the choice type and an array
-of values:
+`struct spa_pod*` with and array of values. For invalid PODs
+it returns the POD and no values. For normal PODs it returns
+the POD and one value. For choice values it returns the choice
+type and an array of values. If the choice doesn't fit even a
+single value, the array will have no values.
 
 \code{.c}
 struct spa_pod *value;

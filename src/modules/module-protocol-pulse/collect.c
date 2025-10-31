@@ -169,7 +169,7 @@ uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *
 				SPA_PARAM_PROFILE_description,  SPA_POD_OPT_String(&pi->description),
 				SPA_PARAM_PROFILE_priority,  SPA_POD_OPT_Int(&pi->priority),
 				SPA_PARAM_PROFILE_available,  SPA_POD_OPT_Id(&pi->available),
-				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_Pod(&classes)) < 0) {
+				SPA_PARAM_PROFILE_classes,  SPA_POD_OPT_PodStruct(&classes)) < 0) {
 			continue;
 		}
 		if (pi->description == NULL)
@@ -246,7 +246,7 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 					SPA_TYPE_OBJECT_ParamRoute, NULL,
 					SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
 					SPA_PARAM_ROUTE_device,  SPA_POD_Int(&dev),
-					SPA_PARAM_ROUTE_props,  SPA_POD_OPT_Pod(&props)) < 0)
+					SPA_PARAM_ROUTE_props,  SPA_POD_OPT_PodObject(&props)) < 0)
 				continue;
 			if (dev != dev_info->device)
 				continue;

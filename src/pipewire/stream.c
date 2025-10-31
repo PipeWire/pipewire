@@ -1270,6 +1270,9 @@ static int node_event_param(void *object, int seq,
 			return 0;
 
 		c = calloc(1, sizeof(*c) + SPA_POD_SIZE(param));
+		if (c == NULL)
+			return -errno;
+
 		c->info = SPA_PTROFF(c, sizeof(*c), struct spa_pod);
 		memcpy(c->info, param, SPA_POD_SIZE(param));
 		c->control.n_values = 0;
@@ -1286,7 +1289,7 @@ static int node_event_param(void *object, int seq,
 		}
 
 		pod = spa_pod_get_values(type, &n_vals, &choice);
-		if (n_vals == 0) {
+		if (n_vals < 1) {
 			free(c);
 			return -EINVAL;
 		}
@@ -1318,19 +1321,12 @@ static int node_event_param(void *object, int seq,
 
 		switch (choice) {
 		case SPA_CHOICE_None:
-			if (n_vals < 1) {
-				free(c);
-				return -EINVAL;
-			}
 			c->control.n_values = 1;
 			c->control.max_values = 1;
 			c->control.values[0] = c->control.def = c->control.min = c->control.max = vals[0];
 			break;
 		case SPA_CHOICE_Range:
-			if (n_vals < 3) {
-				free(c);
-				return -EINVAL;
-			}
+		case SPA_CHOICE_Step:
 			c->control.n_values = 1;
 			c->control.max_values = 1;
 			c->control.values[0] = vals[0];

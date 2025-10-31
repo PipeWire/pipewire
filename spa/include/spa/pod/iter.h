@@ -228,7 +228,7 @@ SPA_API_POD_ITER struct spa_pod *spa_pod_get_values(const struct spa_pod *pod,
 		spa_pod_choice_body_get_values(p, SPA_POD_BODY_CONST(p), n_vals, choice, &size, &type);
 		return (struct spa_pod*)&p->body.child;
 	} else {
-		*n_vals = 1;
+		*n_vals = pod->size < spa_pod_type_size(pod->type) ? 0 : 1;
 		*choice = SPA_CHOICE_None;
 		return (struct spa_pod*)pod;
 	}

@@ -78,6 +78,27 @@ SPA_API_POD_BODY uint32_t spa_pod_type_size(uint32_t type)
 	return 0;
 }
 
+SPA_API_POD_BODY uint32_t spa_pod_choice_min_values(uint32_t choice_type)
+{
+	switch (choice_type) {
+	case SPA_CHOICE_Enum:
+		return 2;
+	case SPA_CHOICE_Range:
+		return 3;
+	case SPA_CHOICE_Step:
+		return 4;
+	case SPA_CHOICE_None:
+	case SPA_CHOICE_Flags:
+	default:
+		/*
+		 * This must always return at least 1, because callers
+		 * assume that n_vals >= spa_pod_choice_min_values()
+		 * mean that n_vals is at least 1.
+		 */
+		return 1;
+	}
+}
+
 SPA_API_POD_BODY int spa_pod_body_from_data(void *data, size_t maxsize, off_t offset, size_t size,
 		struct spa_pod *pod, const void **body)
 {
@@ -333,6 +354,8 @@ SPA_API_POD_BODY const void *spa_pod_array_body_get_values(const struct spa_pod_
 	*n_values = child_size ? (arr->pod.size - sizeof(arr->body)) / child_size : 0;
 	*val_size = child_size;
 	*val_type = arr->body.child.type;
+	if (*val_size < spa_pod_type_size(*val_type))
+		*n_values = 0;
 	return body;
 }
 
@@ -371,8 +394,9 @@ SPA_API_POD_BODY const void *spa_pod_choice_body_get_values(const struct spa_pod
 	*val_type = pod->body.child.type;
 	*n_values = child_size ? (pod->pod.size - sizeof(pod->body)) / child_size : 0;
 	*choice = pod->body.type;
-	if (*choice == SPA_CHOICE_None)
-		*n_values = SPA_MIN(1u, *n_values);
+	if (*n_values < spa_pod_choice_min_values(*choice) ||
+	    *val_size < spa_pod_type_size(*val_type))
+		*n_values = 0;
 	return body;
 }
 

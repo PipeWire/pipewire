@@ -82,7 +82,7 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	v1 = spa_pod_get_values(&p1->value, &nalt1, &p1c);
 	v2 = spa_pod_get_values(&p2->value, &nalt2, &p2c);
 
-	/* empty choices */
+	/* empty/invalid choices */
 	if (nalt1 < 1 || nalt2 < 1)
 		return -EINVAL;
 
@@ -94,8 +94,6 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 
 	/* incompatible property types */
 	if (type != v2->type || size != v2->size || p1->key != p2->key)
-		return -EINVAL;
-	if (size < spa_pod_type_size(type))
 		return -EINVAL;
 
 	/* start with copying the property */
@@ -406,7 +404,7 @@ SPA_API_POD_FILTER int spa_pod_filter_object_make(struct spa_pod_object *pod)
 			struct spa_pod *v = spa_pod_get_values(&res->value, &nvals, &choice);
 			const void *vals = SPA_POD_BODY(v);
 
-			if (v->size < spa_pod_type_size(v->type))
+			if (nvals < 1)
 				continue;
 
 			if (spa_pod_compare_is_valid_choice(v->type, v->size,

@@ -852,7 +852,7 @@ done:
 	if (cfg)
 		libusb_free_config_descriptor(cfg);
 	if (devices)
-		libusb_free_device_list(devices, 0);
+		libusb_free_device_list(devices, true);
 	if (ctx)
 		libusb_exit(ctx);
 	return ok;

@@ -12,6 +12,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-json.h>
 
 #include <roc/config.h>
 #include <roc/log.h>
@@ -62,7 +63,9 @@
  *
  * - \ref PW_KEY_NODE_NAME
  * - \ref PW_KEY_NODE_DESCRIPTION
- * - \ref PW_KEY_MEDIA_NAME
+ * - \ref PW_KEY_NODE_VIRTUAL
+ * - \ref PW_KEY_MEDIA_CLASS
+ * - \ref SPA_KEY_AUDIO_POSITION
  *
  * ## Example configuration
  *\code{.unparsed}
@@ -85,6 +88,7 @@
  *          source.props = {
  *             node.name = "roc-source"
  *          }
+ *          audio.position = [ FL FR ]
  *      }
  *  }
  *]
@@ -285,20 +289,33 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	spa_zero(receiver_config);
 
 	receiver_config.frame_encoding.rate = data->rate;
-	receiver_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_STEREO;
 	receiver_config.frame_encoding.format = ROC_FORMAT_PCM_FLOAT32;
 	receiver_config.resampler_profile = data->resampler_profile;
 	receiver_config.resampler_backend = data->resampler_backend;
 	receiver_config.latency_tuner_backend = data->latency_tuner_backend;
 	receiver_config.latency_tuner_profile = data->latency_tuner_profile;
 
-	info.rate = data->rate;
 
 	/* Fixed to be the same as ROC receiver config above */
-	info.channels = 2;
+	info.rate = data->rate;
 	info.format = SPA_AUDIO_FORMAT_F32;
-	info.position[0] = SPA_AUDIO_CHANNEL_FL;
-	info.position[1] = SPA_AUDIO_CHANNEL_FR;
+
+	const char* positions = pw_properties_get(data->playback_props, SPA_KEY_AUDIO_POSITION);
+	int channels = spa_audio_parse_position_n(positions, strlen(positions), info.position, SPA_N_ELEMENTS(info.position), &info.channels);
+
+	if(channels == 2) {
+		receiver_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_STEREO;
+	} else {
+		receiver_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_MULTITRACK;
+		receiver_config.frame_encoding.tracks = channels;
+
+		res = roc_context_register_encoding(data->context, PW_ROC_MULTITRACK_ENCODING_ID, &receiver_config.frame_encoding);
+		if(res) {
+			pw_log_error("failed to register encoding: %d", res);
+			return -EINVAL;
+		}
+	}
+
 	data->stride = info.channels * sizeof(float);
 
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_RATE, "1/%d", info.rate);
@@ -403,6 +420,7 @@ static const struct spa_dict_item module_roc_source_info[] = {
 				"( local.source.port=<local receiver port for source packets> ) "
 				"( local.repair.port=<local receiver port for repair packets> ) "
 				"( local.control.port=<local receiver port for control packets> ) "
+				"( audio.position=<channel map, default:"PW_ROC_STEREO_POSITIONS"> ) "
 				"( source.props= { key=value ... } ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
@@ -458,6 +476,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(playback_props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(playback_props, PW_KEY_NODE_NETWORK) == NULL)
 		pw_properties_set(playback_props, PW_KEY_NODE_NETWORK, "true");
+
+	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL) {
+		pw_properties_set(playback_props, SPA_KEY_AUDIO_POSITION, str);
+	} else {
+		pw_properties_set(playback_props, SPA_KEY_AUDIO_POSITION, PW_ROC_STEREO_POSITIONS);
+	}
 
 	data->rate = pw_properties_get_uint32(playback_props, PW_KEY_AUDIO_RATE, 0);
 	if (data->rate == 0)

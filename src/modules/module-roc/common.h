@@ -13,6 +13,10 @@
 #define PW_ROC_DEFAULT_SESS_LATENCY 200
 #define PW_ROC_DEFAULT_RATE 44100
 #define PW_ROC_DEFAULT_CONTROL_PROTO ROC_PROTO_RTCP
+#define PW_ROC_DEFAULT_PACKET_LENGTH 5000000 // 5ms in ns
+
+#define PW_ROC_MULTITRACK_ENCODING_ID 100
+#define PW_ROC_STEREO_POSITIONS "[ FL FR ]"
 
 static inline int pw_roc_parse_fec_encoding(roc_fec_encoding *out, const char *str)
 {

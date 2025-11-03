@@ -12,6 +12,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-json.h>
 
 #include <roc/config.h>
 #include <roc/log.h>
@@ -52,7 +53,10 @@
  *
  * - \ref PW_KEY_NODE_NAME
  * - \ref PW_KEY_NODE_DESCRIPTION
- * - \ref PW_KEY_MEDIA_NAME
+ * - \ref PW_KEY_NODE_VIRTUAL
+ * - \ref PW_KEY_MEDIA_CLASS
+ * - \ref SPA_KEY_AUDIO_POSITION
+
  *
  * ## Example configuration
  *\code{.unparsed}
@@ -70,6 +74,7 @@
  *          sink.props = {
  *             node.name = "roc-sink"
  *          }
+ *          audio.position = [ FL FR ]
  *      }
  *  }
  *]
@@ -264,18 +269,34 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 	spa_zero(sender_config);
 
 	sender_config.frame_encoding.rate = data->rate;
-	sender_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_STEREO;
 	sender_config.frame_encoding.format = ROC_FORMAT_PCM_FLOAT32;
-	sender_config.packet_encoding = ROC_PACKET_ENCODING_AVP_L16_STEREO;
 	sender_config.fec_encoding = data->fec_code;
 
-	info.rate = data->rate;
-
 	/* Fixed to be the same as ROC sender config above */
-	info.channels = 2;
+	info.rate = data->rate;
 	info.format = SPA_AUDIO_FORMAT_F32;
-	info.position[0] = SPA_AUDIO_CHANNEL_FL;
-	info.position[1] = SPA_AUDIO_CHANNEL_FR;
+
+	const char* positions = pw_properties_get(data->capture_props, SPA_KEY_AUDIO_POSITION);
+	int channels = spa_audio_parse_position_n(positions, strlen(positions), info.position, SPA_N_ELEMENTS(info.position), &info.channels);
+
+	if(channels == 2) {
+		sender_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_STEREO;
+		sender_config.packet_encoding = ROC_PACKET_ENCODING_AVP_L16_STEREO;
+	} else {
+		sender_config.frame_encoding.channels = ROC_CHANNEL_LAYOUT_MULTITRACK;
+		sender_config.frame_encoding.tracks = channels;
+
+		res = roc_context_register_encoding(data->context, PW_ROC_MULTITRACK_ENCODING_ID, &sender_config.frame_encoding);
+		if(res) {
+			pw_log_error("failed to register encoding: %d", res);
+			return -EINVAL;
+		}
+		sender_config.packet_encoding = PW_ROC_MULTITRACK_ENCODING_ID;
+
+		// As of v0.4.0, roc generates packets bigger than it can handle if many channels are used
+		// (see github.com/roc-streaming/roc-toolkit/issues/821)
+		sender_config.packet_length = PW_ROC_DEFAULT_PACKET_LENGTH * 2 / channels;
+	}
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_RATE, "1/%d", info.rate);
 
@@ -360,6 +381,7 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 				"( remote.source.port=<remote receiver port for source packets> ) "
 				"( remote.repair.port=<remote receiver port for repair packets> ) "
 				"( remote.control.port=<remote receiver port for control packets> ) "
+				"( audio.position=<channel map, default:"PW_ROC_STEREO_POSITIONS"> ) "
 				"( sink.props= { key=val ... } ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
@@ -417,6 +439,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(capture_props, PW_KEY_NODE_NETWORK, "true");
 	if ((str = pw_properties_get(capture_props, PW_KEY_MEDIA_CLASS)) == NULL)
 		pw_properties_set(capture_props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
+
+	if ((str = pw_properties_get(props, SPA_KEY_AUDIO_POSITION)) != NULL) {
+		pw_properties_set(capture_props, SPA_KEY_AUDIO_POSITION, str);
+	} else {
+		pw_properties_set(capture_props, SPA_KEY_AUDIO_POSITION, PW_ROC_STEREO_POSITIONS);
+	}
 
 	data->rate = pw_properties_get_uint32(capture_props, PW_KEY_AUDIO_RATE, 0);
 	if (data->rate == 0)

@@ -5582,10 +5582,10 @@ static int register_media_endpoint(struct spa_bt_monitor *monitor,
 static int register_media_application(struct spa_bt_monitor * monitor)
 {
 	const struct media_codec * const * const media_codecs = monitor->media_codecs;
-	const DBusObjectPathVTable vtable_object_manager_a2dp = {
+	static const DBusObjectPathVTable vtable_object_manager_a2dp = {
 		.message_function = object_manager_handler_a2dp,
 	};
-	const DBusObjectPathVTable vtable_object_manager_bap = {
+	static const DBusObjectPathVTable vtable_object_manager_bap = {
 		.message_function = object_manager_handler_bap,
 	};
 

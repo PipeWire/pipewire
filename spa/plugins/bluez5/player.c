@@ -247,10 +247,11 @@ static void update_properties(struct impl *impl, bool send_signal)
 
 struct spa_bt_player *spa_bt_player_new(void *dbus_connection, struct spa_log *log)
 {
-	struct impl *impl;
-	const DBusObjectPathVTable vtable = {
+	static const DBusObjectPathVTable vtable = {
 		.message_function = player_handler,
 	};
+
+	struct impl *impl;
 
 	spa_log_topic_init(log, &log_topic);
 

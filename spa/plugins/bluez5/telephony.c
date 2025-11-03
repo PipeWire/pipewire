@@ -1150,7 +1150,7 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
 	char *path;
 
-	const DBusObjectPathVTable vtable = {
+	static const DBusObjectPathVTable vtable = {
 		.message_function = ag_handler,
 	};
 
@@ -1648,7 +1648,7 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
 	char *path;
 
-	const DBusObjectPathVTable vtable = {
+	static const DBusObjectPathVTable vtable = {
 		.message_function = call_handler,
 	};
 

@@ -2415,7 +2415,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 	default:
 		name_prefix = "bluetooth";
 		description = _("Bluetooth");
-		hfp_description = _("Bluetooth (HFP)");
+		hfp_description = _("Bluetooth Handsfree");
 		port_type = "bluetooth";
 		break;
 	}

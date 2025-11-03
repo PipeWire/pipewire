@@ -1148,20 +1148,20 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 {
 	struct agimpl *agimpl = SPA_CONTAINER_OF(ag, struct agimpl, this);
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
-	char *path;
 
 	static const DBusObjectPathVTable vtable = {
 		.message_function = ag_handler,
 	};
 
-	path = spa_aprintf (PW_TELEPHONY_OBJECT_PATH "/ag%d", agimpl->this.id);
+	spa_autofree char *path = spa_aprintf(PW_TELEPHONY_OBJECT_PATH "/ag%d", agimpl->this.id);
 
 	/* register object */
 	if (!dbus_connection_register_object_path(impl->conn, path, &vtable, agimpl)) {
 		spa_log_error(impl->log, "failed to register %s", path);
 		return -EIO;
 	}
-	agimpl->path = strdup(path);
+
+	agimpl->path = spa_steal_ptr(path);
 
 	/* notify on ObjectManager of the Manager object */
 	{
@@ -1174,7 +1174,7 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 		dbus_iter_append_ag_interfaces(&iter, ag);
 
 		if (!dbus_connection_send(impl->conn, msg, NULL)) {
-			spa_log_error(impl->log, "failed to send InterfacesAdded for %s", path);
+			spa_log_error(impl->log, "failed to send InterfacesAdded for %s", agimpl->path);
 			telephony_ag_unregister(ag);
 			return -EIO;
 		}
@@ -1188,18 +1188,18 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 		msg = dbus_message_new_signal(impl->path, OFONO_MANAGER_IFACE,
 						"ModemAdded");
 		dbus_message_iter_init_append(msg, &iter);
-		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &agimpl->path);
 		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
 		dbus_message_iter_close_container(&iter, &props_dict);
 
 		if (!dbus_connection_send(impl->conn, msg, NULL)) {
-			spa_log_error(impl->log, "failed to send ModemAdded for %s", path);
+			spa_log_error(impl->log, "failed to send ModemAdded for %s", agimpl->path);
 			telephony_ag_unregister(ag);
 			return -EIO;
 		}
 	}
 
-	spa_log_debug(impl->log, "registered AudioGateway: %s", path);
+	spa_log_debug(impl->log, "registered AudioGateway: %s", agimpl->path);
 
 	return 0;
 }
@@ -1646,20 +1646,20 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 	struct callimpl *callimpl = SPA_CONTAINER_OF(call, struct callimpl, this);
 	struct agimpl *agimpl = SPA_CONTAINER_OF(callimpl->this.ag, struct agimpl, this);
 	struct impl *impl = SPA_CONTAINER_OF(agimpl->this.telephony, struct impl, this);
-	char *path;
 
 	static const DBusObjectPathVTable vtable = {
 		.message_function = call_handler,
 	};
 
-	path = spa_aprintf ("%s/call%d", agimpl->path, callimpl->this.id);
+	spa_autofree char *path = spa_aprintf("%s/call%d", agimpl->path, callimpl->this.id);
 
 	/* register object */
 	if (!dbus_connection_register_object_path(impl->conn, path, &vtable, callimpl)) {
 		spa_log_error(impl->log, "failed to register %s", path);
 		return -EIO;
 	}
-	callimpl->path = strdup(path);
+
+	callimpl->path = spa_steal_ptr(path);
 
 	/* notify on ObjectManager of the AudioGateway object */
 	{
@@ -1671,7 +1671,7 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 					DBUS_INTERFACE_OBJECT_MANAGER,
 					"InterfacesAdded");
 		dbus_message_iter_init_append(msg, &iter);
-		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
 		dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "{sa{sv}}", &dict);
 		dbus_message_iter_open_container(&dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
 		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &interface);
@@ -1680,7 +1680,7 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 		dbus_message_iter_close_container(&iter, &dict);
 
 		if (!dbus_connection_send(impl->conn, msg, NULL)) {
-			spa_log_error(impl->log, "failed to send InterfacesAdded for %s", path);
+			spa_log_error(impl->log, "failed to send InterfacesAdded for %s", callimpl->path);
 			telephony_call_unregister(call);
 			return -EIO;
 		}
@@ -1695,11 +1695,11 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 					OFONO_VOICE_CALL_MANAGER_IFACE,
 					"CallAdded");
 		dbus_message_iter_init_append(msg, &iter);
-		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+		dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
 		dbus_iter_append_call_properties(&iter, call, true);
 
 		if (!dbus_connection_send(impl->conn, msg, NULL)) {
-			spa_log_error(impl->log, "failed to send CallAdded for %s", path);
+			spa_log_error(impl->log, "failed to send CallAdded for %s", callimpl->path);
 			telephony_call_unregister(call);
 			return -EIO;
 		}
@@ -1707,7 +1707,7 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 
 	telephony_call_commit_properties(call);
 
-	spa_log_debug(impl->log, "registered Call: %s", path);
+	spa_log_debug(impl->log, "registered Call: %s", callimpl->path);
 
 	return 0;
 }

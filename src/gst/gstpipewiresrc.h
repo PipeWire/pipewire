@@ -15,6 +15,7 @@
 #include <gst/video/video.h>
 
 #include <pipewire/pipewire.h>
+#include <spa/param/format.h>
 #include <gst/gstpipewirepool.h>
 #include <gst/gstpipewirecore.h>
 
@@ -63,7 +64,7 @@ struct _GstPipeWireSrc {
   GstCaps *caps;
   GstCaps *possible_caps;
 
-  gboolean is_video;
+  enum spa_media_type media_type;
   gboolean is_rawvideo;
   GstVideoInfo video_info;
 #ifdef HAVE_GSTREAMER_DMA_DRM

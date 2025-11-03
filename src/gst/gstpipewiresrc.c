@@ -769,7 +769,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     GST_BUFFER_DTS (buf) = b->time - pwsrc->delay;
   }
 
-  if (pwsrc->is_video) {
+  if (pwsrc->media_type == SPA_MEDIA_TYPE_video) {
     if (pwsrc->video_info.fps_n) {
       GST_BUFFER_DURATION (buf) = gst_util_uint64_scale (GST_SECOND,
           pwsrc->video_info.fps_d, pwsrc->video_info.fps_n);
@@ -912,7 +912,7 @@ on_state_changed (void *data,
        * must handle the clock lost message in it's bus handler by pausing
        * the pipeline and then setting it back to playing.
        */
-      if (current_state == GST_STATE_PLAYING && !pwsrc->is_video)
+      if (current_state == GST_STATE_PLAYING && pwsrc->media_type == SPA_MEDIA_TYPE_audio)
         gst_element_post_message (GST_ELEMENT_CAST (pwsrc),
             gst_message_new_clock_lost (GST_OBJECT_CAST (pwsrc),
                 GST_CLOCK_CAST (pwsrc->stream->clock)));
@@ -1265,7 +1265,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
   if (param == NULL) {
     GST_DEBUG_OBJECT (pwsrc, "clear format");
     pwsrc->negotiated = FALSE;
-    pwsrc->is_video = FALSE;
+    pwsrc->media_type = SPA_MEDIA_TYPE_unknown;
     return;
   }
 
@@ -1303,7 +1303,7 @@ handle_format_change (GstPipeWireSrc *pwsrc,
     structure = gst_caps_get_structure (pwsrc->caps, 0);
     if (g_str_has_prefix (gst_structure_get_name (structure), "video/") ||
         g_str_has_prefix (gst_structure_get_name (structure), "image/")) {
-      pwsrc->is_video = TRUE;
+      pwsrc->media_type = SPA_MEDIA_TYPE_video;
 
 #ifdef HAVE_GSTREAMER_DMA_DRM
       if (gst_video_is_dma_drm_caps (pwsrc->caps)) {
@@ -1342,10 +1342,12 @@ handle_format_change (GstPipeWireSrc *pwsrc,
        * application/user */
       if (pwsrc->use_bufferpool != USE_BUFFERPOOL_YES)
         pwsrc->use_bufferpool = USE_BUFFERPOOL_NO;
+
+      pwsrc->media_type = SPA_MEDIA_TYPE_audio;
     }
   } else {
     pwsrc->negotiated = FALSE;
-    pwsrc->is_video = FALSE;
+    pwsrc->media_type = SPA_MEDIA_TYPE_unknown;
     pwsrc->is_rawvideo = FALSE;
   }
 

@@ -1153,6 +1153,9 @@ int telephony_ag_register(struct spa_bt_telephony_ag *ag)
 		.message_function = ag_handler,
 	};
 
+	if (agimpl->path)
+		return -EBUSY;
+
 	spa_autofree char *path = spa_aprintf(PW_TELEPHONY_OBJECT_PATH "/ag%d", agimpl->this.id);
 
 	/* register object */
@@ -1650,6 +1653,9 @@ int telephony_call_register(struct spa_bt_telephony_call *call)
 	static const DBusObjectPathVTable vtable = {
 		.message_function = call_handler,
 	};
+
+	if (callimpl->path)
+		return -EBUSY;
 
 	spa_autofree char *path = spa_aprintf("%s/call%d", agimpl->path, callimpl->this.id);
 

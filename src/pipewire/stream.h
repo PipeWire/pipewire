@@ -455,9 +455,9 @@ struct pw_stream_events {
 	void (*trigger_done) (void *data);
 
 	/* notify that a new node linked to the stream, since 1.6.0:3 */
-	void (*peer_added) (void *data, uint32_t id);
+        void (*peer_added) (void *data, uint32_t id);
 	/* notify that a new node unlinked to the stream, since 1.6.0:3 */
-	void (*peer_removed) (void *data, uint32_t id);
+        void (*peer_removed) (void *data, uint32_t id);
 };
 
 /** Convert a stream state to a readable string */

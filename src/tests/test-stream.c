@@ -30,8 +30,6 @@ static void test_abi(void)
 		void (*drained) (void *data);
 		void (*command) (void *data, const struct spa_command *command);
 		void (*trigger_done) (void *data);
-		void (*peer_added) (void *data, uint32_t id);
-		void (*peer_removed) (void *data, uint32_t id);
 	} test = { PW_VERSION_STREAM_EVENTS, NULL };
 
 	struct pw_stream_events ev;
@@ -47,8 +45,6 @@ static void test_abi(void)
 	TEST_FUNC(ev, test, drained);
 	TEST_FUNC(ev, test, command);
 	TEST_FUNC(ev, test, trigger_done);
-	TEST_FUNC(ev, test, peer_added);
-	TEST_FUNC(ev, test, peer_removed);
 
 #if defined(__x86_64__) && defined(__LP64__)
 	spa_assert_se(sizeof(struct pw_buffer) == 40);
@@ -58,7 +54,7 @@ static void test_abi(void)
 	fprintf(stderr, "%zd\n", sizeof(struct pw_time));
 #endif
 
-	spa_assert_se(PW_VERSION_STREAM_EVENTS == 3);
+	spa_assert_se(PW_VERSION_STREAM_EVENTS == 2);
 	spa_assert_se(sizeof(ev) == sizeof(test));
 
 	spa_assert_se(PW_STREAM_STATE_ERROR == -1);

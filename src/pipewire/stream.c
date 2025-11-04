@@ -1469,14 +1469,12 @@ static void node_state_changed(void *data, enum pw_node_state old,
 static void node_peer_added (void *data, struct pw_impl_node *node, uint32_t id)
 {
 	struct pw_stream *stream = data;
-	if (stream->node_id != SPA_ID_INVALID && id != stream->node_id)
-		pw_stream_emit_peer_added(stream, id);
+	pw_stream_emit_peer_added(stream, id);
 }
 static void node_peer_removed (void *data, struct pw_impl_node *node, uint32_t id)
 {
 	struct pw_stream *stream = data;
-	if (stream->node_id != SPA_ID_INVALID && id != stream->node_id)
-		pw_stream_emit_peer_removed(stream, id);
+	pw_stream_emit_peer_removed(stream, id);
 }
 
 static const struct pw_impl_node_events node_events = {

@@ -898,8 +898,8 @@ int pw_impl_node_add_target(struct pw_impl_node *node, struct pw_node_target *t)
 {
 	pw_loop_locked(node->data_loop,
 			do_add_target, SPA_ID_INVALID, &node, sizeof(void *), t);
-
-	pw_impl_node_emit_peer_added(node, t->node, t->id);
+	if (t->node)
+		pw_impl_node_emit_peer_added(node, t->node);
 
 	return 0;
 }
@@ -934,8 +934,8 @@ int pw_impl_node_remove_target(struct pw_impl_node *node, struct pw_node_target 
 	 * can inspect the nodes as well */
 	pw_loop_locked(node->data_loop,
 			do_remove_target, SPA_ID_INVALID, &node, sizeof(void *), t);
-
-	pw_impl_node_emit_peer_removed(node, t->node, t->id);
+	if (t->node)
+		pw_impl_node_emit_peer_removed(node, t->node);
 
 	return 0;
 }

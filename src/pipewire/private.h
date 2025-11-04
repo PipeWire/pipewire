@@ -717,8 +717,8 @@ void pw_node_peer_unref(struct pw_node_peer *peer);
 #define pw_impl_node_emit_result(n,s,r,t,result)	pw_impl_node_emit(n, result, 0, s, r, t, result)
 #define pw_impl_node_emit_event(n,e)			pw_impl_node_emit(n, event, 0, e)
 #define pw_impl_node_emit_driver_changed(n,o,d)		pw_impl_node_emit(n, driver_changed, 0, o, d)
-#define pw_impl_node_emit_peer_added(n,p,i)		pw_impl_node_emit(n, peer_added, 1, p, i)
-#define pw_impl_node_emit_peer_removed(n,p,i)		pw_impl_node_emit(n, peer_removed, 1, p, i)
+#define pw_impl_node_emit_peer_added(n,p)		pw_impl_node_emit(n, peer_added, 0, p)
+#define pw_impl_node_emit_peer_removed(n,p)		pw_impl_node_emit(n, peer_removed, 0, p)
 
 #define pw_impl_node_rt_emit(o,m,v,...) spa_hook_list_call(&o->rt_listener_list, struct pw_impl_node_rt_events, m, v, ##__VA_ARGS__)
 #define pw_impl_node_rt_emit_drained(n)			pw_impl_node_rt_emit(n, drained, 0)
@@ -1145,8 +1145,6 @@ struct pw_core {
 #define pw_stream_emit_control_info(s,i,c)	pw_stream_emit(s, control_info, 0, i, c)
 #define pw_stream_emit_command(s,c)		pw_stream_emit(s, command,1,c)
 #define pw_stream_emit_trigger_done(s)		pw_stream_emit(s, trigger_done,2)
-#define pw_stream_emit_peer_added(s,i)		pw_stream_emit(s, peer_added, 3, i)
-#define pw_stream_emit_peer_removed(s,i)	pw_stream_emit(s, peer_removed, 3, i)
 
 
 struct pw_stream {

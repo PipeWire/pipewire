@@ -28,7 +28,7 @@ extern "C" {
 
 #define SPA_CHOICE_RANGE(def,min,max)			3,(def),(min),(max)
 #define SPA_CHOICE_STEP(def,min,max,step)		4,(def),(min),(max),(step)
-#define SPA_CHOICE_ENUM(n_vals,...)			(n_vals),##__VA_ARGS__
+#define SPA_CHOICE_ENUM(n_vals,def,alt1,...)		(n_vals),(def),(alt1),##__VA_ARGS__
 #define SPA_CHOICE_FLAGS(flags)				1, (flags)
 #define SPA_CHOICE_FEATURES(features)			1, (features)
 #define SPA_CHOICE_BOOL(def)				3,(def),(def),!(def)

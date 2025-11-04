@@ -1486,7 +1486,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		spa_pod_builder_push_object(&b.b, &f[0], SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
 		spa_pod_builder_add(&b.b,
 			SPA_PROP_INFO_id,    SPA_POD_Id(prop_id),
-			SPA_PROP_INFO_type,  SPA_POD_CHOICE_ENUM_Int(1, (int32_t)queryctrl.default_value),
+			SPA_PROP_INFO_type,  SPA_POD_Int((int32_t)queryctrl.default_value),
 			SPA_PROP_INFO_description,  SPA_POD_String(queryctrl.name),
 			0);
 

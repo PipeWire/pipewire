@@ -484,7 +484,7 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 			pw_log_warn("short packet received (%d < %d)", len,
 					(int)sizeof(struct avb_packet_header));
 		} else {
-			struct avb_frame_header *h = (void*)buffer;
+			struct avb_ethernet_header *h = (void*)buffer;
 			struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
 
 			if (memcmp(h->dest, stream->addr, 6) != 0 ||

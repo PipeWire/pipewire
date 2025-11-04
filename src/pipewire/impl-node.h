@@ -29,7 +29,7 @@ struct pw_impl_port;
 
 /** Node events, listen to them with \ref pw_impl_node_add_listener */
 struct pw_impl_node_events {
-#define PW_VERSION_IMPL_NODE_EVENTS	0
+#define PW_VERSION_IMPL_NODE_EVENTS	1
 	uint32_t version;
 
 	/** the node is destroyed */
@@ -69,10 +69,10 @@ struct pw_impl_node_events {
 	/** the driver of the node changed */
 	void (*driver_changed) (void *data, struct pw_impl_node *old, struct pw_impl_node *driver);
 
-	/** a peer was added */
-	void (*peer_added) (void *data, struct pw_impl_node *peer);
-	/** a peer was removed */
-	void (*peer_removed) (void *data, struct pw_impl_node *peer);
+	/** a peer was added, id added in version 1 */
+	void (*peer_added) (void *data, struct pw_impl_node *peer, uint32_t id);
+	/** a peer was removed, id added in version 1 */
+	void (*peer_removed) (void *data, struct pw_impl_node *peer, uint32_t id);
 };
 
 struct pw_impl_node_rt_events {

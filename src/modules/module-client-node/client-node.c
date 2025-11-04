@@ -1270,10 +1270,13 @@ static void client_node_resource_pong(void *data, int seq)
 	spa_node_emit_result(&impl->hooks, seq, 0, 0, NULL);
 }
 
-static void node_peer_added(void *data, struct pw_impl_node *peer)
+static void node_peer_added(void *data, struct pw_impl_node *peer, uint32_t id)
 {
 	struct impl *impl = data;
 	struct pw_memblock *m;
+
+	if (peer == NULL)
+		return;
 
 	m = pw_mempool_import_block(impl->client_pool, peer->activation);
 	if (m == NULL) {
@@ -1295,10 +1298,13 @@ static void node_peer_added(void *data, struct pw_impl_node *peer)
 					  sizeof(struct pw_node_activation));
 }
 
-static void node_peer_removed(void *data, struct pw_impl_node *peer)
+static void node_peer_removed(void *data, struct pw_impl_node *peer, uint32_t id)
 {
 	struct impl *impl = data;
 	struct pw_memblock *m;
+
+	if (peer == NULL)
+		return;
 
 	m = pw_mempool_find_fd(impl->client_pool, peer->activation->fd);
 	if (m == NULL) {

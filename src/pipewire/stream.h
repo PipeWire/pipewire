@@ -414,7 +414,7 @@ struct pw_time {
 /** Events for a stream. These events are always called from the mainloop
  * unless explicitly documented otherwise. */
 struct pw_stream_events {
-#define PW_VERSION_STREAM_EVENTS	2
+#define PW_VERSION_STREAM_EVENTS	3
 	uint32_t version;
 
 	void (*destroy) (void *data);
@@ -453,6 +453,11 @@ struct pw_stream_events {
 	 *  can also be called directly from the realtime data
 	 *  thread if the user is prepared to deal with this. */
 	void (*trigger_done) (void *data);
+
+	/* notify that a new node linked to the stream, since 1.6.0:3 */
+        void (*peer_added) (void *data, uint32_t id);
+	/* notify that a new node unlinked to the stream, since 1.6.0:3 */
+        void (*peer_removed) (void *data, uint32_t id);
 };
 
 /** Convert a stream state to a readable string */

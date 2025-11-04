@@ -1466,11 +1466,24 @@ static void node_state_changed(void *data, enum pw_node_state old,
 	}
 }
 
+static void node_peer_added (void *data, struct pw_impl_node *node, uint32_t id)
+{
+	struct pw_stream *stream = data;
+	pw_stream_emit_peer_added(stream, id);
+}
+static void node_peer_removed (void *data, struct pw_impl_node *node, uint32_t id)
+{
+	struct pw_stream *stream = data;
+	pw_stream_emit_peer_removed(stream, id);
+}
+
 static const struct pw_impl_node_events node_events = {
 	PW_VERSION_IMPL_NODE_EVENTS,
 	.destroy = node_event_destroy,
 	.info_changed = node_event_info,
 	.state_changed = node_state_changed,
+	.peer_added = node_peer_added,
+	.peer_removed = node_peer_removed,
 };
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)

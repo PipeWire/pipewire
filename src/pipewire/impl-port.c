@@ -1874,11 +1874,10 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 			tag = other->tag[other->direction];
 			if (tag) {
 				void *state = NULL;
-				while (spa_tag_parse(tag, &info, &state) == 1) {
+				while (spa_tag_parse(tag, &info, &state) == 1)
 					spa_tag_build_add_info(&b.b, info.info);
-					count++;
-				}
 			}
+			count++;
 		}
 	} else {
 		spa_list_for_each(l, &port->links, input_link) {
@@ -1886,11 +1885,10 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 			tag = other->tag[other->direction];
 			if (tag) {
 				void *state = NULL;
-				while (spa_tag_parse(tag, &info, &state) == 1) {
+				while (spa_tag_parse(tag, &info, &state) == 1)
 					spa_tag_build_add_info(&b.b, info.info);
-					count++;
-				}
 			}
+			count++;
 		}
 	}
 	param = count == 0 ? NULL : spa_tag_build_end(&b.b, &f);

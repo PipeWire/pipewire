@@ -90,13 +90,14 @@ spa_pod_parser_read_header(struct spa_pod_parser *parser, uint32_t offset, uint3
 	/* Cast to uint64_t to avoid wraparound. */
 	const uint64_t long_offset = (uint64_t)offset + header_size;
 	if (long_offset <= size && (offset & 7) == 0) {
+		struct spa_pod *pod;
 		/* a barrier around the memcpy to make sure it is not moved around or
-		 * duplicated after the size check below. We need to to work on shared
-		 * memory while there could be updates happening while we read. */
+		 * duplicated after the size check below. We need to work on shared
+		 * memory and so there could be updates happening while we read. */
 		SPA_BARRIER;
 		memcpy(header, SPA_PTROFF(parser->data, offset, void), header_size);
 		SPA_BARRIER;
-		struct spa_pod *pod = SPA_PTROFF(header, pod_offset, struct spa_pod);
+		pod = SPA_PTROFF(header, pod_offset, struct spa_pod);
 		/* Check that the size (rounded to the next multiple of 8) is in bounds. */
 		if (long_offset + SPA_ROUND_UP_N((uint64_t)pod->size, SPA_POD_ALIGN) <= size) {
 			*body = SPA_PTROFF(parser->data, long_offset, void);

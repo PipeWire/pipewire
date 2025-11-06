@@ -273,9 +273,9 @@ SPA_API_POD_BODY int spa_pod_is_pointer(const struct spa_pod *pod)
 SPA_API_POD_BODY int spa_pod_body_get_pointer(const struct spa_pod *pod, const void *body,
 		uint32_t *type, const void **value)
 {
+	struct spa_pod_pointer_body b;
 	if (!spa_pod_is_pointer(pod))
 		return -EINVAL;
-	struct spa_pod_pointer_body b;
 	SPA_POD_BODY_LOAD_FIELD_ONCE(&b, body, type);
 	SPA_POD_BODY_LOAD_FIELD_ONCE(&b, body, value);
 	*type = b.type;

@@ -431,6 +431,7 @@ struct pw_data_loop {
 	char *class;
 	char **classes;
 	int rt_prio;
+	bool reset_on_fork;
 	struct spa_hook_list listener_list;
 
 	struct spa_thread_utils *thread_utils;

@@ -650,8 +650,8 @@ static int set_rlimit(struct rlimit *rlim)
 
 static int acquire_rt_sched(struct spa_thread *thread, int priority)
 {
-	int err, min, max;
-	struct sched_param sp;
+	int err, min, max, new_policy, old_policy;
+	struct sched_param new_sched_params, old_sched_params;
 	pthread_t pt = (pthread_t)thread;
 
 	min = max = 0;
@@ -663,10 +663,18 @@ static int acquire_rt_sched(struct spa_thread *thread, int priority)
 				priority, min, max, REALTIME_POLICY);
 		priority = SPA_CLAMP(priority, min, max);
 	}
+	if ((err = pthread_getschedparam(pt, &old_policy, &old_sched_params)) != 0) {
+		pw_log_warn("Failed to get scheduling params: %s", strerror(err));
+		old_policy = SCHED_RESET_ON_FORK;
+	}
 
-	spa_zero(sp);
-	sp.sched_priority = priority;
-	if ((err = pthread_setschedparam(pt, REALTIME_POLICY | SCHED_RESET_ON_FORK, &sp)) != 0) {
+	spa_zero(new_sched_params);
+	new_sched_params.sched_priority = priority;
+	new_policy = REALTIME_POLICY;
+	if ((old_policy & SCHED_RESET_ON_FORK) != 0)
+		new_policy |= SCHED_RESET_ON_FORK;
+
+	if ((err = pthread_setschedparam(pt, new_policy, &new_sched_params)) != 0) {
 		pw_log_warn("could not make thread %p realtime: %s", thread, strerror(err));
 		return -err;
 	}
@@ -677,12 +685,21 @@ static int acquire_rt_sched(struct spa_thread *thread, int priority)
 
 static int impl_drop_rt_generic(void *object, struct spa_thread *thread)
 {
-	struct sched_param sp;
+	struct sched_param new_sched_params, old_sched_params;
 	pthread_t pt = (pthread_t)thread;
-	int err;
+	int err, new_policy, old_policy;
 
-	spa_zero(sp);
-	if ((err = pthread_setschedparam(pt, SCHED_OTHER | SCHED_RESET_ON_FORK, &sp)) != 0) {
+	if ((err = pthread_getschedparam(pt, &old_policy, &old_sched_params)) != 0) {
+		pw_log_warn("Failed to get scheduling params: %s", strerror(err));
+		old_policy = SCHED_RESET_ON_FORK;
+	}
+
+	spa_zero(new_sched_params);
+	new_policy = SCHED_OTHER;
+	if (SPA_FLAG_IS_SET(old_policy, SCHED_RESET_ON_FORK))
+		new_policy |= SCHED_RESET_ON_FORK;
+
+	if ((err = pthread_setschedparam(pt, new_policy, &new_sched_params)) != 0) {
 		pw_log_debug("thread %p: SCHED_OTHER|SCHED_RESET_ON_FORK failed: %s",
 				thread, strerror(err));
 		return -err;

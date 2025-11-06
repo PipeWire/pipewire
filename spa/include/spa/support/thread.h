@@ -117,6 +117,8 @@ SPA_API_THREAD int spa_thread_utils_drop_rt(struct spa_thread_utils *o,
 #define SPA_KEY_THREAD_STACK_SIZE	"thread.stack-size"	/* the stack size of the thread */
 #define SPA_KEY_THREAD_AFFINITY		"thread.affinity"	/* array of CPUs for this thread */
 #define SPA_KEY_THREAD_CREATOR		"thread.creator"	/* platform specific thread creator function */
+#define SPA_KEY_THREAD_RESET_ON_FORK	"thread.reset-on-fork"	/* reset priority and policy for real-time threads
+								   on fork. Default true */
 
 /**
  * \}

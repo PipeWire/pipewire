@@ -110,6 +110,7 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	}
 	this->loop = loop;
 	this->rt_prio = -1;
+	this->reset_on_fork = true;
 
 	if (props != NULL) {
 		if ((str = spa_dict_lookup(props, PW_KEY_LOOP_CANCEL)) != NULL)
@@ -122,6 +123,8 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 			name = str;
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL)
 			this->affinity = strdup(str);
+		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_RESET_ON_FORK)) != NULL)
+			this->reset_on_fork = spa_atob(str);
 	}
 	if (class == NULL)
 		class = this->rt_prio != 0 ? "data.rt" : "data";
@@ -236,7 +239,7 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 	if (!loop->running) {
 		struct spa_thread_utils *utils;
 		struct spa_thread *thr;
-		struct spa_dict_item items[2];
+		struct spa_dict_item items[3];
 		uint32_t n_items = 0;
 
 		loop->running = true;
@@ -248,6 +251,8 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 		if (loop->affinity)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_AFFINITY,
 					loop->affinity);
+		items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_RESET_ON_FORK,
+				loop->reset_on_fork ? "true" : "false");
 
 		thr = spa_thread_utils_create(utils, &SPA_DICT_INIT(items, n_items), do_loop, loop);
 		loop->thread = (pthread_t)thr;

@@ -92,8 +92,10 @@ static struct spa_thread *impl_create(void *object,
 	pthread_t pt;
 	pthread_attr_t *attr = NULL, attributes;
 	const char *str;
-	int err;
+	int err, old_policy, new_policy;
 	int (*create_func)(pthread_t *, const pthread_attr_t *attr, void *(*start)(void*), void *) = NULL;
+	struct sched_param sp;
+	bool reset_on_fork = true;
 
 	attr = pw_thread_fill_attr(props, &attributes);
 
@@ -118,7 +120,16 @@ static struct spa_thread *impl_create(void *object,
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL &&
 		    (err = thread_setaffinity(pt, str)) != 0)
 			pw_log_warn("pthread_setaffinity error: %s", strerror(-err));
+		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_RESET_ON_FORK)) != NULL)
+			reset_on_fork = spa_atob(str);
 	}
+
+	pthread_getschedparam(pt, &old_policy, &sp);
+	new_policy = old_policy;
+	SPA_FLAG_UPDATE(new_policy, SCHED_RESET_ON_FORK, reset_on_fork);
+	if (old_policy != new_policy)
+		pthread_setschedparam(pt, new_policy, &sp);
+
 	return (struct spa_thread*)pt;
 }
 

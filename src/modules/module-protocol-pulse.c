@@ -67,12 +67,12 @@
  *     ]
  *     #server.dbus-name       = "org.pulseaudio.Server"
  *     #pulse.allow-module-loading = true
- *     #pulse.min.req          = 128/48000     # 2.7ms
+ *     #pulse.min.req          = 256/48000     # 5.3ms
  *     #pulse.default.req      = 960/48000     # 20 milliseconds
- *     #pulse.min.frag         = 128/48000     # 2.7ms
+ *     #pulse.min.frag         = 256/48000     # 5.3ms
  *     #pulse.default.frag     = 96000/48000   # 2 seconds
  *     #pulse.default.tlength  = 96000/48000   # 2 seconds
- *     #pulse.min.quantum      = 128/48000     # 2.7ms
+ *     #pulse.min.quantum      = 256/48000     # 5.3ms
  *     #pulse.default.format   = F32
  *     #pulse.default.position = [ FL FR ]
  *     #pulse.idle.timeout     = 0
@@ -140,7 +140,7 @@
  * ### Playback buffering options
  *
  *\code{.unparsed}
- *     pulse.min.req = 128/48000              # 2.7ms
+ *     pulse.min.req = 256/48000              # 5.3ms
  *\endcode
  *
  * The minimum amount of data to request for clients. The client requested
@@ -166,7 +166,7 @@
  * ### Record buffering options
  *
  *\code{.unparsed}
- *     pulse.min.frag = 128/48000             # 2.7ms
+ *     pulse.min.frag = 256/48000             # 5.3ms
  *\endcode
  *
  * The minimum allowed size of the capture buffer before it is sent to a client.
@@ -184,7 +184,7 @@
  * ### Scheduling options
  *
  *\code{.unparsed}
- *     pulse.min.quantum = 128/48000          # 2.7ms
+ *     pulse.min.quantum = 256/48000          # 5.3ms
  *\endcode
  *
  * The minimum quantum (buffer size in samples) to use for pulseaudio clients.

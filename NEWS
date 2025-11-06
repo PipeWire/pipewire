@@ -1,3 +1,16 @@
+# PipeWire 1.5.83 (2025-11-06)
+
+This is the third 1.6 release candidate that is API and ABI
+compatible with previous 1.4.x, 1.2.x and 1.0.x releases.
+
+Changes since the last pre-release:
+
+## Highlights
+  - Include the NEWS and updated version number.
+
+
+Older versions:
+
 # PipeWire 1.5.82 (2025-11-06)
 
 This is the second 1.6 release candidate that is API and ABI
@@ -57,9 +70,6 @@ Changes since the last pre-release:
 
 ## Docs
   - Swap the name and id of device.product
-
-
-Older versions:
 
 # PipeWire 1.5.81 (2025-10-16)
 

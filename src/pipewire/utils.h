@@ -12,6 +12,7 @@
 # include <sys/mount.h>
 #endif
 #include <errno.h>
+#include <sys/types.h>
 
 #include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>

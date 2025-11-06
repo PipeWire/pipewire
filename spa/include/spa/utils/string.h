@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <locale.h>
+#include <sys/types.h>
 
 #include <spa/utils/defs.h>
 

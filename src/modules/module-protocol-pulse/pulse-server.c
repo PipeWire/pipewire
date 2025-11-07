@@ -4674,6 +4674,10 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	pw_log_info("[%s] %s tag:%u name:%s", client->name,
 			commands[command].name, tag, name);
 
+	/* @NONE@ is used to clear the setting */
+	if (spa_streq(name, "@NONE@"))
+		name = NULL;
+
 	if (name != NULL && (o = find_device(client, SPA_ID_INVALID, name, sink, NULL)) == NULL)
 		return -ENOENT;
 

@@ -6883,8 +6883,8 @@ static void parse_bap_locations(struct spa_bt_monitor *this, const struct spa_di
 
 static void parse_bap_server(struct spa_bt_monitor *this, const struct spa_dict *info)
 {
-	this->bap_sink_locations = BAP_CHANNEL_ALL;
-	this->bap_source_locations = BAP_CHANNEL_ALL;
+	this->bap_sink_locations = BAP_CHANNEL_FL | BAP_CHANNEL_FR;
+	this->bap_source_locations = BAP_CHANNEL_FL | BAP_CHANNEL_FR;
 	this->bap_sink_contexts = this->bap_sink_supported_contexts = BAP_CONTEXT_ALL;
 	this->bap_source_contexts = this->bap_source_supported_contexts = (BAP_CONTEXT_UNSPECIFIED | BAP_CONTEXT_CONVERSATIONAL |
 					BAP_CONTEXT_MEDIA | BAP_CONTEXT_GAME);

@@ -309,6 +309,7 @@ static void group_on_timeout(struct spa_source *source)
 		if (stream->this.size == 0) {
 			spa_log_debug(group->log, "%p: ISO group:%u miss fd:%d",
 					group, group->id, stream->fd);
+			stream->this.resync = true;
 			if (stream_silence(stream) < 0) {
 				fail = true;
 				continue;

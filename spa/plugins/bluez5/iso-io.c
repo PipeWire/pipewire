@@ -626,6 +626,17 @@ int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *this)
 	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
 	struct group *group = stream->group;
 
+	if (!stream->sink) {
+		struct stream *s;
+
+		spa_list_for_each(s, &group->streams, link) {
+			if (s->sink && s->fd == stream->fd) {
+				stream = s;
+				break;
+			}
+		}
+	}
+
 	return spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, group->log);
 }
 

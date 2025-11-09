@@ -613,6 +613,10 @@ static void handle_errqueue(struct impl *this)
 {
 	int res;
 
+	if (this->transport && this->transport->iso_io)
+		if (spa_bt_iso_io_recv_errqueue(this->transport->iso_io) == 0)
+			return;
+
 	/* iso-io/media-sink use these for TX latency.
 	 * Someone else should be reading them, so drop
 	 * only after yielding.

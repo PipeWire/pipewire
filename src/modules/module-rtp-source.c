@@ -259,6 +259,19 @@ struct impl {
 	bool waiting;
 };
 
+static inline uint64_t get_time_ns(struct impl *impl)
+{
+	uint64_t res;
+	if (impl->stream) {
+		res = rtp_stream_get_nsec(impl->stream);
+	} else {
+		struct timespec ts;
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		res = SPA_TIMESPEC_TO_NSEC(&ts);
+	}
+	return res;
+}
+
 static int do_start(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 		size_t size, void *user_data)
 {
@@ -288,9 +301,10 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	int suppressed;
 	uint64_t current_time;
 
-	current_time = rtp_stream_get_nsec(impl->stream);
+	current_time = get_time_ns(impl);
 
 	if (mask & SPA_IO_IN) {
+
 		if ((len = recv(fd, impl->buffer, impl->buffer_size, 0)) < 0)
 			goto receive_error;
 
@@ -395,7 +409,7 @@ static int rejoin_igmp_group(struct spa_loop *loop, bool async, uint32_t seq,
 		}
 	}
 
-	current_time = rtp_stream_get_nsec(impl->stream);
+	current_time = get_time_ns(impl);
 	SPA_ATOMIC_STORE(impl->last_packet_time, current_time);
 
 	return res;
@@ -420,7 +434,7 @@ static void on_igmp_recovery_timer_event(void *data)
 	 * silently kicked out of the IGMP group (which causes data
 	 * to no longer arrive, thus leading to these states). */
 
-	current_time = rtp_stream_get_nsec(impl->stream);
+	current_time = get_time_ns(impl);
 	last_packet_time = SPA_ATOMIC_LOAD(impl->last_packet_time);
 	elapsed_seconds = (current_time - last_packet_time) / SPA_NSEC_PER_SEC;
 

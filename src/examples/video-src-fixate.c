@@ -359,8 +359,7 @@ static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
 	close(d[0].fd);
 }
 
-/* Be notified when the stream param changes. We're only looking at the
- * format param.
+/* Be notified when the stream format param changes.
  *
  * We are now supposed to call pw_stream_update_params() with success or
  * failure, depending on if we can support the format. Because we gave
@@ -371,9 +370,8 @@ static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
  * that we would like on our buffer, the size, alignment, etc.
  */
 static void
-on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
+on_stream_format_changed(struct data *data, const struct spa_pod *param)
 {
-	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
@@ -381,10 +379,7 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	uint32_t n_params = 0;
 	int blocks, size, stride, buffertypes;
 
-	if (param == NULL || id != SPA_PARAM_Format)
-		return;
-
-	printf("param changed: \n");
+	printf("format param changed: \n");
 	spa_debug_format(4, NULL, param);
 
 	spa_format_video_raw_parse(param, &data->format);
@@ -469,6 +464,21 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 			CURSOR_META_SIZE(CURSOR_WIDTH,CURSOR_HEIGHT)));
 
 	pw_stream_update_params(stream, params, n_params);
+}
+
+static void
+on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
+{
+	struct data *data = _data;
+
+	if (param == NULL)
+		return;
+
+	switch (id) {
+	case SPA_PARAM_Format:
+		on_stream_format_changed(data, param);
+		break;
+	}
 }
 
 static const struct pw_stream_events stream_events = {

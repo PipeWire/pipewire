@@ -981,7 +981,7 @@ static void on_igmp_recovery_timer_event(void *data)
 	}
 
 	pw_net_get_ip(&impl->igmp_recovery.mcast_addr, addr, sizeof(addr), NULL, NULL);
-	pw_log_info("IGMP recovery triggered for %s", addr);
+	pw_log_debug("IGMP recovery triggered for %s", addr);
 
 	/* Force IGMP membership refresh by leaving the group first, then rejoin */
 	if (impl->igmp_recovery.is_ipv6) {
@@ -994,10 +994,10 @@ static void on_igmp_recovery_timer_event(void *data)
 		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
 					&mr6, sizeof(mr6));
 		if (SPA_LIKELY(res == 0)) {
-			pw_log_info("left IPv6 multicast group");
+			pw_log_debug("left IPv6 multicast group");
 		} else {
 			if (errno == EADDRNOTAVAIL) {
-				pw_log_info("attempted to leave IPv6 multicast group, but "
+				pw_log_debug("attempted to leave IPv6 multicast group, but "
 						"membership was already silently dropped");
 			} else {
 				pw_log_warn("failed to leave IPv6 multicast group: %m");
@@ -1009,7 +1009,7 @@ static void on_igmp_recovery_timer_event(void *data)
 		if (res < 0) {
 			pw_log_warn("failed to re-join IPv6 multicast group: %m");
 		} else {
-			pw_log_info("re-joined IPv6 multicast group successfully");
+			pw_log_debug("re-joined IPv6 multicast group successfully");
 		}
 	} else {
 		struct ip_mreqn mr4;
@@ -1021,10 +1021,10 @@ static void on_igmp_recovery_timer_event(void *data)
 		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP,
 					&mr4, sizeof(mr4));
 		if (SPA_LIKELY(res == 0)) {
-			pw_log_info("left IPv4 multicast group");
+			pw_log_debug("left IPv4 multicast group");
 		} else {
 			if (errno == EADDRNOTAVAIL) {
-				pw_log_info("attempted to leave IPv4 multicast group, but "
+				pw_log_debug("attempted to leave IPv4 multicast group, but "
 						"membership was already silently dropped");
 			} else {
 				pw_log_warn("failed to leave IPv4 multicast group: %m");
@@ -1036,7 +1036,7 @@ static void on_igmp_recovery_timer_event(void *data)
 		if (res < 0) {
 			pw_log_warn("failed to re-join IPv4 multicast group: %m");
 		} else {
-			pw_log_info("re-joined IPv4 multicast group successfully");
+			pw_log_debug("re-joined IPv4 multicast group successfully");
 		}
 	}
 

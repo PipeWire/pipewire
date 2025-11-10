@@ -295,7 +295,11 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 	if ((d[0].type & (1<<SPA_DATA_DmaBuf)) > 0) {
 		printf("pretend to support dmabufs while setting the fd to -1\n");
 		d[0].type = SPA_DATA_DmaBuf;
+#ifdef HAVE_MEMFD_CREATE
+		d[0].fd = memfd_create("video-src-fixate-fake-dmabuf", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#else
 		d[0].fd = -1;
+#endif
 		d[0].data = NULL;
 		return;
 	}

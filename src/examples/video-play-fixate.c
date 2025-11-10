@@ -278,8 +278,7 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	}
 }
 
-/* Be notified when the stream param changes. We're only looking at the
- * format changes.
+/* Be notified when the stream format param changes.
  *
  * We are now supposed to call pw_stream_finish_format() with success or
  * failure, depending on if we can support the format. Because we gave
@@ -290,9 +289,8 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
  * that we would like on our buffer, the size, alignment, etc.
  */
 static void
-on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
+on_stream_format_changed(struct data *data, const struct spa_pod *param)
 {
-	struct data *data = _data;
 	struct pw_stream *stream = data->stream;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
@@ -300,10 +298,6 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	uint32_t n_params = 0;
 	Uint32 sdl_format;
 	void *d;
-
-	/* NULL means to clear the format */
-	if (param == NULL || id != SPA_PARAM_Format)
-		return;
 
 	fprintf(stderr, "got format:\n");
 	spa_debug_format(2, NULL, param);
@@ -352,6 +346,21 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 
 	/* we are done */
 	pw_stream_update_params(stream, params, n_params);
+}
+
+static void
+on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
+{
+	struct data *data = _data;
+
+	if (param == NULL)
+		return;
+
+	switch (id) {
+	case SPA_PARAM_Format:
+		on_stream_format_changed(data, param);
+		break;
+	}
 }
 
 /* these are the stream events we listen for */

@@ -87,7 +87,7 @@ static bool has_pw_version(int major, int minor, int micro) {
 static void init_modifiers(struct data *data)
 {
 	data->n_mod_info = 1;
-	data->mod_info[0].spa_format = SPA_VIDEO_FORMAT_RGB;
+	data->mod_info[0].spa_format = SPA_VIDEO_FORMAT_RGBA;
 	data->mod_info[0].n_modifiers = 2;
 	data->mod_info[0].modifiers[0] = DRM_FORMAT_MOD_LINEAR;
 	data->mod_info[0].modifiers[1] = DRM_FORMAT_MOD_INVALID;
@@ -380,11 +380,11 @@ static int build_formats(struct data *data, struct spa_pod_builder *b, const str
 
 	if (data->mod_info[0].n_modifiers > 0) {
 		params[n_params++] = build_format(b,
-				&info, SPA_VIDEO_FORMAT_RGB,
+				&info, SPA_VIDEO_FORMAT_RGBA,
 				data->mod_info[0].modifiers,
 				data->mod_info[0].n_modifiers);
 	}
-	params[n_params++] = build_format(b, &info, SPA_VIDEO_FORMAT_RGB, NULL, 0);
+	params[n_params++] = build_format(b, &info, SPA_VIDEO_FORMAT_RGBA, NULL, 0);
 
 	for (int i=0; i < n_params; i++) {
 		spa_debug_format(2, NULL, params[i]);

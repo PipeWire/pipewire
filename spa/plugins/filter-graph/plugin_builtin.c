@@ -936,7 +936,7 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	uint32_t i = 0;
 	struct spa_json it[2];
 	const char *val;
-	char key[256], v[256];
+	char key[256];
 	char *filenames[MAX_RATES] = { 0 };
 	int blocksize = 0, tailsize = 0;
 	int resample_quality = RESAMPLE_DEFAULT_QUALITY;
@@ -985,17 +985,20 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 		else if (spa_streq(key, "filename")) {
 			if (spa_json_is_array(val, len)) {
 				spa_json_enter(&it[0], &it[1]);
-				while (spa_json_get_string(&it[1], v, sizeof(v)) > 0 &&
+				while ((len = spa_json_next(&it[1], &val)) > 0 &&
 					i < SPA_N_ELEMENTS(filenames)) {
-						filenames[i] = strdup(v);
+						filenames[i] = malloc(len+1);
+						if (filenames[i] == NULL)
+							return NULL;
+						spa_json_parse_stringn(val, len, filenames[i], len+1);
 						i++;
 				}
 			}
-			else if (spa_json_parse_stringn(val, len, v, sizeof(v)) <= 0) {
-				spa_log_error(pl->log, "convolver:filename requires a string or an array");
-				return NULL;
-			} else {
-				filenames[0] = strdup(v);
+			else {
+				filenames[0] = malloc(len+1);
+				if (filenames[0] == NULL)
+					return NULL;
+				spa_json_parse_stringn(val, len, filenames[0], len+1);
 			}
 		}
 		else if (spa_streq(key, "offset")) {

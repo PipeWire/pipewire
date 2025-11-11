@@ -18,13 +18,24 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/sysmacros.h>
+#include <assert.h>
 
-#include <spa/param/tag-utils.h>
+#include <spa/param/dict-utils.h>
+#include <spa/param/peer-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/debug/format.h>
 #include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
+#include <pipewire/capabilities.h>
+
+#include "base64.h"
+
+/* Comment out to test device ID negotation backward compatibility. */
+#define SUPPORT_DEVICE_ID_NEGOTIATION 1
+/* Comment out to disable device IDs listing */
+#define SUPPORT_DEVICE_IDS_LIST 1
 
 #define BPP		4
 #define CURSOR_WIDTH	64
@@ -32,10 +43,34 @@
 #define CURSOR_BPP	4
 
 #define MAX_BUFFERS	64
+#define MAX_PARAMS	16
+#define MAX_MOD		10
 
 #define M_PI_M2 ( M_PI + M_PI )
 
-uint64_t supported_modifiers[] = {DRM_FORMAT_MOD_INVALID, DRM_FORMAT_MOD_LINEAR};
+struct {
+	unsigned int major;
+	unsigned int minor;
+	uint64_t supported_modifiers[MAX_MOD];
+	size_t n_supported_modifiers;
+} devices[] = {
+#if 1
+	{
+		.major = 100,
+		.minor = 100,
+		.supported_modifiers = {DRM_FORMAT_MOD_INVALID, DRM_FORMAT_MOD_LINEAR},
+		.n_supported_modifiers = 2,
+	},
+#endif
+#if 1
+	{
+		.major = 200,
+		.minor = 200,
+		.supported_modifiers = {DRM_FORMAT_MOD_LINEAR, DRM_FORMAT_MOD_GENERIC_16_16_TILE},
+		.n_supported_modifiers = 2,
+	},
+#endif
+};
 
 struct data {
 	struct pw_thread_loop *loop;
@@ -54,6 +89,7 @@ struct data {
 	double accumulator;
 
 	bool capabilities_known;
+	bool device_negotiation_supported;
 };
 
 static void draw_elipse(uint32_t *dst, int width, int height, uint32_t color)
@@ -74,14 +110,24 @@ static void draw_elipse(uint32_t *dst, int width, int height, uint32_t color)
 	}
 }
 
-static struct spa_pod *fixate_format(struct spa_pod_builder *b, enum spa_video_format format,
-        uint64_t *modifier)
+static struct spa_pod *fixate_format(struct data *data, struct spa_pod_builder *b,
+	int device_index, enum spa_video_format format, uint64_t *modifier)
 {
 	struct spa_pod_frame f[1];
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(b, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), 0);
 	spa_pod_builder_add(b, SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), 0);
+
+	/* device */
+	if (data->device_negotiation_supported) {
+		dev_t device_id = makedev(devices[device_index].major,
+			devices[device_index].minor);
+
+		spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_deviceId,
+			SPA_POD_PROP_FLAG_MANDATORY);
+		spa_pod_builder_bytes(b, &device_id, sizeof device_id);
+	}
 	/* format */
 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format, SPA_POD_Id(format), 0);
 	/* modifiers */
@@ -102,15 +148,36 @@ static struct spa_pod *fixate_format(struct spa_pod_builder *b, enum spa_video_f
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
-static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_format format,
-        uint64_t *modifiers, int modifier_count)
+static struct spa_pod *build_format(struct data *data, struct spa_pod_builder *b,
+	int device_index, enum spa_video_format format)
 {
+	uint64_t *modifiers;
+	int modifier_count;
 	struct spa_pod_frame f[2];
 	int i, c;
+
+	if (device_index == -1) {
+		modifiers = NULL;
+		modifier_count = 0;
+	} else {
+		modifiers = devices[device_index].supported_modifiers;
+		modifier_count = devices[device_index].n_supported_modifiers;
+	}
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(b, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), 0);
 	spa_pod_builder_add(b, SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), 0);
+
+	/* device */
+	if (data->device_negotiation_supported && device_index >= 0) {
+		dev_t device_id = makedev(devices[device_index].major,
+			devices[device_index].minor);
+
+		spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_deviceId,
+			SPA_POD_PROP_FLAG_MANDATORY);
+		spa_pod_builder_bytes(b, &device_id, sizeof device_id);
+	}
+
 	/* format */
 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format, SPA_POD_Id(format), 0);
 	/* modifiers */
@@ -361,15 +428,50 @@ static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
 }
 
 static void
-on_stream_tag_changed(struct data *data, const struct spa_pod *param)
+discover_capabilities(struct data *data, const struct spa_pod *param)
+{
+#ifdef SUPPORT_DEVICE_ID_NEGOTIATION
+	struct spa_peer_param_info info;
+	void *state = NULL;
+
+	while (spa_peer_param_parse(param, &info, sizeof(info), &state) == 1) {
+		struct spa_param_dict_info di;
+
+		if (spa_param_dict_parse(info.param, &di, sizeof(di)) > 0) {
+			struct spa_dict dict;
+			struct spa_dict_item *items;
+			const struct spa_dict_item *it;
+
+			if (spa_param_dict_info_parse(&di, sizeof(di), &dict, NULL) < 0)
+				return;
+
+			items = alloca(sizeof(struct spa_dict_item) * dict.n_items);
+			if (spa_param_dict_info_parse(&di, sizeof(di), &dict, items) < 0)
+				return;
+
+			spa_dict_for_each(it, &dict) {
+				if (spa_streq(it->key, PW_CAPABILITY_DEVICE_ID_NEGOTIATION) &&
+				    spa_streq(it->value, "true")) {
+					data->device_negotiation_supported = true;
+				}
+			}
+		}
+	}
+#endif /* SUPPORT_DEVICE_ID_NEGOTIATION */
+}
+
+static void
+on_stream_peer_capability_changed(struct data *data, const struct spa_pod *param)
 {
 	struct pw_stream *stream = data->stream;
 
-	printf("tag param changed: \n");
+	printf("peer capability param changed: \n");
 	spa_debug_pod(4, NULL, param);
 
+	discover_capabilities(data, param);
+
 	if (!data->capabilities_known) {
-		const struct spa_pod *params[2];
+		const struct spa_pod *params[MAX_PARAMS];
 		uint32_t n_params = 0;
 		uint8_t buffer[1024];
 		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -381,9 +483,21 @@ on_stream_tag_changed(struct data *data, const struct spa_pod *param)
 		 * The server will select a format that matches and informs us about this
 		 * in the stream param_changed event.
 		 */
-		params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
-			supported_modifiers, SPA_N_ELEMENTS(supported_modifiers));
-		params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA, NULL, 0);
+
+		if (data->device_negotiation_supported) {
+			size_t i;
+
+			printf("stream supports device negotiation\n");
+
+			for (i = 0; i < SPA_N_ELEMENTS(devices); i++)
+				params[n_params++] = build_format(data, &b, i, SPA_VIDEO_FORMAT_RGBA);
+			params[n_params++] = build_format(data, &b, -1, SPA_VIDEO_FORMAT_RGBA);
+		} else {
+			printf("stream does not support device negotiation\n");
+
+			params[n_params++] = build_format(data, &b, 0, SPA_VIDEO_FORMAT_RGBA);
+			params[n_params++] = build_format(data, &b, -1, SPA_VIDEO_FORMAT_RGBA);
+		}
 
 		printf("announcing starting EnumFormats\n");
 		for (unsigned int i=0; i < n_params; i++) {
@@ -395,6 +509,29 @@ on_stream_tag_changed(struct data *data, const struct spa_pod *param)
 		printf("activating stream\n");
 		pw_stream_set_active(stream, true);
 	}
+}
+
+static int
+find_device_id_from_param(const struct spa_pod *format, dev_t *device_id)
+{
+	const struct spa_pod_prop *device_prop;
+	const void *bytes;
+	uint32_t size;
+
+	device_prop = spa_pod_find_prop(format, NULL, SPA_FORMAT_VIDEO_deviceId);
+	if (device_prop == NULL)
+		return -ENOENT;
+
+	if (spa_pod_parse_object (format, SPA_TYPE_OBJECT_Format, NULL,
+				  SPA_FORMAT_VIDEO_deviceId, SPA_POD_OPT_Bytes(&bytes, &size)) < 0)
+		return -EINVAL;
+
+	if (size != sizeof(dev_t))
+		return -EINVAL;
+
+	*device_id = *(dev_t *)bytes;
+
+	return 0;
 }
 
 /* Be notified when the stream format param changes.
@@ -413,7 +550,7 @@ on_stream_format_changed(struct data *data, const struct spa_pod *param)
 	struct pw_stream *stream = data->stream;
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[5];
+	const struct spa_pod *params[MAX_PARAMS];
 	uint32_t n_params = 0;
 	int blocks, size, stride, buffertypes;
 
@@ -438,7 +575,31 @@ on_stream_format_changed(struct data *data, const struct spa_pod *param)
 		// check if the modifier is fixated
 		if ((prop_modifier->flags & SPA_POD_PROP_FLAG_DONT_FIXATE) > 0) {
 			const struct spa_pod *pod_modifier = &prop_modifier->value;
-			printf("fixating format\n");
+			int device_index = -1;
+			size_t i;
+			if (data->device_negotiation_supported) {
+				dev_t device_id;
+
+				if (find_device_id_from_param(param, &device_id) == 0) {
+					for (i = 0; i < SPA_N_ELEMENTS(devices); i++) {
+						if (major(device_id) == devices[i].major &&
+						    minor(device_id) == devices[i].minor)
+							device_index = i;
+					}
+				}
+
+				assert(device_index >= 0);
+
+				printf("fixating format using negotiated device %u:%u\n",
+					devices[device_index].major,
+					devices[device_index].minor);
+			} else {
+				device_index = 0;
+
+				printf("fixating format using implicitly assumed device %u:%u\n",
+					devices[device_index].major,
+					devices[device_index].minor);
+			}
 
 			uint32_t n_modifiers = SPA_POD_CHOICE_N_VALUES(pod_modifier);
 			uint64_t *modifiers = SPA_POD_CHOICE_VALUES(pod_modifier);
@@ -451,14 +612,17 @@ on_stream_format_changed(struct data *data, const struct spa_pod *param)
 				modifier = modifiers[rand()%n_modifiers];
 			}
 
-			params[n_params++] = fixate_format(&b, SPA_VIDEO_FORMAT_RGBA, &modifier);
-			params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
-					supported_modifiers, SPA_N_ELEMENTS(supported_modifiers));
-			params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
-					NULL, 0);
+			params[n_params++] = fixate_format(data, &b, device_index,
+				SPA_VIDEO_FORMAT_RGBA, &modifier);
+
+			for (i = 0; i < SPA_N_ELEMENTS(devices); i++) {
+				params[n_params++] = build_format(data, &b, i,
+					SPA_VIDEO_FORMAT_RGBA);
+			}
+			params[n_params++] = build_format(data, &b, -1, SPA_VIDEO_FORMAT_RGBA);
 
 			printf("announcing fixated EnumFormats\n");
-			for (unsigned int i=0; i < 3; i++) {
+			for (unsigned int i=0; i < n_params; i++) {
 			    spa_debug_format(4, NULL, params[i]);
 			}
 
@@ -516,8 +680,8 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		return;
 
 	switch (id) {
-	case SPA_PARAM_Tag:
-		on_stream_tag_changed(data, param);
+	case SPA_PARAM_PeerCapability:
+		on_stream_peer_capability_changed(data, param);
 		break;
 	case SPA_PARAM_Format:
 		on_stream_format_changed(data, param);
@@ -543,7 +707,7 @@ static void do_quit(void *userdata, int signal_number)
 int main(int argc, char *argv[])
 {
 	struct data data = { 0, };
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[MAX_PARAMS];
 	uint32_t n_params = 0;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -610,6 +774,40 @@ int main(int argc, char *argv[])
 			&SPA_RECTANGLE(4096,4096)),
 		0);
 	params[n_params++] = spa_pod_builder_pop(&b, &f);
+
+#ifdef SUPPORT_DEVICE_ID_NEGOTIATION
+#ifdef SUPPORT_DEVICE_IDS_LIST
+	char *device_ids = NULL;
+	size_t device_ids_size = 0;
+	FILE *ms;
+	size_t i;
+
+	ms = open_memstream(&device_ids, &device_ids_size);
+	fprintf(ms, "[");
+	for (i = 0; i < SPA_N_ELEMENTS(devices); i++) {
+		dev_t device_id = makedev(devices[i].major, devices[i].minor);
+		char device_id_encoded[256];
+
+		base64_encode((const uint8_t *) &device_id, sizeof (device_id), device_id_encoded, '\0');
+		if (i > 0)
+			fprintf(ms, ",");
+		fprintf(ms, "\"%s\"", device_id_encoded);
+	}
+	fprintf(ms, "]");
+	fclose(ms);
+#endif /* SUPPORT_DEVICE_IDS_LIST */
+
+	params[n_params++] =
+		spa_param_dict_build_dict(&b, SPA_PARAM_Capability,
+			&SPA_DICT_ITEMS(SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "true"),
+#ifdef SUPPORT_DEVICE_IDS_LIST
+					SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_IDS, device_ids)
+#endif /* SUPPORT_DEVICE_IDS_LIST */
+					));
+#ifdef SUPPORT_DEVICE_IDS_LIST
+	free(device_ids);
+#endif /* SUPPORT_DEVICE_IDS_LIST */
+#endif /* SUPPORT_DEVICE_ID_NEGOTIATION */
 
 	/* now connect the stream, we need a direction (input/output),
 	 * an optional target node to connect to, some flags and parameters.

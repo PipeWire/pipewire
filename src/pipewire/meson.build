@@ -45,6 +45,7 @@ pipewire_headers = [
   'type.h',
   'utils.h',
   'work-queue.h',
+  'capabilities.h',
 ]
 
 pipewire_sources = [

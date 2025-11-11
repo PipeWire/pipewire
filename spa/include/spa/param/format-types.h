@@ -181,6 +181,8 @@ static const struct spa_type_info spa_type_format[] = {
 	{ SPA_FORMAT_VIDEO_H264_alignment, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_VIDEO_H264_BASE "alignment", NULL },
 
 	{ SPA_FORMAT_CONTROL_types, SPA_TYPE_Id, SPA_TYPE_INFO_FORMAT_CONTROL_BASE "types", spa_type_control },
+
+	{ SPA_FORMAT_VIDEO_deviceId, SPA_TYPE_Bytes, SPA_TYPE_INFO_FORMAT_BASE "deviceId", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

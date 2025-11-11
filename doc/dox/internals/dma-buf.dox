@@ -301,5 +301,114 @@ they complete processing the buffer. This can be done in the hardware as part of
 the render pipeline or explicitly with drmSyncobjTimelineSignal() on the release
 handle and the release_point of the metadata.
 
+# Device ID negotation
+
+The DRM device used for accessing or allocating DMA-BUFs by default undefined. To
+negotiate what DRM device should be used, and to advertise what DRM device is associated
+with what combination of format and list of modifiers, device ID negotiation can be
+performed.
+
+## Capability discovery
+
+Device ID negotiation needs explicit support by both end points of a stream, thus, the
+first step of negotiation is discovering whether other peer has support for it. This is
+done by advertising a \ref SPA_PARAM_Capability with the key \ref
+PW_CAPABILITY_DEVICE_ID_NEGOTIATION and value `true`
+
+```
+	spa_param_dict_build_dict(&b, SPA_PARAM_Capability,
+		&SPA_DICT_ITEMS(
+			SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "true")));
+```
+
+To do this, when connecting to the stream, the \ref PW_STREAM_FLAG_INACTIVE flag must be
+passed, and a bare minimum video format parameter must be sent. A bare minimum video
+format parameter must contain a \ref SPA_FORMAT_mediaType with \ref SPA_MEDIA_TYPE_video;
+\ref SPA_FORMAT_mediaSubtype with \ref SPA_MEDIA_SUBTYPE_raw, \ref SPA_FORMAT_VIDEO_format
+with something appropriate, and a \ref SPA_FORMAT_VIDEO_size with a rectangle or range of
+rectangles. For example
+
+```
+	spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(&b, SPA_FORMAT_mediaType,
+		SPA_POD_Id (SPA_MEDIA_TYPE_video),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_mediaSubtype,
+		SPA_POD_Id (SPA_MEDIA_SUBTYPE_raw),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_VIDEO_format,
+		SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_VIDEO_size,
+		SPA_POD_CHOICE_RANGE_Rectangle(
+			&SPA_RECTANGLE(320, 240),
+			&SPA_RECTANGLE(1,1),
+			&SPA_RECTANGLE(8192, 8192)),
+		0);
+	params[n_params++] = spa_pod_builder_pop(&b, &f);
+```
+
+After having received the first \ref SPA_PARAM_PeerCapability param, if it contained the \ref
+PW_CAPABILITY_DEVICE_ID set to `true`, the full set of formats can be sent using \ref
+pw_stream_update_params following by activating the stream using
+`pw_stream_set_active(stream, true)`.
+
+Note that the first \ref SPA_PARAM_Format received may be the result of the initial format
+negotian with bare minimum parameters, and will be superseded by the result of the format
+negotiation of the later provided format parameters.
+
+## Device subset capability
+
+A producer can advertise what devices it's capable of performing device ID negotiation
+with. This can be used to reduce the amount of devices that are queried for format
+metadata, which can be a time consuming task, if devices needs to be woken up.
+
+To achieve this, the consumer adds another \ref SPA_PARAM_PeerCapability item with the key
+\ref PW_CAPABILITY_DEVICE_IDS set to a string of base 64 encoded `dev_t` device IDs.
+
+```
+	char *device_ids = ...; /* Base 64 encoding of a dev_t. */.
+	&SPA_DICT_ITEMS(
+		SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "true"),
+		SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_IDS, device_ids)));
+```
+
+## Device ID aware formats
+
+When both the source and the sink advertises support for device ID negotation, format
+entries must have a device ID set.
+
+A device ID is represented as a byte array containing a `dev_t` (see `man 3type dev_t`)
+device identifier.
+
+Each format with an associated DRM device (i.e. including all but not only formats with
+modifiers) must have a \ref SPA_FORMAT_VIDEO_deviceId entry with the \ref
+SPA_POD_PROP_FLAG_MANDATORY set. E.g.
+
+```
+	dev_t device_id;
+
+	...
+
+	spa_pod_builder_prop(&b, SPA_FORMAT_VIDEO_deviceId,
+		SPA_POD_PROP_FLAG_MANDATORY);
+	spa_pod_builder_bytes(&b, &device_id, sizeof device_id);
+```
+
+## Negotiated device ID
+
+Once a format is finally negotiated, the resulting device ID is exposed as a \ref
+SPA_FORMAT_VIDEO_deviceId and may be retrieved by e.g.
+
+```
+	device_prop = spa_pod_find_prop(format, NULL, SPA_FORMAT_VIDEO_deviceId);
+	spa_pod_parse_object(format,
+		SPA_TYPE_OBJECT_Format, NULL,
+		SPA_FORMAT_VIDEO_deviceId,
+		SPA_POD_OPT_Bytes(&bytes, &size));
+```
+
+This device should be used for accessing the associated DMA-BUFs, by e.g. creating a
+`EGLDisplay` using `EGL_PLATFORM_DEVICE_EXT`.
 
 */

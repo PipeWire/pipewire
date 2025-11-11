@@ -144,6 +144,7 @@ enum spa_format {
 	SPA_FORMAT_VIDEO_H264_alignment,	/**< (Id enum spa_h264_alignment) */
 	SPA_FORMAT_VIDEO_H265_streamFormat,	/**< (Id enum spa_h265_stream_format) */
 	SPA_FORMAT_VIDEO_H265_alignment,	/**< (Id enum spa_h265_alignment) */
+	SPA_FORMAT_VIDEO_deviceId,	        /**< dev_t identifier (Bytes) */
 
 	/* Image Format keys */
 	SPA_FORMAT_START_Image = 0x30000,

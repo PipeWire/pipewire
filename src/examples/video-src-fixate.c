@@ -304,26 +304,19 @@ static void on_stream_add_buffer(void *_data, struct pw_buffer *buffer)
 #else
 		d[0].fd = -1;
 #endif
-		d[0].data = NULL;
-		return;
-	}
-
-	if ((d[0].type & (1<<SPA_DATA_MemFd)) == 0) {
-		pw_log_error("unsupported data type %08x", d[0].type);
-		return;
-	}
-
-	printf("use memfd\n");
-	/* create the memfd on the buffer, set the type and flags */
-	d[0].type = SPA_DATA_MemFd;
-	d[0].flags = SPA_DATA_FLAG_READWRITE | SPA_DATA_FLAG_MAPPABLE;
+	} else {
+		printf("use memfd\n");
+		/* create the memfd on the buffer, set the type and flags */
+		d[0].type = SPA_DATA_MemFd;
+		d[0].flags = SPA_DATA_FLAG_READWRITE | SPA_DATA_FLAG_MAPPABLE;
 #ifdef HAVE_MEMFD_CREATE
-	d[0].fd = memfd_create("video-src-fixate-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+		d[0].fd = memfd_create("video-src-fixate-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
 #else
-	d[0].fd = -1;
+		d[0].fd = -1;
 #endif
+	}
 	if (d[0].fd == -1) {
-		pw_log_error("can't create memfd: %m");
+		pw_log_error("can't open file descriptor: %m");
 		return;
 	}
 	d[0].mapoffset = 0;

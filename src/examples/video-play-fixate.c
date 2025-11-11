@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <libdrm/drm_fourcc.h>
+#include <sys/mman.h>
 
 #include <spa/utils/result.h>
 #include <spa/param/video/format-utils.h>
@@ -21,6 +22,9 @@
 #include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
+
+/* If defined, emulate failing to import DMA buffer. */
+#define EMULATE_DMA_BUF_IMPORT_FAIL 1
 
 #define WIDTH   640
 #define HEIGHT  480
@@ -197,10 +201,12 @@ on_process(void *_data)
 	struct pw_stream *stream = data->stream;
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
+	struct spa_data *d;
 	void *sdata, *ddata;
 	int sstride, dstride, ostride;
 	uint32_t i;
 	uint8_t *src, *dst;
+	bool needs_unmap = false;
 
 	b = NULL;
 	/* dequeue and queue old buffers, use the last available
@@ -219,11 +225,13 @@ on_process(void *_data)
 	}
 
 	buf = b->buffer;
+	d = buf->datas;
 
 	pw_log_info("new buffer %p", buf);
 
 	handle_events(data);
 
+#ifdef EMULATE_DMA_BUF_IMPORT_FAIL
 	if (buf->datas[0].type == SPA_DATA_DmaBuf) {
 		// Simulate a failed import of a DmaBuf
 		// We should try another modifier
@@ -232,8 +240,17 @@ on_process(void *_data)
 		pw_loop_signal_event(pw_main_loop_get_loop(data->loop), data->reneg);
 		goto done;
 	}
+#endif
 
-	if ((sdata = buf->datas[0].data) == NULL)
+	if (buf->datas[0].type == SPA_DATA_DmaBuf) {
+		sdata = mmap(NULL, d[0].maxsize, PROT_READ,
+			MAP_SHARED, d[0].fd, d[0].mapoffset);
+		needs_unmap = true;
+	} else {
+		sdata = buf->datas[0].data;
+	}
+
+	if (sdata == NULL)
 		goto done;
 
 	if (SDL_LockTexture(data->texture, NULL, &ddata, &dstride) < 0) {
@@ -263,6 +280,8 @@ on_process(void *_data)
 	SDL_RenderPresent(data->renderer);
 
       done:
+	if (needs_unmap)
+		munmap(d[0].data, d[0].maxsize);
 	pw_stream_queue_buffer(stream, b);
 }
 

@@ -18,6 +18,7 @@
 #include <spa/param/video/format-utils.h>
 #include <spa/param/props.h>
 #include <spa/debug/format.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 
@@ -68,7 +69,11 @@ struct data {
 	struct modifier_info mod_info[2];
 
 	int counter;
+
+	bool capabilities_known;
 };
+
+static int build_formats(struct data *data, struct spa_pod_builder *b, const struct spa_pod **params);
 
 static struct pw_version parse_pw_version(const char* version) {
 	struct pw_version pw_version;
@@ -278,6 +283,34 @@ static void on_stream_state_changed(void *_data, enum pw_stream_state old,
 	}
 }
 
+static void
+on_stream_tag_changed(struct data *data, const struct spa_pod *param)
+{
+	struct pw_stream *stream = data->stream;
+
+	printf("tag param changed: \n");
+	spa_debug_pod(4, NULL, param);
+
+	if (!data->capabilities_known) {
+		const struct spa_pod *params[2];
+		uint32_t n_params = 0;
+		uint8_t buffer[1024];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+		data->capabilities_known = true;
+
+		/* build the extra parameters to connect with. To connect, we can provide
+		 * a list of supported formats.  We use a builder that writes the param
+		 * object to the stack. */
+		printf("supported formats:\n");
+		n_params = build_formats(data, &b, params);
+		pw_stream_update_params(data->stream, params, n_params);
+
+		printf("activating stream\n");
+		pw_stream_set_active(stream, true);
+	}
+}
+
 /* Be notified when the stream format param changes.
  *
  * We are now supposed to call pw_stream_finish_format() with success or
@@ -357,6 +390,9 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		return;
 
 	switch (id) {
+	case SPA_PARAM_Tag:
+		on_stream_tag_changed(data, param);
+		break;
 	case SPA_PARAM_Format:
 		on_stream_format_changed(data, param);
 		break;
@@ -421,8 +457,10 @@ int main(int argc, char *argv[])
 	const struct spa_pod *params[2];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod_frame f;
 	struct pw_properties *props;
-	int res, n_params;
+	int res, n_params = 0;
+	SDL_RendererInfo info;
 
 	pw_init(&argc, &argv);
 
@@ -472,11 +510,28 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	/* build the extra parameters to connect with. To connect, we can provide
-	 * a list of supported formats.  We use a builder that writes the param
-	 * object to the stack. */
-	printf("supported formats:\n");
-	n_params = build_formats(&data, &b, params);
+	SDL_GetRendererInfo(data.renderer, &info);
+
+	/* Push bare minimum video format to inactive stream, and wait for
+	 * sending actual format until capability discovery is done. */
+	spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(&b, SPA_FORMAT_mediaType,
+		SPA_POD_Id (SPA_MEDIA_TYPE_video),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_mediaSubtype,
+		SPA_POD_Id (SPA_MEDIA_SUBTYPE_raw),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_VIDEO_format,
+		SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_VIDEO_size,
+		SPA_POD_CHOICE_RANGE_Rectangle(
+			&SPA_RECTANGLE(WIDTH, HEIGHT),
+			&SPA_RECTANGLE(1,1),
+			&SPA_RECTANGLE(info.max_texture_width,
+				       info.max_texture_height)),
+		0);
+	params[n_params++] = spa_pod_builder_pop(&b, &f);
 
 	/* now connect the stream, we need a direction (input/output),
 	 * an optional target node to connect to, some flags and parameters
@@ -485,6 +540,7 @@ int main(int argc, char *argv[])
 			  PW_DIRECTION_INPUT,
 			  PW_ID_ANY,
 			  PW_STREAM_FLAG_AUTOCONNECT |	/* try to automatically connect this stream */
+			  PW_STREAM_FLAG_INACTIVE |     /* set active after capability discovery */
 			  PW_STREAM_FLAG_MAP_BUFFERS,	/* mmap the buffer data for us */
 			  params, n_params))		/* extra parameters, see above */ < 0) {
 		fprintf(stderr, "can't connect: %s\n", spa_strerror(res));

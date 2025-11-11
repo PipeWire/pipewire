@@ -19,8 +19,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
+#include <spa/param/tag-utils.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/debug/format.h>
+#include <spa/debug/pod.h>
 
 #include <pipewire/pipewire.h>
 
@@ -50,6 +52,8 @@ struct data {
 
 	double crop;
 	double accumulator;
+
+	bool capabilities_known;
 };
 
 static void draw_elipse(uint32_t *dst, int width, int height, uint32_t color)
@@ -363,6 +367,43 @@ static void on_stream_remove_buffer(void *_data, struct pw_buffer *buffer)
 	close(d[0].fd);
 }
 
+static void
+on_stream_tag_changed(struct data *data, const struct spa_pod *param)
+{
+	struct pw_stream *stream = data->stream;
+
+	printf("tag param changed: \n");
+	spa_debug_pod(4, NULL, param);
+
+	if (!data->capabilities_known) {
+		const struct spa_pod *params[2];
+		uint32_t n_params = 0;
+		uint8_t buffer[1024];
+		struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+
+		data->capabilities_known = true;
+
+		/* build the extra parameter for the connection. Here we make an
+		 * EnumFormat parameter which lists the possible formats we can provide.
+		 * The server will select a format that matches and informs us about this
+		 * in the stream param_changed event.
+		 */
+		params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
+			supported_modifiers, SPA_N_ELEMENTS(supported_modifiers));
+		params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA, NULL, 0);
+
+		printf("announcing starting EnumFormats\n");
+		for (unsigned int i=0; i < n_params; i++) {
+			spa_debug_format(4, NULL, params[i]);
+		}
+
+		pw_stream_update_params(data->stream, params, n_params);
+
+		printf("activating stream\n");
+		pw_stream_set_active(stream, true);
+	}
+}
+
 /* Be notified when the stream format param changes.
  *
  * We are now supposed to call pw_stream_update_params() with success or
@@ -389,6 +430,9 @@ on_stream_format_changed(struct data *data, const struct spa_pod *param)
 	spa_format_video_raw_parse(param, &data->format);
 
 	data->stride = SPA_ROUND_UP_N(data->format.size.width * BPP, 4);
+
+	if (data->stride == 0)
+		return;
 
 	const struct spa_pod_prop *prop_modifier;
 	// check if client supports modifier
@@ -479,6 +523,9 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 		return;
 
 	switch (id) {
+	case SPA_PARAM_Tag:
+		on_stream_tag_changed(data, param);
+		break;
 	case SPA_PARAM_Format:
 		on_stream_format_changed(data, param);
 		break;
@@ -507,6 +554,7 @@ int main(int argc, char *argv[])
 	uint32_t n_params = 0;
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod_frame f;
 
 	srand(32);
 
@@ -550,19 +598,25 @@ int main(int argc, char *argv[])
 	/* make a timer to schedule our frames */
 	data.timer = pw_loop_add_timer(pw_thread_loop_get_loop(data.loop), on_timeout, &data);
 
-	/* build the extra parameter for the connection. Here we make an
-	 * EnumFormat parameter which lists the possible formats we can provide.
-	 * The server will select a format that matches and informs us about this
-	 * in the stream param_changed event.
-	 */
-	params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA,
-				supported_modifiers, SPA_N_ELEMENTS(supported_modifiers));
-	params[n_params++] = build_format(&b, SPA_VIDEO_FORMAT_RGBA, NULL, 0);
-
-	printf("announcing starting EnumFormats\n");
-	for (unsigned int i=0; i < 2; i++) {
-	    spa_debug_format(4, NULL, params[i]);
-	}
+	/* Push bare minimum video format to inactive stream, and wait for
+	 * sending actual format until capability discovery is done. */
+	spa_pod_builder_push_object(&b, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(&b, SPA_FORMAT_mediaType,
+		SPA_POD_Id(SPA_MEDIA_TYPE_video),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_mediaSubtype,
+		SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_VIDEO_format,
+		SPA_POD_Id(SPA_VIDEO_FORMAT_RGBA),
+		0);
+	spa_pod_builder_add(&b, SPA_FORMAT_VIDEO_size,
+		SPA_POD_CHOICE_RANGE_Rectangle(
+			&SPA_RECTANGLE(320, 240),
+			&SPA_RECTANGLE(1,1),
+			&SPA_RECTANGLE(4096,4096)),
+		0);
+	params[n_params++] = spa_pod_builder_pop(&b, &f);
 
 	/* now connect the stream, we need a direction (input/output),
 	 * an optional target node to connect to, some flags and parameters.
@@ -575,6 +629,7 @@ int main(int argc, char *argv[])
 			  PW_DIRECTION_OUTPUT,
 			  PW_ID_ANY,
 			  PW_STREAM_FLAG_DRIVER |
+			  PW_STREAM_FLAG_INACTIVE |
 			  PW_STREAM_FLAG_ALLOC_BUFFERS,
 			  params, n_params);
 

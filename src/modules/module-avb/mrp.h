@@ -98,11 +98,15 @@ struct avb_packet_mrp_footer {
 #define AVB_MRP_NOTIFY_JOIN		2
 #define AVB_MRP_NOTIFY_LEAVE		3
 
+const char *avb_applicant_state_name(uint8_t state);
+const char *avb_registrar_state_name(uint8_t state);
+const char *avb_mrp_event_name(uint8_t event);
 const char *avb_mrp_notify_name(uint8_t notify);
 const char *avb_mrp_send_name(uint8_t send);
 
 struct avb_mrp_attribute {
 	uint8_t pending_send;
+	const char *name;
 	void *user_data;
 };
 

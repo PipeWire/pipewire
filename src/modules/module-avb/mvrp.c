@@ -1,5 +1,7 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
 #include <unistd.h>
@@ -189,6 +191,7 @@ struct avb_mvrp_attribute *avb_mvrp_attribute_new(struct avb_mvrp *m,
 	a = attr->user_data;
 	a->attr.mrp = attr;
 	a->attr.type = type;
+	attr->name = "MVRP";
 	spa_list_append(&mvrp->attributes, &a->link);
 	avb_mrp_attribute_add_listener(attr, &a->listener, &mrp_attr_events, a);
 

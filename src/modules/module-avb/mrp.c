@@ -1,5 +1,6 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
 #include <pipewire/pipewire.h>
@@ -160,6 +161,98 @@ int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int
 	return 0;
 }
 
+const char *avb_applicant_state_name(uint8_t state)
+{
+	switch (state) {
+	case AVB_MRP_VO:
+		return "VO";
+	case AVB_MRP_VP:
+		return "VP";
+	case AVB_MRP_VN:
+		return "VN";
+	case AVB_MRP_AN:
+		return "AN";
+	case AVB_MRP_AA:
+		return "AA";
+	case AVB_MRP_QA:
+		return "QA";
+	case AVB_MRP_LA:
+		return "LA";
+	case AVB_MRP_AO:
+		return "AO";
+	case AVB_MRP_QO:
+		return "QO";
+	case AVB_MRP_AP:
+		return "AP";
+	case AVB_MRP_QP:
+		return "QP";
+	case AVB_MRP_LO:
+		return "LO";
+	}
+
+    return "unknown-applicant-state";
+}
+
+const char *avb_registrar_state_name(uint8_t state)
+{
+	switch (state) {
+	case AVB_MRP_IN:
+		return "IN";
+	case AVB_MRP_LV:
+		return "LV";
+	case AVB_MRP_MT:
+		return "MT";
+	}
+
+	return "unknown-registrar-state";
+}
+
+const char *avb_mrp_event_name(uint8_t event)
+{
+	switch (event) {
+	case AVB_MRP_EVENT_BEGIN:
+		return "begin";
+	case AVB_MRP_EVENT_NEW:
+		return "new";
+	case AVB_MRP_EVENT_JOIN:
+		return "join";
+	case AVB_MRP_EVENT_LV:
+		return "lv";
+	case AVB_MRP_EVENT_TX:
+		return "tx";
+	case AVB_MRP_EVENT_TX_LVA:
+		return "tx_lva";
+	case AVB_MRP_EVENT_TX_LVAF:
+		return "tx_lvaf";
+	case AVB_MRP_EVENT_RX_NEW:
+		return "rx_new";
+	case AVB_MRP_EVENT_RX_JOININ:
+		return "rx_joinin";
+	case AVB_MRP_EVENT_RX_IN:
+		return "rx_in";
+	case AVB_MRP_EVENT_RX_JOINMT:
+		return "rx_joinmt";
+	case AVB_MRP_EVENT_RX_MT:
+		return "rx_mt";
+	case AVB_MRP_EVENT_RX_LV:
+		return "rx_lv";
+	case AVB_MRP_EVENT_RX_LVA:
+		return "rx_lva";
+	case AVB_MRP_EVENT_FLUSH:
+		return "flush";
+	case AVB_MRP_EVENT_REDECLARE:
+		return "redeclare";
+	case AVB_MRP_EVENT_PERIODIC:
+		return "periodic";
+	case AVB_MRP_EVENT_LV_TIMER:
+		return "lv_timer";
+	case AVB_MRP_EVENT_LVA_TIMER:
+		return "lva_timer";
+	}
+
+	return "unknown-event";
+}
+
 const char *avb_mrp_notify_name(uint8_t notify)
 {
 	switch(notify) {
@@ -295,7 +388,10 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	}
 
 	if (a->registrar_state != state || notify) {
-		pw_log_debug("attr %p: %d %d -> %d %d", a, event, a->registrar_state, state, notify);
+		pw_log_debug("REG: attr %p: %s %s %s -> %s %s notify? %s", a, a->attr.name,
+			avb_mrp_event_name(event), avb_registrar_state_name(a->registrar_state),
+			avb_registrar_state_name(state), avb_mrp_send_name(notify),
+			notify ? "YES":"NO");
 		a->registrar_state = state;
 	}
 
@@ -519,8 +615,12 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	default:
 		break;
 	}
+
 	if (a->applicant_state != state || send) {
-		pw_log_debug("attr %p: %d %d -> %d %d", a, event, a->applicant_state, state, send);
+		pw_log_debug("APP: attr %p: %s %s %s -> %s %d:%s joined? %s", a, a->attr.name,
+			avb_mrp_event_name(event), avb_applicant_state_name(a->applicant_state),
+			avb_registrar_state_name(state), send, avb_mrp_send_name(send),
+			a->joined? "YES" : " NO");
 		a->applicant_state = state;
 	}
 	if (a->joined)

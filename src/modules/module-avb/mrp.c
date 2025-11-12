@@ -1,5 +1,6 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
 /* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
@@ -33,6 +34,16 @@ struct attribute {
 	struct spa_hook_list listener_list;
 };
 
+enum fsm_lva {
+	FSM_LVA_ACTIVE,
+	FSM_LVA_PASSIVE
+};
+
+struct fsm_leave_all_timer {
+	enum fsm_lva state;
+	uint64_t leave_all_timeout;
+};
+
 struct mrp {
 	struct server *server;
 	struct spa_hook server_listener;
@@ -42,7 +53,7 @@ struct mrp {
 	struct spa_list attributes;
 
 	uint64_t periodic_timeout;
-	uint64_t leave_all_timeout;
+	struct fsm_leave_all_timer lva_timer;
 	uint64_t join_timeout;
 };
 
@@ -61,6 +72,17 @@ static void global_event(struct mrp *mrp, uint64_t now, uint8_t event)
 	mrp_emit_event(mrp, now, event);
 }
 
+static void mrp_set_update_lva(struct mrp *mrp, uint64_t now, bool force_send)
+{
+	if (!force_send) {
+		mrp->lva_timer.leave_all_timeout = now
+				+ (MRP_LVATIMER_MS + (pw_rand32() % (MRP_LVATIMER_MS / 2)))
+				* SPA_NSEC_PER_MSEC;
+	} else {
+		mrp->lva_timer.leave_all_timeout = now;
+	}
+}
+
 static void mrp_periodic(void *data, uint64_t now)
 {
 	struct mrp *mrp = data;
@@ -72,13 +94,15 @@ static void mrp_periodic(void *data, uint64_t now)
 			global_event(mrp, now, AVB_MRP_EVENT_PERIODIC);
 		mrp->periodic_timeout = now + MRP_PERIODTIMER_MS * SPA_NSEC_PER_MSEC;
 	}
-	if (now > mrp->leave_all_timeout) {
-		if (mrp->leave_all_timeout > 0) {
+
+
+	if (now > mrp->lva_timer.leave_all_timeout) {
+		/* 802.1Q-2014 Table 10-5 */
+		mrp->lva_timer.state = FSM_LVA_ACTIVE;
+		if (mrp->lva_timer.leave_all_timeout > 0) {
 			global_event(mrp, now, AVB_MRP_EVENT_RX_LVA);
 			leave_all = true;
 		}
-		mrp->leave_all_timeout = now + (MRP_LVATIMER_MS + (random() % (MRP_LVATIMER_MS / 2)))
-			* SPA_NSEC_PER_MSEC;
 	}
 
 	if (now > mrp->join_timeout) {
@@ -90,7 +114,9 @@ static void mrp_periodic(void *data, uint64_t now)
 	}
 
 	spa_list_for_each(a, &mrp->attributes, link) {
-		if (a->leave_timeout > 0 && now > a->leave_timeout) {
+		// 802.1Q Clause 10.7.4.2
+		if (a->leave_timeout > 0 && now > a->leave_timeout && a->registrar_state ==
+			AVB_MRP_LV) {
 			a->leave_timeout = 0;
 			avb_mrp_attribute_update_state(&a->attr, now, AVB_MRP_EVENT_LV_TIMER);
 		}
@@ -135,7 +161,7 @@ int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int
 				return -EPROTO;
 
 			if (v->lva)
-				info->attr_event(data, now, attr_type, AVB_MRP_EVENT_RX_LVA);
+				info->attr_event(data, now, attr_type, AVB_MRP_ATTRIBUTE_EVENT_LVA);
 
 			for (i = 0; i < num_values; i++) {
 				if (i % 3 == 0) {
@@ -325,6 +351,22 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	uint8_t notify = 0, state;
 	uint8_t send = 0;
 
+	// Handle the LVA timer FSM
+	switch (event) {
+		case AVB_MRP_EVENT_RX_LVA:
+			mrp_set_update_lva(mrp, now, false);
+			mrp->lva_timer.state = FSM_LVA_PASSIVE;
+		break;
+		case AVB_MRP_EVENT_TX:
+			if (mrp->lva_timer.state == FSM_LVA_ACTIVE) {
+				mrp_set_update_lva(mrp, now, true);
+			}
+			mrp->lva_timer.state = FSM_LVA_PASSIVE;
+		break;
+		default:
+		break;
+	}
+
 	state = a->registrar_state;
 
 	switch (event) {
@@ -335,7 +377,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 		notify = AVB_MRP_NOTIFY_NEW;
 		switch (state) {
 		case AVB_MRP_LV:
-			a->leave_timeout = 0;
+			a->leave_timeout = INT64_MAX;
 			break;
 		}
 		state = AVB_MRP_IN;
@@ -344,7 +386,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	case AVB_MRP_EVENT_RX_JOINMT:
 		switch (state) {
 		case AVB_MRP_LV:
-			a->leave_timeout = 0;
+			a->leave_timeout = INT64_MAX;
                         break;
 		case AVB_MRP_MT:
 			notify = AVB_MRP_NOTIFY_JOIN;
@@ -359,7 +401,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 		switch (state) {
 		case AVB_MRP_IN:
 			a->leave_timeout = now + MRP_LVTIMER_MS * SPA_NSEC_PER_MSEC;
-			//state = AVB_MRP_LV;
+			state = AVB_MRP_LV;
 			break;
 		}
 		break;
@@ -623,6 +665,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 			a->joined? "YES" : " NO");
 		a->applicant_state = state;
 	}
+
 	if (a->joined)
 		a->attr.pending_send = send;
 }
@@ -636,6 +679,7 @@ void avb_mrp_attribute_rx_event(struct avb_mrp_attribute *attr, uint64_t now, ui
 		[AVB_MRP_ATTRIBUTE_EVENT_JOINMT] = AVB_MRP_EVENT_RX_JOINMT,
 		[AVB_MRP_ATTRIBUTE_EVENT_MT] = AVB_MRP_EVENT_RX_MT,
 		[AVB_MRP_ATTRIBUTE_EVENT_LV] = AVB_MRP_EVENT_RX_LV,
+		[AVB_MRP_ATTRIBUTE_EVENT_LVA] = AVB_MRP_EVENT_RX_LVA,
 	};
 	avb_mrp_attribute_update_state(attr, now, map[event]);
 }

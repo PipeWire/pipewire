@@ -1307,7 +1307,7 @@ next_indicator:
 				type = INTERNATIONAL_NUMBER;
 			else
 				type = NATIONAL_NUMBER;
-			rfcomm_send_reply(rfcomm, "+CNUM: ,\"%s\",%u", backend->modem.own_number, type);
+			rfcomm_send_reply(rfcomm, "+CNUM: ,\"%s\",%u,,4", backend->modem.own_number, type);
 		}
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+COPS=")) {

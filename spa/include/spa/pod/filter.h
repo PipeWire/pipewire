@@ -339,9 +339,7 @@ SPA_API_POD_FILTER int spa_pod_filter_part(struct spa_pod_builder *b,
 
 		default:
 			if (pf != NULL) {
-				if (pp->size != pf->size)
-					return -EINVAL;
-				if (memcmp(pp, pf, pp->size) != 0)
+				if (spa_pod_memcmp(pp, pf) != 0)
 					return -EINVAL;
 				do_advance = true;
 			}

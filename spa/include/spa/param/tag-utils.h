@@ -11,6 +11,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
+#include <spa/pod/compare.h>
 #include <spa/param/tag.h>
 
 #ifdef __cplusplus
@@ -33,8 +34,7 @@ extern "C" {
 SPA_API_TAG_UTILS int
 spa_tag_compare(const struct spa_pod *a, const struct spa_pod *b)
 {
-	return ((a == b) || (a && b && SPA_POD_SIZE(a) == SPA_POD_SIZE(b) &&
-	    memcmp(a, b, SPA_POD_SIZE(b)) == 0)) ? 0 : 1;
+	return spa_pod_memcmp(a, b);
 }
 
 SPA_API_TAG_UTILS int

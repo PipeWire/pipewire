@@ -80,6 +80,13 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 	return 0;
 }
 
+SPA_API_POD_COMPARE int spa_pod_memcmp(const struct spa_pod *a,
+				  const struct spa_pod *b)
+{
+	return ((a == b) || (a && b && SPA_POD_SIZE(a) == SPA_POD_SIZE(b) &&
+	    memcmp(a, b, SPA_POD_SIZE(b)) == 0)) ? 0 : 1;
+}
+
 SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 				  const struct spa_pod *pod2)
 {
@@ -149,12 +156,8 @@ SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 		break;
 	}
 	case SPA_TYPE_Array:
-	{
-		if (pod1->size != pod2->size)
-			return -EINVAL;
-		res = memcmp(SPA_POD_BODY(pod1), SPA_POD_BODY(pod2), pod2->size);
+		res = spa_pod_memcmp(pod1, pod2);
 		break;
-	}
 	default:
 		if (pod1->size != pod2->size)
 			return -EINVAL;

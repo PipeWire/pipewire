@@ -17,6 +17,7 @@ Requires=pipewire-pulse.socket
 ConditionUser=!root
 Wants=pipewire.service pipewire-session-manager.service
 After=pipewire.service pipewire-session-manager.service
+BindsTo=pipewire.service
 Conflicts=pulseaudio.service
 
 [Service]

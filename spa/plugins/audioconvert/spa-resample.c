@@ -29,7 +29,10 @@ struct data {
 	bool verbose;
 	int rate;
 	int format;
+	uint32_t window;
 	int quality;
+	uint32_t n_taps;
+	double params[4];
 	int cpu_flags;
 
 	const char *iname;
@@ -43,14 +46,17 @@ struct data {
 
 #define STR_FMTS "(s8|s16|s32|f32|f64)"
 
-#define OPTIONS		"hvr:f:q:c:"
+#define OPTIONS		"hvr:f:q:c:w:p:t:"
 static const struct option long_options[] = {
 	{ "help",	no_argument,		NULL, 'h'},
 	{ "verbose",	no_argument,		NULL, 'v'},
 
 	{ "rate",	required_argument,	NULL, 'r' },
 	{ "format",	required_argument,	NULL, 'f' },
+	{ "window",	required_argument,	NULL, 'w' },
 	{ "quality",	required_argument,	NULL, 'q' },
+	{ "param",	required_argument,	NULL, 'p' },
+	{ "taps",	required_argument,	NULL, 't' },
 	{ "cpuflags",	required_argument,	NULL, 'c' },
 
         { NULL, 0, NULL, 0 }
@@ -70,7 +76,10 @@ static void show_usage(const char *name, bool is_error)
 	fprintf(fp,
 		"  -r  --rate                            Output sample rate (default as input)\n"
 		"  -f  --format                          Output sample format %s (default as input)\n"
+		"  -w  --window                          Window function blackman, exp, kaiser (default kaiser)\n"
 		"  -q  --quality                         Resampler quality (default %u)\n"
+		"  -p  --param                           Resampler param\n"
+		"  -t  --taps                            Resampler taps\n"
 		"  -c  --cpuflags                        CPU flags (default 0)\n"
 		"\n",
 		STR_FMTS, DEFAULT_QUALITY);
@@ -207,6 +216,9 @@ static int do_conversion(struct data *d)
 	r.i_rate = d->iinfo.samplerate;
 	r.o_rate = d->oinfo.samplerate;
 	r.quality = d->quality < 0 ? DEFAULT_QUALITY : d->quality;
+	r.config.window = d->window;
+	r.config.n_taps = d->n_taps;
+	r.config.params[0] = d->params[0];
 	if ((res = resample_native_init(&r)) < 0) {
 		fprintf(stderr, "can't init converter: %s\n", spa_strerror(res));
 		return res;
@@ -319,6 +331,15 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			data.cpu_flags = strtol(optarg, NULL, 0);
+			break;
+		case 'w':
+			data.window = resample_window_from_label(optarg);
+			break;
+		case 'p':
+			data.params[0] = atof(optarg);
+			break;
+		case 't':
+			data.n_taps = atoi(optarg);
 			break;
                 default:
 			fprintf(stderr, "error: unknown option '%c'\n", c);

@@ -10,6 +10,32 @@
 
 #define RESAMPLE_DEFAULT_QUALITY	4
 
+struct resample_config {
+#define RESAMPLE_WINDOW_DEFAULT		0
+#define RESAMPLE_WINDOW_EXP		1
+#define RESAMPLE_WINDOW_BLACKMAN	2
+#define RESAMPLE_WINDOW_KAISER		3
+	uint32_t window;
+
+	uint32_t n_taps;
+	double cutoff;
+
+	union {
+		double params[32];
+		struct {
+			double A;
+		} exp_params;
+		struct {
+			double alpha;
+		} blackman_params;
+		struct {
+			double stopband_attenuation;
+			double transition_bandwidth;
+			double alpha;
+		} kaiser_params;
+	};
+};
+
 struct resample {
 	struct spa_log *log;
 #define RESAMPLE_OPTION_PREFILL		(1<<0)
@@ -22,6 +48,8 @@ struct resample {
 	uint32_t o_rate;
 	double rate;
 	int quality;
+
+	struct resample_config config;
 
 	void (*free)		(struct resample *r);
 	void (*update_rate)	(struct resample *r, double rate);
@@ -49,6 +77,32 @@ struct resample {
 #define resample_phase(r)		(r)->phase(r)
 
 int resample_native_init(struct resample *r);
+int resample_native_init_config(struct resample *r, struct resample_config *conf);
 int resample_peaks_init(struct resample *r);
+
+static const struct resample_window_info {
+	uint32_t window;
+	const char *label;
+	const char *description;
+} resample_window_info[] = {
+	[RESAMPLE_WINDOW_DEFAULT] = { RESAMPLE_WINDOW_DEFAULT,
+		"default", "Default window", },
+	[RESAMPLE_WINDOW_EXP] = { RESAMPLE_WINDOW_EXP,
+		"exponential", "Exponential window", },
+	[RESAMPLE_WINDOW_BLACKMAN] = { RESAMPLE_WINDOW_BLACKMAN,
+		"blackman", "Blackman window", },
+	[RESAMPLE_WINDOW_KAISER] = { RESAMPLE_WINDOW_KAISER,
+		"kaiser", "Kaiser window", },
+};
+
+static inline uint32_t resample_window_from_label(const char *label)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(resample_window_info, i) {
+		if (spa_streq(i->label, label))
+			return i->window;
+	}
+	return RESAMPLE_WINDOW_EXP;
+}
+
 
 #endif /* RESAMPLE_H */

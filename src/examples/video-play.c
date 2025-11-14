@@ -277,6 +277,7 @@ static void parse_peer_capability(struct data *data, const struct spa_pod *param
 	struct spa_peer_param_info info;
 	void *state = NULL;
 
+	fprintf(stderr, "peer capability\n");
 	while (spa_peer_param_parse(param, &info, sizeof(info), &state) == 1) {
 		struct spa_param_dict_info di;
 

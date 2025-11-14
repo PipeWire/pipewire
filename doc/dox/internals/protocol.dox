@@ -1130,6 +1130,8 @@ follows:
      |<----------------------------------------|
      |       ClientNode::PortSetMixInfo        | mixer inputs for each linked port
      |<----------------------------------------|
+     |       ClientNode::PortSetParam          | PeerCapability of the ports
+     |<----------------------------------------|
      |       ClientNode::PortSetParam          | Latency of the ports
      |<----------------------------------------|
      |       ClientNode::SetActivation         | activation of port peers

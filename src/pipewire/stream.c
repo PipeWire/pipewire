@@ -11,6 +11,7 @@
 #include <spa/buffer/alloc.h>
 #include <spa/param/props.h>
 #include <spa/param/format-utils.h>
+#include <spa/param/peer-utils.h>
 #include <spa/node/io.h>
 #include <spa/node/utils.h>
 #include <spa/utils/cleanup.h>
@@ -146,6 +147,7 @@ struct stream {
 
 	struct spa_callbacks rt_callbacks;
 
+	unsigned int have_peer_capability:1;
 	unsigned int disconnecting:1;
 	unsigned int disconnect_core:1;
 	unsigned int draining:1;
@@ -915,6 +917,21 @@ static int parse_latency(struct pw_stream *stream, const struct spa_pod *param, 
 	return 0;
 }
 
+static void emit_dummy_peer_capability(struct stream *impl, bool empty)
+{
+	struct spa_pod *param = NULL;
+	uint8_t buffer[1024];
+	if (!empty) {
+		struct spa_pod_frame f;
+		struct spa_pod_builder b;
+		spa_pod_builder_init(&b, buffer, sizeof(buffer));
+		spa_peer_param_build_start(&b, &f, SPA_PARAM_PeerCapability);
+		spa_peer_param_build_add_param(&b, SPA_ID_INVALID, NULL);
+		param = spa_peer_param_build_end(&b, &f);
+	}
+	emit_param_changed(impl, SPA_PARAM_PeerCapability, param);
+}
+
 static int impl_port_set_param(void *object,
 			       enum spa_direction direction, uint32_t port_id,
 			       uint32_t id, uint32_t flags,
@@ -922,7 +939,7 @@ static int impl_port_set_param(void *object,
 {
 	struct stream *impl = object;
 	struct pw_stream *stream = &impl->this;
-	uint32_t user, fl = 0;
+	uint32_t user = 0, fl = 0;
 	int res;
 	const struct spa_pod *params[1];
 	uint32_t n_params = 0;
@@ -942,7 +959,12 @@ static int impl_port_set_param(void *object,
 	n_params = param ? 1 : 0;
 
 	switch (id) {
+	case SPA_PARAM_PeerCapability:
+		impl->have_peer_capability = true;
+		break;
 	case SPA_PARAM_Latency:
+		if (!impl->have_peer_capability)
+			emit_dummy_peer_capability(impl, param == NULL);
 		parse_latency(stream, param, &fl);
 		break;
 	}

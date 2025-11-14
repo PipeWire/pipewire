@@ -41,7 +41,9 @@ static const struct spa_type_info spa_type_param[] = {
 	{ SPA_PARAM_Latency, SPA_TYPE_OBJECT_ParamLatency, SPA_TYPE_INFO_PARAM_ID_BASE "Latency", NULL },
 	{ SPA_PARAM_ProcessLatency, SPA_TYPE_OBJECT_ParamProcessLatency, SPA_TYPE_INFO_PARAM_ID_BASE "ProcessLatency", NULL },
 	{ SPA_PARAM_Tag, SPA_TYPE_OBJECT_ParamTag, SPA_TYPE_INFO_PARAM_ID_BASE "Tag", NULL },
-	{ SPA_PARAM_PeerFormats, SPA_TYPE_Struct, SPA_TYPE_INFO_PARAM_ID_BASE "PeerFormats", NULL },
+	{ SPA_PARAM_PeerEnumFormat, SPA_TYPE_OBJECT_PeerParam, SPA_TYPE_INFO_PARAM_ID_BASE "PeerEnumFormat", NULL },
+	{ SPA_PARAM_Capability, SPA_TYPE_OBJECT_ParamDict, SPA_TYPE_INFO_PARAM_ID_BASE "Capability", NULL },
+	{ SPA_PARAM_PeerCapability, SPA_TYPE_OBJECT_PeerParam, SPA_TYPE_INFO_PARAM_ID_BASE "PeerCapability", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

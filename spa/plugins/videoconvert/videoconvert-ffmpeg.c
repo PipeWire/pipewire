@@ -31,6 +31,7 @@
 #include <spa/param/param.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
+#include <spa/param/peer-utils.h>
 #include <spa/pod/filter.h>
 #include <spa/pod/dynamic.h>
 #include <spa/debug/types.h>
@@ -77,15 +78,16 @@ struct port {
 	uint64_t info_all;
 	struct spa_port_info info;
 
-#define IDX_EnumFormat	0
-#define IDX_Meta	1
-#define IDX_IO		2
-#define IDX_Format	3
-#define IDX_Buffers	4
-#define IDX_Latency	5
-#define IDX_Tag		6
-#define IDX_PeerFormats	7
-#define N_PORT_PARAMS	8
+#define IDX_EnumFormat		0
+#define IDX_Meta		1
+#define IDX_IO			2
+#define IDX_Format		3
+#define IDX_Buffers		4
+#define IDX_Latency		5
+#define IDX_Tag			6
+#define IDX_PeerEnumFormat	7
+#define IDX_PeerCapability	8
+#define N_PORT_PARAMS		9
 	struct spa_param_info params[N_PORT_PARAMS];
 
 	struct spa_pod *peer_format_pod;
@@ -485,7 +487,8 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 	port->params[IDX_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	port->params[IDX_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_READWRITE);
 	port->params[IDX_Tag] = SPA_PARAM_INFO(SPA_PARAM_Tag, SPA_PARAM_INFO_READWRITE);
-	port->params[IDX_PeerFormats] = SPA_PARAM_INFO(SPA_PARAM_PeerFormats, SPA_PARAM_INFO_WRITE);
+	port->params[IDX_PeerEnumFormat] = SPA_PARAM_INFO(SPA_PARAM_PeerEnumFormat, SPA_PARAM_INFO_WRITE);
+	port->params[IDX_PeerCapability] = SPA_PARAM_INFO(SPA_PARAM_PeerCapability, SPA_PARAM_INFO_WRITE);
 	port->info.params = port->params;
 	port->info.n_params = N_PORT_PARAMS;
 
@@ -1599,7 +1602,7 @@ static int port_param_tag(struct impl *this, struct port *port, uint32_t id,
 	return 0;
 }
 
-static int port_param_peer_formats(struct impl *this, struct port *port, uint32_t index,
+static int port_param_peer_enum_format(struct impl *this, struct port *port, uint32_t index,
 		const struct spa_pod **param, struct spa_pod_builder *b)
 {
 	if (index >= port->n_peer_formats)
@@ -1664,8 +1667,8 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_Tag:
 		res = port_param_tag(this, port, id, result.index, &param, &b);
 		break;
-	case SPA_PARAM_PeerFormats:
-		res = port_param_peer_formats(this, port, result.index, &param, &b);
+	case SPA_PARAM_PeerEnumFormat:
+		res = port_param_peer_enum_format(this, port, result.index, &param, &b);
 		break;
 	default:
 		return -ENOENT;
@@ -1980,7 +1983,7 @@ static int port_set_format(void *object,
 }
 
 
-static int port_set_peer_formats(void *object,
+static int port_set_peer_enum_format(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
 			   uint32_t flags,
@@ -1990,14 +1993,15 @@ static int port_set_peer_formats(void *object,
 	struct port *port, *oport;
 	int res = 0;
 	uint32_t i;
-	const struct spa_pod *format;
 	enum spa_direction other = SPA_DIRECTION_REVERSE(direction);
 	static uint32_t subtypes[] = {
 		SPA_MEDIA_SUBTYPE_raw,
 		SPA_MEDIA_SUBTYPE_mjpg,
 		SPA_MEDIA_SUBTYPE_h264 };
+	struct spa_peer_param_info info;
+	void *state = NULL;
 
-	spa_return_val_if_fail(spa_pod_is_struct(formats), -EINVAL);
+	spa_return_val_if_fail(spa_pod_is_object(formats), -EINVAL);
 
 	port = GET_PORT(this, direction, port_id);
 	oport = GET_PORT(this, other, port_id);
@@ -2013,9 +2017,10 @@ static int port_set_peer_formats(void *object,
 		port->peer_format_pod = spa_pod_copy(formats);
 
 		for (i = 0; i < SPA_N_ELEMENTS(subtypes); i++) {
-			SPA_POD_STRUCT_FOREACH(port->peer_format_pod, format) {
+			state = NULL;
+			while (spa_peer_param_parse(formats, &info, sizeof(info), &state) > 0) {
 				uint32_t media_type, media_subtype;
-				if (!spa_format_parse(format, &media_type, &media_subtype) ||
+				if (!spa_format_parse(info.param, &media_type, &media_subtype) ||
 				    media_type != SPA_MEDIA_TYPE_video ||
 				    media_subtype != subtypes[i])
 					continue;
@@ -2024,13 +2029,14 @@ static int port_set_peer_formats(void *object,
 		}
 		port->peer_formats = calloc(count, sizeof(struct spa_pod *));
 		for (i = 0; i < SPA_N_ELEMENTS(subtypes); i++) {
-			SPA_POD_STRUCT_FOREACH(port->peer_format_pod, format) {
+			state = NULL;
+			while (spa_peer_param_parse(port->peer_format_pod, &info, sizeof(info), &state) > 0) {
 				uint32_t media_type, media_subtype;
-				if (!spa_format_parse(format, &media_type, &media_subtype) ||
+				if (!spa_format_parse(info.param, &media_type, &media_subtype) ||
 				    media_type != SPA_MEDIA_TYPE_video ||
 				    media_subtype != subtypes[i])
 					continue;
-				port->peer_formats[port->n_peer_formats++] = format;
+				port->peer_formats[port->n_peer_formats++] = info.param;
 			}
 		}
 	}
@@ -2038,7 +2044,7 @@ static int port_set_peer_formats(void *object,
 	oport->params[IDX_EnumFormat].user++;
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	port->params[IDX_EnumFormat].user++;
-	port->params[IDX_PeerFormats].user++;
+	port->params[IDX_PeerEnumFormat].user++;
 	return res;
 }
 
@@ -2068,8 +2074,9 @@ impl_node_port_set_param(void *object,
 	case SPA_PARAM_Format:
 		res = port_set_format(this, direction, port_id, flags, param);
 		break;
-	case SPA_PARAM_PeerFormats:
-		res = port_set_peer_formats(this, direction, port_id, flags, param);
+	case SPA_PARAM_PeerEnumFormat:
+		res = port_set_peer_enum_format(this, direction, port_id, flags, param);
+		break;
 		break;
 	default:
 		return -ENOENT;

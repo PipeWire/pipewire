@@ -15,6 +15,8 @@
 #include <spa/utils/result.h>
 #include <spa/param/video/format-utils.h>
 #include <spa/param/tag-utils.h>
+#include <spa/param/dict-utils.h>
+#include <spa/param/peer-utils.h>
 #include <spa/param/props.h>
 #include <spa/param/latency-utils.h>
 #include <spa/debug/format.h>
@@ -270,6 +272,33 @@ on_stream_io_changed(void *_data, uint32_t id, void *area, uint32_t size)
 	}
 }
 
+static void parse_peer_capability(struct data *data, const struct spa_pod *param)
+{
+	struct spa_peer_param_info info;
+	void *state = NULL;
+
+	while (spa_peer_param_parse(param, &info, sizeof(info), &state) == 1) {
+		struct spa_param_dict_info di;
+
+		if (spa_param_dict_parse(info.param, &di, sizeof(di)) > 0) {
+			struct spa_dict dict;
+			struct spa_dict_item *items;
+			const struct spa_dict_item *it;
+
+			if (spa_param_dict_info_parse(&di, sizeof(di), &dict, NULL) < 0)
+				return;
+
+			items = alloca(sizeof(struct spa_dict_item) * dict.n_items);
+			if (spa_param_dict_info_parse(&di, sizeof(di), &dict, items) < 0)
+				return;
+
+			spa_dict_for_each(it, &dict)
+				fprintf(stderr, "peer:%u  %s: %s\n", info.peer_id, it->key, it->value);
+
+		}
+	}
+}
+
 /* Be notified when the stream param changes. We're only looking at the
  * format changes.
  *
@@ -294,8 +323,11 @@ on_stream_param_changed(void *_data, uint32_t id, const struct spa_pod *param)
 	void *d;
 	int32_t mult, size, blocks;
 
-	if (param != NULL && id == SPA_PARAM_Tag) {
-		spa_debug_pod(0, NULL, param);
+	if (param != NULL && (id == SPA_PARAM_Tag || id == SPA_PARAM_PeerCapability)) {
+		if (id == SPA_PARAM_PeerCapability)
+			parse_peer_capability(data, param);
+		else
+			spa_debug_pod(0, NULL, param);
 		return;
 	}
 	if (param != NULL && id == SPA_PARAM_Latency) {

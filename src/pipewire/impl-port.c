@@ -10,6 +10,8 @@
 #include <spa/pod/parser.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/tag-utils.h>
+#include <spa/param/dict-utils.h>
+#include <spa/param/peer-utils.h>
 #include <spa/node/utils.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
@@ -762,6 +764,35 @@ static int check_param_io(void *data, int seq, uint32_t id,
 	return 0;
 }
 
+static int process_capability_param(void *data, int seq,
+		uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+{
+	struct pw_impl_port *this = data;
+	struct spa_param_dict_info info;
+	struct spa_pod *old;
+
+	if (id != SPA_PARAM_Capability || param == NULL)
+		return -EINVAL;
+	if (spa_param_dict_parse(param, &info, sizeof(info)) < 0)
+		return 0;
+
+	old = this->cap[this->direction];
+	if (spa_param_dict_compare(old, param) == 0)
+		return 0;
+
+	pw_log_debug("port %p: got %s capabilty %p", this,
+			pw_direction_as_string(this->direction), param);
+	if (param)
+		pw_log_pod(SPA_LOG_LEVEL_DEBUG, param);
+
+	free(old);
+	this->cap[this->direction] = spa_pod_copy(param);
+
+	pw_impl_port_emit_capability_changed(this);
+
+	return 0;
+}
+
 static int process_latency_param(void *data, int seq,
 		uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
 {
@@ -831,6 +862,7 @@ static void check_params(struct pw_impl_port *port)
 			PW_IMPL_PORT_FLAG_BUFFERS);
 
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_IO, 0, 0, NULL, check_param_io, port);
+	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Capability, 0, 0, NULL, process_capability_param, port);
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Latency, 0, 0, NULL, process_latency_param, port);
 	pw_impl_port_for_each_param(port, 0, SPA_PARAM_Tag, 0, 0, NULL, process_tag_param, port);
 }
@@ -877,6 +909,15 @@ static void update_info(struct pw_impl_port *port, const struct spa_port_info *i
 				changed_ids[n_changed_ids++] = id;
 
 			switch (id) {
+			case SPA_PARAM_PeerCapability:
+				port->have_peer_capability_param =
+					SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_WRITE);
+				break;
+			case SPA_PARAM_Capability:
+				if (port->node != NULL)
+					pw_impl_port_for_each_param(port, 0, id, 0, UINT32_MAX,
+							NULL, process_capability_param, port);
+				break;
 			case SPA_PARAM_Latency:
 				port->have_latency_param =
 					SPA_FLAG_IS_SET(info->params[i].flags, SPA_PARAM_INFO_WRITE);
@@ -1916,6 +1957,66 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 		return 0;
 
 	return pw_impl_port_set_param(port, SPA_PARAM_Tag, 0, port->tag[direction]);
+}
+
+int pw_impl_port_recalc_capability(struct pw_impl_port *port)
+{
+	struct pw_impl_link *l;
+	struct pw_impl_port *other;
+	struct spa_pod *param, *old;
+	struct spa_pod_dynamic_builder b = { 0 };
+	struct spa_pod_frame f;
+	enum spa_direction direction;
+	uint8_t buffer[1024];
+	int count = 0;
+	bool changed;
+
+	if (port->destroying)
+		return 0;
+
+	direction = SPA_DIRECTION_REVERSE(port->direction);
+
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
+	spa_peer_param_build_start(&b.b, &f, SPA_PARAM_PeerCapability);
+
+	if (port->direction == PW_DIRECTION_OUTPUT) {
+		spa_list_for_each(l, &port->links, output_link) {
+			other = l->input;
+			spa_peer_param_build_add_param(&b.b, other->info.id, other->cap[other->direction]);
+			count++;
+		}
+	} else {
+		spa_list_for_each(l, &port->links, input_link) {
+			other = l->output;
+			spa_peer_param_build_add_param(&b.b, other->info.id, other->cap[other->direction]);
+			count++;
+		}
+	}
+	param = count == 0 ? NULL : spa_peer_param_build_end(&b.b, &f);
+
+	old = port->cap[direction];
+
+	changed = spa_pod_memcmp(old, param);
+
+	pw_log_info("port %d: %p %s %s cap %p %d",
+			port->info.id, port, changed ? "set" : "keep",
+			pw_direction_as_string(direction), param, port->have_peer_capability_param);
+
+	if (changed) {
+		free(old);
+		port->cap[direction] = param ? spa_pod_copy(param) : NULL;
+		if (param)
+			pw_log_pod(SPA_LOG_LEVEL_INFO, param);
+	}
+	spa_pod_dynamic_builder_clean(&b);
+
+	if (!changed)
+		return 0;
+
+	if (!port->have_peer_capability_param)
+		return 0;
+
+	return pw_impl_port_set_param(port, SPA_PARAM_PeerCapability, 0, port->cap[direction]);
 }
 
 SPA_EXPORT

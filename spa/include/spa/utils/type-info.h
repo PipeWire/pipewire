@@ -5,6 +5,7 @@
 #ifndef SPA_TYPE_INFO_H
 #define SPA_TYPE_INFO_H
 
+
 #include <spa/utils/defs.h>
 #include <spa/utils/type.h>
 #include <spa/utils/enum-types.h>
@@ -78,6 +79,8 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_OBJECT_ParamLatency, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_Latency, spa_type_param_latency },
 	{ SPA_TYPE_OBJECT_ParamProcessLatency, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_ProcessLatency, spa_type_param_process_latency },
 	{ SPA_TYPE_OBJECT_ParamTag, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_Tag, spa_type_param_tag },
+	{ SPA_TYPE_OBJECT_PeerParam, SPA_TYPE_Object, SPA_TYPE_INFO_PeerParam, spa_type_peer_param },
+	{ SPA_TYPE_OBJECT_ParamDict, SPA_TYPE_Object, SPA_TYPE_INFO_PARAM_Dict, spa_type_param_dict },
 
 	{ 0, 0, NULL, NULL }
 };

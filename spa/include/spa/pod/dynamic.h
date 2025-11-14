@@ -70,8 +70,10 @@ SPA_API_POD_DYNAMIC void spa_pod_dynamic_builder_continue(struct spa_pod_dynamic
 
 SPA_API_POD_DYNAMIC void spa_pod_dynamic_builder_clean(struct spa_pod_dynamic_builder *builder)
 {
-	if (builder->data != builder->b.data)
+	if (builder->data != builder->b.data) {
 		free(builder->b.data);
+		builder->b.data = NULL;
+	}
 }
 
 SPA_DEFINE_AUTO_CLEANUP(spa_pod_dynamic_builder, struct spa_pod_dynamic_builder, {

@@ -902,6 +902,7 @@ struct pw_impl_port_implementation {
 #define pw_impl_port_emit_param_changed(p,i)		pw_impl_port_emit(p, param_changed, 1, i)
 #define pw_impl_port_emit_latency_changed(p)		pw_impl_port_emit(p, latency_changed, 2)
 #define pw_impl_port_emit_tag_changed(p)		pw_impl_port_emit(p, tag_changed, 3)
+#define pw_impl_port_emit_capability_changed(p)		pw_impl_port_emit(p, capability_changed, 4)
 
 #define PW_IMPL_PORT_IS_CONTROL(port)	SPA_FLAG_MASK((port)->flags, \
 						PW_IMPL_PORT_FLAG_BUFFERS|PW_IMPL_PORT_FLAG_CONTROL,\
@@ -976,6 +977,9 @@ struct pw_impl_port {
 
 	unsigned int have_tag_param:1;
 	struct spa_pod *tag[2];			/**< tags */
+
+	unsigned int have_peer_capability_param:1;
+	struct spa_pod *cap[2];		/**< capabilities */
 
 	void *owner_data;		/**< extra owner data */
 	void *user_data;                /**< extra user data */
@@ -1332,6 +1336,7 @@ int pw_impl_port_set_param(struct pw_impl_port *port,
 int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix *mix, uint32_t flags,
 		struct spa_buffer **buffers, uint32_t n_buffers);
 
+int pw_impl_port_recalc_capability(struct pw_impl_port *port);
 int pw_impl_port_recalc_latency(struct pw_impl_port *port);
 int pw_impl_port_recalc_tag(struct pw_impl_port *port);
 

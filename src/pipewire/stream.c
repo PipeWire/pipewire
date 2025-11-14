@@ -103,14 +103,16 @@ struct stream {
 	uint64_t port_change_mask_all;
 	struct spa_port_info port_info;
 	struct pw_properties *port_props;
-#define PORT_EnumFormat	0
-#define PORT_Meta	1
-#define PORT_IO		2
-#define PORT_Format	3
-#define PORT_Buffers	4
-#define PORT_Latency	5
-#define PORT_Tag	6
-#define N_PORT_PARAMS	7
+#define PORT_EnumFormat		0
+#define PORT_Meta		1
+#define PORT_IO			2
+#define PORT_Format		3
+#define PORT_Buffers		4
+#define PORT_Latency		5
+#define PORT_Tag		6
+#define PORT_Capability		7
+#define PORT_PeerCapability	8
+#define N_PORT_PARAMS		9
 	struct spa_param_info port_params[N_PORT_PARAMS];
 
 	struct spa_list param_list;
@@ -196,6 +198,10 @@ static int get_port_param_index(uint32_t id)
 		return PORT_Latency;
 	case SPA_PARAM_Tag:
 		return PORT_Tag;
+	case SPA_PARAM_Capability:
+		return PORT_Capability;
+	case SPA_PARAM_PeerCapability:
+		return PORT_PeerCapability;
 	default:
 		return -1;
 	}
@@ -2015,6 +2021,8 @@ pw_stream_connect(struct pw_stream *stream,
 	impl->port_params[PORT_Buffers] = SPA_PARAM_INFO(SPA_PARAM_Buffers, 0);
 	impl->port_params[PORT_Latency] = SPA_PARAM_INFO(SPA_PARAM_Latency, SPA_PARAM_INFO_WRITE);
 	impl->port_params[PORT_Tag] = SPA_PARAM_INFO(SPA_PARAM_Tag, SPA_PARAM_INFO_WRITE);
+	impl->port_params[PORT_Capability] = SPA_PARAM_INFO(SPA_PARAM_Capability, 0);
+	impl->port_params[PORT_PeerCapability] = SPA_PARAM_INFO(SPA_PARAM_PeerCapability, SPA_PARAM_INFO_WRITE);
 	impl->port_info.props = &impl->port_props->dict;
 	impl->port_info.params = impl->port_params;
 	impl->port_info.n_params = N_PORT_PARAMS;

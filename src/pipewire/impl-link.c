@@ -924,6 +924,7 @@ static void input_remove(struct pw_impl_link *this)
 	spa_list_remove(&this->input_link);
 	pw_impl_port_emit_link_removed(port, this);
 
+	pw_impl_port_recalc_capability(port);
 	pw_impl_port_recalc_latency(port);
 	pw_impl_port_recalc_tag(port);
 
@@ -956,6 +957,7 @@ static void output_remove(struct pw_impl_link *this)
 	spa_list_remove(&this->output_link);
 	pw_impl_port_emit_link_removed(port, this);
 
+	pw_impl_port_recalc_capability(port);
 	pw_impl_port_recalc_latency(port);
 	pw_impl_port_recalc_tag(port);
 
@@ -1138,6 +1140,14 @@ static void input_port_tag_changed(void *data)
 		pw_impl_port_recalc_tag(this->output);
 }
 
+static void input_port_capability_changed(void *data)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	if (!this->feedback)
+		pw_impl_port_recalc_capability(this->output);
+}
+
 static void output_port_latency_changed(void *data)
 {
 	struct impl *impl = data;
@@ -1154,12 +1164,21 @@ static void output_port_tag_changed(void *data)
 		pw_impl_port_recalc_tag(this->input);
 }
 
+static void output_port_capability_changed(void *data)
+{
+	struct impl *impl = data;
+	struct pw_impl_link *this = &impl->this;
+	if (!this->feedback)
+		pw_impl_port_recalc_capability(this->input);
+}
+
 static const struct pw_impl_port_events input_port_events = {
 	PW_VERSION_IMPL_PORT_EVENTS,
 	.param_changed = input_port_param_changed,
 	.state_changed = input_port_state_changed,
 	.latency_changed = input_port_latency_changed,
 	.tag_changed = input_port_tag_changed,
+	.capability_changed = input_port_capability_changed,
 };
 
 static const struct pw_impl_port_events output_port_events = {
@@ -1168,6 +1187,7 @@ static const struct pw_impl_port_events output_port_events = {
 	.state_changed = output_port_state_changed,
 	.latency_changed = output_port_latency_changed,
 	.tag_changed = output_port_tag_changed,
+	.capability_changed = output_port_capability_changed,
 };
 
 static void node_result(struct impl *impl, void *obj,
@@ -1576,6 +1596,8 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	try_link_controls(impl, output, input);
 
+	pw_impl_port_recalc_capability(output);
+	pw_impl_port_recalc_capability(input);
 	pw_impl_port_recalc_latency(output);
 	pw_impl_port_recalc_latency(input);
 	pw_impl_port_recalc_tag(output);

@@ -1,10 +1,12 @@
 /* PipeWire */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki (alexandre.malki@kebag-logic.com) */
 /* SPDX-License-Identifier: MIT */
 
 #include "adp.h"
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
+#include "es-builder.h"
 #include "internal.h"
 
 /**
@@ -25,7 +27,7 @@
  */
 static inline void init_descriptors(struct server *server)
 {
-	server_add_descriptor(server, AVB_AEM_DESC_STRINGS, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_STRINGS, 0,
 			sizeof(struct avb_aem_desc_strings),
 			&(struct avb_aem_desc_strings)
 	{
@@ -33,7 +35,7 @@ static inline void init_descriptors(struct server *server)
 		.string_1 = "Configuration 1",
 		.string_2 = "Wim Taymans",
 	});
-	server_add_descriptor(server, AVB_AEM_DESC_LOCALE, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_LOCALE, 0,
 			sizeof(struct avb_aem_desc_locale),
 			&(struct avb_aem_desc_locale)
 	{
@@ -41,7 +43,7 @@ static inline void init_descriptors(struct server *server)
 		.number_of_strings = htons(1),
 		.base_strings = htons(0)
 	});
-	server_add_descriptor(server, AVB_AEM_DESC_ENTITY, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_ENTITY, 0,
 			sizeof(struct avb_aem_desc_entity),
 			&(struct avb_aem_desc_entity)
 	{
@@ -97,7 +99,7 @@ static inline void init_descriptors(struct server *server)
 			{ htons(AVB_AEM_DESC_CLOCK_DOMAIN), htons(1) }
 		}
 	};
-	server_add_descriptor(server, AVB_AEM_DESC_CONFIGURATION, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_CONFIGURATION, 0,
 			sizeof(config), &config);
 
 	struct {
@@ -155,7 +157,7 @@ static inline void init_descriptors(struct server *server)
 			{ .pull_frequency = htonl(192000) },
 		}
 	};
-	server_add_descriptor(server, AVB_AEM_DESC_AUDIO_UNIT, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_AUDIO_UNIT, 0,
 			sizeof(audio_unit), &audio_unit);
 
 	struct {
@@ -194,7 +196,7 @@ static inline void init_descriptors(struct server *server)
 			htobe64(0x00a0060860000800ULL),
 		},
 	};
-	server_add_descriptor(server, AVB_AEM_DESC_STREAM_INPUT, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_STREAM_INPUT, 0,
 			sizeof(stream_input_0), &stream_input_0);
 
 	struct {
@@ -232,7 +234,7 @@ static inline void init_descriptors(struct server *server)
 			htobe64(0x00a0060860000800ULL),
 		},
 	};
-	server_add_descriptor(server, AVB_AEM_DESC_STREAM_OUTPUT, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_STREAM_OUTPUT, 0,
 			sizeof(stream_output_0), &stream_output_0);
 
 	struct avb_aem_desc_avb_interface avb_interface = {
@@ -253,7 +255,7 @@ static inline void init_descriptors(struct server *server)
 	};
 	strncpy(avb_interface.object_name, server->ifname, 63);
 	memcpy(avb_interface.mac_address, server->mac_addr, 6);
-	server_add_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, 0,
 			sizeof(avb_interface), &avb_interface);
 
 	struct avb_aem_desc_clock_source clock_source = {
@@ -266,6 +268,6 @@ static inline void init_descriptors(struct server *server)
 		.clock_source_location_type = htons(AVB_AEM_DESC_STREAM_INPUT),
 		.clock_source_location_index = htons(0),
 	};
-	server_add_descriptor(server, AVB_AEM_DESC_CLOCK_SOURCE, 0,
+	es_builder_add_descriptor(server, AVB_AEM_DESC_CLOCK_SOURCE, 0,
 			sizeof(clock_source), &clock_source);
 }

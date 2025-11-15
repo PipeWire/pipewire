@@ -1,0 +1,81 @@
+/* PipeWire */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
+/* SPDX-License-Identifier: MIT */
+
+
+#include "es-builder.h"
+#include "aecp-aem-descriptors.h"
+
+/**
+ * \brief The goal of this modules is to create a an entity and
+ * 	attache the necessary status or resources to it so they
+ * 	do no have to be seperated and referenced somewhere else.
+ *
+ * 	In a sense, it encapsulates the descriptor, and the states
+ * 	information that will be altered either by a aecp/acmp commands
+ * 	or internal state changes reflected into the counters.
+ */
+
+/** The callback type used for the different entity descriptor  */
+typedef void* (*es_builder_cb_t) (struct server *server, uint16_t type,
+		uint16_t index, size_t size, void *ptr);
+
+/** Structure holding all necessary cb
+ * \todo for the future of compatibility between milan's version
+ * and plain AVB, add the right callback, that would reduce
+ * code complexity and increase reusability.
+ * As well as having multiple entity model defined using different
+ * entity on the same machine
+ */
+struct es_builder_st {
+	es_builder_cb_t build_descriptor_cb;
+};
+
+/** All callback that needs a status information */
+static const struct es_builder_st es_builder[AVB_AEM_DESC_LAST_RESERVED_17221] =
+{
+};
+
+/**
+ * \brief, should be called when creating an a descriptor, it will attach
+ * the right state variable that are necessary for counters, stream info
+ * and so on...
+ */
+void es_builder_add_descriptor(struct server *server, uint16_t type,
+		uint16_t index, size_t size, void *ptr_aem)
+{
+	void *desc_ptr;
+	struct descriptor *d;
+
+	if (!server) {
+		pw_log_error("Invalid server, it is empty %p\n", server);
+		spa_assert(0);
+	}
+
+	if (type >= AVB_AEM_DESC_LAST_RESERVED_17221) {
+		pw_log_error("Invalid Type %u\n", type);
+		spa_assert(0);
+	}
+
+	/* Look if the descriptor has a callback to attach more status data */
+	if (!es_builder[type].build_descriptor_cb) {
+		if (!server_add_descriptor(server, type, index, size, ptr_aem)) {
+			pw_log_error("Could not allocate descriptor %u at "
+				"index %u the avb aem type\n", type, index);
+
+			spa_assert(0);
+		}
+	} else {
+		desc_ptr = es_builder[type].build_descriptor_cb(server, type,
+				index, size, ptr_aem);
+		if (!desc_ptr) {
+			pw_log_error("Could not allocate specific descriptr "
+				"%u at  index %u the avb aem type\n",
+				type, index);
+
+			spa_assert(0);
+		}
+		d = (struct descriptor *) desc_ptr;
+		d->size = size;
+	}
+}

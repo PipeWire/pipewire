@@ -1,5 +1,6 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki (alexandre.malki@kebag-logic.com) */
 /* SPDX-License-Identifier: MIT */
 
 #ifndef AVB_AECP_AEM_DESCRIPTORS_H
@@ -45,6 +46,8 @@
 #define AVB_AEM_DESC_SIGNAL_TRANSCODER		0x0023
 #define AVB_AEM_DESC_CLOCK_DOMAIN		0x0024
 #define AVB_AEM_DESC_CONTROL_BLOCK		0x0025
+/** IEEE 1722.1-2021 Table-7 has up to descriptor 0x0029, reserved for future */
+#define AVB_AEM_DESC_LAST_RESERVED_17221 	0x0029
 #define AVB_AEM_DESC_INVALID			0xffff
 
 struct avb_aem_desc_entity {

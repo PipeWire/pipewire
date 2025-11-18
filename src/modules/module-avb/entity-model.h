@@ -1,0 +1,32 @@
+/* PipeWire */
+/* SPDX-FileCopyrightText: Copyright © 2025 Kebag-Logic */
+/* SPDX-FileCopyrightText: Copyright © 2025 Simon Gapp <simon.gapp@kebag-logic.com> */
+/* SPDX-License-Identifier: MIT */
+
+#ifndef _ENTITY_MODEL_MILAN_H_
+#define _ENTITY_MODEL_MILAN_H_
+
+#include "aecp-aem-descriptors.h"
+
+/**************************************************************************************/
+/* IEEE 1722.1-2021, Sec. 7.2.8 AVB Interface Descriptor */
+/* Milan v1.2, Sec. 5.3.3.5 */
+
+#define DSC_AVB_INTERFACE_LOCALIZED_DESCRIPTION AVB_AEM_DESC_INVALID
+#define DSC_AVB_INTERFACE_INTERFACE_FLAGS (AVB_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_GRANDMASTER_SUPPORTED | \
+    AVB_AEM_DESC_AVB_INTERFACE_FLAG_GPTP_SUPPORTED | \
+    AVB_AEM_DESC_AVB_INTERFACE_FLAG_SRP_SUPPORTED)
+// TODO: This is a dynamic parameter
+#define DSC_AVB_INTERFACE_CLOCK_IDENTITY 0x3cc0c6FFFE0002CB
+#define DSC_AVB_INTERFACE_PRIORITY1 0xF8
+#define DSC_AVB_INTERFACE_CLOCK_CLASS 0xF8
+#define DSC_AVB_INTERFACE_OFFSET_SCALED_LOG_VARIANCE 0x436A
+#define DSC_AVB_INTERFACE_CLOCK_ACCURACY 0x21
+#define DSC_AVB_INTERFACE_PRIORITY2 0xF8
+#define DSC_AVB_INTERFACE_DOMAIN_NUMBER 0
+#define DSC_AVB_INTERFACE_LOG_SYNC_INTERVAL 0
+#define DSC_AVB_INTERFACE_LOG_ANNOUNCE_INTERVAL 0
+#define DSC_AVB_INTERFACE_PDELAY_INTERVAL 0
+#define DSC_AVB_INTERFACE_PORT_NUMBER 0
+
+#endif

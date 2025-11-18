@@ -36,6 +36,8 @@ struct impl {
 
 	struct modem modem;
 	struct spa_list call_list;
+
+	bool pts;
 };
 
 struct dbus_cmd_data {
@@ -944,8 +946,13 @@ bool mm_do_call(void *modemmanager, const char* number, void *user_data, enum cm
 	spa_autofree struct dbus_cmd_data *data = NULL;
 	spa_autoptr(DBusMessage) m = NULL;
 	DBusMessageIter iter, dict;
+	size_t i = 0;
 
-	for (size_t i = 0; number[i]; i++) {
+	/* Allow memory dial for PTS tests HFP/AG/OCM/BV-01-C and HFP/AG/OCM/BV-02-C */
+	if (this->pts && number[0] == '>')
+		i++;
+
+	for (; number[i]; i++) {
 		if (!is_valid_dial_string_char(number[i])) {
 			spa_log_warn(this->log, "Call creation canceled, invalid character found in dial string: %c", number[i]);
 			if (error)
@@ -1078,6 +1085,8 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_d
 {
 	const char *modem_device_str = NULL;
 	bool modem_device_found = false;
+	const char *pts_str = NULL;
+	bool pts = false;
 
 	spa_assert(log);
 	spa_assert(dbus_connection);
@@ -1086,6 +1095,9 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_d
 		if ((modem_device_str = spa_dict_lookup(info, "bluez5.hfphsp-backend-native-modem")) != NULL) {
 			if (!spa_streq(modem_device_str, "none"))
 				modem_device_found = true;
+		}
+		if ((pts_str = spa_dict_lookup(info, "bluez5.hfphsp-backend-native-pts")) != NULL) {
+			pts = spa_atob(pts_str);
 		}
 	}
 	if (!modem_device_found) {
@@ -1104,6 +1116,7 @@ void *mm_register(struct spa_log *log, void *dbus_connection, const struct spa_d
 	if (modem_device_str && !spa_streq(modem_device_str, "any"))
 		this->allowed_modem_device = strdup(modem_device_str);
 	spa_list_init(&this->call_list);
+	this->pts = pts;
 
 	if (add_filters(this) < 0)
 		return NULL;

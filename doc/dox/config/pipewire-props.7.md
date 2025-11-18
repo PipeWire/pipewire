@@ -1138,6 +1138,9 @@ HFP/HSP backend (default: native). Available values: any, none, hsphfpd, ofono, 
 
 @PAR@ monitor-prop  bluez5.hfphsp-backend-native-modem   # string
 
+@PAR@ monitor-prop  bluez5.hfphsp-backend-native-pts   # boolean
+Enable specific workarounds for Bluetooth qualification.
+
 @PAR@ monitor-prop  bluez5.disable-dummy-call   # boolean
 By default a call status event is sent on audio stream connection/disconnection to
 workaround some headset timeout disconnection when the HFP HF is used by another

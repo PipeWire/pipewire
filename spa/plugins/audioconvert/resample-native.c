@@ -104,21 +104,21 @@ static inline void exp_config(struct resample *r)
 #include "dbesi0.c"
 
 static const struct quality kaiser_qualities[] = {
-	{ 8, 0.53, 0.53, { 5.653260, 60.0, 0.50 }},
-	{ 16, 0.67, 0.67, { 6.204260, 65.0, 0.25 }},
-	{ 24, 0.75, 0.75, { 6.534860, 68.0, 0.18 }},
-	{ 32, 0.80, 0.80, { 6.975660, 72.0, 0.140 }},
-	{ 48, 0.85, 0.85, { 7.857260, 80.0, 0.105 }},                  /* default */
-	{ 64, 0.88, 0.88, { 8.408260, 85.0, 0.085 }},
-	{ 80, 0.895, 0.895, { 9.510260, 95.0, 0.076 }},
-	{ 96, 0.910, 0.910, { 10.061260, 100.0, 0.067 }},
-	{ 128, 0.936, 0.936, { 10.612260, 105.0, 0.053 }},
-	{ 160, 0.950, 0.950, { 11.163260, 110.0, 0.0445 }},
-	{ 192, 0.960, 0.960, { 11.714260, 115.0, 0.039 }},
-	{ 256, 0.970, 0.970, { 12.265260, 120.0, 0.0305 }},
-	{ 512, 0.980, 0.980, { 13.367260, 130.0, 0.0166 }},
-	{ 768, 0.985, 0.985, { 14.689660, 142.0, 0.01216 }},
-	{ 1024, 0.990, 0.990, { 16.122260, 155.0, 0.01 }},
+	{ 8, 0.530000, 0.530000, { 3.553376, 110.000000, 0.888064 }},
+	{ 16, 0.670000, 0.670000, { 3.553376, 110.000000, 0.444032 }},
+	{ 24, 0.750000, 0.750000, { 3.904154, 120.000000, 0.325043 }},
+	{ 32, 0.800000, 0.800000, { 4.254931, 130.000000, 0.265548 }},
+	{ 48, 0.850000, 0.850000, { 4.254931, 130.000000, 0.177032 }},
+	{ 64, 0.880000, 0.880000, { 4.254931, 130.000000, 0.132774 }},
+	{ 80, 0.895000, 0.895000, { 4.254931, 130.000000, 0.106219 }},
+	{ 96, 0.910000, 0.910000, { 4.254931, 130.000000, 0.088516 }},
+	{ 128, 0.936000, 0.936000, { 4.254931, 130.000000, 0.066387 }},
+	{ 160, 0.950000, 0.950000, { 4.254931, 130.000000, 0.053110 }},
+	{ 192, 0.960000, 0.960000, { 4.254931, 130.000000, 0.044258 }},
+	{ 256, 0.970000, 0.970000, { 4.605709, 140.000000, 0.035914 }},
+	{ 512, 0.980000, 0.980000, { 4.781097, 145.000000, 0.018637 }},
+	{ 768, 0.985000, 0.985000, { 4.956486, 150.000000, 0.012878 }},
+	{ 1024, 0.990000, 0.990000, { 5.131875, 155.000000, 0.009999 }},
 };
 
 static inline void kaiser_window(struct resample *r, double *w, double t, uint32_t n_taps)
@@ -132,44 +132,36 @@ static inline void kaiser_window(struct resample *r, double *w, double t, uint32
 	}
 }
 
-#if 0
 static inline void kaiser_config(struct resample *r)
 {
-	double A, B, dw, tr_bw;
+	double A, B, dw, tr_bw, alpha;
 	uint32_t n;
-
-	A = r->config.params[RESAMPLE_PARAM_KAISER_SB_ATT];
-	if (A <= 0.0)
-		A = 160;
-	tr_bw = r->config.params[RESAMPLE_PARAM_KAISER_TR_BW];
-	if (tr_bw <= 0.0)
-		tr_bw = 0.0305;
-
-	/* calculate Beta */
-	if (A > 50)
-		B = 0.1102 * (A - 8.7);
-	else if (A >= 21)
-		B = 0.5842 * pow (A - 21, 0.4) + 0.07886 * (A - 21);
-	else
-		B = 0.0;
-
-	/* calculate transition width in radians */
-	dw = 2 * M_PI * (tr_bw);
-	/* order of the filter */
-	n = (uint32_t)((A - 8.0) / (2.285 * dw));
-
-	r->config.params[RESAMPLE_PARAM_KAISER_ALPHA] = B / M_PI;
-	r->config.n_taps = n + 1;
-}
-#else
-static inline void kaiser_config(struct resample *r)
-{
 	const struct quality *q = &window_info[r->config.window].qualities[r->quality];
-	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_KAISER_ALPHA);
-	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_KAISER_SB_ATT);
-	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_KAISER_TR_BW);
+
+	if ((A = r->config.params[RESAMPLE_PARAM_KAISER_SB_ATT]) == 0.0)
+		A = q->params[RESAMPLE_PARAM_KAISER_SB_ATT];
+	if ((tr_bw = r->config.params[RESAMPLE_PARAM_KAISER_TR_BW]) == 0.0)
+		tr_bw = q->params[RESAMPLE_PARAM_KAISER_TR_BW];
+
+	if ((alpha = r->config.params[RESAMPLE_PARAM_KAISER_ALPHA]) == 0.0) {
+		/* calculate Beta and alpha */
+		if (A > 50)
+			B = 0.1102 * (A - 8.7);
+		else if (A >= 21)
+			B = 0.5842 * pow (A - 21, 0.4) + 0.07886 * (A - 21);
+		else
+			B = 0.0;
+
+		r->config.params[RESAMPLE_PARAM_KAISER_ALPHA] = B / M_PI;
+	}
+	if (r->config.n_taps == 0) {
+		/* calculate transition width in radians */
+		dw = 2 * M_PI * (tr_bw);
+		/* order of the filter */
+		n = (uint32_t)((A - 8.0) / (2.285 * dw));
+		r->config.n_taps = n + 1;
+	}
 }
-#endif
 
 struct window_info window_info[] = {
 	[RESAMPLE_WINDOW_EXP] = { RESAMPLE_WINDOW_EXP, exp_window,

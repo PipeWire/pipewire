@@ -558,6 +558,41 @@ See [Infinite Wave](https://src.infinitewave.ca/) for a comparison of the perfor
 Disable the resampler entirely. The node will only be able to negotiate with the graph
 when the samplerates are compatible.
 
+@PAR@ node-prop  resample.window = exp
+The resampler window function to use. By default an exponential window function is used
+that gives a good balance between complexitiy and quality.
+
+You can also specify a blackman or kaiser window, both with different tradeoffs.
+
+@PAR@ node-prop  resample.cutoff = 0.0
+The resampler cutoff frequency. A value of 0.0 will use a predefined value based on
+the resampler quality.
+
+@PAR@ node-prop  resample.n-taps = 0
+The resampler number of taps. A value of 0 will use a predefined value based on
+the resampler quality or other window function parameters.
+
+@PAR@ node-prop  resample.param.exp.A = 0.0
+The A parameter for the exponential window function. A value of 0.0 will use a predefined
+value based on the quality when the exp window is in use.
+
+@PAR@ node-prop  resample.param.blackman.alpha = 0.0
+The alpha value of the blackman function. A value of 0.0 will use a predefined
+value based on the quality when the blackman window is in use.
+
+@PAR@ node-prop  resample.param.kaiser.stopband-attenuation = 0.0
+The kaiser window stopband attenuation parameter. A default value of 0.0 will use a
+predefined value based on the quality.
+
+@PAR@ node-prop  resample.param.kaiser.transition-bandwidth = 0.0
+The kaiser window transition bandwidth parameter. A default value of 0.0 will use a
+predefined value based on the quality.
+
+@PAR@ node-prop  resample.param.kaiser.alpha = 0.0
+The kaiser window alpha parameter. A default value of 0.0 will calculate an alpha value
+based on the stopband-attenuation and transition-bandwidth parameters.
+
+
 ## Channel Mixer Parameters
 
 Source, sinks, capture and playback streams can apply channel mixing on the incoming signal.

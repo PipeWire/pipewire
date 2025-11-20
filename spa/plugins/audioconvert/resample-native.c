@@ -13,12 +13,15 @@
 
 SPA_LOG_TOPIC_DEFINE(resample_log_topic, "spa.resample");
 
+#define INHERIT_PARAM(c,q,p)	if ((c)->params[p] == 0.0) (c)->params[p] = (q)->params[p];
+
 struct quality {
 	uint32_t n_taps;
 	double cutoff_up;		/* when upsampling */
 	double cutoff_down;		/* for downsampling */
 	double params[RESAMPLE_MAX_PARAMS];
 };
+
 
 struct window_info {
 	uint32_t window;
@@ -60,9 +63,7 @@ static inline void blackman_window(struct resample *r, double *w, double t, uint
 static inline void blackman_config(struct resample *r)
 {
 	const struct quality *q = &window_info[r->config.window].qualities[r->quality];
-	const uint32_t p0 = RESAMPLE_PARAM_BLACKMAN_ALPHA;
-	if (r->config.params[p0] == 0.0)
-		r->config.params[p0] = q->params[p0];
+	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_BLACKMAN_ALPHA);
 }
 
 static const struct quality exp_qualities[] = {
@@ -97,9 +98,7 @@ static inline void exp_window(struct resample *r, double *w, double t, uint32_t 
 static inline void exp_config(struct resample *r)
 {
 	const struct quality *q = &window_info[r->config.window].qualities[r->quality];
-	const uint32_t p0 = RESAMPLE_PARAM_EXP_A;
-	if (r->config.params[p0] == 0.0)
-		r->config.params[p0] = q->params[p0];
+	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_EXP_A);
 }
 
 #include "dbesi0.c"
@@ -166,9 +165,9 @@ static inline void kaiser_config(struct resample *r)
 static inline void kaiser_config(struct resample *r)
 {
 	const struct quality *q = &window_info[r->config.window].qualities[r->quality];
-	const uint32_t p0 = RESAMPLE_PARAM_KAISER_ALPHA;
-	if (r->config.params[p0] == 0.0)
-		r->config.params[p0] = q->params[p0];
+	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_KAISER_ALPHA);
+	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_KAISER_SB_ATT);
+	INHERIT_PARAM(&r->config, q, RESAMPLE_PARAM_KAISER_TR_BW);
 }
 #endif
 

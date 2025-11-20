@@ -31,8 +31,7 @@ struct data {
 	int format;
 	uint32_t window;
 	int quality;
-	uint32_t n_taps;
-	double params[4];
+	struct resample_config config;
 	int cpu_flags;
 
 	const char *iname;
@@ -65,6 +64,7 @@ static const struct option long_options[] = {
 static void show_usage(const char *name, bool is_error)
 {
 	FILE *fp;
+	uint32_t i;
 
 	fp = is_error ? stderr : stdout;
 
@@ -76,13 +76,27 @@ static void show_usage(const char *name, bool is_error)
 	fprintf(fp,
 		"  -r  --rate                            Output sample rate (default as input)\n"
 		"  -f  --format                          Output sample format %s (default as input)\n"
-		"  -w  --window                          Window function blackman, exp, kaiser (default kaiser)\n"
 		"  -q  --quality                         Resampler quality (default %u)\n"
-		"  -p  --param                           Resampler param\n"
-		"  -t  --taps                            Resampler taps\n"
+		"  -w  --window                          Window function (default %s)\n",
+		STR_FMTS, DEFAULT_QUALITY, resample_window_name(RESAMPLE_WINDOW_DEFAULT));
+	for (i = 0; i < SPA_N_ELEMENTS(resample_window_info); i++) {
+		fprintf(fp,
+			"                                                %s: %s\n",
+			resample_window_info[i].label,
+			resample_window_info[i].description);
+	}
+	fprintf(fp,
+		"  -t  --taps                            Resampler taps (default from quality)\n"
+		"  -p  --param                           Resampler param <name>=<value> (default from quality)\n");
+
+	for (i = 0; i < SPA_N_ELEMENTS(resample_param_info); i++) {
+		fprintf(fp,
+			"                                                %s\n",
+			resample_param_info[i].label);
+	}
+	fprintf(fp,
 		"  -c  --cpuflags                        CPU flags (default 0)\n"
-		"\n",
-		STR_FMTS, DEFAULT_QUALITY);
+		"\n");
 }
 
 static inline const char *
@@ -216,12 +230,22 @@ static int do_conversion(struct data *d)
 	r.i_rate = d->iinfo.samplerate;
 	r.o_rate = d->oinfo.samplerate;
 	r.quality = d->quality < 0 ? DEFAULT_QUALITY : d->quality;
-	r.config.window = d->window;
-	r.config.n_taps = d->n_taps;
-	r.config.params[0] = d->params[0];
+	r.config = d->config;
 	if ((res = resample_native_init(&r)) < 0) {
 		fprintf(stderr, "can't init converter: %s\n", spa_strerror(res));
 		return res;
+	}
+	if (d->verbose) {
+		fprintf(stdout, "window:%s cutoff:%f n_taps:%u\n",
+				resample_window_name(r.config.window),
+				r.config.cutoff, r.config.n_taps);
+		for (i = 0; i < SPA_N_ELEMENTS(resample_param_info); i++) {
+			if (resample_param_info[i].window != r.config.window)
+				continue;
+			fprintf(stdout, "  param:%s %f\n",
+				resample_param_info[i].label,
+				r.config.params[resample_param_info[i].idx]);
+		}
 	}
 
 	for (j = 0; j < channels; j++)
@@ -333,13 +357,21 @@ int main(int argc, char *argv[])
 			data.cpu_flags = strtol(optarg, NULL, 0);
 			break;
 		case 'w':
-			data.window = resample_window_from_label(optarg);
+			data.config.window = resample_window_from_label(optarg);
 			break;
 		case 'p':
-			data.params[0] = atof(optarg);
+		{
+			char *eq;
+			if ((eq = strchr(optarg, '=')) != NULL) {
+				uint32_t idx;
+				*eq = 0;
+				idx = resample_param_from_label(optarg);
+				data.config.params[idx] = atof(eq+1);
+			}
 			break;
+		}
 		case 't':
-			data.n_taps = atoi(optarg);
+			data.config.n_taps = atoi(optarg);
 			break;
                 default:
 			fprintf(stderr, "error: unknown option '%c'\n", c);

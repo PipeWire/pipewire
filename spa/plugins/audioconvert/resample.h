@@ -9,6 +9,7 @@
 #include <spa/support/log.h>
 
 #define RESAMPLE_DEFAULT_QUALITY	4
+#define RESAMPLE_WINDOW_DEFAULT		RESAMPLE_WINDOW_EXP
 #define RESAMPLE_MAX_PARAMS		16
 
 struct resample_config {
@@ -77,13 +78,14 @@ static const struct resample_window_info {
 	uint32_t window;
 	const char *label;
 	const char *description;
+	uint32_t n_params;
 } resample_window_info[] = {
 	[RESAMPLE_WINDOW_EXP] = { RESAMPLE_WINDOW_EXP,
-		"exponential", "Exponential window", },
+		"exp", "Exponential window", 1 },
 	[RESAMPLE_WINDOW_BLACKMAN] = { RESAMPLE_WINDOW_BLACKMAN,
-		"blackman", "Blackman window", },
+		"blackman", "Blackman window", 1 },
 	[RESAMPLE_WINDOW_KAISER] = { RESAMPLE_WINDOW_KAISER,
-		"kaiser", "Kaiser window", },
+		"kaiser", "Kaiser window", 3 },
 };
 
 static inline uint32_t resample_window_from_label(const char *label)
@@ -95,15 +97,21 @@ static inline uint32_t resample_window_from_label(const char *label)
 	return RESAMPLE_WINDOW_EXP;
 }
 
+static inline const char *resample_window_name(uint32_t idx)
+{
+	return resample_window_info[SPA_CLAMP(idx, 0u, SPA_N_ELEMENTS(resample_window_info)-1)].label;
+}
+
 static const struct resample_param_info {
+	uint32_t window;
 	uint32_t idx;
 	const char *label;
 } resample_param_info[] = {
-	{ RESAMPLE_PARAM_EXP_A, "exp.A" },
-	{ RESAMPLE_PARAM_BLACKMAN_ALPHA, "blackman.alpha" },
-	{ RESAMPLE_PARAM_KAISER_ALPHA, "kaiser.alpha" },
-	{ RESAMPLE_PARAM_KAISER_SB_ATT, "kaiser.stopband-attenuation" },
-	{ RESAMPLE_PARAM_KAISER_TR_BW, "kaiser.transition-bandwidth" },
+	{ RESAMPLE_WINDOW_EXP, RESAMPLE_PARAM_EXP_A, "exp.A" },
+	{ RESAMPLE_WINDOW_BLACKMAN, RESAMPLE_PARAM_BLACKMAN_ALPHA, "blackman.alpha" },
+	{ RESAMPLE_WINDOW_KAISER, RESAMPLE_PARAM_KAISER_ALPHA, "kaiser.alpha" },
+	{ RESAMPLE_WINDOW_KAISER, RESAMPLE_PARAM_KAISER_SB_ATT, "kaiser.stopband-attenuation" },
+	{ RESAMPLE_WINDOW_KAISER, RESAMPLE_PARAM_KAISER_TR_BW, "kaiser.transition-bandwidth" },
 };
 
 static inline uint32_t resample_param_from_label(const char *label)

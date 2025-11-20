@@ -15,9 +15,9 @@ SPA_LOG_TOPIC_DEFINE(resample_log_topic, "spa.resample");
 
 struct quality {
 	uint32_t n_taps;
-	double cutoff;		/* when upsampling */
-	double cutoff_factor;	/* factor for downsampling */
-	double params[32];
+	double cutoff_up;		/* when upsampling */
+	double cutoff_down;		/* for downsampling */
+	double params[RESAMPLE_MAX_PARAMS];
 };
 
 struct window_info {
@@ -30,26 +30,26 @@ struct window_info {
 struct window_info window_info[];
 
 static const struct quality blackman_qualities[] = {
-	{ 8, 0.53, 1.0, { 0.16, }},
-	{ 16, 0.67, 1.0, { 0.20, }},
-	{ 24, 0.75, 1.0, { 0.16, }},
-	{ 32, 0.80, 1.0, { 0.16, }},
-	{ 48, 0.85, 1.0, { 0.16, }},                  /* default */
-	{ 64, 0.88, 1.0, { 0.16, }},
-	{ 80, 0.895, 1.0, { 0.16, }},
-	{ 96, 0.910, 1.0, { 0.16, }},
-	{ 128, 0.936, 1.0, { 0.16, }},
-	{ 144, 0.945, 1.0, { 0.16, }},
-	{ 160, 0.950, 1.0, { 0.16, }},
-	{ 192, 0.960, 1.0, { 0.16, }},
-	{ 256, 0.970, 1.0, { 0.16, }},
-	{ 896, 0.990, 1.0, { 0.16, }},
-	{ 1024, 0.995, 1.0, { 0.16, }},
+	{ 8, 0.53, 0.53, { 0.16, }},
+	{ 16, 0.67, 0.67, { 0.20, }},
+	{ 24, 0.75, 0.75, { 0.16, }},
+	{ 32, 0.80, 0.80, { 0.16, }},
+	{ 48, 0.85, 0.85, { 0.16, }},                  /* default */
+	{ 64, 0.88, 0.88, { 0.16, }},
+	{ 80, 0.895, 0.895, { 0.16, }},
+	{ 96, 0.910, 0.910, { 0.16, }},
+	{ 128, 0.936, 0.936, { 0.16, }},
+	{ 144, 0.945, 0.945, { 0.16, }},
+	{ 160, 0.950, 0.950, { 0.16, }},
+	{ 192, 0.960, 0.960, { 0.16, }},
+	{ 256, 0.970, 0.970, { 0.16, }},
+	{ 896, 0.990, 0.990, { 0.16, }},
+	{ 1024, 0.995, 0.995, { 0.16, }},
 };
 
 static inline void blackman_window(struct resample *r, double *w, double t, uint32_t n_taps)
 {
-	double x, alpha = r->config.blackman_params.alpha;
+	double x, alpha = r->config.params[RESAMPLE_PARAM_BLACKMAN_ALPHA];
 	uint32_t i, n_taps12 = n_taps/2;
 	for (i = 0; i < n_taps12; i++, t += 1.0) {
 		x =  2.0 * M_PI * t / n_taps;
@@ -60,31 +60,32 @@ static inline void blackman_window(struct resample *r, double *w, double t, uint
 static inline void blackman_config(struct resample *r)
 {
 	const struct quality *q = &window_info[r->config.window].qualities[r->quality];
-	if (r->config.blackman_params.alpha == 0.0)
-		r->config.blackman_params.alpha = q->params[0];
+	const uint32_t p0 = RESAMPLE_PARAM_BLACKMAN_ALPHA;
+	if (r->config.params[p0] == 0.0)
+		r->config.params[p0] = q->params[p0];
 }
 
 static const struct quality exp_qualities[] = {
-	{ 8, 0.53, 1.0, { 16.97789, }},
-	{ 16, 0.67, 1.0, { 16.97789, }},
-	{ 24, 0.75, 1.0, { 16.97789, }},
-	{ 32, 0.80, 1.0, { 16.97789, }},
-	{ 48, 0.85, 1.0, { 16.97789, }},                  /* default */
-	{ 64, 0.88, 1.0, { 16.97789, }},
-	{ 80, 0.895, 1.0, { 16.97789, }},
-	{ 96, 0.910, 1.0, { 16.97789, }},
-	{ 128, 0.936, 1.0, { 16.97789, }},
-	{ 144, 0.945, 1.0, { 16.97789, }},
-	{ 160, 0.950, 1.0, { 16.97789, }},
-	{ 192, 0.960, 1.0, { 16.97789, }},
-	{ 256, 0.970, 1.0, { 16.97789, }},
-	{ 896, 0.990, 1.0, { 16.97789, }},
-	{ 1024, 0.995, 1.0, { 16.97789, }},
+	{ 8, 0.53, 0.53, { 16.97789, }},
+	{ 16, 0.67, 0.67, { 16.97789, }},
+	{ 24, 0.75, 0.75, { 16.97789, }},
+	{ 32, 0.80, 0.80, { 16.97789, }},
+	{ 48, 0.85, 0.85, { 16.97789, }},                  /* default */
+	{ 64, 0.88, 0.88, { 16.97789, }},
+	{ 80, 0.895, 0.895, { 16.97789, }},
+	{ 96, 0.910, 0.910, { 16.97789, }},
+	{ 128, 0.936, 0.936, { 16.97789, }},
+	{ 144, 0.945, 0.945, { 16.97789, }},
+	{ 160, 0.950, 0.950, { 16.97789, }},
+	{ 192, 0.960, 0.960, { 16.97789, }},
+	{ 256, 0.970, 0.970, { 16.97789, }},
+	{ 896, 0.990, 0.990, { 16.97789, }},
+	{ 1024, 0.995, 0.995, { 16.97789, }},
 };
 
 static inline void exp_window(struct resample *r, double *w, double t, uint32_t n_taps)
 {
-	double x, A = r->config.exp_params.A;
+	double x, A = r->config.params[RESAMPLE_PARAM_EXP_A];
 	uint32_t i, n_taps12 = n_taps/2;
 
 	for (i = 0; i < n_taps12; i++, t += 1.0) {
@@ -96,33 +97,35 @@ static inline void exp_window(struct resample *r, double *w, double t, uint32_t 
 static inline void exp_config(struct resample *r)
 {
 	const struct quality *q = &window_info[r->config.window].qualities[r->quality];
-	if (r->config.exp_params.A == 0.0)
-		r->config.exp_params.A = q->params[0];
+	const uint32_t p0 = RESAMPLE_PARAM_EXP_A;
+	if (r->config.params[p0] == 0.0)
+		r->config.params[p0] = q->params[p0];
 }
 
 #include "dbesi0.c"
 
 static const struct quality kaiser_qualities[] = {
-	{ 8, 0.53, 1.0, { 5.0, }},
-	{ 16, 0.67, 1.0, { 5.5, }},
-	{ 24, 0.75, 1.0, { 6.5, }},
-	{ 32, 0.80, 1.0, { 7.5, }},
-	{ 48, 0.85, 1.0, { 8.5, }},                  /* default */
-	{ 64, 0.88, 1.0, { 9.5, }},
-	{ 80, 0.895, 1.0, { 10.0, }},
-	{ 96, 0.910, 1.0, { 10.5, }},
-	{ 128, 0.936, 1.0, { 10.7, }},
-	{ 144, 0.945, 1.0, { 11.5, }},
-	{ 160, 0.950, 1.0, { 12.5, }},
-	{ 192, 0.960, 1.0, { 13.5, }},
-	{ 256, 0.970, 1.0, { 14.5, }},
-	{ 896, 0.990, 1.0, { 16.67, }},
-	{ 1024, 0.995, 1.0, { 17.67, }},
+	{ 8, 0.53, 0.53, { 5.653260, 60.0, 0.50 }},
+	{ 16, 0.67, 0.67, { 6.204260, 65.0, 0.25 }},
+	{ 24, 0.75, 0.75, { 6.534860, 68.0, 0.18 }},
+	{ 32, 0.80, 0.80, { 6.975660, 72.0, 0.140 }},
+	{ 48, 0.85, 0.85, { 7.857260, 80.0, 0.105 }},                  /* default */
+	{ 64, 0.88, 0.88, { 8.408260, 85.0, 0.085 }},
+	{ 80, 0.895, 0.895, { 9.510260, 95.0, 0.076 }},
+	{ 96, 0.910, 0.910, { 10.061260, 100.0, 0.067 }},
+	{ 128, 0.936, 0.936, { 10.612260, 105.0, 0.053 }},
+	{ 160, 0.950, 0.950, { 11.163260, 110.0, 0.0445 }},
+	{ 192, 0.960, 0.960, { 11.714260, 115.0, 0.039 }},
+	{ 256, 0.970, 0.970, { 12.265260, 120.0, 0.0305 }},
+	{ 512, 0.980, 0.980, { 13.367260, 130.0, 0.0166 }},
+	{ 768, 0.985, 0.985, { 14.689660, 142.0, 0.01216 }},
+	{ 1024, 0.990, 0.990, { 16.122260, 155.0, 0.01 }},
 };
 
 static inline void kaiser_window(struct resample *r, double *w, double t, uint32_t n_taps)
 {
-	double x, alpha = r->config.kaiser_params.alpha, beta = M_PI*alpha, den = dbesi0(beta);
+	double x, beta = r->config.params[RESAMPLE_PARAM_KAISER_ALPHA] * M_PI;
+	double den = dbesi0(beta);
 	uint32_t i, n_taps12 = n_taps/2;
 	for (i = 0; i < n_taps12; i++, t += 1.0) {
 		x = 2.0 * t / n_taps;
@@ -136,10 +139,10 @@ static inline void kaiser_config(struct resample *r)
 	double A, B, dw, tr_bw;
 	uint32_t n;
 
-	A = r->config.kaiser_params.stopband_attenuation;
+	A = r->config.params[RESAMPLE_PARAM_KAISER_SB_ATT];
 	if (A <= 0.0)
 		A = 160;
-	tr_bw = r->config.kaiser_params.transition_bandwidth;
+	tr_bw = r->config.params[RESAMPLE_PARAM_KAISER_TR_BW];
 	if (tr_bw <= 0.0)
 		tr_bw = 0.0305;
 
@@ -156,15 +159,16 @@ static inline void kaiser_config(struct resample *r)
 	/* order of the filter */
 	n = (uint32_t)((A - 8.0) / (2.285 * dw));
 
-	r->config.kaiser_params.alpha = B;
+	r->config.params[RESAMPLE_PARAM_KAISER_ALPHA] = B / M_PI;
 	r->config.n_taps = n + 1;
 }
 #else
 static inline void kaiser_config(struct resample *r)
 {
 	const struct quality *q = &window_info[r->config.window].qualities[r->quality];
-	if (r->config.kaiser_params.alpha == 0.0)
-		r->config.kaiser_params.alpha = q->params[0];
+	const uint32_t p0 = RESAMPLE_PARAM_KAISER_ALPHA;
+	if (r->config.params[p0] == 0.0)
+		r->config.params[p0] = q->params[p0];
 }
 #endif
 
@@ -471,14 +475,17 @@ int resample_native_init(struct resample *r)
 {
 	struct native_data *d;
 	const struct quality *q;
-	double scale, cutoff_factor;
+	double scale, cutoff;
 	uint32_t i, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, filter_stride;
 	uint32_t history_stride, history_size, oversample;
 	struct resample_config *c = &r->config;
+#ifndef RESAMPLE_DISABLE_PRECOMP
+	struct resample_config def = { 0 };
+	bool default_config;
 
-	if (c->window == RESAMPLE_WINDOW_DEFAULT)
-		c->window = RESAMPLE_WINDOW_EXP;
-
+	default_config = memcmp(c, &def, sizeof(def)) == 0;
+#endif
+	c->window = SPA_CLAMP(c->window, 0u, SPA_N_ELEMENTS(window_info)-1);
 	r->quality = SPA_CLAMP(r->quality, 0, (int)(window_info[c->window].n_qualities - 1));
 	r->free = impl_native_free;
 	r->update_rate = impl_native_update_rate;
@@ -492,8 +499,8 @@ int resample_native_init(struct resample *r)
 	window_info[c->window].config(r);
 
 	q = &window_info[c->window].qualities[r->quality];
-	cutoff_factor = r->o_rate < r->i_rate ? q->cutoff_factor : 1.0;
-	c->cutoff = c->cutoff <= 0.0 ? q->cutoff * cutoff_factor: c->cutoff;
+	cutoff = r->o_rate < r->i_rate ? q->cutoff_down : q->cutoff_up;
+	c->cutoff = c->cutoff <= 0.0 ? cutoff: c->cutoff;
 	n_taps = c->n_taps == 0 ? q->n_taps : c->n_taps;
 
 	gcd = calc_gcd(r->i_rate, r->o_rate);
@@ -545,14 +552,15 @@ int resample_native_init(struct resample *r)
 #ifndef RESAMPLE_DISABLE_PRECOMP
 	/* See if we have precomputed coefficients */
 	for (i = 0; precomp_coeffs[i].filter; i++) {
-		if (precomp_coeffs[i].in_rate == r->i_rate &&
-				precomp_coeffs[i].out_rate == r->o_rate &&
-				precomp_coeffs[i].quality == r->quality)
+		if (default_config &&
+		    precomp_coeffs[i].in_rate == r->i_rate &&
+		    precomp_coeffs[i].out_rate == r->o_rate &&
+		    precomp_coeffs[i].quality == r->quality)
 			break;
 	}
 
 	if (precomp_coeffs[i].filter) {
-		spa_log_debug(r->log, "using precomputed filter for %u->%u(%u)",
+		spa_log_info(r->log, "using precomputed filter for %u->%u(%u)",
 				r->i_rate, r->o_rate, r->quality);
 		spa_memcpy(d->filter, precomp_coeffs[i].filter, filter_size);
 	} else {

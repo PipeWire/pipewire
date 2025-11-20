@@ -9,31 +9,24 @@
 #include <spa/support/log.h>
 
 #define RESAMPLE_DEFAULT_QUALITY	4
+#define RESAMPLE_MAX_PARAMS		16
 
 struct resample_config {
-#define RESAMPLE_WINDOW_DEFAULT		0
-#define RESAMPLE_WINDOW_EXP		1
-#define RESAMPLE_WINDOW_BLACKMAN	2
-#define RESAMPLE_WINDOW_KAISER		3
+#define RESAMPLE_WINDOW_EXP		0
+#define RESAMPLE_WINDOW_BLACKMAN	1
+#define RESAMPLE_WINDOW_KAISER		2
 	uint32_t window;
 
-	uint32_t n_taps;
 	double cutoff;
+	uint32_t n_taps;
 
-	union {
-		double params[32];
-		struct {
-			double A;
-		} exp_params;
-		struct {
-			double alpha;
-		} blackman_params;
-		struct {
-			double stopband_attenuation;
-			double transition_bandwidth;
-			double alpha;
-		} kaiser_params;
-	};
+#define RESAMPLE_PARAM_EXP_A			0
+#define RESAMPLE_PARAM_BLACKMAN_ALPHA		0
+#define RESAMPLE_PARAM_KAISER_ALPHA		0
+#define RESAMPLE_PARAM_KAISER_SB_ATT		1	/* stopband attenuation */
+#define RESAMPLE_PARAM_KAISER_TR_BW		2	/* transition bandwidth */
+#define RESAMPLE_PARAM_INVALID			(RESAMPLE_MAX_PARAMS-1)
+	double params[RESAMPLE_MAX_PARAMS];
 };
 
 struct resample {
@@ -49,7 +42,7 @@ struct resample {
 	double rate;
 	int quality;
 
-	struct resample_config config;
+	struct resample_config config;	/* set to all 0 for defaults */
 
 	void (*free)		(struct resample *r);
 	void (*update_rate)	(struct resample *r, double rate);
@@ -85,8 +78,6 @@ static const struct resample_window_info {
 	const char *label;
 	const char *description;
 } resample_window_info[] = {
-	[RESAMPLE_WINDOW_DEFAULT] = { RESAMPLE_WINDOW_DEFAULT,
-		"default", "Default window", },
 	[RESAMPLE_WINDOW_EXP] = { RESAMPLE_WINDOW_EXP,
 		"exponential", "Exponential window", },
 	[RESAMPLE_WINDOW_BLACKMAN] = { RESAMPLE_WINDOW_BLACKMAN,
@@ -104,5 +95,24 @@ static inline uint32_t resample_window_from_label(const char *label)
 	return RESAMPLE_WINDOW_EXP;
 }
 
+static const struct resample_param_info {
+	uint32_t idx;
+	const char *label;
+} resample_param_info[] = {
+	{ RESAMPLE_PARAM_EXP_A, "exp.A" },
+	{ RESAMPLE_PARAM_BLACKMAN_ALPHA, "blackman.alpha" },
+	{ RESAMPLE_PARAM_KAISER_ALPHA, "kaiser.alpha" },
+	{ RESAMPLE_PARAM_KAISER_SB_ATT, "kaiser.stopband-attenuation" },
+	{ RESAMPLE_PARAM_KAISER_TR_BW, "kaiser.transition-bandwidth" },
+};
+
+static inline uint32_t resample_param_from_label(const char *label)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(resample_param_info, i) {
+		if (spa_streq(i->label, label))
+			return i->idx;
+	}
+	return RESAMPLE_PARAM_INVALID;
+}
 
 #endif /* RESAMPLE_H */

@@ -100,7 +100,7 @@ struct props {
 	unsigned int mix_disabled:1;
 	unsigned int resample_disabled:1;
 	unsigned int resample_quality;
-	uint32_t resample_window;
+	struct resample_config resample_config;
 	double rate;
 	char wav_path[512];
 	unsigned int lock_volumes:1;
@@ -123,7 +123,7 @@ static void props_reset(struct props *props)
 	props->mix_disabled = false;
 	props->resample_disabled = false;
 	props->resample_quality = RESAMPLE_DEFAULT_QUALITY;
-	props->resample_window = RESAMPLE_WINDOW_DEFAULT;
+	spa_zero(props->resample_config);
 	props->rate = 1.0;
 	spa_zero(props->wav_path);
 	props->lock_volumes = false;
@@ -1481,7 +1481,15 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 	else if (spa_streq(k, "resample.disable"))
 		this->props.resample_disabled = spa_atob(s);
 	else if (spa_streq(k, "resample.window"))
-		this->props.resample_window = resample_window_from_label(s);
+		this->props.resample_config.window = resample_window_from_label(s);
+	else if (spa_streq(k, "resample.cutoff"))
+		spa_atod(s, &this->props.resample_config.cutoff);
+	else if (spa_streq(k, "resample.n-taps"))
+		spa_atou32(s, &this->props.resample_config.n_taps, 0);
+	else if (spa_strstartswith(k, "resample.param.")) {
+		uint32_t idx = resample_param_from_label(k+strlen("resample.param."));
+		spa_atod(s, &this->props.resample_config.params[idx]);
+	}
 	else if (spa_streq(k, "dither.noise"))
 		spa_atou32(s, &this->dir[1].conv.noise_bits, 0);
 	else if (spa_streq(k, "dither.method"))
@@ -2293,8 +2301,7 @@ static int setup_resample(struct impl *this)
 	this->resample.o_rate = out->format.info.raw.rate;
 	this->resample.log = this->log;
 	this->resample.quality = this->props.resample_quality;
-	spa_zero(this->resample.config);
-	this->resample.config.window = this->props.resample_window;
+	this->resample.config = this->props.resample_config;
 	this->resample.cpu_flags = this->cpu_flags;
 
 	this->rate_adjust = this->props.rate != 1.0;

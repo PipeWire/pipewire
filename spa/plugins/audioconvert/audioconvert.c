@@ -1551,6 +1551,10 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 		this->vol_ramp_offset = 0;
 		this->recalc = true;
 	}
+	if (changed) {
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		this->params[IDX_Props].user++;
+	}
 	return changed;
 }
 

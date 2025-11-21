@@ -259,6 +259,8 @@ enum spa_audio_channel {
 	SPA_AUDIO_CHANNEL_START_Custom	= 0x10000,
 };
 
+#define SPA_AUDIO_CHANNEL_IS_AUX(ch)	((ch)>=SPA_AUDIO_CHANNEL_START_Aux && (ch)<=SPA_AUDIO_CHANNEL_LAST_Aux)
+
 enum spa_audio_volume_ramp_scale {
 	SPA_AUDIO_VOLUME_RAMP_INVALID,
 	SPA_AUDIO_VOLUME_RAMP_LINEAR,

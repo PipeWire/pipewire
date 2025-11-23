@@ -4150,13 +4150,22 @@ static int transport_acquire(void *data, bool optional)
 	return do_transport_acquire(data);
 }
 
-static int do_transport_release(struct spa_bt_transport *transport)
+struct pending_release {
+	struct spa_list link;
+	DBusPendingCall *pending;
+	struct spa_bt_transport *transport;
+	bool is_idle;
+};
+
+static struct pending_release *do_transport_release(struct spa_bt_transport *transport)
 {
 	struct spa_bt_monitor *monitor = transport->monitor;
-	spa_autoptr(DBusMessage) m = NULL, r = NULL;
+	spa_autoptr(DBusMessage) m = NULL;
 	struct spa_bt_transport *t_linked;
 	bool is_idle = (transport->state == SPA_BT_TRANSPORT_STATE_IDLE);
 	bool linked = false;
+	struct pending_release *pending;
+	DBusPendingCall *p;
 
 	spa_log_debug(monitor->log, "transport %p: Release %s",
 			transport, transport->path);
@@ -4193,7 +4202,7 @@ static int do_transport_release(struct spa_bt_transport *transport)
 	if (linked) {
 		spa_log_info(monitor->log, "Linked transport %s released", transport->path);
 		transport->fd = -1;
-		return 0;
+		return NULL;
 	}
 
 release:
@@ -4209,46 +4218,39 @@ release:
 					 BLUEZ_MEDIA_TRANSPORT_INTERFACE,
 					 "Release");
 	if (m == NULL)
-		return -ENOMEM;
+		return NULL;
 
-	spa_auto(DBusError) err = DBUS_ERROR_INIT;
-	r = dbus_connection_send_with_reply_and_block(monitor->conn, m, -1, &err);
-	if (r == NULL)  {
-		if (is_idle) {
-			/* XXX: The fd always needs to be closed. However, Release()
-			 * XXX: apparently doesn't need to be called on idle transports
-			 * XXX: and fails. We call it just to be sure (e.g. in case
-			 * XXX: there's a race with updating the property), but tone down the error.
-			 */
-			spa_log_debug(monitor->log, "Failed to release idle transport %s: %s",
-			              transport->path, err.message);
-		} else if (spa_streq(err.name, DBUS_ERROR_UNKNOWN_METHOD) ||
-				spa_streq(err.name, DBUS_ERROR_UNKNOWN_OBJECT)) {
-			/* Transport disappeared */
-			spa_log_debug(monitor->log, "Failed to release (gone) transport %s: %s",
-			              transport->path, err.message);
-		} else {
-			spa_log_error(monitor->log, "Failed to release transport %s: %s",
-			              transport->path, err.message);
-		}
-	} else {
-		spa_log_info(monitor->log, "Transport %s released", transport->path);
+	p = send_with_reply(monitor->conn, m, NULL, NULL);
+	if (!p)
+		return NULL;
+
+	pending = calloc(1, sizeof(*pending));
+	if (!pending) {
+		dbus_pending_call_block(p);
+		dbus_pending_call_unref(p);
+		return NULL;
 	}
 
-	return 0;
+	pending->pending = p;
+	pending->transport = transport;
+	pending->is_idle = is_idle;
+	return pending;
 }
 
 static int transport_release(void *data)
 {
 	struct spa_bt_transport *transport = data;
 	struct spa_bt_monitor *monitor = transport->monitor;
-	struct spa_bt_transport *t;
+	struct spa_list pending = SPA_LIST_INIT(&pending);
+	struct pending_release *item;
 
 	/*
 	 * XXX: When as BAP Central, release CIS in a CIG when the last transport
 	 * XXX: goes away.
 	 */
 	if (transport->bap_initiator) {
+		struct spa_bt_transport *t;
+
 		/* Check if another transport is alive */
 		if (another_cig_transport_active(transport)) {
 			spa_log_debug(monitor->log, "Releasing %s: wait for CIG %d",
@@ -4264,15 +4266,61 @@ static int transport_release(void *data)
 			spa_log_debug(monitor->log, "Release CIG %d: transport %s",
 					transport->bap_cig, t->path);
 
-			if (t->fd >= 0)
-				do_transport_release(t);
+			if (t->fd >= 0) {
+				item = do_transport_release(t);
+				if (item)
+					spa_list_append(&pending, &item->link);
+			}
 		}
 
 		spa_log_debug(monitor->log, "Release CIG %d: transport %s",
 				transport->bap_cig, transport->path);
 	}
 
-	return do_transport_release(data);
+	item = do_transport_release(transport);
+	if (item)
+		spa_list_append(&pending, &item->link);
+
+	spa_list_consume(item, &pending, link) {
+		struct spa_bt_transport *t = item->transport;
+		bool is_idle = item->is_idle;
+		DBusPendingCall *p = item->pending;
+		spa_autoptr(DBusMessage) r = NULL;
+		spa_auto(DBusError) err = DBUS_ERROR_INIT;
+
+		spa_list_remove(&item->link);
+		free(item);
+		if (!p)
+			continue;
+
+		dbus_pending_call_block(p);
+		r = steal_reply_and_unref(&p);
+
+		if (r == NULL)  {
+			if (is_idle) {
+				/* XXX: The fd always needs to be closed. However, Release()
+				 * XXX: apparently doesn't need to be called on idle transports
+				 * XXX: and fails. We call it just to be sure (e.g. in case
+				 * XXX: there's a race with updating the property), but tone down the error.
+				 */
+				spa_log_debug(monitor->log, "Failed to release idle transport %s: %s",
+						t->path, err.message);
+			} else if (spa_streq(err.name, DBUS_ERROR_UNKNOWN_METHOD) ||
+					spa_streq(err.name, DBUS_ERROR_UNKNOWN_OBJECT)) {
+				/* Transport disappeared */
+				spa_log_debug(monitor->log, "Failed to release (gone) transport %s: %s",
+						t->path, err.message);
+			} else {
+				spa_log_error(monitor->log, "Failed to release transport %s: %s",
+						t->path, err.message);
+			}
+		} else {
+			spa_log_info(monitor->log, "Transport %s released", t->path);
+		}
+	}
+
+	return 0;
+
 }
 
 static int transport_set_delay(void *data, int64_t delay_nsec)

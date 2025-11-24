@@ -3419,8 +3419,12 @@ int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
 
 	if (!transport->acquired)
 		res = spa_bt_transport_impl(transport, acquire, 0, optional);
-	else
-		res = 0;
+	else {
+		/* keepalive */
+		transport->acquire_refcount = 1;
+		spa_bt_transport_emit_state_changed(transport, transport->state, transport->state);
+		return 0;
+	}
 
 	if (res >= 0) {
 		transport->acquire_refcount = 1;

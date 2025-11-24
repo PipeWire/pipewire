@@ -1010,6 +1010,7 @@ static void process_hfp_hf_indicator(struct rfcomm *rfcomm, unsigned int indicat
 
 	switch (indicator) {
 	case SPA_BT_HFP_HF_INDICATOR_ENHANCED_SAFETY:
+		rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 		break;
 	case SPA_BT_HFP_HF_INDICATOR_BATTERY_LEVEL:
 		// Battery level is reported in range 0-100
@@ -1018,12 +1019,15 @@ static void process_hfp_hf_indicator(struct rfcomm *rfcomm, unsigned int indicat
 		if (value <= 100) {
 			// TODO: report without Battery Provider (using props)
 			spa_bt_device_report_battery_level(rfcomm->device, value);
+			rfcomm_send_reply(rfcomm, "OK");
 		} else {
 			spa_log_warn(backend->log, "battery HF indicator %u outside of range [0, 100]: %u", indicator, value);
+			rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 		}
 		break;
 	default:
 		spa_log_warn(backend->log, "unknown HF indicator:%u value:%u", indicator, value);
+		rfcomm_send_error(rfcomm, CMEE_AG_FAILURE);
 		break;
 	}
 }
@@ -1350,6 +1354,7 @@ next_indicator:
 		rfcomm_send_reply(rfcomm, "+BIND: (2)");
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+BIND?")) {
+		rfcomm_send_reply(rfcomm, "+BIND: 1,0");
 		rfcomm_send_reply(rfcomm, "+BIND: 2,1");
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (spa_strstartswith(buf, "AT+BIND=")) {
@@ -1359,7 +1364,6 @@ next_indicator:
 		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+BIEV=%u,%u", &indicator, &indicator_value) == 2) {
 		process_hfp_hf_indicator(rfcomm, indicator, indicator_value);
-		rfcomm_send_reply(rfcomm, "OK");
 	} else if (sscanf(buf, "AT+XAPL=%04x-%04x-%*[^,],%u", &xapl_vendor, &xapl_product, &xapl_features) == 3) {
 		if (xapl_features & SPA_BT_HFP_HF_XAPL_FEATURE_BATTERY_REPORTING) {
 			/* claim, that we support battery status reports */

@@ -567,8 +567,8 @@ int resample_native_init(struct resample *r)
 	    return -ENOTSUP;
 	}
 
-	spa_log_info(r->log, "native %p: q:%d w:%d in:%d out:%d gcd:%d n_taps:%d n_phases:%d features:%08x:%08x",
-			r, r->quality, c->window, r->i_rate, r->o_rate, gcd, n_taps, n_phases,
+	spa_log_info(r->log, "native %p: c:%f q:%d w:%d in:%d out:%d gcd:%d n_taps:%d n_phases:%d features:%08x:%08x",
+			r, c->cutoff, r->quality, c->window, r->i_rate, r->o_rate, gcd, n_taps, n_phases,
 			r->cpu_flags, d->info->cpu_flags);
 
 	r->cpu_flags = d->info->cpu_flags;

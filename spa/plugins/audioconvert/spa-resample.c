@@ -45,18 +45,19 @@ struct data {
 
 #define STR_FMTS "(s8|s16|s32|f32|f64)"
 
-#define OPTIONS		"hvr:f:q:c:w:p:t:"
+#define OPTIONS		"hvc:r:f:w:q:u:t:p:"
 static const struct option long_options[] = {
 	{ "help",	no_argument,		NULL, 'h'},
 	{ "verbose",	no_argument,		NULL, 'v'},
+	{ "cpuflags",	required_argument,	NULL, 'c' },
 
 	{ "rate",	required_argument,	NULL, 'r' },
 	{ "format",	required_argument,	NULL, 'f' },
 	{ "window",	required_argument,	NULL, 'w' },
 	{ "quality",	required_argument,	NULL, 'q' },
-	{ "param",	required_argument,	NULL, 'p' },
+	{ "cutoff",	required_argument,	NULL, 'u' },
 	{ "taps",	required_argument,	NULL, 't' },
-	{ "cpuflags",	required_argument,	NULL, 'c' },
+	{ "param",	required_argument,	NULL, 'p' },
 
         { NULL, 0, NULL, 0 }
 };
@@ -72,13 +73,13 @@ static void show_usage(const char *name, bool is_error)
 	fprintf(fp,
 		"  -h, --help                            Show this help\n"
 		"  -v  --verbose                         Be verbose\n"
+		"  -c  --cpuflags                        CPU flags (default 0)\n"
 		"\n");
 	fprintf(fp,
 		"  -r  --rate                            Output sample rate (default as input)\n"
-		"  -f  --format                          Output sample format %s (default as input)\n"
-		"  -q  --quality                         Resampler quality (default %u)\n"
+		"  -f  --format                          Output sample format %s (default as input)\n\n"
 		"  -w  --window                          Window function (default %s)\n",
-		STR_FMTS, DEFAULT_QUALITY, resample_window_name(RESAMPLE_WINDOW_DEFAULT));
+		STR_FMTS, resample_window_name(RESAMPLE_WINDOW_DEFAULT));
 	for (i = 0; i < SPA_N_ELEMENTS(resample_window_info); i++) {
 		fprintf(fp,
 			"                                                %s: %s\n",
@@ -86,17 +87,17 @@ static void show_usage(const char *name, bool is_error)
 			resample_window_info[i].description);
 	}
 	fprintf(fp,
+		"  -q  --quality                         Resampler quality (default %u)\n"
+		"  -u  --cutoff                          Cutoff frequency [0.0..1.0] (default from quality)\n"
 		"  -t  --taps                            Resampler taps (default from quality)\n"
-		"  -p  --param                           Resampler param <name>=<value> (default from quality)\n");
-
+		"  -p  --param                           Resampler param <name>=<value> (default from quality)\n",
+		DEFAULT_QUALITY);
 	for (i = 0; i < SPA_N_ELEMENTS(resample_param_info); i++) {
 		fprintf(fp,
 			"                                                %s\n",
 			resample_param_info[i].label);
 	}
-	fprintf(fp,
-		"  -c  --cpuflags                        CPU flags (default 0)\n"
-		"\n");
+	fprintf(fp, "\n");
 }
 
 static inline const char *
@@ -355,6 +356,10 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			data.cpu_flags = strtol(optarg, NULL, 0);
+			break;
+		case 'u':
+			data.config.cutoff = strtod(optarg, NULL);
+			fprintf(stderr, "%f\n", data.config.cutoff);
 			break;
 		case 'w':
 			data.config.window = resample_window_from_label(optarg);

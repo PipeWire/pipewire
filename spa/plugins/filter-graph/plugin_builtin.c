@@ -718,7 +718,9 @@ struct finfo {
 	SNDFILE *fs;
 #endif
 	int channels;
-	int frames;
+	int def_frames;
+	int max_frames;
+	float latency; /* latency relative to number of samples */
 	uint32_t rate;
 	const char *error;
 };
@@ -729,14 +731,18 @@ static int finfo_open(const char *filename, struct finfo *info, int rate)
 	if (spa_strstartswith(filename, "/hilbert")) {
 		info->channels = 1;
 		info->rate = rate;
-		info->frames = 64;
+		info->def_frames = 64;
+		info->max_frames = INT_MAX;
 		info->type = TYPE_HILBERT;
+		info->latency = 0.5f;
 	}
 	else if (spa_strstartswith(filename, "/dirac")) {
 		info->channels = 1;
-		info->frames = 1;
+		info->def_frames = 1;
+		info->max_frames = 1;
 		info->rate = rate;
 		info->type = TYPE_DIRAC;
+		info->latency = 0.0f;
 	}
 	else if (spa_strstartswith(filename, "/ir:")) {
 		struct spa_json it[1];
@@ -744,14 +750,16 @@ static int finfo_open(const char *filename, struct finfo *info, int rate)
 		int rate;
 		info->channels = 1;
 		info->type = TYPE_IR;
-		info->frames = 0;
+		info->def_frames = 0;
 		if (spa_json_begin_array_relax(&it[0], filename+4, strlen(filename+4)) <= 0)
 			return -EINVAL;
 		if (spa_json_get_int(&it[0], &rate) <= 0)
 			return -EINVAL;
 		info->rate = rate;
 		while (spa_json_get_float(&it[0], &v) > 0)
-			info->frames++;
+			info->def_frames++;
+		info->max_frames = info->def_frames;
+		info->latency = 0.0f;
 	} else {
 #ifdef HAVE_SNDFILE
 		info->fs = sf_open(filename, SFM_READ, &info->info);
@@ -760,9 +768,11 @@ static int finfo_open(const char *filename, struct finfo *info, int rate)
 			return -ENOENT;
 		}
 		info->channels = info->info.channels;
-		info->frames = info->info.frames;
+		info->def_frames = info->info.frames;
+		info->max_frames = info->def_frames;
 		info->rate = info->info.samplerate;
 		info->type = TYPE_SNDFILE;
+		info->latency = 0.0f;
 #else
 		info->error = "compiled without sndfile support, can't load samples";
 		return -ENOTSUP;
@@ -772,15 +782,15 @@ static int finfo_open(const char *filename, struct finfo *info, int rate)
 }
 
 static float *finfo_read_samples(struct plugin *pl, struct finfo *info, float gain, int delay,
-		int offset, int length, int channel, long unsigned *rate, int *n_samples)
+		int offset, int length, int channel, long unsigned *rate, int *n_samples, int *latency)
 {
 	float *samples, v;
 	int i, n, h;
 
 	if (length <= 0)
-		length = info->frames;
+		length = info->def_frames;
 	else
-		length = SPA_MIN(length, info->frames);
+		length = SPA_MIN(length, info->max_frames);
 
 	length -= SPA_MIN(offset, length);
 
@@ -837,6 +847,7 @@ static float *finfo_read_samples(struct plugin *pl, struct finfo *info, float ga
 	}
 	*n_samples = n;
 	*rate = info->rate;
+	*latency = (int) (n * info->latency);
 	return samples;
 }
 
@@ -850,7 +861,7 @@ static void finfo_close(struct finfo *info)
 }
 
 static float *read_closest(struct plugin *pl, char **filenames, float gain, float delay_sec, int offset,
-		int length, int channel, long unsigned *rate, int *n_samples)
+		int length, int channel, long unsigned *rate, int *n_samples, int *latency)
 {
 	struct finfo finfo[MAX_RATES];
 	int res, diff = INT_MAX;
@@ -874,7 +885,7 @@ static float *read_closest(struct plugin *pl, char **filenames, float gain, floa
 		spa_log_info(pl->log, "loading best rate:%u %s", finfo[best].rate, filenames[best]);
 		samples = finfo_read_samples(pl, &finfo[best], gain,
 				(int) (delay_sec * finfo[best].rate), offset, length,
-				channel, rate, n_samples);
+				channel, rate, n_samples, latency);
 	} else {
 		char buf[PATH_MAX];
 		spa_log_error(pl->log, "Can't open any sample file (CWD %s):",
@@ -984,7 +995,7 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	char key[256];
 	char *filenames[MAX_RATES] = { 0 };
 	int blocksize = 0, tailsize = 0;
-	int resample_quality = RESAMPLE_DEFAULT_QUALITY;
+	int resample_quality = RESAMPLE_DEFAULT_QUALITY, def_latency;
 	float gain = 1.0f, delay = 0.0f, latency = -1.0f;
 	unsigned long rate;
 
@@ -1092,7 +1103,7 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 
 	rate = SampleRate;
 	samples = read_closest(pl, filenames, gain, delay, offset,
-			length, channel, &rate, &n_samples);
+			length, channel, &rate, &n_samples, &def_latency);
 	if (samples != NULL && rate != SampleRate)
 		samples = resample_buffer(pl, samples, &n_samples,
 				rate, SampleRate, resample_quality);
@@ -1111,8 +1122,8 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	if (tailsize <= 0)
 		tailsize = SPA_CLAMP(4096, blocksize, 32768);
 
-	spa_log_info(pl->log, "using n_samples:%u %d:%d blocksize delay:%f", n_samples,
-			blocksize, tailsize, delay);
+	spa_log_info(pl->log, "using n_samples:%u %d:%d blocksize delay:%f def-latency:%d", n_samples,
+			blocksize, tailsize, delay, def_latency);
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
@@ -1128,7 +1139,7 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 		goto error;
 
 	if (latency < 0.0f)
-		impl->latency = n_samples;
+		impl->latency = def_latency;
 	else
 		impl->latency = latency * impl->rate;
 

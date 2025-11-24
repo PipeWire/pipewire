@@ -401,11 +401,13 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `filename` The IR to load or create. Possible values are:
  *     - `/hilbert` creates a [hilbert function](https://en.wikipedia.org/wiki/Hilbert_transform)
  *                that can be used to phase shift the signal by +/-90 degrees. The
- *                `length` will be used as the number of coefficients.
+ *                `length` will be used as the number of coefficients. The default latency
+ *                if the length/2.
  *     - `/dirac` creates a [Dirac function](https://en.wikipedia.org/wiki/Dirac_delta_function) that
- *                 can be used as gain.
+ *                 can be used as gain. The default latency is 0.
  *     - A filename to load as the IR. This needs to be a file format supported
- *               by sndfile or be an inline IR with "/ir:<rate>,<value1>,<value2>".
+ *               by sndfile or be an inline IR with "/ir:<rate>,<value1>,<value2>". The default
+ *               latency of file IRs is 0.
  *     - [ filename, ... ] an array of filenames. The file with the closest samplerate match
  *               with the graph samplerate will be used.
  * - `offset`  The sample offset in the file as the start of the IR.
@@ -414,7 +416,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `resample_quality` The resample quality in case the IR does not match the graph
  *                      samplerate.
  * - `latency`  The extra latency in seconds to report. When left unspecified (or < 0.0)
- *              the convolver latency will be the length of the IR.
+ *              the default IR latency will be used, the the filename argument.
  *
  * ### Delay
  *

@@ -2942,7 +2942,11 @@ static void sco_listen_event(struct spa_source *source)
 
 	/* Find transport for local and remote address */
 	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
-		if ((rfcomm->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY) &&
+		/* Audio connection is allowed from both side with legacy peer, i.e. HSP or codec negotion not supported
+		 * (except if PTS workaround has been enabled in which case audio coonection is allowed as for HSP),
+		 * or only from the HFP Audio Gateway. */
+		if ((((!rfcomm->codec_negotiation_supported || backend->pts) && (rfcomm->profile & SPA_BT_PROFILE_HEADSET_AUDIO)) ||
+				(rfcomm->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY)) &&
 				rfcomm->transport &&
 				spa_streq(rfcomm->device->address, remote_address) &&
 				spa_streq(rfcomm->device->adapter->address, local_address)) {
@@ -2956,7 +2960,7 @@ static void sco_listen_event(struct spa_source *source)
 		return;
 	}
 
-	spa_assert(t->profile & SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY);
+	spa_assert(t->profile & SPA_BT_PROFILE_HEADSET_AUDIO);
 
 	if (rfcomm->telephony_ag && rfcomm->telephony_ag->transport.rejectSCO) {
 		spa_log_info(backend->log, "rejecting SCO, AudioGatewayTransport1.RejectSCO=true");

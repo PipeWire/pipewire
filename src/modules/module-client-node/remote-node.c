@@ -735,7 +735,7 @@ error_exit:
 
 static int
 client_node_port_set_io(void *_data,
-                        uint32_t direction,
+                        enum spa_direction direction,
                         uint32_t port_id,
                         uint32_t mix_id,
                         uint32_t id,

@@ -2051,6 +2051,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
 
 	if (direct_on_input_idx != SPA_ID_INVALID) {
+		dont_inhibit_auto_suspend = false;
 		source_index = direct_on_input_idx;
 	} else if (source_name != NULL) {
 		if ((id = atoi(source_name)) != 0)

@@ -13,8 +13,8 @@ msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2025-11-04 15:35+0000\n"
-"PO-Revision-Date: 2025-11-05 07:47+0800\n"
+"POT-Creation-Date: 2025-11-25 15:35+0000\n"
+"PO-Revision-Date: 2025-11-26 10:19+0800\n"
 "Last-Translator: lumingzh <lumingzh@qq.com>\n"
 "Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
 "Language: zh_CN\n"
@@ -79,7 +79,7 @@ msgstr "%2$s@%3$s 上的 %1$s"
 msgid "%s on %s"
 msgstr "%2$s 上的 %1$s"
 
-#: src/tools/pw-cat.c:1096
+#: src/tools/pw-cat.c:1088
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -94,7 +94,7 @@ msgstr ""
 "  -v, --verbose                         输出详细操作\n"
 "\n"
 
-#: src/tools/pw-cat.c:1103
+#: src/tools/pw-cat.c:1095
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -126,7 +126,7 @@ msgstr ""
 "  -P  --properties                      设置节点属性\n"
 "\n"
 
-#: src/tools/pw-cat.c:1121
+#: src/tools/pw-cat.c:1113
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -134,8 +134,8 @@ msgid ""
 "      --channels                        Number of channels (req. for rec) "
 "(default %u)\n"
 "      --channel-map                     Channel map\n"
-"                                            one of: \"stereo\", "
-"\"surround-51\",... or\n"
+"                                            one of: \"Stereo\", \"5.1\",... "
+"or\n"
 "                                            comma separated list of channel "
 "names: eg. \"FL,FR\"\n"
 "      --format                          Sample format %s (req. for rec) "
@@ -152,9 +152,9 @@ msgstr ""
 "      --rate                            采样率 (录制模式需要) (默认 %u)\n"
 "      --channels                        通道数 (录制模式需要) (默认 %u)\n"
 "      --channel-map                     通道映射\n"
-"                                            \"stereo\", \"surround-51\",... "
-"中的其一或\n"
-"                                            以\",\"分隔的通道名列表: 如 "
+"                                            \"stereo\", \"5.1\",... 中的其一"
+"或\n"
+"                                            以英文逗号分隔的通道名列表: 如 "
 "\"FL,FR\"\n"
 "      --format                          采样格式 %s (录制模式需要) (默认 "
 "%s)\n"
@@ -166,7 +166,7 @@ msgstr ""
 "  -n, --sample-count COUNT              计数采样后停止\n"
 "\n"
 
-#: src/tools/pw-cat.c:1141
+#: src/tools/pw-cat.c:1133
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"

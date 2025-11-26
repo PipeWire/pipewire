@@ -1,3 +1,51 @@
+# PipeWire 1.5.84 (2025-11-27)
+
+This is the fourth 1.6 release candidate that is API and ABI
+compatible with previous 1.4.x, 1.2.x and 1.0.x releases.
+
+Changes since the last pre-release:
+
+## Highlights
+  - Capabilities wer added to improve negotiation over links.
+  - The audio resampler now has a configurable window function to better
+    tune the resampler quality. A kaiser and blackman window was added
+    and the default parameters were tuned.
+  - Various small fixes and improvements.
+
+## PipeWire
+  - Capabilities and PeerCapabilities were added to exchange key/value
+    pairs between consumer and producer right after a link is made. This
+    can be used to detect how the negotiation of formats and buffers
+    should be done.
+
+## Modules
+  - Avoid segfaults in RTP source. (#4970) 
+  - The AVB module has seen some improvements.
+
+## Pulse-server
+  - @NONE@ can now be used to clear the default sink/source.
+
+## SPA
+  - Support longer convolver filenames and also support inline
+    IRs.
+  - The audio resampler window function is now selectable and
+    configurable. A kaiser window and blackman window was added
+    and the default qualities were tweaked to improve quality.
+  - The filter-graph convolver latency is now set by default to
+    something more sensible. (0 by default and N/2 for hilbert).
+    (#4980)
+
+## Bluetooth
+  - Better xrun and error handling for iso streams.
+  - The +CNUM reply was fixed.
+  - The CIEC call status was fixed. (#1744)
+  - Add BAP context metadata to improve compatibility.
+  - Improve compatiblity with Creative Zen Hybrid Pro by releasing
+    transports simultaneously.
+
+
+Older versions:
+
 # PipeWire 1.5.83 (2025-11-06)
 
 This is the third 1.6 release candidate that is API and ABI
@@ -7,9 +55,6 @@ Changes since the last pre-release:
 
 ## Highlights
   - Include the NEWS and updated version number.
-
-
-Older versions:
 
 # PipeWire 1.5.82 (2025-11-06)
 

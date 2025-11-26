@@ -1043,16 +1043,24 @@ enum {
 	OPT_VOLUME,
 };
 
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
+#define OPTIONS "hvprmdosR:P:q:aM:n:c"
+#else
+#define OPTIONS "hvprmdsR:P:q:aM:n:c"
+#endif
+
 static const struct option long_options[] = {
 	{ "help",		no_argument,	   NULL, 'h' },
 	{ "version",		no_argument,	   NULL, OPT_VERSION},
 	{ "verbose",		no_argument,	   NULL, 'v' },
 
-	{ "record",		no_argument,	   NULL, 'r' },
 	{ "playback",		no_argument,	   NULL, 'p' },
+	{ "record",		no_argument,	   NULL, 'r' },
 	{ "midi",		no_argument,	   NULL, 'm' },
 	{ "dsd",		no_argument,	   NULL, 'd' },
+#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 	{ "encoded",		no_argument,	   NULL, 'o' },
+#endif
 	{ "sysex",		no_argument,	   NULL, 's' },
 
 	{ "remote",		required_argument, NULL, 'R' },
@@ -2035,12 +2043,7 @@ int main(int argc, char *argv[])
 		goto error_no_props;
 	}
 
-#ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-	while ((c = getopt_long(argc, argv, "hvprmdosR:q:P:aM:n:c", long_options, NULL)) != -1) {
-#else
-	while ((c = getopt_long(argc, argv, "hvprmdsR:q:P:aM:n:c", long_options, NULL)) != -1) {
-#endif
-
+	while ((c = getopt_long(argc, argv, OPTIONS, long_options, NULL)) != -1) {
 		switch (c) {
 
 		case 'h':

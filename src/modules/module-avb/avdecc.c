@@ -254,7 +254,6 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 	server->ifname = str ? strdup(str) : NULL;
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
-	spa_list_init(&server->streams);
 
 	server->debug_messages = false;
 
@@ -282,9 +281,6 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 
 	avb_mrp_attribute_begin(server->domain_attr->mrp, 0);
 	avb_mrp_attribute_join(server->domain_attr->mrp, 0, true);
-
-	server_create_stream(server, SPA_DIRECTION_INPUT, 0);
-	server_create_stream(server, SPA_DIRECTION_OUTPUT, 0);
 
 	avb_maap_reserve(server->maap, 1);
 

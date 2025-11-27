@@ -24,8 +24,6 @@ struct stream {
 	struct server *server;
 
 	uint16_t direction;
-	uint16_t index;
-	const struct descriptor *desc;
 	uint64_t id;
 	uint64_t peer_id;
 
@@ -73,12 +71,12 @@ struct stream {
 #include "mvrp.h"
 #include "maap.h"
 
-struct stream *server_create_stream(struct server *server,
+struct stream *server_create_stream(struct server *server, struct stream *stream,
 		enum spa_direction direction, uint16_t index);
 
 void stream_destroy(struct stream *stream);
 
-int stream_activate(struct stream *stream, uint64_t now);
+int stream_activate(struct stream *stream, uint16_t index, uint64_t now);
 int stream_deactivate(struct stream *stream, uint64_t now);
 
 #endif /* AVB_STREAM_H */

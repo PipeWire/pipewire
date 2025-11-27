@@ -4,7 +4,7 @@
 
 
 #include "es-builder.h"
-#include "aecp-aem-descriptors.h"
+#include "aecp-aem-state.h"
 
 /**
  * \brief The goal of this modules is to create a an entity and
@@ -31,9 +31,72 @@ struct es_builder_st {
 	es_builder_cb_t build_descriptor_cb;
 };
 
+/**
+ * \brief A generic function to avoid code duplicate for the streams */
+static void *es_buidler_desc_stream_general_prepare(struct server *server,
+		uint16_t type, uint16_t index, size_t size, void *ptr)
+{
+	void *ptr_alloc;
+	struct stream *stream;
+	enum spa_direction direction;
+
+	switch (type) {
+	case AVB_AEM_DESC_STREAM_INPUT:
+		struct aecp_aem_stream_input_state *pstream_input;
+		struct aecp_aem_stream_input_state stream_input = { 0 };
+
+		memcpy(&stream_input.desc, ptr, size);
+		ptr_alloc = server_add_descriptor(server, type, index,
+					sizeof(stream_input), &stream_input);
+		if (!ptr_alloc) {
+			pw_log_error("Allocation failed\n");
+			return NULL;
+		}
+
+		pstream_input = ptr_alloc;
+		stream = &pstream_input->stream;
+		direction = SPA_DIRECTION_INPUT;
+		break;
+	case AVB_AEM_DESC_STREAM_OUTPUT:
+		struct aecp_aem_stream_output_state *pstream_output;
+		struct aecp_aem_stream_output_state stream_output = { 0 };
+
+		memcpy(&stream_output.desc, ptr, size);
+		ptr_alloc = server_add_descriptor(server, type, index,
+					sizeof(stream_output), &stream_output);
+		if (!ptr_alloc) {
+			pw_log_error("Allocation failed\n");
+			return NULL;
+		}
+
+		pstream_output = ptr_alloc;
+		stream = &pstream_output->stream;
+		direction = SPA_DIRECTION_OUTPUT;
+
+		break;
+	default:
+		pw_log_error("Only STREAM_INPUT and STREAM_OUTPUT\n");
+		return NULL;
+	}
+
+	if (server_create_stream(server, stream, direction, index)) {
+		pw_log_error("Could not create/initialize a stream");
+		return NULL;
+	}
+
+	return ptr_alloc;
+}
+
+
+// Assign a ID to an specific builder
+#define HELPER_ES_BUIDLER(type, callback) \
+    [type] = { .build_descriptor_cb = callback  }
+
 /** All callback that needs a status information */
 static const struct es_builder_st es_builder[AVB_AEM_DESC_LAST_RESERVED_17221] =
 {
+	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_OUTPUT, es_buidler_desc_stream_general_prepare),
+	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_INPUT, es_buidler_desc_stream_general_prepare),
 };
 
 /**

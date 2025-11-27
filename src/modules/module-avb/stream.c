@@ -15,8 +15,8 @@
 
 #include "iec61883.h"
 #include "stream.h"
+#include "aecp-aem-state.h"
 #include "utils.h"
-#include "aecp-aem-descriptors.h"
 
 static void on_stream_destroy(void *d)
 {
@@ -235,34 +235,17 @@ static const struct pw_stream_events sink_stream_events = {
 	.process = on_sink_stream_process
 };
 
-struct stream *server_create_stream(struct server *server,
+struct stream *server_create_stream(struct server *server, struct stream *stream,
 		enum spa_direction direction, uint16_t index)
 {
-	struct stream *stream;
-	const struct descriptor *desc;
 	uint32_t n_params;
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	int res;
 
-	desc = server_find_descriptor(server,
-			direction == SPA_DIRECTION_INPUT ?
-			AVB_AEM_DESC_STREAM_INPUT :
-			AVB_AEM_DESC_STREAM_OUTPUT, index);
-	if (desc == NULL)
-		return NULL;
-
-	stream = calloc(1, sizeof(*stream));
-	if (stream == NULL)
-		return NULL;
-
 	stream->server = server;
 	stream->direction = direction;
-	stream->index = index;
-	stream->desc = desc;
-	spa_list_append(&server->streams, &stream->link);
-
 	stream->prio = AVB_MSRP_PRIORITY_DEFAULT;
 	stream->vlan_id = AVB_DEFAULT_VLAN;
 
@@ -361,8 +344,6 @@ error_free:
 void stream_destroy(struct stream *stream)
 {
 	avb_mrp_attribute_destroy(stream->listener_attr->mrp);
-	spa_list_remove(&stream->link);
-	free(stream);
 }
 
 static int setup_socket(struct stream *stream)
@@ -496,7 +477,7 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
-int stream_activate(struct stream *stream, uint64_t now)
+int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 {
 	struct server *server = stream->server;
 	struct avb_frame_header *h = (void*)stream->pdu;
@@ -528,7 +509,7 @@ int stream_activate(struct stream *stream, uint64_t now)
 		stream->talker_attr->attr.talker.stream_id = htobe64(stream->peer_id);
 		avb_mrp_attribute_begin(stream->talker_attr->mrp, now);
 	} else {
-		if ((res = avb_maap_get_address(server->maap, stream->addr, stream->index)) < 0)
+		if ((res = avb_maap_get_address(server->maap, stream->addr, index)) < 0)
 			return res;
 
 		stream->listener_attr->attr.listener.stream_id = htobe64(stream->id);

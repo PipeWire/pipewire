@@ -67,7 +67,6 @@ struct server {
 	struct spa_hook_list listener_list;
 
 	struct spa_list descriptors;
-	struct spa_list streams;
 
 	unsigned debug_messages:1;
 
@@ -109,18 +108,6 @@ static inline void *server_add_descriptor(struct server *server,
 		memcpy(d->ptr, ptr, size);
 	spa_list_append(&server->descriptors, &d->link);
 	return d->ptr;
-}
-
-static inline struct stream *server_find_stream(struct server *server,
-		enum spa_direction direction, uint16_t index)
-{
-	struct stream *s;
-	spa_list_for_each(s, &server->streams, link) {
-		if (s->direction == direction &&
-		    s->index == index)
-			return s;
-	}
-	return NULL;
 }
 
 struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props);

@@ -48,8 +48,10 @@ spa_format_audio_raw_ext_parse(const struct spa_pod *format, struct spa_audio_in
 	if (info->channels > max_position)
 		return -ECHRNG;
 	if (position == NULL ||
-	    spa_pod_copy_array(position, SPA_TYPE_Id, info->position, max_position) != info->channels)
+	    spa_pod_copy_array(position, SPA_TYPE_Id, info->position, max_position) != info->channels) {
 		SPA_FLAG_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+		spa_memzero(info->position, max_position * sizeof(info->position[0]));
+	}
 
 	return res;
 }

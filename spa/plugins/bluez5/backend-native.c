@@ -125,6 +125,7 @@ struct impl {
 	struct spa_source *ring_timer;
 	void *upower;
 	struct spa_bt_telephony *telephony;
+	bool pts;
 };
 
 struct transport_data {
@@ -1435,6 +1436,15 @@ next_indicator:
 		}
 
 		if (!mm_do_call(backend->modemmanager, number, rfcomm, &error)) {
+			rfcomm_send_error(rfcomm, error);
+			return true;
+		}
+	} else if (spa_strstartswith(buf, "AT+BLDN") && backend->pts) {
+		enum cmee_error error;
+
+		/* For PTS tests HFP/AG/OCL/BV-01-C and HFP/AG/OCL/BV-02-C, fake last dial
+		 * number by calling first memory */
+		if (!mm_do_call(backend->modemmanager, ">1", rfcomm, &error)) {
 			rfcomm_send_error(rfcomm, error);
 			return true;
 		}
@@ -4017,6 +4027,16 @@ static void parse_hfp_disable_nrec(struct impl *backend, const struct spa_dict *
 		backend->hfp_disable_nrec = false;
 }
 
+static void parse_hfp_pts(struct impl *backend, const struct spa_dict *info)
+{
+	const char *str;
+
+	if ((str = spa_dict_lookup(info, "bluez5.hfphsp-backend-native-pts")) != NULL)
+		backend->pts = spa_atob(str);
+	else
+		backend->pts = false;
+}
+
 static void parse_hfp_default_volumes(struct impl *backend, const struct spa_dict *info)
 {
 	const char *str;
@@ -4101,6 +4121,7 @@ struct spa_bt_backend *backend_native_new(struct spa_bt_monitor *monitor,
 
 	parse_hfp_disable_nrec(backend, info);
 	parse_hfp_default_volumes(backend, info);
+	parse_hfp_pts(backend, info);
 
 #ifdef HAVE_BLUEZ_5_BACKEND_HSP_NATIVE
 	if (!dbus_connection_register_object_path(backend->conn,

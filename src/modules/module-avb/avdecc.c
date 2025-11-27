@@ -261,7 +261,6 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 	if ((res = setup_socket(server)) < 0)
 		goto error_free;
 
-	init_descriptors(server);
 
 	server->mrp = avb_mrp_new(server);
 	if (server->mrp == NULL)
@@ -288,6 +287,8 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 	server_create_stream(server, SPA_DIRECTION_OUTPUT, 0);
 
 	avb_maap_reserve(server->maap, 1);
+
+	init_descriptors(server);
 
 	return server;
 

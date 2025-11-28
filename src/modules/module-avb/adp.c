@@ -156,7 +156,14 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 static void adp_destroy(void *data)
 {
 	struct adp *adp = data;
+	struct entity *e, *t;
+
 	spa_hook_remove(&adp->server_listener);
+
+        spa_list_for_each_safe(e, t, &adp->entities, link) {
+		entity_free(e);
+        }
+
 	free(adp);
 }
 

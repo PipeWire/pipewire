@@ -79,7 +79,7 @@ static void *es_buidler_desc_stream_general_prepare(struct server *server,
 		return NULL;
 	}
 
-	if (server_create_stream(server, stream, direction, index)) {
+	if (!server_create_stream(server, stream, direction, index)) {
 		pw_log_error("Could not create/initialize a stream");
 		return NULL;
 	}

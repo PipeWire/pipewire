@@ -586,11 +586,11 @@ You can tune the resampler in a variaty of ways:
 * Tune the cutoff frequency. Increase the cutoff to preserve more high frequencies at the
   expense of more aliasing.
 * Tune the transition band. Reduce the transition band to better filter out the frequencies
-  around the cutoff frequency at the expense of more aliasing, CPU and Latency. This can
-  be done by increasing the number of taps.
+  around the cutoff frequency and get less aliasing at the expense of more ringing, CPU and
+  Latency. This can be done by increasing the number of taps.
 * Tune the stopband attenuation. Increase the attenuation to reduce aliasing at the expense
   of a wider transition band. This can only be done on the kaiser window, the exp and
-  blackman window have 150dB and 96dB respecively.
+  blackman window have 150dB and 96dB attenuation respecively.
 
 @PAR@ node-prop  resample.disable = false
 Disable the resampler entirely. The node will only be able to negotiate with the graph

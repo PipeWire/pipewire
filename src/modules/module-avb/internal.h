@@ -57,6 +57,8 @@ struct server {
 	struct impl *impl;
 
 	char *ifname;
+	/** Parsed from the configuration pipewire-avb.conf */
+	bool milan;
 	uint8_t mac_addr[6];
 	uint64_t entity_id;
 	int ifindex;

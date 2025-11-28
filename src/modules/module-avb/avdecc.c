@@ -252,6 +252,12 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 	spa_list_append(&impl->servers, &server->link);
 	str = spa_dict_lookup(props, "ifname");
 	server->ifname = str ? strdup(str) : NULL;
+
+	if ((str = spa_dict_lookup(props, "milan")) != NULL)
+		server->milan = spa_atob(str);
+	else
+		server->milan = false;
+
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
 

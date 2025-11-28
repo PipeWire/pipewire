@@ -79,6 +79,16 @@ static void pending_free(struct acmp *acmp, struct pending *p)
 	free(p);
 }
 
+static void pending_destroy(struct acmp *acmp)
+{
+	struct pending *p, *t;
+	for (uint32_t list_id = 0; list_id < PENDING_CONTROLLER; list_id++) {
+		spa_list_for_each_safe(p, t, &acmp->pending[list_id], link) {
+			pending_free(acmp, p);
+		}
+	}
+}
+
 struct msg_info {
 	uint16_t type;
 	const char *name;
@@ -409,6 +419,7 @@ static void acmp_destroy(void *data)
 {
 	struct acmp *acmp = data;
 	spa_hook_remove(&acmp->server_listener);
+	pending_destroy(acmp);
 	free(acmp);
 }
 

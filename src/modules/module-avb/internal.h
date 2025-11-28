@@ -94,7 +94,7 @@ static inline void server_destroy_descriptors(struct server *server)
         }
 }
 
-static inline const struct descriptor *server_find_descriptor(struct server *server,
+static inline struct descriptor *server_find_descriptor(struct server *server,
 		uint16_t type, uint16_t index)
 {
 	struct descriptor *d;

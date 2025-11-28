@@ -67,6 +67,7 @@ avb.properties = {
     # the addresses this server listens on
     #ifname = "eth0.2"
     ifname = "enp3s0"
+    milan = false
 }
 
 avb.properties.rules = [

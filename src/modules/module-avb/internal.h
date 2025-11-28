@@ -109,7 +109,7 @@ static inline void *server_add_descriptor(struct server *server,
 	if (ptr)
 		memcpy(d->ptr, ptr, size);
 	spa_list_append(&server->descriptors, &d->link);
-	return d->ptr;
+	return d;
 }
 
 struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props);

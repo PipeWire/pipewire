@@ -83,7 +83,18 @@ struct server {
 
 #include "stream.h"
 
-static inline struct descriptor *server_find_descriptor(struct server *server,
+static inline void server_destroy_descriptors(struct server *server)
+{
+	struct descriptor *d, *t;
+
+        spa_list_for_each_safe(d, t, &server->descriptors, link) {
+		free(d->ptr);
+		spa_list_remove(&d->link);
+		free(d);
+        }
+}
+
+static inline const struct descriptor *server_find_descriptor(struct server *server,
 		uint16_t type, uint16_t index)
 {
 	struct descriptor *d;

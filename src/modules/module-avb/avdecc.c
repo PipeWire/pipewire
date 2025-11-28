@@ -311,7 +311,7 @@ void avdecc_server_free(struct server *server)
 {
 	struct impl *impl = server->impl;
 
-	stream_destroy_all(server);
+	server_destroy_descriptors(server);
 	spa_list_remove(&server->link);
 	if (server->source)
 		pw_loop_destroy_source(impl->loop, server->source);

@@ -76,12 +76,6 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 
 void stream_destroy(struct stream *stream);
 
-/**
- * \brief unregister MRP attribute for the stream
- * and free the allocated resources for the stream.
- */
-void stream_destroy_all(struct server *server);
-
 int stream_activate(struct stream *stream, uint16_t index, uint64_t now);
 int stream_deactivate(struct stream *stream, uint64_t now);
 

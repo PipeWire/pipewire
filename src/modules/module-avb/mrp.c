@@ -60,7 +60,14 @@ struct mrp {
 static void mrp_destroy(void *data)
 {
 	struct mrp *mrp = data;
+	struct attribute *a, *t;
 	spa_hook_remove(&mrp->server_listener);
+
+        spa_list_for_each_safe(a, t, &mrp->attributes, link) {
+		spa_list_remove(&a->link);
+		free(a);
+        }
+
 	free(mrp);
 }
 

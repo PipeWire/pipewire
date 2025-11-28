@@ -32,7 +32,7 @@ void dsp_biquad_run_##arch (void *obj, struct biquad *bq, uint32_t n_bq, uint32_
 	float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[], uint32_t n_src, uint32_t n_samples)
 #define MAKE_DELAY_FUNC(arch) \
 void dsp_delay_##arch (void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer, \
-		uint32_t delay, float *dst, const float *src, uint32_t n_samples)
+		uint32_t delay, float *dst, const float *src, uint32_t n_samples, float fb, float ff)
 
 #define MAKE_FFT_NEW_FUNC(arch) \
 void *dsp_fft_new_##arch(void *obj, uint32_t size, bool real)

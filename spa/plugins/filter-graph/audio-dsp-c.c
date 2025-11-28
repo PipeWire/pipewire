@@ -205,9 +205,10 @@ void dsp_linear_c(void *obj, float * dst,
 
 
 void dsp_delay_c(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer,
-		uint32_t delay, float *dst, const float *src, uint32_t n_samples)
+		uint32_t delay, float *dst, const float *src, uint32_t n_samples,
+		float fb, float ff)
 {
-	if (delay == 0) {
+	if (delay == 0 && fb == 0.0f && ff == 0.0f) {
 		dsp_copy_c(obj, dst, src, n_samples);
 	} else {
 		uint32_t w, o, i;
@@ -215,10 +216,20 @@ void dsp_delay_c(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer,
 		w = *pos;
 		o = n_buffer - delay;
 
-		for (i = 0; i < n_samples; i++) {
-			buffer[w] = buffer[w + n_buffer] = src[i];
-			dst[i] = buffer[w + o];
-			w = w + 1 >= n_buffer ? 0 : w + 1;
+		if (fb == 0.0f && ff == 0.0f) {
+			for (i = 0; i < n_samples; i++) {
+				buffer[w] = buffer[w + n_buffer] = src[i];
+				dst[i] = buffer[w + o];
+				w = w + 1 >= n_buffer ? 0 : w + 1;
+			}
+		} else {
+			for (i = 0; i < n_samples; i++) {
+				float d = buffer[w + o];
+				float s = src[i];
+				buffer[w] = buffer[w + n_buffer] = s + d * fb;
+				dst[i] = ff * s + d;
+				w = w + 1 >= n_buffer ? 0 : w + 1;
+			}
 		}
 		*pos = w;
 	}

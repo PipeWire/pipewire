@@ -614,34 +614,70 @@ void dsp_biquad_run_sse(void *obj, struct biquad *bq, uint32_t n_bq, uint32_t bq
 }
 
 void dsp_delay_sse(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer, uint32_t delay,
-		float *dst, const float *src, uint32_t n_samples)
+		float *dst, const float *src, uint32_t n_samples, float fb, float ff)
 {
-	__m128 t[1];
+	__m128 t[4];
 	uint32_t w = *pos;
 	uint32_t o = n_buffer - delay;
 	uint32_t n, unrolled;
 
-	if (SPA_IS_ALIGNED(src, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
-		unrolled = n_samples & ~3;
-	else
-		unrolled = 0;
+	if (fb == 0.0f && ff == 0.0f) {
+		if (SPA_IS_ALIGNED(src, 16) &&
+		    SPA_IS_ALIGNED(dst, 16) && delay >= 4)
+			unrolled = n_samples & ~3;
+		else
+			unrolled = 0;
 
-	for(n = 0; n < unrolled; n += 4) {
-		t[0] = _mm_load_ps(&src[n]);
-		_mm_storeu_ps(&buffer[w], t[0]);
-		_mm_storeu_ps(&buffer[w+n_buffer], t[0]);
-		t[0] = _mm_loadu_ps(&buffer[w+o]);
-		_mm_store_ps(&dst[n], t[0]);
-		w = w + 4 >= n_buffer ? 0 : w + 4;
-	}
-	for(; n < n_samples; n++) {
-		t[0] = _mm_load_ss(&src[n]);
-		_mm_store_ss(&buffer[w], t[0]);
-		_mm_store_ss(&buffer[w+n_buffer], t[0]);
-		t[0] = _mm_load_ss(&buffer[w+o]);
-		_mm_store_ss(&dst[n], t[0]);
-		w = w + 1 >= n_buffer ? 0 : w + 1;
+		for(n = 0; n < unrolled; n += 4) {
+			t[0] = _mm_load_ps(&src[n]);
+			_mm_storeu_ps(&buffer[w], t[0]);
+			_mm_storeu_ps(&buffer[w+n_buffer], t[0]);
+			t[0] = _mm_loadu_ps(&buffer[w+o]);
+			_mm_store_ps(&dst[n], t[0]);
+			w = w + 4 >= n_buffer ? 0 : w + 4;
+		}
+		for(; n < n_samples; n++) {
+			t[0] = _mm_load_ss(&src[n]);
+			_mm_store_ss(&buffer[w], t[0]);
+			_mm_store_ss(&buffer[w+n_buffer], t[0]);
+			t[0] = _mm_load_ss(&buffer[w+o]);
+			_mm_store_ss(&dst[n], t[0]);
+			w = w + 1 >= n_buffer ? 0 : w + 1;
+		}
+	} else {
+		__m128 fb0 = _mm_set1_ps(fb);
+		__m128 ff0 = _mm_set1_ps(ff);
+
+		if (SPA_IS_ALIGNED(src, 16) &&
+		    SPA_IS_ALIGNED(dst, 16) && delay >= 4)
+			unrolled = n_samples & ~3;
+		else
+			unrolled = 0;
+
+		for(n = 0; n < unrolled; n += 4) {
+			t[0] = _mm_loadu_ps(&buffer[w+o]);
+			t[1] = _mm_load_ps(&src[n]);
+			t[2] = _mm_mul_ps(t[0], fb0);
+			t[2] = _mm_add_ps(t[2], t[1]);
+			_mm_storeu_ps(&buffer[w], t[2]);
+			_mm_storeu_ps(&buffer[w+n_buffer], t[2]);
+			t[2] = _mm_mul_ps(t[1], ff0);
+			t[2] = _mm_add_ps(t[2], t[0]);
+			_mm_store_ps(&dst[n], t[2]);
+			w = w + 4 >= n_buffer ? 0 : w + 4;
+		}
+		for(; n < n_samples; n++) {
+			t[0] = _mm_load_ss(&buffer[w+o]);
+			t[1] = _mm_load_ss(&src[n]);
+			t[2] = _mm_mul_ss(t[0], fb0);
+			t[2] = _mm_add_ss(t[2], t[1]);
+			_mm_store_ss(&buffer[w], t[2]);
+			_mm_store_ss(&buffer[w+n_buffer], t[2]);
+			t[2] = _mm_mul_ps(t[1], ff0);
+			t[2] = _mm_add_ps(t[2], t[0]);
+			_mm_store_ss(&dst[n], t[2]);
+			w = w + 1 >= n_buffer ? 0 : w + 1;
+		}
 	}
 	*pos = w;
 }

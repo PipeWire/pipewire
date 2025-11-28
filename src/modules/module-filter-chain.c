@@ -420,11 +420,12 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * ### Delay
  *
- * The delay can be used to delay a signal in time.
+ * The delay can be used to delay a signal in time. With the Feedback and Feedforward
+ * controls it can also be used as a comb and an allpass filter.
  *
  * The delay has an input port "In" and an output port "Out". It also has
- * a "Delay (s)" control port. It requires a config section in the node declaration
- * in this format:
+ * a "Delay (s)" control port and a "Feedback" and "Feedforward" port. It requires a
+ * config section in the node declaration in this format:
  *
  *\code{.unparsed}
  * filter.graph = {
@@ -439,6 +440,8 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *             }
  *             control = {
  *                 "Delay (s)" = ...
+ *                 "Feedback" = ...
+ *                 "Feedforward" = ...
  *             }
  *             ...
  *         }
@@ -451,6 +454,10 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *              be clamped to this value.
  * - `latency` the latency in seconds. This is 0 by default but in some cases
  *             the delay can be used to introduce latency with this option.
+ *
+ * With the "Feedback" port one can create a comb filter. With the "Feedback"
+ * port and "Feedforward" port set to A and -A respectively, one can create
+ * an allpass filter. These settings can be used to create custom reverb units.
  *
  * ### Invert
  *

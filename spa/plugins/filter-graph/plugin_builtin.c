@@ -1228,7 +1228,7 @@ struct delay_impl {
 	struct spa_log *log;
 
 	unsigned long rate;
-	float *port[4];
+	float *port[6];
 
 	float delay;
 	uint32_t delay_samples;
@@ -1334,7 +1334,8 @@ static void delay_run(void * Instance, unsigned long SampleCount)
 	}
 	if (in != NULL && out != NULL) {
 		spa_fga_dsp_delay(impl->dsp, impl->buffer, &impl->ptr, impl->buffer_samples,
-				impl->delay_samples, out, in, SampleCount);
+				impl->delay_samples, out, in, SampleCount,
+				impl->port[4][0], impl->port[5][0]);
 	}
 	if (impl->port[3] != NULL)
 		impl->port[3][0] = impl->latency;
@@ -1358,6 +1359,16 @@ static struct spa_fga_port delay_ports[] = {
 	  .name = "latency",
 	  .hint = SPA_FGA_HINT_LATENCY,
 	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
+	},
+	{ .index = 4,
+	  .name = "Feedback",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f
+	},
+	{ .index = 5,
+	  .name = "Feedforward",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.0f, .min = -10.0f, .max = 10.0f
 	},
 };
 

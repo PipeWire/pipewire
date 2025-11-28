@@ -58,7 +58,8 @@ struct spa_fga_dsp_methods {
 			float * SPA_RESTRICT out[], const float * SPA_RESTRICT in[],
 			uint32_t n_src, uint32_t n_samples);
 	void (*delay) (void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer, uint32_t delay,
-			float *dst, const float *src, uint32_t n_samples);
+			float *dst, const float *src, uint32_t n_samples,
+			float fb, float ff);
 };
 
 static inline void spa_fga_dsp_clear(struct spa_fga_dsp *obj, float * SPA_RESTRICT dst, uint32_t n_samples)
@@ -159,10 +160,11 @@ static inline void spa_fga_dsp_biquad_run(struct spa_fga_dsp *obj,
 }
 static inline void spa_fga_dsp_delay(struct spa_fga_dsp *obj,
 		float *buffer, uint32_t *pos, uint32_t n_buffer, uint32_t delay,
-		float *dst, const float *src, uint32_t n_samples)
+		float *dst, const float *src, uint32_t n_samples,
+		float fb, float ff)
 {
 	spa_api_method_v(spa_fga_dsp, &obj->iface, delay, 0,
-			buffer, pos, n_buffer, delay, dst, src, n_samples);
+			buffer, pos, n_buffer, delay, dst, src, n_samples, fb, ff);
 }
 
 #endif /* SPA_FGA_DSP_H */

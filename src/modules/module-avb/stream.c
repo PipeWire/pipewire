@@ -346,6 +346,14 @@ void stream_destroy(struct stream *stream)
 	avb_mrp_attribute_destroy(stream->listener_attr->mrp);
 }
 
+void stream_destroy_all(struct server *server)
+{
+	struct stream *s, *t;
+        spa_list_for_each_safe(s, t, &server->streams, link) {
+		stream_destroy(s);
+        }
+}
+
 static int setup_socket(struct stream *stream)
 {
 	struct server *server = stream->server;

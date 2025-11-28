@@ -579,7 +579,6 @@ The default resampler quality for the exp window results in a cutoff of 0.87 and
 filter size of about 48 taps. It has a Stopband attenuation of about 150 dB.
 
 See [Infinite Wave](https://src.infinitewave.ca/) for a comparison of the performance.
-\endparblock
 
 You can tune the resampler in a variaty of ways:
 
@@ -591,19 +590,23 @@ You can tune the resampler in a variaty of ways:
 * Tune the stopband attenuation. Increase the attenuation to reduce aliasing at the expense
   of a wider transition band. This can only be done on the kaiser window, the exp and
   blackman window have 150dB and 96dB attenuation respecively.
+\endparblock
 
 @PAR@ node-prop  resample.disable = false
 Disable the resampler entirely. The node will only be able to negotiate with the graph
 when the samplerates are compatible.
 
 @PAR@ node-prop  resample.window = exp
+\parblock
 The resampler window function to use. By default an exponential window function is used
 that gives a good balance between complexitiy and quality.
 
 You can also specify a blackman or kaiser window, both with different tradeoffs. The
 kaiser window has some extra tunable parameters for the specific use cases.
+\endparblock
 
 @PAR@ node-prop  resample.cutoff = 0.0
+\parblock
 The resampler cutoff frequency. This is a value between 0.0 and 1.0. A value of 0.0 will
 use a predefined value based on the resampler quality.
 
@@ -611,29 +614,37 @@ A higher cutoff value will preserve more high frequency content but depending on
 size of the transition band will cause more aliasing.
 
 The default quality 4 setting for all windows is 0.87.
+\endparblock
 
 @PAR@ node-prop  resample.n-taps = 0
+\parblock
 The resampler number of taps. A value of 0 will use a predefined value based on
 the resampler quality or other window function parameters.
 
-A higher number of taps will use more CPU and cause more ringing but will reduce
-aliasing.
+A higher number of taps will use more CPU, Latency and cause more ringing but will
+reduce aliasing.
 
 The default quality setting for the exp window is 48.
+\endparblock
 
 @PAR@ node-prop  resample.param.exp.A = 0.0
+\parblock
 The A parameter for the exponential window function. A value of 0.0 will use a predefined
 value based on the quality when the exp window is in use.
 
 The default setting for the exp window is 16.97789.
+\endparblock
 
 @PAR@ node-prop  resample.param.blackman.alpha = 0.0
+\parblock
 The alpha value of the blackman function. A value of 0.0 will use a predefined
 value based on the quality when the blackman window is in use.
 
 The default quality setting for the blackman window is 0.16.
+\endparblock
 
 @PAR@ node-prop  resample.param.kaiser.stopband-attenuation = 0.0
+\parblock
 The kaiser window stopband attenuation parameter in dB. A default value of 0.0 will use a
 predefined value based on the quality.
 
@@ -642,8 +653,10 @@ expense of a larger transition band. A value of 96dB is below the dynamic range 
 audio. 150dB is the limit of the precision of the resampler.
 
 The default quality setting for the kaiser window is 130.000000.
+\endparblock
 
 @PAR@ node-prop  resample.param.kaiser.transition-bandwidth = 0.0
+\parblock
 The kaiser window transition bandwidth parameter. A default value of 0.0 will use a
 predefined value based on the quality.
 
@@ -652,8 +665,10 @@ in the final signal at the expense of more a larger filter and more CPU usage an
 latency. A smaller transition band can also cause more ringing.
 
 The default quality setting for the kaiser window is 0.177032
+\endparblock
 
 @PAR@ node-prop  resample.param.kaiser.alpha = 0.0
+\parblock
 The kaiser window alpha parameter. A default value of 0.0 will calculate an alpha value
 based on the stopband-attenuation and transition-bandwidth parameters.
 
@@ -661,6 +676,7 @@ This value is usually calculated from the other parameters but can be set explic
 with this property.
 
 The default quality setting for the kaiser window is 4.254931.
+\endparblock
 
 ## Channel Mixer Parameters
 

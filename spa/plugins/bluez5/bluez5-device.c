@@ -12,6 +12,7 @@
 
 #include <spa/support/log.h>
 #include <spa/utils/type.h>
+#include <spa/utils/json.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
@@ -2676,11 +2677,24 @@ static struct spa_pod *build_prop_info_codec(struct impl *this, struct spa_pod_b
 static struct spa_pod *build_props(struct impl *this, struct spa_pod_builder *b, uint32_t id)
 {
 	struct props *p = &this->props;
+	struct spa_pod_frame f[2];
+	struct spa_pod *param;
 
-	return spa_pod_builder_add_object(b,
-			SPA_TYPE_OBJECT_Props, id,
-			SPA_PROP_bluetoothAudioCodec, SPA_POD_Id(p->codec),
-			SPA_PROP_bluetoothOffloadActive, SPA_POD_Bool(p->offload_active));
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Props, id);
+	spa_pod_builder_add(b,
+		SPA_PROP_bluetoothAudioCodec, SPA_POD_Id(p->codec),
+		SPA_PROP_bluetoothOffloadActive, SPA_POD_Bool(p->offload_active),
+		0);
+
+	spa_pod_builder_prop(b, SPA_PROP_params, 0);
+	spa_pod_builder_push_struct(b, &f[1]);
+	spa_pod_builder_string(b, "bluez5.disable-dummy-call");
+	spa_pod_builder_bool(b, this->bt_dev->disable_dummy_call);
+	spa_pod_builder_pop(b, &f[1]);
+
+	param = spa_pod_builder_pop(b, &f[0]);
+
+	return param;
 }
 
 static int impl_enum_params(void *object, int seq,
@@ -3017,6 +3031,47 @@ static void apply_prop_offload_active(struct impl *this, bool active)
 	}
 }
 
+static int parse_prop_params(struct impl *this, struct spa_pod *params)
+{
+	struct spa_pod_parser prs;
+	struct spa_pod_frame f;
+	int changed = 0;
+
+	if (params == NULL)
+		return 0;
+
+	spa_pod_parser_pod(&prs, params);
+	if (spa_pod_parser_push_struct(&prs, &f) < 0)
+		return 0;
+
+	while (true) {
+		const char *name;
+		struct spa_pod *pod;
+
+		if (spa_pod_parser_get_string(&prs, &name) < 0)
+			break;
+
+		if (spa_pod_parser_get_pod(&prs, &pod) < 0)
+			break;
+
+		if (spa_streq(name, "bluez5.disable-dummy-call") && spa_pod_is_bool(pod)) {
+			bool disable_dummy_call = SPA_POD_VALUE(struct spa_pod_bool, pod);
+			spa_log_info(this->log, "key:'%s' val:'%u'", name, disable_dummy_call);
+			this->bt_dev->disable_dummy_call = disable_dummy_call;
+		} else
+			continue;
+
+		changed++;
+	}
+
+	if (changed > 0) {
+		this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+		this->params[IDX_Props].user++;
+	}
+
+	return changed;
+}
+
 static int impl_set_param(void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param)
@@ -3093,6 +3148,7 @@ static int impl_set_param(void *object,
 	{
 		uint32_t codec_id = SPA_ID_INVALID;
 		bool offload_active = this->props.offload_active;
+		struct spa_pod *params = NULL;
 
 		if (param == NULL)
 			return 0;
@@ -3100,7 +3156,8 @@ static int impl_set_param(void *object,
 		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_Props, NULL,
 				SPA_PROP_bluetoothAudioCodec, SPA_POD_OPT_Id(&codec_id),
-				SPA_PROP_bluetoothOffloadActive, SPA_POD_OPT_Bool(&offload_active))) < 0) {
+				SPA_PROP_bluetoothOffloadActive, SPA_POD_OPT_Bool(&offload_active),
+				SPA_PROP_params, SPA_POD_OPT_Pod(&params))) < 0) {
 			spa_log_warn(this->log, "can't parse props");
 			spa_debug_log_pod(this->log, SPA_LOG_LEVEL_DEBUG, 0, NULL, param);
 			return res;
@@ -3108,10 +3165,15 @@ static int impl_set_param(void *object,
 
 		spa_log_debug(this->log, "setting props codec:%d offload:%d", (int)codec_id, (int)offload_active);
 
+		parse_prop_params(this, params);
+
 		apply_prop_offload_active(this, offload_active);
 
-		if (codec_id == SPA_ID_INVALID)
+		if (codec_id == SPA_ID_INVALID) {
+			this->params[IDX_Props].flags ^= SPA_PARAM_INFO_SERIAL;
+			emit_info(this, false);
 			return 0;
+		}
 
 		if (this->profile == DEVICE_PROFILE_A2DP || profile_is_bap(this->profile) ||
 				this->profile == DEVICE_PROFILE_ASHA || this->profile == DEVICE_PROFILE_HSP_HFP) {
@@ -3248,6 +3310,13 @@ impl_init(const struct spa_handle_factory *factory,
 		if ((str = spa_dict_lookup(info, "bluez5.hw-volume")) != NULL) {
 			if ((profiles = spa_bt_profiles_from_json_array(str)) >= 0)
 				this->bt_dev->hw_volume_profiles = profiles;
+		}
+
+		if ((str = spa_dict_lookup(info, "bluez5.disable-dummy-call")) != NULL) {
+			bool value;
+
+			if (spa_json_parse_bool(str, strlen(str), &value) > 0)
+					this->bt_dev->disable_dummy_call = value;
 		}
 	}
 

@@ -573,6 +573,8 @@ struct spa_bt_device {
 
 	const struct media_codec *preferred_codec;
 	uint32_t preferred_profiles;
+
+	bool disable_dummy_call;
 };
 
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path);

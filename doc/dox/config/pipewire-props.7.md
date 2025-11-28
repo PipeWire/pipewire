@@ -547,12 +547,50 @@ Below is an explanation of the options that can be tuned in the sample converter
 \parblock
 The quality of the resampler. from 0 to 14, the default is 4.
 
+The quality of a resampler depends on multiple factors:
+
+1. Anti-Aliasing, how well are unwanted frequencies filtered out. Poor anti-aliasing
+   will make the original inaudible frequencies audible as distortion and noise.
+2. Cutoff frequence. At what frequency the transition band will start. This is the
+   frequency where the signal will start to fade out. A too low cutoff might remove too
+   much of the high frequencies and make the sound dull. A too high cutoff might cause
+   aliasing. The cutoff frequency is usually expressed as a ratio of the Nyquist
+   frequency, 1.0 being the Nyquist frequency (frequency/2).
+3. Transition band length. How quickly the unwanted frequencies are filtered out. A
+   shorter transition band requires longer filters with more CPU and latency but
+   causes less aliasing. The transition band length is expressed as a ratio of the
+   Nyquist frequency.
+4. Stopband attenuation. How well the unwanted frequencies are filtered out. This is
+   usually measured in dB. 96dB is below audidle on CD quality audio, 150dB is below
+   the precision of floating point values.
+5. CPU usage. Better anti-aliasing needs longer filters and is therefore more CPU
+   intensive.
+6. Latency. Longer filters have a higher Latency. In real-time application the latency
+   should be kept as low as possible.
+7. Ringing. A too short transition band length might cause ringing because of how the
+   sinc filters work. This can sound like flutter on sharp attacks in the audio signal.
+
 Increasing the quality will result in better cutoff and less aliasing at the expense of
-(much) more CPU consumption. The default quality of 4 has been selected as a good compromise
-between quality and performance with no artifacts that are well below the audible range.
+(much) more CPU consumption and more ringing. The default quality of 4 has been selected
+as a good compromise between quality and performance with no artifacts that are well
+below the audible range.
+
+The default resampler quality for the exp window results in a cutoff of 0.87 and a
+filter size of about 48 taps. It has a Stopband attenuation of about 150 dB.
 
 See [Infinite Wave](https://src.infinitewave.ca/) for a comparison of the performance.
 \endparblock
+
+You can tune the resampler in a variaty of ways:
+
+* Tune the cutoff frequency. Increase the cutoff to preserve more high frequencies at the
+  expense of more aliasing.
+* Tune the transition band. Reduce the transition band to better filter out the frequencies
+  around the cutoff frequency at the expense of more aliasing, CPU and Latency. This can
+  be done by increasing the number of taps.
+* Tune the stopband attenuation. Increase the attenuation to reduce aliasing at the expense
+  of a wider transition band. This can only be done on the kaiser window, the exp and
+  blackman window have 150dB and 96dB respecively.
 
 @PAR@ node-prop  resample.disable = false
 Disable the resampler entirely. The node will only be able to negotiate with the graph
@@ -562,36 +600,67 @@ when the samplerates are compatible.
 The resampler window function to use. By default an exponential window function is used
 that gives a good balance between complexitiy and quality.
 
-You can also specify a blackman or kaiser window, both with different tradeoffs.
+You can also specify a blackman or kaiser window, both with different tradeoffs. The
+kaiser window has some extra tunable parameters for the specific use cases.
 
 @PAR@ node-prop  resample.cutoff = 0.0
-The resampler cutoff frequency. A value of 0.0 will use a predefined value based on
-the resampler quality.
+The resampler cutoff frequency. This is a value between 0.0 and 1.0. A value of 0.0 will
+use a predefined value based on the resampler quality.
+
+A higher cutoff value will preserve more high frequency content but depending on the
+size of the transition band will cause more aliasing.
+
+The default quality 4 setting for all windows is 0.87.
 
 @PAR@ node-prop  resample.n-taps = 0
 The resampler number of taps. A value of 0 will use a predefined value based on
 the resampler quality or other window function parameters.
 
+A higher number of taps will use more CPU and cause more ringing but will reduce
+aliasing.
+
+The default quality setting for the exp window is 48.
+
 @PAR@ node-prop  resample.param.exp.A = 0.0
 The A parameter for the exponential window function. A value of 0.0 will use a predefined
 value based on the quality when the exp window is in use.
+
+The default setting for the exp window is 16.97789.
 
 @PAR@ node-prop  resample.param.blackman.alpha = 0.0
 The alpha value of the blackman function. A value of 0.0 will use a predefined
 value based on the quality when the blackman window is in use.
 
+The default quality setting for the blackman window is 0.16.
+
 @PAR@ node-prop  resample.param.kaiser.stopband-attenuation = 0.0
-The kaiser window stopband attenuation parameter. A default value of 0.0 will use a
+The kaiser window stopband attenuation parameter in dB. A default value of 0.0 will use a
 predefined value based on the quality.
+
+A higher value will filter out more of the unwanted frequencies and reduce aliasing at the
+expense of a larger transition band. A value of 96dB is below the dynamic range of CD quality
+audio. 150dB is the limit of the precision of the resampler.
+
+The default quality setting for the kaiser window is 130.000000.
 
 @PAR@ node-prop  resample.param.kaiser.transition-bandwidth = 0.0
 The kaiser window transition bandwidth parameter. A default value of 0.0 will use a
 predefined value based on the quality.
 
+A smaller transition band will cause a steeper cutoff with less unwanted frequencies
+in the final signal at the expense of more a larger filter and more CPU usage and
+latency. A smaller transition band can also cause more ringing.
+
+The default quality setting for the kaiser window is 0.177032
+
 @PAR@ node-prop  resample.param.kaiser.alpha = 0.0
 The kaiser window alpha parameter. A default value of 0.0 will calculate an alpha value
 based on the stopband-attenuation and transition-bandwidth parameters.
 
+This value is usually calculated from the other parameters but can be set explicitly
+with this property.
+
+The default quality setting for the kaiser window is 4.254931.
 
 ## Channel Mixer Parameters
 

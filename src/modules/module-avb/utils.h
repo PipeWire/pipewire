@@ -9,6 +9,8 @@
 
 #include "internal.h"
 
+#define ARRAY_SIZE(x)	(sizeof(x) / sizeof(x[0]))
+
 static inline char *avb_utils_format_id(char *str, size_t size, const uint64_t id)
 {
 	snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x:%04x",

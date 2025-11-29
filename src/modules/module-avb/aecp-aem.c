@@ -6,10 +6,7 @@
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
 #include "aecp-aem-cmds-resps/cmd-resp-helpers.h"
-#include "utils.h"
 
-/* The headers including the command and response of the system  */
-//#include "aecp-aem-cmds-resps/cmd-available.h"
 
 
 /* ACQUIRE_ENTITY */

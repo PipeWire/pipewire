@@ -6,11 +6,15 @@
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
 #include "aecp-aem-cmds-resps/cmd-resp-helpers.h"
+#include "utils.h"
 
+/* The headers including the command and response of the system  */
+//#include "aecp-aem-cmds-resps/cmd-available.h"
 
 
 /* ACQUIRE_ENTITY */
-static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
+static int handle_acquire_entity_avb_legacy(struct aecp *aecp, int64_t now,
+	const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_packet_aecp_aem *p = m;
@@ -25,7 +29,8 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 
 	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0)
 		return reply_not_implemented(aecp, m, len);
@@ -34,7 +39,8 @@ static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)
 }
 
 /* LOCK_ENTITY */
-static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
+static int handle_lock_entity_avb_legacy(struct aecp *aecp, int64_t now,
+	const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_packet_aecp_aem *p = m;
@@ -58,7 +64,7 @@ static int handle_lock_entity(struct aecp *aecp, const void *m, int len)
 }
 
 /* READ_DESCRIPTOR */
-static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
+static int handle_read_descriptor_common(struct aecp *aecp, int64_t now, const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_ethernet_header *h = m;
@@ -100,7 +106,8 @@ static int handle_read_descriptor(struct aecp *aecp, const void *m, int len)
 }
 
 /* GET_AVB_INFO */
-static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
+static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
+	const void *m, int len)
 {
 	struct server *server = aecp->server;
 	const struct avb_ethernet_header *h = m;
@@ -149,94 +156,187 @@ static int handle_get_avb_info(struct aecp *aecp, const void *m, int len)
 }
 
 /* AEM_COMMAND */
+/* TODO in the case the AVB mode allows you to modifiy a Milan readonly
+descriptor, then create a array of is_readonly depending on the mode used */
+static const char * const cmd_names[] = {
+	[AVB_AECP_AEM_CMD_ACQUIRE_ENTITY] = "acquire-entity",
+	[AVB_AECP_AEM_CMD_LOCK_ENTITY] = "lock-entity",
+	[AVB_AECP_AEM_CMD_ENTITY_AVAILABLE] = "entity-available",
+	[AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE] = "controller-available",
+	[AVB_AECP_AEM_CMD_READ_DESCRIPTOR] = "read-descriptor",
+	[AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR] = "write-descriptor",
+	[AVB_AECP_AEM_CMD_SET_CONFIGURATION] = "set-configuration",
+	[AVB_AECP_AEM_CMD_GET_CONFIGURATION] = "get-configuration",
+	[AVB_AECP_AEM_CMD_SET_STREAM_FORMAT] = "set-stream-format",
+	[AVB_AECP_AEM_CMD_GET_STREAM_FORMAT] = "get-stream-format",
+	[AVB_AECP_AEM_CMD_SET_VIDEO_FORMAT] = "set-video-format",
+	[AVB_AECP_AEM_CMD_GET_VIDEO_FORMAT] = "get-video-format",
+	[AVB_AECP_AEM_CMD_SET_SENSOR_FORMAT] = "set-sensor-format",
+	[AVB_AECP_AEM_CMD_GET_SENSOR_FORMAT] = "get-sensor-format",
+	[AVB_AECP_AEM_CMD_SET_STREAM_INFO] = "set-stream-info",
+	[AVB_AECP_AEM_CMD_GET_STREAM_INFO] = "get-stream-info",
+	[AVB_AECP_AEM_CMD_SET_NAME] = "set-name",
+	[AVB_AECP_AEM_CMD_GET_NAME] = "get-name",
+	[AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID] = "set-association-id",
+	[AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID] = "get-association-id",
+	[AVB_AECP_AEM_CMD_SET_SAMPLING_RATE] = "set-sampling-rate",
+	[AVB_AECP_AEM_CMD_GET_SAMPLING_RATE] = "get-sampling-rate",
+	[AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE] = "set-clock-source",
+	[AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE] = "get-clock-source",
+	[AVB_AECP_AEM_CMD_SET_CONTROL] = "set-control",
+	[AVB_AECP_AEM_CMD_GET_CONTROL] = "get-control",
+	[AVB_AECP_AEM_CMD_INCREMENT_CONTROL] = "increment-control",
+	[AVB_AECP_AEM_CMD_DECREMENT_CONTROL] = "decrement-control",
+	[AVB_AECP_AEM_CMD_SET_SIGNAL_SELECTOR] = "set-signal-selector",
+	[AVB_AECP_AEM_CMD_GET_SIGNAL_SELECTOR] = "get-signal-selector",
+	[AVB_AECP_AEM_CMD_SET_MIXER] = "set-mixer",
+	[AVB_AECP_AEM_CMD_GET_MIXER] = "get-mixer",
+	[AVB_AECP_AEM_CMD_SET_MATRIX] = "set-matrix",
+	[AVB_AECP_AEM_CMD_GET_MATRIX] = "get-matrix",
+	[AVB_AECP_AEM_CMD_START_STREAMING] = "start-streaming",
+	[AVB_AECP_AEM_CMD_STOP_STREAMING] = "stop-streaming",
+	[AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION] = "register-unsolicited-notification",
+	[AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION] = "deregister-unsolicited-notification",
+	[AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION] = "identify-notification",
+	[AVB_AECP_AEM_CMD_GET_AVB_INFO] = "get-avb-info",
+	[AVB_AECP_AEM_CMD_GET_AS_PATH] = "get-as-path",
+	[AVB_AECP_AEM_CMD_GET_COUNTERS] = "get-counters",
+	[AVB_AECP_AEM_CMD_REBOOT] = "reboot",
+	[AVB_AECP_AEM_CMD_GET_AUDIO_MAP] = "get-audio-map",
+	[AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS] = "add-audio-mappings",
+	[AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS] = "remove-audio-mappings",
+	[AVB_AECP_AEM_CMD_GET_VIDEO_MAP] = "get-video-map",
+	[AVB_AECP_AEM_CMD_ADD_VIDEO_MAPPINGS] = "add-video-mappings",
+	[AVB_AECP_AEM_CMD_REMOVE_VIDEO_MAPPINGS] = "remove-video-mappings",
+	[AVB_AECP_AEM_CMD_GET_SENSOR_MAP] = "get-sensor-map"
+};
+
+/* AEM_COMMAND */
 struct cmd_info {
-	uint16_t type;
-	const char *name;
-	int (*handle) (struct aecp *aecp, const void *p, int len);
+	/**
+	 * \brief Is Readonly is a hint used to decide whether or not the
+	 * unsollocited notifications is to be sent for this descriptor or not
+	 */
+	const bool is_readonly;
+
+	/**
+	 * \brief handle a command for a specific descriptor
+	 */
+	int (*handle_command) (struct aecp *aecp, int64_t now, const void *p,
+		 int len);
+
+	/**
+	 * \brief Response are sent upon changes that occure internally
+	 * 	and that are then propagated to the network and are not
+	 * 	unsollicited notifications
+	 */
+	int (*handle_response) (struct aecp *aecp, int64_t now, const void *p,
+		 int len);
+
+	/**
+	 * \brief Handling of the unsolicited notification that are used
+	 * to inform subscribed controller about the change of status of
+	 * a specific descriptor or the counter associted with it
+	 */
+	int (*handle_unsol_timer) (struct aecp *aecp, int64_t now);
 };
 
-static const struct cmd_info cmd_info[] = {
-	{ AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, "acquire-entity", handle_acquire_entity, },
-	{ AVB_AECP_AEM_CMD_LOCK_ENTITY, "lock-entity", handle_lock_entity, },
-	{ AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, "entity-available", NULL, },
-	{ AVB_AECP_AEM_CMD_CONTROLLER_AVAILABLE, "controller-available", NULL, },
-	{ AVB_AECP_AEM_CMD_READ_DESCRIPTOR, "read-descriptor", handle_read_descriptor, },
-	{ AVB_AECP_AEM_CMD_WRITE_DESCRIPTOR, "write-descriptor", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_CONFIGURATION, "set-configuration", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_CONFIGURATION, "get-configuration", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, "set-stream-format", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, "get-stream-format", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_VIDEO_FORMAT, "set-video-format", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_VIDEO_FORMAT, "get-video-format", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_SENSOR_FORMAT, "set-sensor-format", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SENSOR_FORMAT, "get-sensor-format", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_STREAM_INFO, "set-stream-info", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_STREAM_INFO, "get-stream-info", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_NAME, "set-name", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_NAME, "get-name", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_ASSOCIATION_ID, "set-association-id", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_ASSOCIATION_ID, "get-association-id", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, "set-sampling-rate", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, "get-sampling-rate", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, "set-clock-source", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, "get-clock-source", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_CONTROL, "set-control", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_CONTROL, "get-control", NULL, },
-	{ AVB_AECP_AEM_CMD_INCREMENT_CONTROL, "increment-control", NULL, },
-	{ AVB_AECP_AEM_CMD_DECREMENT_CONTROL, "decrement-control", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_SIGNAL_SELECTOR, "set-signal-selector", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SIGNAL_SELECTOR, "get-signal-selector", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_MIXER, "set-mixer", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_MIXER, "get-mixer", NULL, },
-	{ AVB_AECP_AEM_CMD_SET_MATRIX, "set-matrix", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_MATRIX, "get-matrix", NULL, },
-	{ AVB_AECP_AEM_CMD_START_STREAMING, "start-streaming", NULL, },
-	{ AVB_AECP_AEM_CMD_STOP_STREAMING, "stop-streaming", NULL, },
-	{ AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION, "register-unsolicited-notification", NULL, },
-	{ AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION, "deregister-unsolicited-notification", NULL, },
-	{ AVB_AECP_AEM_CMD_IDENTIFY_NOTIFICATION, "identify-notification", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_AVB_INFO, "get-avb-info", handle_get_avb_info, },
-	{ AVB_AECP_AEM_CMD_GET_AS_PATH, "get-as-path", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_COUNTERS, "get-counters", NULL, },
-	{ AVB_AECP_AEM_CMD_REBOOT, "reboot", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_AUDIO_MAP, "get-audio-map", NULL, },
-	{ AVB_AECP_AEM_CMD_ADD_AUDIO_MAPPINGS, "add-audio-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_REMOVE_AUDIO_MAPPINGS, "remove-audio-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_VIDEO_MAP, "get-video-map", NULL, },
-	{ AVB_AECP_AEM_CMD_ADD_VIDEO_MAPPINGS, "add-video-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_REMOVE_VIDEO_MAPPINGS, "remove-video-mappings", NULL, },
-	{ AVB_AECP_AEM_CMD_GET_SENSOR_MAP, "get-sensor-map", NULL, }
-};
-
-static inline const struct cmd_info *find_cmd_info(uint16_t type, const char *name)
-{
-	SPA_FOR_EACH_ELEMENT_VAR(cmd_info, i) {
-		if ((name == NULL && type == i->type) ||
-		    (name != NULL && spa_streq(name, i->name)))
-			return i;
+#define AECP_AEM_HANDLE_CMD(cmd, readonly_desc, handle_exec)		\
+	[cmd] = {							\
+		.is_readonly = readonly_desc,				\
+		.handle_command = handle_exec				\
 	}
-	return NULL;
-}
+
+
+#define AECP_AEM_HANDLE_RESP(cmd, handle_cmd, handle_exec_unsol)	\
+	[cmd] = {							\
+		.name = name_str,					\
+		.is_readonly = false,					\
+		.handle_response = handle_cmd				\
+	}
+
+#define AECP_AEM_CMD_RESP_AND_UNSOL(cmd, readonly_desc, handle_exec,	\
+	 handle_exec_unsol)						\
+	 [cmd] = {							\
+		.name = name_str,					\
+		.is_readonly = readonly_desc,				\
+		.handle = handle_exec,					\
+		.handle_unsol = handle_exec_unsol			\
+	}
+
+static const struct cmd_info cmd_info_avb_legacy[] = {
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, true,
+		handle_acquire_entity_avb_legacy),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_LOCK_ENTITY, true,
+		 handle_lock_entity_avb_legacy),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
+		 handle_read_descriptor_common),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_AVB_INFO, true,
+		 handle_get_avb_info_common),
+};
+
+static const struct cmd_info cmd_info_milan_v12[] = {
+	/** Milan V1.2  do not implement acquire */
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, true, NULL),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_LOCK_ENTITY, false,
+		 NULL),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
+		 NULL),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
+		 handle_read_descriptor_common),
+};
+
+static const struct {
+	const struct cmd_info *cmd_info;
+	size_t count;
+} cmd_info_modes[AVB_MODE_MAX] = {
+	[AVB_MODE_LEGACY] = {
+		.cmd_info = cmd_info_avb_legacy,
+		.count = SPA_N_ELEMENTS(cmd_info_avb_legacy),
+	},
+	[AVB_MODE_MILAN_V12] = {
+		.cmd_info = cmd_info_milan_v12,
+		.count = SPA_N_ELEMENTS(cmd_info_milan_v12),
+	},
+};
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 {
 	const struct avb_ethernet_header *h = m;
 	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	uint16_t cmd_type;
+	struct server *server = aecp->server;
 	const struct cmd_info *info;
+	struct timespec ts_now = {0};
+	int64_t now;
 
 	cmd_type = AVB_PACKET_AEM_GET_COMMAND_TYPE(p);
 
-	info = find_cmd_info(cmd_type, NULL);
-	if (info == NULL)
+	pw_log_info("mode: %s aem command %s",
+		get_avb_mode_str(server->avb_mode), cmd_names[cmd_type]);
+
+	if (cmd_info_modes[server->avb_mode].count >= cmd_type) {
+		return reply_not_implemented(aecp, m, len);
+	}
+
+	info = &cmd_info_modes[server->avb_mode].cmd_info[cmd_type];
+	if (info->handle_command == NULL)
 		return reply_not_implemented(aecp, m, len);
 
-	pw_log_info("aem command %s", info->name);
 
-	if (info->handle == NULL)
-		return reply_not_implemented(aecp, m, len);
+	if (clock_gettime(CLOCK_TAI, &ts_now)) {
+		pw_log_warn("clock_gettime(CLOCK_TAI): %m\n");
+	}
 
-	return info->handle(aecp, m, len);
+	now = SPA_TIMESPEC_TO_NSEC(&ts_now);
+
+	return info->handle_command(aecp, now, m, len);
 }
 
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len)

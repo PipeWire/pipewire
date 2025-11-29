@@ -1,33 +1,13 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki */
 /* SPDX-License-Identifier: MIT */
 
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
+#include "aecp-aem-cmds-resps/cmd-resp-helpers.h"
 
-static int reply_status(struct aecp *aecp, int status, const void *m, int len)
-{
-	struct server *server = aecp->server;
-	uint8_t buf[len];
-	struct avb_ethernet_header *h = (void*)buf;
-	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
 
-	memcpy(buf, m, len);
-	AVB_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-	AVB_PACKET_AECP_SET_STATUS(reply, status);
-
-	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
-}
-
-static int reply_not_implemented(struct aecp *aecp, const void *m, int len)
-{
-	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED, m, len);
-}
-
-static int reply_success(struct aecp *aecp, const void *m, int len)
-{
-	return reply_status(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len);
-}
 
 /* ACQUIRE_ENTITY */
 static int handle_acquire_entity(struct aecp *aecp, const void *m, int len)

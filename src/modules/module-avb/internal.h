@@ -52,13 +52,27 @@ struct descriptor {
 	void *ptr;
 };
 
+
+enum avb_mode {
+	/** The legacy AVB Mode */
+	AVB_MODE_LEGACY,
+	/**
+	 * \brief Milan version 1.2, which subset of the AVB,
+	 * \see Milan Specifications https://avnu.org/resource/milan-specification/
+	 */
+	AVB_MODE_MILAN_V12,
+
+	/** Future AVB mode will be added here if necessary */
+	AVB_MODE_MAX
+};
+
 struct server {
 	struct spa_list link;
 	struct impl *impl;
 
 	char *ifname;
 	/** Parsed from the configuration pipewire-avb.conf */
-	bool milan;
+	enum avb_mode avb_mode;
 	uint8_t mac_addr[6];
 	uint64_t entity_id;
 	int ifindex;

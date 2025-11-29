@@ -40,6 +40,12 @@
 #define server_emit_periodic(s,n)	server_emit(s, periodic, 0, n)
 #define server_emit_command(s,n,c,a,f)	server_emit(s, command, 0, n, c, a, f)
 
+
+static const char *avb_mode_str[] = {
+	[AVB_MODE_LEGACY] = "AVB Legacy",
+	[AVB_MODE_MILAN_V12] = "Milan V1.2",
+};
+
 static void on_timer_event(void *data)
 {
 	struct server *server = data;
@@ -319,4 +325,9 @@ void avdecc_server_free(struct server *server)
 	spa_hook_list_clean(&server->listener_list);
 	free(server->ifname);
 	free(server);
+}
+
+const char *get_avb_mode_str(enum avb_mode mode)
+{
+	return avb_mode_str[mode];
 }

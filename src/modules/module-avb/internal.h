@@ -137,6 +137,8 @@ static inline void *server_add_descriptor(struct server *server,
 	return d;
 }
 
+const char *get_avb_mode_str(enum avb_mode mode);
+
 struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props);
 void avdecc_server_free(struct server *server);
 

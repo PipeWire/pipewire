@@ -6,6 +6,7 @@
 #define AVB_AECP_AEM_STATE_H
 
 #include "aecp-aem-descriptors.h"
+#include "aecp-aem-milan.h"
 
 /**
  * The way structure are organised in a "derived" manner.
@@ -45,6 +46,71 @@ struct aecp_aem_state_base {
     int64_t expire_timeout;
 };
 
+/**
+ * \brief the structure keeps track of the registered controller entities
+ */
+struct aecp_aem_unsol_notification_state {
+    /**
+     * The controller is that is locking this system
+     */
+    uint64_t ctrler_endity_id;
+
+    /**
+     * mac Address of the controller
+     */
+    uint8_t ctrler_mac_addr[6];
+
+    /**
+     * Port where the registeration originated from
+     */
+    uint8_t port_id;
+
+    /***
+     * The sequence ID of the next unsolicited notification
+     */
+
+    uint16_t next_seq_id;
+    /**
+     * Actual value of the lock, get removed when unregistere or expired.
+     */
+    bool is_registered;
+
+};
+
+struct aecp_aem_lock_state {
+	/**
+	 * the entity id that is locking this system
+	 */
+	uint64_t locked_id;
+
+	/**
+	 * actual value of the lock
+	 */
+	bool is_locked;
+};
+
+/**
+ * \brief the generic entity state common for all flavor of AVB
+ */
+struct aecp_aem_entity_state {
+	struct avb_aem_desc_entity desc;
+};
+
+/**
+ * \brief Milan implementation of the entity
+ */
+struct aecp_aem_entity_milan_state {
+	struct aecp_aem_entity_state state;
+	struct aecp_aem_lock_state lock_state;
+	struct aecp_aem_unsol_notification_state unsol_notif_state[AECP_AEM_MILAN_MAX_CONTROLLER];
+};
+
+/**
+ * \brief Legacy AVB implementation of the entity
+ */
+struct aecp_aem_entity_legacy_avb_state {
+	struct aecp_aem_entity_state state;
+};
 
 /**
  * \brief The stream inputs are specified as in the IEEE-1722.1-2021

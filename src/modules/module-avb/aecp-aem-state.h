@@ -77,7 +77,24 @@ struct aecp_aem_unsol_notification_state {
 
 };
 
+struct aecp_aem_base_info {
+    /** Originator of the control
+     * This is needed so the unsoolictied notification does not send back SUCCESS
+     * to the originator of of the unsolicited notification */
+    uint64_t controller_entity_id;
+
+    /**
+     * To avoid sending on every change for unsol notifications, only once a
+     * a second
+     * */
+    int64_t last_update;
+
+    /** timeout absolute time*/
+    int64_t expire_timeout;
+};
+
 struct aecp_aem_lock_state {
+	struct aecp_aem_base_info base_info;
 	/**
 	 * the entity id that is locking this system
 	 */

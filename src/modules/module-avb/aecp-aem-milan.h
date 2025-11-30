@@ -1,0 +1,6 @@
+#ifndef __AVB_AECP_AEM_MILAN_H__
+#define __AVB_AECP_AEM_MILAN_H__
+
+#define AECP_AEM_MILAN_MAX_CONTROLLER	16
+
+#endif //__AVB_AECP_AEM_MILAN_H__

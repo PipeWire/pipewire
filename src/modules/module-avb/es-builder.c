@@ -31,6 +31,7 @@ struct es_builder_st {
 	es_builder_cb_t build_descriptor_cb;
 };
 
+
 /**
  * \brief A generic function to avoid code duplicate for the streams */
 static void *es_buidler_desc_stream_general_prepare(struct server *server,
@@ -92,11 +93,27 @@ static void *es_buidler_desc_stream_general_prepare(struct server *server,
 #define HELPER_ES_BUIDLER(type, callback) \
     [type] = { .build_descriptor_cb = callback  }
 
-/** All callback that needs a status information */
-static const struct es_builder_st es_builder[AVB_AEM_DESC_LAST_RESERVED_17221] =
+/** All callback that needs a status information for the AVB/Milan V1.2 */
+static const struct es_builder_st es_builder_milan_v12[] =
 {
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_OUTPUT, es_buidler_desc_stream_general_prepare),
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_INPUT, es_buidler_desc_stream_general_prepare),
+};
+
+/** All callback that needs a status information for Legacy AVB*/
+static const struct es_builder_st es_builder_legacy_avb[] =
+{
+	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_OUTPUT, es_buidler_desc_stream_general_prepare),
+	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_INPUT, es_buidler_desc_stream_general_prepare),
+};
+
+/**
+ * \brief keep the list of the supported avb flavors here
+ */
+static const struct es_builder_st *es_builders[] = {
+
+	[AVB_MODE_LEGACY] = es_builder_legacy_avb,
+	[AVB_MODE_MILAN_V12] = es_builder_milan_v12,
 };
 
 /**
@@ -107,8 +124,10 @@ static const struct es_builder_st es_builder[AVB_AEM_DESC_LAST_RESERVED_17221] =
 void es_builder_add_descriptor(struct server *server, uint16_t type,
 		uint16_t index, size_t size, void *ptr_aem)
 {
+	const struct es_builder_st *es_builder;
 	void *desc_ptr;
 	struct descriptor *d;
+	enum avb_mode avb_mode;
 
 	if (!server) {
 		pw_log_error("Invalid server, it is empty %p\n", server);
@@ -120,6 +139,13 @@ void es_builder_add_descriptor(struct server *server, uint16_t type,
 		spa_assert(0);
 	}
 
+	avb_mode = server->avb_mode;
+	if (avb_mode >= AVB_MODE_MAX) {
+		pw_log_error("AVB mode is not valid received %d\n", avb_mode);
+		spa_assert(0);
+	}
+
+	es_builder = es_builders[avb_mode];
 	/* Look if the descriptor has a callback to attach more status data */
 	if (!es_builder[type].build_descriptor_cb) {
 		if (!server_add_descriptor(server, type, index, size, ptr_aem)) {

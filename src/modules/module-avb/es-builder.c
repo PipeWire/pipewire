@@ -5,6 +5,7 @@
 
 #include "es-builder.h"
 #include "aecp-aem-state.h"
+#include "utils.h"
 
 /**
  * \brief The goal of this modules is to create a an entity and
@@ -110,10 +111,20 @@ static const struct es_builder_st es_builder_legacy_avb[] =
 /**
  * \brief keep the list of the supported avb flavors here
  */
-static const struct es_builder_st *es_builders[] = {
+static const struct {
+	const struct es_builder_st *es_builder;
+	/** Number of elements in the es_builder */
+	size_t count;
+} es_builders[] = {
+	[AVB_MODE_LEGACY] = {
+	       .es_builder = es_builder_legacy_avb,
+	       .count = ARRAY_SIZE(es_builder_legacy_avb),
+	},
 
-	[AVB_MODE_LEGACY] = es_builder_legacy_avb,
-	[AVB_MODE_MILAN_V12] = es_builder_milan_v12,
+	[AVB_MODE_MILAN_V12] = {
+	       .es_builder = es_builder_milan_v12,
+	       .count = ARRAY_SIZE(es_builder_milan_v12),
+	},
 };
 
 /**
@@ -128,14 +139,10 @@ void es_builder_add_descriptor(struct server *server, uint16_t type,
 	void *desc_ptr;
 	struct descriptor *d;
 	enum avb_mode avb_mode;
+	bool std_processing = false;
 
 	if (!server) {
 		pw_log_error("Invalid server, it is empty %p\n", server);
-		spa_assert(0);
-	}
-
-	if (type >= AVB_AEM_DESC_LAST_RESERVED_17221) {
-		pw_log_error("Invalid Type %u\n", type);
 		spa_assert(0);
 	}
 
@@ -145,12 +152,20 @@ void es_builder_add_descriptor(struct server *server, uint16_t type,
 		spa_assert(0);
 	}
 
-	es_builder = es_builders[avb_mode];
-	/* Look if the descriptor has a callback to attach more status data */
-	if (!es_builder[type].build_descriptor_cb) {
+
+	es_builder = es_builders[avb_mode].es_builder;
+	if (type > es_builders[avb_mode].count) {
+		std_processing = true;
+	} else {
+		if (!es_builder[type].build_descriptor_cb) {
+			std_processing = true;
+		}
+	}
+
+	if (std_processing) {
 		if (!server_add_descriptor(server, type, index, size, ptr_aem)) {
 			pw_log_error("Could not allocate descriptor %u at "
-				"index %u the avb aem type\n", type, index);
+					"index %u the avb aem type\n", type, index);
 
 			spa_assert(0);
 		}
@@ -164,6 +179,7 @@ void es_builder_add_descriptor(struct server *server, uint16_t type,
 
 			spa_assert(0);
 		}
+
 		d = (struct descriptor *) desc_ptr;
 		d->size = size;
 	}

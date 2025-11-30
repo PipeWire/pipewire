@@ -32,6 +32,30 @@ struct es_builder_st {
 	es_builder_cb_t build_descriptor_cb;
 };
 
+/*
+ *  \brief The Entity keeps track of multiple things, the locks the current
+ *  configuration use for instance. That tragets the Milan V1.2 mode only
+ */
+static void *es_builder_desc_entity_milan_v12(struct server *server,
+	uint16_t type, uint16_t index, size_t size, void *ptr)
+{
+    struct aecp_aem_entity_milan_state entity_state = {0};
+    void *ptr_alloc;
+    struct aecp_aem_entity_state *state =
+	    (struct aecp_aem_entity_state *) &entity_state;
+
+    memcpy(&state->desc, ptr, size);
+
+    ptr_alloc = server_add_descriptor(server, type, index, sizeof(entity_state),
+        &entity_state);
+
+    if (!ptr_alloc) {
+        pw_log_error("Error durring allocation\n");
+        spa_assert(0);
+    }
+
+    return ptr_alloc;
+}
 
 /**
  * \brief A generic function to avoid code duplicate for the streams */
@@ -97,6 +121,7 @@ static void *es_buidler_desc_stream_general_prepare(struct server *server,
 /** All callback that needs a status information for the AVB/Milan V1.2 */
 static const struct es_builder_st es_builder_milan_v12[] =
 {
+	HELPER_ES_BUIDLER(AVB_AEM_DESC_ENTITY, es_builder_desc_entity_milan_v12),
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_OUTPUT, es_buidler_desc_stream_general_prepare),
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_INPUT, es_buidler_desc_stream_general_prepare),
 };

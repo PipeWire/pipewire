@@ -28,6 +28,11 @@ static inline int reply_status(struct aecp *aecp, int status, const void *m, int
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
 }
 
+static inline int reply_entity_locked(struct aecp *aecp, const void *m, int len)
+{
+	return reply_status(aecp, AVB_AECP_AEM_STATUS_ENTITY_LOCKED, m, len);
+}
+
 static inline int reply_not_implemented(struct aecp *aecp, const void *m, int len)
 {
 	pw_log_warn("reply not implementing");

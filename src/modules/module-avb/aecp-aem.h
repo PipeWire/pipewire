@@ -114,6 +114,12 @@ struct avb_packet_aecp_aem_lock {
 	uint16_t descriptor_id;
 } __attribute__ ((__packed__));
 
+struct avb_packet_aecp_aem_available {
+	uint32_t flags;
+	uint64_t acquired_controller_guid;
+	uint64_t lock_controller_guid;
+} __attribute__ ((__packed__));
+
 struct avb_packet_aecp_aem_read_descriptor {
 	uint16_t configuration;
 	uint8_t reserved[2];

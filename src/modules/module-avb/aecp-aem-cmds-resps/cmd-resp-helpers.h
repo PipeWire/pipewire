@@ -20,7 +20,7 @@ static inline int reply_status(struct aecp *aecp, int status, const void *m, int
 
 	memcpy(buf, m, len);
 
-	pw_log_debug("status %u\n", h->type);
+	pw_log_debug("status 0x%x\n", status);
 
 	AVB_PACKET_AECP_SET_MESSAGE_TYPE(reply, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	AVB_PACKET_AECP_SET_STATUS(reply, status);

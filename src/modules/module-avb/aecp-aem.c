@@ -9,6 +9,7 @@
 #include "utils.h"
 
 /* The headers including the command and response of the system  */
+#include "aecp-aem-cmds-resps/cmd-available.h"
 #include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 
 
@@ -286,7 +287,7 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 		 handle_cmd_lock_entity_milan_v12),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
-		 NULL),
+		 handle_cmd_entity_available_milan_v12),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
 		 handle_read_descriptor_common),

@@ -9,7 +9,7 @@
 #include "utils.h"
 
 /* The headers including the command and response of the system  */
-//#include "aecp-aem-cmds-resps/cmd-available.h"
+#include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 
 
 /* ACQUIRE_ENTITY */
@@ -279,11 +279,11 @@ static const struct cmd_info cmd_info_avb_legacy[] = {
 };
 
 static const struct cmd_info cmd_info_milan_v12[] = {
-	/** Milan V1.2  do not implement acquire */
+	/** Milan V1.2 should not implement acquire */
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, true, NULL),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_LOCK_ENTITY, false,
-		 NULL),
+		 handle_cmd_lock_entity_milan_v12),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
 		 NULL),
@@ -322,7 +322,7 @@ int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 		get_avb_mode_str(server->avb_mode), cmd_names[cmd_type]);
 
 	if (cmd_info_modes[server->avb_mode].count <= cmd_type) {
-		pw_log_warn("Too many %d vs exp. %ld\n", cmd_type,
+		pw_log_warn("Too many %d vs exp. %zu\n", cmd_type,
 			cmd_info_modes[server->avb_mode].count);
 		return reply_not_implemented(aecp, m, len);
 	}

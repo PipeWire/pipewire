@@ -606,7 +606,7 @@ static void rtp_audio_stop_timer(struct impl *impl)
 static void rtp_audio_flush_timeout(struct impl *impl, uint64_t expirations)
 {
 	if (expirations > 1)
-		pw_log_warn("missing timeout %"PRIu64, expirations);
+		pw_log_trace("missing timeout %"PRIu64, expirations);
 	rtp_audio_flush_packets(impl, expirations, 0);
 }
 

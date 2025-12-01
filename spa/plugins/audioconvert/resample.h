@@ -8,7 +8,10 @@
 #include <spa/support/cpu.h>
 #include <spa/support/log.h>
 
+#ifndef RESAMPLE_DEFAULT_QUALITY
 #define RESAMPLE_DEFAULT_QUALITY	4
+#endif
+
 #define RESAMPLE_WINDOW_DEFAULT		RESAMPLE_WINDOW_EXP
 #define RESAMPLE_MAX_PARAMS		16
 

@@ -2036,7 +2036,9 @@ static void recalc_headroom(struct state *state)
 	uint32_t latency;
 	uint32_t rate = 0;
 
-	if (state->position != NULL)
+	if (state->force_quantum && !state->following)
+		rate = state->rate;
+	else if (state->position != NULL)
 		rate = state->position->clock.target_rate.denom;
 
 	if (state->use_period_size_min_as_headroom)

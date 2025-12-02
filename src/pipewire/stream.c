@@ -715,8 +715,9 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Flush:
 	case SPA_NODE_COMMAND_Pause:
-		pw_loop_invoke(impl->main_loop,
-			NULL, 0, NULL, 0, false, impl);
+		/* this ensures we don't have any pending invokes in the queue after we
+		 * emit the state change and/or command. */
+		pw_loop_invoke(impl->main_loop, NULL, 0, NULL, 0, false, impl);
 		if (stream->state == PW_STREAM_STATE_STREAMING && id != SPA_NODE_COMMAND_Flush) {
 			pw_log_debug("%p: pause", stream);
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
@@ -1748,11 +1749,35 @@ static int stream_disconnect(struct stream *impl)
 	return 0;
 }
 
+static void stream_free(struct pw_stream *stream)
+{
+	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
+	struct control *c;
+
+	pw_log_debug("%p: free", stream);
+	clear_params(impl, SPA_ID_INVALID, 0);
+
+	free(stream->error);
+
+	pw_properties_free(stream->properties);
+
+	free(stream->name);
+
+	spa_list_consume(c, &stream->controls, link) {
+		spa_list_remove(&c->link);
+		free(c);
+	}
+	if (impl->data.context)
+		pw_context_destroy(impl->data.context);
+
+	pw_properties_free(impl->port_props);
+	free(impl);
+}
+
 SPA_EXPORT
 void pw_stream_destroy(struct pw_stream *stream)
 {
 	struct stream *impl = SPA_CONTAINER_OF(stream, struct stream, this);
-	struct control *c;
 
 	ensure_loop(impl->main_loop, return);
 
@@ -1768,29 +1793,10 @@ void pw_stream_destroy(struct pw_stream *stream)
 		spa_list_remove(&stream->link);
 		stream->core = NULL;
 	}
-
-	clear_params(impl, SPA_ID_INVALID, 0);
-
-	pw_log_debug("%p: free", stream);
-	free(stream->error);
-
-	pw_properties_free(stream->properties);
-
-	free(stream->name);
-
-	spa_list_consume(c, &stream->controls, link) {
-		spa_list_remove(&c->link);
-		free(c);
-	}
-
 	spa_hook_list_clean(&impl->hooks);
 	spa_hook_list_clean(&stream->listener_list);
 
-	if (impl->data.context)
-		pw_context_destroy(impl->data.context);
-
-	pw_properties_free(impl->port_props);
-	free(impl);
+	stream_free(stream);
 }
 
 static int

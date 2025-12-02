@@ -738,6 +738,7 @@ if build_module_avb
       'module-avb/aecp-aem.c',
       'module-avb/aecp-aem-cmds-resps/cmd-lock-entity.c',
       'module-avb/aecp-aem-cmds-resps/cmd-available.c',
+      'module-avb/aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.c',
       'module-avb/es-builder.c',
       'module-avb/avdecc.c',
       'module-avb/maap.c',

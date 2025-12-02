@@ -57,7 +57,7 @@ struct aecp_aem_unsol_notification_state {
     /**
      * The controller is that is locking this system
      */
-    uint64_t ctrler_endity_id;
+    uint64_t ctrler_entity_id;
 
     /**
      * mac Address of the controller

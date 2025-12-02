@@ -894,6 +894,7 @@ do_port_use_buffers(struct impl *impl,
 			case SPA_DATA_MemPtr:
 				spa_log_debug(impl->log, "mem %d %zd", j, SPA_PTRDIFF(d->data, baseptr));
 				b->datas[j].data = SPA_INT_TO_PTR(SPA_PTRDIFF(d->data, baseptr));
+				SPA_FLAG_CLEAR(b->datas[j].flags, SPA_DATA_FLAG_MAPPABLE);
 				break;
 			default:
 				b->datas[j].type = SPA_ID_INVALID;

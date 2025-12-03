@@ -715,9 +715,6 @@ static int impl_send_command(void *object, const struct spa_command *command)
 	case SPA_NODE_COMMAND_Suspend:
 	case SPA_NODE_COMMAND_Flush:
 	case SPA_NODE_COMMAND_Pause:
-		/* this ensures we don't have any pending invokes in the queue after we
-		 * emit the state change and/or command. */
-		pw_loop_invoke(impl->main_loop, NULL, 0, NULL, 0, false, impl);
 		if (stream->state == PW_STREAM_STATE_STREAMING && id != SPA_NODE_COMMAND_Flush) {
 			pw_log_debug("%p: pause", stream);
 			stream_set_state(stream, PW_STREAM_STATE_PAUSED, 0, NULL);
@@ -1795,6 +1792,9 @@ void pw_stream_destroy(struct pw_stream *stream)
 	}
 	spa_hook_list_clean(&impl->hooks);
 	spa_hook_list_clean(&stream->listener_list);
+
+	/* Make sure there are no queued invokes from us anymore */
+	pw_loop_invoke(impl->main_loop, NULL, 0, NULL, 0, false, impl);
 
 	stream_free(stream);
 }

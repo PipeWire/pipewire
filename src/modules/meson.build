@@ -740,6 +740,7 @@ if build_module_avb
       'module-avb/aecp-aem-cmds-resps/cmd-available.c',
       'module-avb/aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.c',
       'module-avb/aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.c',
+      'module-avb/aecp-aem-cmds-resps/reply-unsol-helpers.c',
       'module-avb/es-builder.c',
       'module-avb/avdecc.c',
       'module-avb/maap.c',

@@ -115,6 +115,7 @@ struct aecp_aem_lock_state {
  */
 struct aecp_aem_entity_state {
 	struct avb_aem_desc_entity desc;
+	struct aecp_aem_lock_state lock_state;
 };
 
 /**
@@ -122,7 +123,6 @@ struct aecp_aem_entity_state {
  */
 struct aecp_aem_entity_milan_state {
 	struct aecp_aem_entity_state state;
-	struct aecp_aem_lock_state lock_state;
 	struct aecp_aem_unsol_notification_state unsol_notif_state[AECP_AEM_MILAN_MAX_CONTROLLER];
 };
 

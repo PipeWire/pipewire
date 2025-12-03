@@ -47,7 +47,7 @@ int handle_cmd_entity_available_milan_v12(struct aecp *aecp, int64_t now, const 
 	}
 
 	entity_state = desc->ptr;
-	lock = &entity_state->lock_state;
+	lock = &entity_state->state.lock_state;
 
 	/* Forge the response for the entity that is locking the device */
 	memcpy(buf, m, len);

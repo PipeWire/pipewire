@@ -49,7 +49,7 @@ int handle_cmd_lock_entity_milan_v12(struct aecp *aecp, int64_t now, const void 
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
 	entity_state = desc->ptr;
-	lock = &entity_state->lock_state;
+	lock = &entity_state->state.lock_state;
 
 	if (desc_type != AVB_AEM_DESC_ENTITY || desc_id != 0) {
 	/*

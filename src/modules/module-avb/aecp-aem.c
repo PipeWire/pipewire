@@ -11,6 +11,8 @@
 /* The headers including the command and response of the system  */
 #include "aecp-aem-cmds-resps/cmd-available.h"
 #include "aecp-aem-cmds-resps/cmd-lock-entity.h"
+#include "aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.h"
+#include "aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.h"
 
 
 /* ACQUIRE_ENTITY */
@@ -292,6 +294,15 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
 		 handle_read_descriptor_common),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_REGISTER_UNSOLICITED_NOTIFICATION,
+		false, handle_cmd_register_unsol_notif_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_DEREGISTER_UNSOLICITED_NOTIFICATION,
+		false, handle_cmd_deregister_unsol_notif_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_AVB_INFO, true,
+		 handle_get_avb_info_common),
 };
 
 static const struct {

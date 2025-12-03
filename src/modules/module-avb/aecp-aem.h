@@ -229,9 +229,11 @@ struct avb_packet_aecp_aem {
 	uint8_t payload[0];
 } __attribute__ ((__packed__));
 
-#define AVB_PACKET_AEM_SET_COMMAND_TYPE(p,v)		((p)->cmd1 = ((v) >> 8),(p)->cmd2 = (v))
+#define AVB_PACKET_CONTROL_DATA_OFFSET		(12U)
 
-#define AVB_PACKET_AEM_GET_COMMAND_TYPE(p)		((p)->cmd1 << 8 | (p)->cmd2)
+#define AVB_PACKET_AEM_SET_COMMAND_TYPE(p,v)	((p)->cmd1 = ((v) >> 8),(p)->cmd2 = (v))
+
+#define AVB_PACKET_AEM_GET_COMMAND_TYPE(p)	((p)->cmd1 << 8 | (p)->cmd2)
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len);
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len);

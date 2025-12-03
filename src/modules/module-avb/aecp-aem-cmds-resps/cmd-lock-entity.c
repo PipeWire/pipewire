@@ -17,6 +17,59 @@
 #include "cmd-lock-entity.h"
 #include "cmd-resp-helpers.h"
 
+#include "reply-unsol-helpers.h"
+
+static int handle_unsol_lock_common(struct aecp *aecp,
+	struct aecp_aem_lock_state *lock, bool internal)
+{
+	uint8_t buf[512];
+	void *m = buf;
+	// struct aecp_aem_regis_unsols
+	struct avb_ethernet_header *h = m;
+	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+	struct avb_packet_aecp_aem_lock *ae;
+	size_t len = sizeof(*h) + sizeof(*p) + sizeof(*ae);
+	int rc;
+
+	memset(buf, 0, sizeof(buf));
+	ae = (struct avb_packet_aecp_aem_lock*)p->payload;
+
+	if (!lock->is_locked) {
+		ae->locked_guid = 0;
+		ae->flags = htonl(AECP_AEM_LOCK_ENTITY_FLAG_UNLOCK);
+		lock->is_locked = false;
+		lock->base_info.expire_timeout = LONG_MAX;
+	} else {
+		ae->locked_guid = htobe64(lock->locked_id);
+		ae->flags = 0;
+	}
+
+	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, AVB_AECP_AEM_CMD_LOCK_ENTITY);
+
+	/** Setup the packet for the unsolicited notification*/
+	rc = reply_unsolicited_notifications(aecp, &lock->base_info, buf, len, internal);
+	if (rc) {
+		pw_log_error("Unsolicited notification failed \n");
+	}
+
+	return rc;
+}
+
+static int handle_unsol_lock_entity_milanv12(struct aecp *aecp, struct descriptor *desc,
+	 uint64_t ctrler_id)
+{
+	int rc = -1;
+	struct aecp_aem_entity_milan_state *entity_state;
+	struct aecp_aem_lock_state *lock;
+
+	entity_state = desc->ptr;
+	lock = &entity_state->state.lock_state;
+	lock->base_info.controller_entity_id = ctrler_id;
+	rc = handle_unsol_lock_common(aecp, lock, false);
+
+	return rc;
+}
+
 
 /* LOCK_ENTITY */
 /* Milan v1.2, Sec. 5.4.2.2; IEEE 1722.1-2021, Sec. 7.4.2*/
@@ -117,5 +170,11 @@ int handle_cmd_lock_entity_milan_v12(struct aecp *aecp, int64_t now, const void 
 		return reply_entity_locked(aecp, buf, len);
 	}
 
-	return reply_success(aecp, buf, len);
+	if (reply_success(aecp, buf, len)) {
+		pw_log_debug("Failed sending success reply\n");
+	}
+
+	/* Then update the state using the system */
+	return handle_unsol_lock_entity_milanv12(aecp, desc, ctrler_id);
+
 }

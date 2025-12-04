@@ -113,7 +113,7 @@ struct data {
 #define TYPE_SYSEX	4
 #define TYPE_MIDI2	5
 	int data_type;
-	bool raw;
+	bool rawfile;
 	const char *remote_name;
 	const char *media_type;
 	const char *media_category;
@@ -125,7 +125,6 @@ struct data {
 	struct pw_properties *props;
 
 	const char *filename;
-	SNDFILE *file;
 
 	unsigned int bitrate;
 	unsigned int rate;
@@ -147,6 +146,9 @@ struct data {
 	bool drained;
 	uint64_t clock_time;
 
+	struct {
+		SNDFILE *file;
+	} sndfile;
 	struct {
 		struct midi_file *file;
 		struct midi_file_info info;
@@ -181,7 +183,12 @@ struct data {
 #endif
 	struct {
 		FILE *file;
+		bool close;
 	} sysex;
+	struct {
+		FILE *file;
+		bool close;
+	} raw;
 
 	uint64_t sample_limit;         /* 0 means unlimited */
 	uint64_t samples_processed;
@@ -227,7 +234,7 @@ static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames
 {
 	sf_count_t rn;
 
-	rn = sf_read_raw(d->file, dest, n_frames * d->stride);
+	rn = sf_read_raw(d->sndfile.file, dest, n_frames * d->stride);
 	return (int)rn / d->stride;
 }
 
@@ -236,7 +243,7 @@ static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frame
 	sf_count_t rn;
 
 	assert(sizeof(short) == sizeof(int16_t));
-	rn = sf_readf_short(d->file, dest, n_frames);
+	rn = sf_readf_short(d->sndfile.file, dest, n_frames);
 	return (int)rn;
 }
 
@@ -245,7 +252,7 @@ static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frame
 	sf_count_t rn;
 
 	assert(sizeof(int) == sizeof(int32_t));
-	rn = sf_readf_int(d->file, dest, n_frames);
+	rn = sf_readf_int(d->sndfile.file, dest, n_frames);
 	return (int)rn;
 }
 
@@ -254,7 +261,7 @@ static int sf_playback_fill_f32(struct data *d, void *dest, unsigned int n_frame
 	sf_count_t rn;
 
 	assert(sizeof(float) == 4);
-	rn = sf_readf_float(d->file, dest, n_frames);
+	rn = sf_readf_float(d->sndfile.file, dest, n_frames);
 	return (int)rn;
 }
 
@@ -263,7 +270,7 @@ static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frame
 	sf_count_t rn;
 
 	assert(sizeof(double) == 8);
-	rn = sf_readf_double(d->file, dest, n_frames);
+	rn = sf_readf_double(d->sndfile.file, dest, n_frames);
 	return (int)rn;
 }
 
@@ -550,7 +557,7 @@ static int sf_record_fill_x8(struct data *d, void *src, unsigned int n_frames, b
 {
 	sf_count_t rn;
 
-	rn = sf_write_raw(d->file, src, n_frames * d->stride);
+	rn = sf_write_raw(d->sndfile.file, src, n_frames * d->stride);
 	return (int)rn / d->stride;
 }
 
@@ -559,7 +566,7 @@ static int sf_record_fill_s16(struct data *d, void *src, unsigned int n_frames, 
 	sf_count_t rn;
 
 	assert(sizeof(short) == sizeof(int16_t));
-	rn = sf_writef_short(d->file, src, n_frames);
+	rn = sf_writef_short(d->sndfile.file, src, n_frames);
 	return (int)rn;
 }
 
@@ -568,7 +575,7 @@ static int sf_record_fill_s32(struct data *d, void *src, unsigned int n_frames, 
 	sf_count_t rn;
 
 	assert(sizeof(int) == sizeof(int32_t));
-	rn = sf_writef_int(d->file, src, n_frames);
+	rn = sf_writef_int(d->sndfile.file, src, n_frames);
 	return (int)rn;
 }
 
@@ -577,7 +584,7 @@ static int sf_record_fill_f32(struct data *d, void *src, unsigned int n_frames, 
 	sf_count_t rn;
 
 	assert(sizeof(float) == 4);
-	rn = sf_writef_float(d->file, src, n_frames);
+	rn = sf_writef_float(d->sndfile.file, src, n_frames);
 	return (int)rn;
 }
 
@@ -586,7 +593,7 @@ static int sf_record_fill_f64(struct data *d, void *src, unsigned int n_frames, 
 	sf_count_t rn;
 
 	assert(sizeof(double) == 8);
-	rn = sf_writef_double(d->file, src, n_frames);
+	rn = sf_writef_double(d->sndfile.file, src, n_frames);
 	return (int)rn;
 }
 
@@ -1480,10 +1487,16 @@ static int setup_sysex(struct data *data)
 	if (data->mode == mode_record)
 		return -ENOTSUP;
 
-	data->sysex.file = fopen(data->filename, "r");
-	if (data->sysex.file == NULL) {
-		fprintf(stderr, "sysex: can't read file '%s': %m\n", data->filename);
-		return -errno;
+	if (spa_streq(data->filename, "-")) {
+		data->sysex.file = stdin;
+		data->sysex.close = false;
+	} else {
+		data->sysex.file = fopen(data->filename, "r");
+		if (data->sysex.file == NULL) {
+			fprintf(stderr, "sysex: can't read file '%s': %m\n", data->filename);
+			return -errno;
+		}
+		data->sysex.close = false;
 	}
 
 	if (data->verbose)
@@ -1557,17 +1570,17 @@ static int setup_dsdfile(struct data *data)
 	return 0;
 }
 
-static int stdout_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int raw_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
-	return fwrite(src, d->stride, n_frames, stdout);
+	return fwrite(src, d->stride, n_frames, d->raw.file);
 }
 
-static int stdin_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int raw_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
 {
-	return fread(src, d->stride, n_frames, stdin);
+	return fread(src, d->stride, n_frames, d->raw.file);
 }
 
-static int setup_pipe(struct data *data)
+static int setup_raw(struct data *data)
 {
 	const struct format_info *info;
 
@@ -1586,10 +1599,23 @@ static int setup_pipe(struct data *data)
 
 	data->spa_format = info->spa_format;
 	data->stride = info->width * data->channels;
-	data->fill = data->mode == mode_playback ?  stdin_play : stdout_record;
+	data->fill = data->mode == mode_playback ?  raw_play : raw_record;
+
+	if (spa_streq(data->filename, "-")) {
+		data->raw.file = data->mode == mode_playback ?  stdin : stdout;
+		data->raw.close = false;
+	} else {
+		data->raw.file = fopen(data->filename,
+			data->mode == mode_playback ? "r" : "w");
+		if (data->raw.file == NULL) {
+			fprintf(stderr, "raw: can't open file '%s': %m\n", data->filename);
+			return -errno;
+		}
+		data->raw.close = true;
+	}
 
 	if (data->verbose)
-		fprintf(stderr, "PIPE: rate=%u channels=%u fmt=%s samplesize=%u stride=%u\n",
+		fprintf(stderr, "raw: rate=%u channels=%u fmt=%s samplesize=%u stride=%u\n",
 				data->rate, data->channels,
 				info->name, info->width, data->stride);
 
@@ -1618,7 +1644,7 @@ static int fill_properties(struct data *data)
 		if (table[c] == NULL)
 			continue;
 
-		if ((s = sf_get_string(data->file, c)) == NULL ||
+		if ((s = sf_get_string(data->sndfile.file, c)) == NULL ||
 		    *s == '\0')
 			continue;
 
@@ -1627,14 +1653,14 @@ static int fill_properties(struct data *data)
 	}
 
 	spa_zero(sfi);
-	if ((res = sf_command(data->file, SFC_GET_CURRENT_SF_INFO, &sfi, sizeof(sfi)))) {
+	if ((res = sf_command(data->sndfile.file, SFC_GET_CURRENT_SF_INFO, &sfi, sizeof(sfi)))) {
 		pw_log_error("sndfile: %s", sf_error_number(res));
 		return -EIO;
 	}
 
 	spa_zero(fi);
 	fi.format = sfi.format;
-	if (sf_command(data->file, SFC_GET_FORMAT_INFO, &fi, sizeof(fi)) == 0 && fi.name)
+	if (sf_command(data->sndfile.file, SFC_GET_FORMAT_INFO, &fi, sizeof(fi)) == 0 && fi.name)
 		if (pw_properties_get(data->props, PW_KEY_MEDIA_FORMAT) == NULL)
 			pw_properties_set(data->props, PW_KEY_MEDIA_FORMAT, fi.name);
 
@@ -1811,10 +1837,10 @@ static int setup_sndfile(struct data *data)
 		format_from_filename(&info, data->filename);
 	}
 
-	data->file = sf_open(data->filename,
+	data->sndfile.file = sf_open(data->filename,
 			data->mode == mode_playback ? SFM_READ : SFM_WRITE,
 			&info);
-	if (!data->file) {
+	if (!data->sndfile.file) {
 		fprintf(stderr, "sndfile: failed to open audio file \"%s\": %s\n",
 				data->filename, sf_strerror(NULL));
 		if (data->verbose) {
@@ -1853,7 +1879,7 @@ static int setup_sndfile(struct data *data)
 		if (data->channelmap.n_channels == 0) {
 			bool def = false;
 
-			if (sf_command(data->file, SFC_GET_CHANNEL_MAP_INFO,
+			if (sf_command(data->sndfile.file, SFC_GET_CHANNEL_MAP_INFO,
 					data->channelmap.position,
 					sizeof(data->channelmap.position[0]) * data->channels)) {
 				data->channelmap.n_channels = data->channels;
@@ -2097,7 +2123,7 @@ int main(int argc, char *argv[])
 			break;
 
 		case 'a':
-			data.raw = true;
+			data.rawfile = true;
 			break;
 
 		case 'M':
@@ -2264,8 +2290,8 @@ int main(int argc, char *argv[])
 	}
 	pw_core_add_listener(data.core, &data.core_listener, &core_events, &data);
 
-	if (data.raw) {
-		ret = setup_pipe(&data);
+	if (data.rawfile) {
+		ret = setup_raw(&data);
 	} else {
 		switch (data.data_type) {
 		case TYPE_PCM:
@@ -2500,8 +2526,8 @@ error_no_context:
 error_no_props:
 error_no_main_loop:
 	pw_properties_free(data.props);
-	if (data.file)
-		sf_close(data.file);
+	if (data.sndfile.file)
+		sf_close(data.sndfile.file);
 	if (data.midi.file)
 		midi_file_close(data.midi.file);
 	if (data.clip.file)
@@ -2510,6 +2536,10 @@ error_no_main_loop:
 		dsf_file_close(data.dsf.file);
 	if (data.dff.file)
 		dff_file_close(data.dff.file);
+	if (data.sysex.file && data.sysex.close)
+		fclose(data.sysex.file);
+	if (data.raw.file && data.raw.close)
+		fclose(data.raw.file);
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
 	if (data.encoded.packet)
 		av_packet_free(&data.encoded.packet);

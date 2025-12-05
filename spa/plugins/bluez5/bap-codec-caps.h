@@ -153,6 +153,69 @@
 #define BT_ISO_QOS_TARGET_LATENCY_BALANCED	0x02
 #define BT_ISO_QOS_TARGET_LATENCY_RELIABILITY	0x03
 
+
+#define BT_TMAP_UUID		"00001855-0000-1000-8000-00805f9b34fb"
+
+#define BT_TMAP_ROLE_CG_STR		"cg"
+#define BT_TMAP_ROLE_CT_STR		"ct"
+#define BT_TMAP_ROLE_UMS_STR		"ums"
+#define BT_TMAP_ROLE_UMR_STR		"umr"
+#define BT_TMAP_ROLE_BMS_STR		"bms"
+#define BT_TMAP_ROLE_BMR_STR		"bmr"
+
+#define BT_GMAP_ROLE_UGG_STR		"ugg"
+#define BT_GMAP_ROLE_UGT_STR		"ugt"
+#define BT_GMAP_ROLE_BGS_STR		"bgs"
+#define BT_GMAP_ROLE_BGR_STR		"bgr"
+
+#define BT_TMAP_ROLE_LIST(role) \
+	role(BT_TMAP_ROLE_CG) \
+	role(BT_TMAP_ROLE_CT) \
+	role(BT_TMAP_ROLE_UMS) \
+	role(BT_TMAP_ROLE_UMR) \
+	role(BT_TMAP_ROLE_BMS) \
+	role(BT_TMAP_ROLE_BMR)
+
+#define BT_GMAP_UUID		"00001858-0000-1000-8000-00805f9b34fb"
+
+#define BT_GMAP_UGG_MULTIPLEX_STR	"ugg-multiplex"
+#define BT_GMAP_UGG_96KBPS_SOURCE_STR	"ugg-96kbps-source"
+#define BT_GMAP_UGG_MULTISINK_STR	"ugg-multisink"
+
+#define BT_GMAP_UGT_SOURCE_STR		"ugt-source"
+#define BT_GMAP_UGT_80KBPS_SOURCE_STR	"ugt-80kbps-source"
+#define BT_GMAP_UGT_SINK_STR		"ugt-sink"
+#define BT_GMAP_UGT_64KBPS_SINK_STR	"ugt-64kbps-sink"
+#define BT_GMAP_UGT_MULTIPLEX_STR	"ugt-multiplex"
+#define BT_GMAP_UGT_MULTISINK_STR	"ugt-multisink"
+#define BT_GMAP_UGT_MULTISOURCE_STR	"ugt-multisource"
+
+#define BT_GMAP_BGS_96KBPS_STR		"bgs-96kbps"
+
+#define BT_GMAP_BGR_MULTISINK_STR	"bgr-multisink"
+#define BT_GMAP_BGR_MULTIPLEX_STR	"bgr-multiplex"
+
+#define BT_GMAP_ROLE_LIST(role) \
+	role(BT_GMAP_ROLE_UGG) \
+	role(BT_GMAP_ROLE_UGT) \
+	role(BT_GMAP_ROLE_BGS) \
+	role(BT_GMAP_ROLE_BGR)
+
+#define BT_GMAP_FEATURE_LIST(feature) \
+	feature(BT_GMAP_UGG_MULTIPLEX) \
+	feature(BT_GMAP_UGG_96KBPS_SOURCE) \
+	feature(BT_GMAP_UGG_MULTISINK) \
+	feature(BT_GMAP_UGT_SOURCE) \
+	feature(BT_GMAP_UGT_80KBPS_SOURCE) \
+	feature(BT_GMAP_UGT_SINK) \
+	feature(BT_GMAP_UGT_64KBPS_SINK) \
+	feature(BT_GMAP_UGT_MULTIPLEX) \
+	feature(BT_GMAP_UGT_MULTISINK) \
+	feature(BT_GMAP_UGT_MULTISOURCE) \
+	feature(BT_GMAP_BGS_96KBPS) \
+	feature(BT_GMAP_BGR_MULTISINK) \
+	feature(BT_GMAP_BGR_MULTIPLEX)
+
 struct bap_endpoint_qos {
 	uint8_t	framing;
 	uint8_t	phy;

@@ -1257,6 +1257,18 @@ Available source contexts PACS bitmask of the the server.
 @PAR@ monitor-prop  bluez5.bap-server-capabilities.source.supported-contexts		# integer
 Supported source contexts PACS bitmask of the the server.
 
+@PAR@ monitor-prop bluez5.bap-server-tmap-features = null  # array of string
+Override advertised TMAP service features. See TMAP specification for their meaning.
+Possible values: "cg", "ct", "ums", "umr", "bms", "bmr".
+Default: none.
+
+@PAR@ monitor-prop bluez5.bap-server-gmap-features = null  # array of string
+Override advertised GMAP service features. See GMAP specification for their meaning.
+Possible values: "ugg", "ugt", "bgs", "bgr", "ugg-multiplex", "ugg-96kbps-source", "ugg-multisink",
+"ugt-source", "ugt-80kbps-source", "ugt-sink", "ugt-64kbps-sink", "ugt-multiplex", "ugt-multisink",
+"ugt-multisource", "bgs-96kbps", "bgr-multisink", "bgr-multiplex".
+Default: none.
+
 ## Device properties
 
 @PAR@ device-prop  bluez5.auto-connect   # boolean

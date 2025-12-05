@@ -77,6 +77,11 @@ enum backend_selection {
 #define TRANSPORT_ERROR_TIMEOUT		(2*BLUEZ_ACTION_RATE_MSEC*SPA_NSEC_PER_MSEC)
 
 
+struct bap_features {
+	struct spa_dict dict;
+	struct spa_dict_item items[32];
+};
+
 struct spa_bt_monitor {
 	struct spa_handle handle;
 	struct spa_device device;
@@ -131,6 +136,8 @@ struct spa_bt_monitor {
 	uint32_t bap_source_contexts;
 	uint32_t bap_source_supported_contexts;
 
+	struct bap_features bap_features;
+
 	struct spa_bt_quirks *quirks;
 
 #define MAX_SETTINGS 128
@@ -160,6 +167,8 @@ struct spa_bt_remote_endpoint {
 	bool acceptor;
 
 	struct bap_endpoint_qos qos;
+
+	struct bap_features bap_features;
 
 	bool asha_right_side;
 	uint64_t hisyncid;
@@ -658,6 +667,77 @@ static bool endpoint_should_be_registered(struct spa_bt_monitor *monitor,
 		codec->fill_caps;
 }
 
+static bool bap_features_add(struct bap_features *feat, const char *uuid, const char *name)
+{
+#define TMAP_ITEM(item)	{ BT_TMAP_UUID, item ##_STR, BT_TMAP_UUID ":" item ##_STR },
+#define GMAP_ITEM(item)	{ BT_GMAP_UUID, item ##_STR, BT_GMAP_UUID ":" item ##_STR },
+	static const struct {
+		const char *const uuid;
+		const char *const name;
+		const char *const key;
+	} values[] = {
+		BT_TMAP_ROLE_LIST(TMAP_ITEM)
+		BT_GMAP_ROLE_LIST(GMAP_ITEM)
+		BT_GMAP_FEATURE_LIST(GMAP_ITEM)
+		{ NULL, NULL, NULL }
+	};
+	SPA_STATIC_ASSERT(SPA_N_ELEMENTS(feat->items) >= SPA_N_ELEMENTS(values));
+	size_t n_items = feat->dict.n_items;
+	size_t i;
+
+	/* Accept only listed features */
+	for (i = 0; values[i].uuid; ++i)
+		if (spa_streq(values[i].uuid, uuid) && spa_streq(values[i].name, name))
+			break;
+	if (!values[i].uuid)
+		return false;
+
+	if (spa_dict_lookup(&feat->dict, values[i].key))
+		return false;
+
+	spa_assert(n_items < SPA_N_ELEMENTS(feat->items));
+
+	/* Add */
+	feat->items[n_items].key = values[i].key;
+	feat->items[n_items].value = values[i].uuid;
+	n_items++;
+
+	feat->dict = SPA_DICT(feat->items, n_items);
+	return true;
+}
+
+/** Get feature uuid at \a i */
+static const char *bap_features_get_uuid(struct bap_features *feat, size_t i)
+{
+	if (!SPA_FLAG_IS_SET(feat->dict.flags, SPA_DICT_FLAG_SORTED))
+		spa_dict_qsort(&feat->dict);
+
+	if (i >= feat->dict.n_items)
+		return NULL;
+	return feat->dict.items[i].value;
+}
+
+/** Get feature name at \a i, or NULL if uuid doesn't match */
+static const char *bap_features_get_name(struct bap_features *feat, size_t i, const char *uuid)
+{
+	char *pos;
+
+	if (i >= feat->dict.n_items)
+		return NULL;
+	if (!spa_streq(feat->dict.items[i].value, uuid))
+		return NULL;
+
+	pos = strchr(feat->dict.items[i].key, ':');
+	if (!pos)
+		return NULL;
+	return pos + 1;
+}
+
+static void bap_features_clear(struct bap_features *feat)
+{
+	spa_zero(*feat);
+}
+
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
@@ -1114,6 +1194,8 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.debug", "true");
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.metadata", (void *)ep->metadata);
 	setting_items[i++] = SPA_DICT_ITEM_INIT("bluez5.bap.metadata-len", metadata_len);
+	for (j = 0; j < ep->bap_features.dict.n_items && i < SPA_N_ELEMENTS(setting_items); ++i, ++j)
+		setting_items[i] = ep->bap_features.dict.items[j];
 	if (ep->device->settings)
 		for (j = 0; j < ep->device->settings->n_items && i < SPA_N_ELEMENTS(setting_items); ++i, ++j)
 			setting_items[i] = ep->device->settings->items[j];
@@ -2856,6 +2938,38 @@ static struct spa_bt_device *create_bcast_device(struct spa_bt_monitor *monitor,
 
 static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, struct spa_bt_monitor *monitor);
 
+static void parse_supported_features(struct spa_bt_monitor *monitor,
+		DBusMessageIter *dict, struct bap_features *features)
+{
+	while (dbus_message_iter_get_arg_type(dict) == DBUS_TYPE_DICT_ENTRY) {
+		DBusMessageIter entry, variant, array;
+		const char *key;
+
+		dbus_message_iter_recurse(dict, &entry);
+		dbus_message_iter_get_basic(&entry, &key);
+		dbus_message_iter_next(&entry);
+		dbus_message_iter_recurse(&entry, &variant);
+
+		if (dbus_message_iter_get_arg_type(&variant) != DBUS_TYPE_ARRAY)
+			goto next;
+
+		dbus_message_iter_recurse(&variant, &array);
+
+		while (dbus_message_iter_get_arg_type(&array) == DBUS_TYPE_STRING) {
+			const char *name;
+
+			dbus_message_iter_get_basic(&array, &name);
+			if (bap_features_add(features, key, name))
+				spa_log_debug(monitor->log, "remote_endpoint: BAP feature %s %s", key, name);
+			dbus_message_iter_next(&array);
+		}
+
+	next:
+		dbus_message_iter_next(dict);
+	}
+	return;
+}
+
 static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_endpoint,
 				DBusMessageIter *props_iter,
 				DBusMessageIter *invalidated_iter)
@@ -2991,8 +3105,13 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			remote_endpoint->hisyncid = *(uint64_t *)value;
 
 			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%"PRIu64, remote_endpoint, key, remote_endpoint->hisyncid);
-		}
-		else {
+		} else if (spa_streq(key, "SupportedFeatures")) {
+			if (!check_iter_signature(&it[1], "a{sv}"))
+				goto next;
+
+			dbus_message_iter_recurse(&it[1], &it[2]);
+			parse_supported_features(monitor, &it[2], &remote_endpoint->bap_features);
+		} else {
 unhandled:
 			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);
 		}
@@ -3046,6 +3165,8 @@ static void remote_endpoint_free(struct spa_bt_remote_endpoint *remote_endpoint)
 
 	if (remote_endpoint->device)
 		spa_list_remove(&remote_endpoint->device_link);
+
+	bap_features_clear(&remote_endpoint->bap_features);
 
 	spa_list_remove(&remote_endpoint->link);
 	free(remote_endpoint->path);
@@ -5422,6 +5543,42 @@ out:
 	return err;
 }
 
+static void append_supported_features(DBusMessageIter *dict, struct bap_features *features)
+{
+	const char *key = "SupportedFeatures";
+	DBusMessageIter dict_entry, dict_variant, value_dict;
+	DBusMessageIter entry, variant, array;
+	const char *uuid, *name;
+	size_t i;
+
+	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry);
+	dbus_message_iter_append_basic(&dict_entry, DBUS_TYPE_STRING, &key);
+	dbus_message_iter_open_container(&dict_entry, DBUS_TYPE_VARIANT, "a{sv}", &dict_variant);
+
+	dbus_message_iter_open_container(&dict_variant, DBUS_TYPE_ARRAY, "{sv}", &value_dict);
+
+	i = 0;
+	while ((uuid = bap_features_get_uuid(features, i))) {
+		dbus_message_iter_open_container(&value_dict, DBUS_TYPE_DICT_ENTRY, NULL, &entry);
+		dbus_message_iter_append_basic(&entry, DBUS_TYPE_STRING, &uuid);
+		dbus_message_iter_open_container(&entry, DBUS_TYPE_VARIANT, "as", &variant);
+		dbus_message_iter_open_container(&variant, DBUS_TYPE_ARRAY, "s", &array);
+
+		while ((name = bap_features_get_name(features, i, uuid))) {
+			dbus_message_iter_append_basic(&array, DBUS_TYPE_STRING, &name);
+			++i;
+		}
+
+		dbus_message_iter_close_container(&variant, &array);
+		dbus_message_iter_close_container(&entry, &variant);
+		dbus_message_iter_close_container(&value_dict, &entry);
+	}
+
+	dbus_message_iter_close_container(&dict_variant, &value_dict);
+	dbus_message_iter_close_container(&dict_entry, &dict_variant);
+	dbus_message_iter_close_container(dict, &dict_entry);
+}
+
 static void append_media_object(struct spa_bt_monitor *monitor, DBusMessageIter *iter, const char *endpoint,
 		const char *uuid, uint8_t codec_id, uint8_t *caps, size_t caps_size)
 {
@@ -5468,6 +5625,9 @@ static void append_media_object(struct spa_bt_monitor *monitor, DBusMessageIter 
 		append_basic_variant_dict_entry(&dict, "Context", DBUS_TYPE_UINT16, "q", &contexts);
 		append_basic_variant_dict_entry(&dict, "SupportedContext", DBUS_TYPE_UINT16, "q", &supported_contexts);
 	}
+
+	if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_BAP_AUDIO)
+		append_supported_features(&dict, &monitor->bap_features);
 
 	dbus_message_iter_close_container(&entry, &dict);
 	dbus_message_iter_close_container(&array, &entry);
@@ -6690,6 +6850,8 @@ static int impl_clear(struct spa_handle *handle)
 	monitor->backend = NULL;
 	monitor->backend_selection = BACKEND_NATIVE;
 
+	bap_features_clear(&monitor->bap_features);
+
 	spa_bt_quirks_destroy(monitor->quirks);
 
 	free_media_codecs(monitor->media_codecs);
@@ -7003,6 +7165,32 @@ static void parse_bap_locations(struct spa_bt_monitor *this, const struct spa_di
 	*value = locations;
 }
 
+static void bap_feature_parse(struct spa_bt_monitor *this, const char *uuid, const char *str)
+{
+	struct spa_json it;
+	char name[64];
+
+	if (!str)
+		return;
+
+	if (spa_json_begin_array_relax(&it, str, strlen(str)) < 0)
+		return;
+
+	while (spa_json_get_string(&it, name, sizeof(name)) > 0) {
+		if (bap_features_add(&this->bap_features, uuid, name))
+			spa_log_debug(this->log, "advertise BAP feature %s %s", uuid, name);
+	}
+}
+
+static void parse_bap_features(struct spa_bt_monitor *this, const struct spa_dict *info)
+{
+	static const char *const tmap_uuid = "00001855-0000-1000-8000-00805f9b34fb";
+	static const char *const gmap_uuid = "00001858-0000-1000-8000-00805f9b34fb";
+
+	bap_feature_parse(this, tmap_uuid, spa_dict_lookup(info, "bluez5.bap-server-tmap-features"));
+	bap_feature_parse(this, gmap_uuid, spa_dict_lookup(info, "bluez5.bap-server-gmap-features"));
+}
+
 static void parse_bap_server(struct spa_bt_monitor *this, const struct spa_dict *info)
 {
 	this->bap_sink_locations = BAP_CHANNEL_FL | BAP_CHANNEL_FR;
@@ -7021,6 +7209,8 @@ static void parse_bap_server(struct spa_bt_monitor *this, const struct spa_dict 
 	parse_bap_locations(this, info, "bluez5.bap-server-capabilities.source.locations", &this->bap_source_locations);
 	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.contexts"), &this->bap_source_contexts, 0);
 	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.supported-contexts"), &this->bap_source_supported_contexts, 0);
+
+	parse_bap_features(this, info);
 }
 
 static void get_global_settings(struct spa_bt_monitor *this, const struct spa_dict *dict)

@@ -246,6 +246,15 @@ struct avb_aem_desc_clock_source {
 	uint16_t clock_source_location_index;
 } __attribute__ ((__packed__));
 
+struct avb_aem_desc_clock_domain {
+	char object_name[64];
+	uint16_t localized_description;
+	uint16_t clock_source_index;
+	uint16_t descriptor_counts_offset;
+	uint16_t clock_sources_count;
+	uint16_t clock_sources[0];
+} __attribute__ ((__packed__));
+
 struct avb_aem_desc_locale {
 	char locale_identifier[64];
 	uint16_t number_of_strings;

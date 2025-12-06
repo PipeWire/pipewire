@@ -281,7 +281,8 @@ static const struct cmd_info cmd_info_avb_legacy[] = {
 
 static const struct cmd_info cmd_info_milan_v12[] = {
 	/** Milan V1.2 should not implement acquire */
-	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, true, NULL),
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ACQUIRE_ENTITY, true,
+			direct_reply_not_supported),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_LOCK_ENTITY, false,
 		 handle_cmd_lock_entity_milan_v12),

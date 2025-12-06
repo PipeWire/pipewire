@@ -176,8 +176,10 @@ struct impl {
 
 	uint32_t errqueue_count;
 
+	bool bap_latency_warned;
+
 	struct delay_info delay;
-	int64_t delay_sink;
+	struct spa_latency_info delay_sink;
 	struct spa_source *update_delay_event;
 
 	struct spa_bt_recvmsg_data recv;
@@ -338,31 +340,109 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 static void emit_node_info(struct impl *this, bool full);
 
+static int get_bap_server_latency(struct impl *this, unsigned int *node_latency)
+{
+	const uint32_t min_quantum = 128;
+	struct port *port = &this->port;
+	uint32_t samples, latency, sink_latency, quantum, packet_latency, min_samples;
+	uint32_t graph_rate, duration;
+	float latency_quanta;
+	float rate_factor;
+	int64_t packet_ns;
+
+	if (!port->have_format || this->codec->kind != MEDIA_CODEC_BAP ||
+			this->is_input || !this->transport ||
+			this->transport->delay_us == SPA_BT_UNKNOWN_DELAY ||
+			!this->codec->get_interval || !this->codec_data)
+		return -EINVAL;
+
+	/* Presentation delay for BAP server
+	 *
+	 * This assumes the time when kernel timestamped the packet is (on average)
+	 * the SDU synchronization reference (see Core v5.3 Vol 6/G Sec 3.2.2 Fig. 3.2,
+	 * BAP v1.0 Sec 7.1.1).
+	 *
+	 * XXX:
+	 *
+	 * This is not exactly true, there at least controller->host transport latency in
+	 * between (eg USB maybe ~ ms), but currently kernel does not provide us any
+	 * better information.  With current Core v6.2 specification it appers not
+	 * possible to do clock-synchronized playback properly as generic Host using ISO
+	 * over HCI, as we can only clock sync to HCI packet arrival time. Eg. GMAP
+	 * requires +- 62.5 us latency accuracy, and I doubt we can get that it that good.
+	 */
+	samples = (uint64_t)this->transport->delay_us *
+		port->current_format.info.raw.rate / SPA_USEC_PER_SEC;
+
+	graph_rate = this->position ? this->position->clock.rate.denom : 48000;
+	duration = this->position ? this->position->clock.duration : 1024;
+	rate_factor = (float)port->current_format.info.raw.rate / graph_rate;
+
+	/* Allow 1/2 packet jitter */
+	packet_ns = this->codec->get_interval(this->codec_data) / 2;
+	packet_latency = packet_ns * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
+
+	sink_latency = this->delay_sink.min_ns * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC
+		+ this->delay_sink.min_rate;
+
+	latency = sink_latency + packet_latency;
+	latency_quanta = this->delay_sink.min_quantum;
+
+	if (!node_latency) {
+		quantum = duration;
+	} else {
+		quantum = this->quantum_limit;
+		while (quantum > min_quantum && samples < latency + (int)(quantum * rate_factor * (latency_quanta + 1)))
+			quantum /= 2;
+	}
+
+	quantum = SPA_MAX(quantum, min_quantum);
+	min_samples = latency + (int)(quantum * rate_factor * (latency_quanta + 1));
+
+	if (samples < min_samples) {
+		if (!this->bap_latency_warned && node_latency) {
+			this->bap_latency_warned = true;
+			spa_log_warn(this->log, "%s: too small requested BAP presentation delay %u us < %u + %u + %f*quant us",
+					this->transport->path, (unsigned int)this->transport->delay_us,
+					(unsigned int)(this->delay_sink.min_ns / 1000),
+					(unsigned int)(packet_ns / 1000),
+					(float)(latency_quanta + 1));
+		}
+
+		samples = min_samples;
+	}
+
+	if (node_latency) {
+		spa_log_debug(this->log, "%p: adjust BAP presentation delay:%u sink:%u latency:%u quanta:%f quantum:%u/%u",
+				this, samples, sink_latency, latency, latency_quanta, quantum, graph_rate);
+		*node_latency = quantum;
+	}
+	return samples - sink_latency - (int)(quantum * latency_quanta);
+}
+
 static void set_latency(struct impl *this, bool emit_latency)
 {
-	if (this->codec->kind == MEDIA_CODEC_BAP && !this->is_input && this->transport &&
-			this->transport->delay_us != SPA_BT_UNKNOWN_DELAY) {
+	unsigned int node_latency;
+	int bap_buffer;
+
+	bap_buffer = get_bap_server_latency(this, &node_latency);
+	if (bap_buffer >= 0) {
 		struct port *port = &this->port;
-		unsigned int node_latency = 2048;
 		uint64_t rate = port->current_format.info.raw.rate;
-		unsigned int target = this->transport->delay_us*rate/SPA_USEC_PER_SEC * 1/2;
 
-		/* Adjust requested node latency to be somewhat (~1/2) smaller
-		 * than presentation delay. The difference functions as room
-		 * for buffering rate control.
+		spa_log_info(this->log, "BAP presentation delay %d us, node latency %u/%u buffer %d samples",
+				(int)this->transport->delay_us, node_latency,
+				(unsigned int)rate, bap_buffer);
+
+		/* Adjust requested node latency so that BAP presentation delay can be
+		 * satisfied.
 		 */
-		while (node_latency > 64 && node_latency > target)
-			node_latency /= 2;
-
 		if (this->node_latency != node_latency) {
 			this->node_latency = node_latency;
+			this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;
 			if (emit_latency)
 				emit_node_info(this, false);
 		}
-
-		spa_log_info(this->log, "BAP presentation delay %d us, node latency %u/%u",
-				(int)this->transport->delay_us, node_latency,
-				(unsigned int)rate);
 	}
 }
 
@@ -805,13 +885,22 @@ static void media_iso_pull(struct spa_bt_iso_io *iso_io)
 
 static void emit_port_info(struct impl *this, struct port *port, bool full);
 
+static int do_copy_delay_sink(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *this = user_data;
+	struct port *port = &this->port;
+
+	this->delay_sink = port->latency[SPA_DIRECTION_INPUT];
+	return 0;
+}
+
 static void update_transport_delay(struct impl *this)
 {
 	struct port *port = &this->port;
 	struct delay_info info;
 	float latency;
 	int64_t latency_nsec;
-	int64_t delay_sink;
 
 	if (!this->transport || !port->have_format)
 		return;
@@ -828,25 +917,24 @@ static void update_transport_delay(struct impl *this)
 
 	spa_bt_transport_set_delay(this->transport, latency_nsec);
 
-	delay_sink =
-		port->latency[SPA_DIRECTION_INPUT].min_ns
-		+ (int64_t)((port->latency[SPA_DIRECTION_INPUT].min_rate
-						+ port->latency[SPA_DIRECTION_INPUT].min_quantum * info.duration)
-				* SPA_NSEC_PER_SEC / port->current_format.info.raw.rate);
-	__atomic_store_n(&this->delay_sink, delay_sink, __ATOMIC_RELAXED);
+	spa_loop_locked(this->data_loop, do_copy_delay_sink, 0, NULL, 0, this);
 
 	/* Latency from source */
 	port->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT,
 			.min_rate = info.buffer, .max_rate = info.buffer);
-	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	port->params[IDX_Latency].user++;
-	emit_port_info(this, port, false);
 }
 
 static void update_delay_event(void *data, uint64_t count)
 {
+	struct impl *this = data;
+	struct port *port = &this->port;
+
 	/* in main loop */
-	update_transport_delay(data);
+	update_transport_delay(this);
+
+	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	port->params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_port_info(this, port, false);
 }
 
 static int do_start_sco_iso_io(struct spa_loop *loop, bool async, uint32_t seq,
@@ -960,6 +1048,7 @@ static int transport_start(struct impl *this)
 
 	this->transport_started = true;
 
+	set_latency(this, true);
 	return 0;
 
 fail:
@@ -1523,11 +1612,18 @@ impl_node_port_set_param(void *object,
 		if (memcmp(&port->latency[info.direction], &info, sizeof(info)) == 0)
 			return 0;
 
+		spa_log_debug(this->log, "set latency dir:%s quant:%f rate:%d ns:%" PRIi64,
+				(info.direction == SPA_DIRECTION_INPUT) ? "in" :"out",
+				info.min_quantum, info.min_rate, info.min_ns);
+
 		port->latency[info.direction] = info;
 		this->port.info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-		this->port.params[IDX_Latency].user++;
+		this->port.params[IDX_Latency].flags ^= SPA_PARAM_INFO_SERIAL;
+
+		spa_loop_locked(this->data_loop, do_copy_delay_sink, 0, NULL, 0, this);
 
 		update_transport_delay(this);
+		set_latency(this, false);
 		emit_port_info(this, port, false);
 		res = 0;
 		break;
@@ -1660,58 +1756,29 @@ static uint32_t get_samples(struct impl *this, int64_t *duration_ns)
 static void update_target_latency(struct impl *this)
 {
 	struct port *port = &this->port;
-	uint32_t samples, latency;
-	int64_t delay_sink;
+	int32_t target;
+	int samples;
 
 	if (this->transport == NULL || !port->have_format)
 		return;
 	if (this->codec->kind != MEDIA_CODEC_BAP)
 		return;
 
-	if (this->is_input) {
-		/* BAP Client. Should use same buffer size for all streams in the same
-		 * group, so that capture is in sync.
-		 */
-		if (this->transport->iso_io) {
-			int32_t target = spa_bt_iso_io_get_source_target_latency(this->transport->iso_io);
-
-			spa_bt_decode_buffer_set_target_latency(&port->buffer, target);
-		}
+	samples = get_bap_server_latency(this, NULL);
+	if (samples >= 0) {
+		spa_bt_decode_buffer_set_target_latency(&port->buffer, samples);
 		return;
 	}
 
-	if (this->transport->delay_us == SPA_BT_UNKNOWN_DELAY)
-		return;
-
-	/* Presentation delay for BAP server
-	 *
-	 * This assumes the time when we receive the packet is (on average)
-	 * the SDU synchronization reference (see Core v5.3 Vol 6/G Sec 3.2.2 Fig. 3.2,
-	 * BAP v1.0 Sec 7.1.1).
-	 *
-	 * XXX: This is not exactly true, there might be some latency in between,
-	 * XXX: but currently kernel does not provide us any better information.
-	 * XXX: Some controllers (e.g. Intel AX210) also do not seem to set timestamps
-	 * XXX: to the HCI ISO data packets, so it's not clear what we can do here
-	 * XXX: better.
+	/* BAP Client. Should use same buffer size for all streams in the same group, so
+	 * that capture is in sync.
 	 */
-	samples = (uint64_t)this->transport->delay_us *
-		port->current_format.info.raw.rate / SPA_USEC_PER_SEC;
-
-	delay_sink = __atomic_load_n(&this->delay_sink, __ATOMIC_RELAXED);
-	latency = delay_sink * port->current_format.info.raw.rate / SPA_NSEC_PER_SEC;
-
-	if (samples > latency)
-		samples -= latency;
+	if (this->decode_buffer_target)
+		target = this->decode_buffer_target;
 	else
-		samples = 1;
+		target = spa_bt_iso_io_get_source_target_latency(this->transport->iso_io);
 
-	/* Too small target latency might not produce working audio.
-	 * The minimum (Presentation_Delay_Min) is configured in endpoint
-	 * DBus properties, with some default value on BlueZ side if unspecified.
-	 */
-
-	spa_bt_decode_buffer_set_target_latency(&port->buffer, samples);
+	spa_bt_decode_buffer_set_target_latency(&port->buffer, target);
 }
 
 #define WARN_ONCE(cond, ...) \
@@ -1724,6 +1791,7 @@ static void process_buffering(struct impl *this)
 	const uint32_t samples = get_samples(this, &duration_ns);
 	uint32_t data_size  = samples * port->frame_size;
 	uint32_t avail;
+	bool plc = false;
 
 	update_target_latency(this);
 
@@ -1734,7 +1802,10 @@ static void process_buffering(struct impl *this)
 	while (spa_bt_decode_buffer_get_size(&port->buffer) < data_size) {
 		if (produce_plc_data(this) <= 0)
 			break;
+		plc = true;
 	}
+	if (plc)
+		spa_bt_decode_buffer_recover(&port->buffer);
 
 	setup_matching(this);
 

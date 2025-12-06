@@ -282,4 +282,34 @@ struct avb_aem_desc_stream_port {
 	uint16_t base_map;
 } __attribute__ ((__packed__));
 
+struct avb_aem_desc_value_format {
+	uint8_t minimum;
+	uint8_t maximum;
+	uint8_t step;
+	uint8_t default_value;
+	uint8_t current_value;
+	uint16_t unit;
+	uint16_t localized_description;
+} __attribute__ ((__packed__));
+
+struct avb_aem_desc_control {
+	char object_name[64];
+	uint16_t localized_description;
+
+	uint32_t block_latency;
+	uint32_t control_latency;
+	uint16_t control_domain;
+	uint16_t control_value_type;
+	uint64_t control_type;
+	uint32_t reset_time;
+
+	uint16_t descriptor_counts_offset;
+
+	uint16_t number_of_values;
+	uint16_t signal_type;
+	uint16_t signal_index;
+	uint16_t signal_output;
+	struct avb_aem_desc_value_format value_format[0];
+} __attribute__ ((__packed__));
+
 #endif /* AVB_AECP_AEM_DESCRIPTORS_H */

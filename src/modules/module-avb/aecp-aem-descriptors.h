@@ -154,6 +154,21 @@ struct avb_aem_desc_audio_cluster {
 	uint16_t aes3_data_type;
 } __attribute__ ((__packed__));
 
+#define AVB_AEM_AUDIO_MAPPING_FORMAT_OFFSET (8)
+
+struct avb_aem_audio_mapping_format {
+	uint16_t mapping_stream_index;
+	uint16_t mapping_stream_channel;
+	uint16_t mapping_cluster_offset;
+	uint16_t mapping_cluster_channel;
+} __attribute__ ((__packed__));
+
+struct avb_aem_desc_audio_map {
+	uint16_t mapping_offset;
+	uint16_t number_of_mappings;
+	struct avb_aem_audio_mapping_format mappings[0];
+} __attribute__ ((__packed__));
+
 #define AVB_AEM_DESC_STREAM_FLAG_SYNC_SOURCE			(1u<<0)
 #define AVB_AEM_DESC_STREAM_FLAG_CLASS_A			(1u<<1)
 #define AVB_AEM_DESC_STREAM_FLAG_CLASS_B			(1u<<2)

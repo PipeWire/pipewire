@@ -10,6 +10,8 @@
 
 /* The headers including the command and response of the system  */
 #include "aecp-aem-cmds-resps/cmd-available.h"
+#include "aecp-aem-cmds-resps/cmd-get-set-configuration.h"
+#include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 #include "aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.h"
 #include "aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.h"
 #include "aecp-aem-cmds-resps/cmd-get-set-name.h"
@@ -276,6 +278,9 @@ static const struct cmd_info cmd_info_avb_legacy[] = {
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_LOCK_ENTITY, true,
 		 handle_lock_entity_avb_legacy),
 
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_CONFIGURATION, false,
+		 handle_cmd_get_configuration_common),
+
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
 		 handle_read_descriptor_common),
 
@@ -299,6 +304,12 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, true,
 		 handle_cmd_get_stream_format_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_SET_CONFIGURATION, false,
+		 handle_cmd_set_configuration_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_CONFIGURATION, false,
+		 handle_cmd_get_configuration_common),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
 		 handle_read_descriptor_common),

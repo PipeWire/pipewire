@@ -922,24 +922,24 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 
 			spa_assert(dest && size);
 
-			if (type != DBUS_TYPE_ARRAY)
+			if (!check_iter_signature(&it[1], "ay"))
 				goto bad_property;
 
 			dbus_message_iter_recurse(&it[1], &it[2]);
-			type = dbus_message_iter_get_arg_type(&it[2]);
-			if (type != DBUS_TYPE_BYTE)
-				goto bad_property;
-
 			dbus_message_iter_get_fixed_array(&it[2], &data, &n);
 
-			buf = malloc(n);
-			if (!buf)
-				return -ENOMEM;
+			if (n) {
+				buf = malloc(n);
+				if (!buf)
+					return -ENOMEM;
+				memcpy(buf, data, n);
+			} else {
+				buf = NULL;
+			}
 
 			free(*dest);
 			*dest = buf;
 			*size = n;
-			memcpy(buf, data, n);
 
 			spa_log_info(monitor->log, "%p: %s size:%zu", monitor, key, *size);
 			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, ' ', *dest, *size);
@@ -3649,6 +3649,11 @@ static int transport_update_props(struct spa_bt_transport *transport,
 
 			free(transport->configuration);
 			transport->configuration_len = 0;
+
+			if (!len) {
+				transport->configuration = NULL;
+				goto next;
+			}
 
 			transport->configuration = malloc(len);
 			if (transport->configuration) {

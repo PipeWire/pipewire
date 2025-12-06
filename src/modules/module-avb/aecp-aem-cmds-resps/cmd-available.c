@@ -3,11 +3,15 @@
 /* SPDX-FileCopyrightText: Copyright © 2025 Alex Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT  */
 
-#include "../aecp-aem-state.h"
-#include "../descriptors.h"
-#include "cmd-resp-helpers.h"
-#include "cmd-resp-types.h"
+#include <stdbool.h>
+#include <stdint.h>
 
+#include "../aecp-aem.h"
+#include "../aecp-aem-state.h"
+#include "../aecp-aem-descriptors.h"
+#include "../aecp-aem-types.h"
+
+#include "cmd-resp-helpers.h"
 #include "cmd-available.h"
 
 /* ENTITY AVAILABLE according to the locking state */

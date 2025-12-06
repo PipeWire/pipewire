@@ -5,12 +5,15 @@
 /* SPDX-License-Identifier: MIT  */
 
 #include <limits.h>
+#include <stdbool.h>
 #include <inttypes.h>
 
+#include "../aecp.h"
+#include "../aecp-aem.h"
 #include "../aecp-aem-state.h"
-#include "../descriptors.h"
+#include "../aecp-aem-descriptors.h"
+#include "../aecp-aem-types.h"
 
-#include "cmd-resp-types.h"
 #include "cmd-lock-entity.h"
 #include "cmd-resp-helpers.h"
 

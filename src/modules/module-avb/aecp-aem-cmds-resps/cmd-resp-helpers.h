@@ -30,7 +30,15 @@ static inline int reply_status(struct aecp *aecp, int status, const void *m, int
 
 static inline int reply_entity_locked(struct aecp *aecp, const void *m, int len)
 {
+	pw_log_warn("reply entity locked");
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_ENTITY_LOCKED, m, len);
+}
+
+/** \brief The function is be directly hooked with the cmd_info structure */
+static inline int direct_reply_entiy_locked(struct aecp *aecp, int64_t now,
+	const void *m, int len)
+{
+	return reply_entity_locked(aecp, m, len);
 }
 
 static inline int reply_not_implemented(struct aecp *aecp, const void *m, int len)
@@ -39,10 +47,24 @@ static inline int reply_not_implemented(struct aecp *aecp, const void *m, int le
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED, m, len);
 }
 
+/** \brief The function is be directly hooked with the cmd_info structure */
+static inline int direct_reply_not_implemented(struct aecp *aecp, int64_t now,
+	const void *m, int len)
+{
+	return reply_not_implemented(aecp, m, len);
+}
+
 static inline int reply_not_supported(struct aecp *aecp, const void *m, int len)
 {
 	pw_log_warn("reply not supported");
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_SUPPORTED, m, len);
+}
+
+/** \brief The function is be directly hooked with the cmd_info structure */
+static inline int direct_reply_not_supported(struct aecp *aecp, int64_t now,
+	const void *m, int len)
+{
+	return reply_not_supported(aecp, m, len);
 }
 
 static inline int reply_no_resources(struct aecp *aecp, const void *m, int len)
@@ -51,10 +73,24 @@ static inline int reply_no_resources(struct aecp *aecp, const void *m, int len)
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_RESOURCES, m, len);
 }
 
+/** \brief The function is be directly hooked with the cmd_info structure */
+static inline int direct_reply_no_resources(struct aecp *aecp, int64_t now,
+	const void *m, int len)
+{
+	return reply_no_resources(aecp, m, len);
+}
+
 static inline int reply_bad_arguments(struct aecp *aecp, const void *m, int len)
 {
 	pw_log_warn("reply bad arguments");
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+}
+
+/** \brief The function is be directly hooked with the cmd_info structure */
+static inline int direct_reply_bad_arguments(struct aecp *aecp, int64_t now,
+	const void *m, int len)
+{
+	return reply_bad_arguments(aecp, m, len);
 }
 
 static inline int reply_success(struct aecp *aecp, const void *m, int len)
@@ -62,5 +98,11 @@ static inline int reply_success(struct aecp *aecp, const void *m, int len)
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len);
 }
 
+/** \brief The function is be directly hooked with the cmd_info structure */
+static inline int direct_reply_success(struct aecp *aecp, int64_t now,
+	const void *m, int len)
+{
+	return reply_success(aecp, m, len);
+}
 
 #endif //__AVB_AECP_AEM_HELPERS_H__

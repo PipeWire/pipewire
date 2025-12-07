@@ -10,10 +10,11 @@
 
 /* The headers including the command and response of the system  */
 #include "aecp-aem-cmds-resps/cmd-available.h"
-#include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 #include "aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.h"
 #include "aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.h"
 #include "aecp-aem-cmds-resps/cmd-get-set-name.h"
+#include "aecp-aem-cmds-resps/cmd-get-set-stream-format.h"
+#include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 
 
 /* ACQUIRE_ENTITY */
@@ -292,6 +293,12 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_ENTITY_AVAILABLE, true,
 		 handle_cmd_entity_available_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_SET_STREAM_FORMAT, false,
+		 handle_cmd_set_stream_format_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_STREAM_FORMAT, true,
+		 handle_cmd_get_stream_format_milan_v12),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_READ_DESCRIPTOR, true,
 		 handle_read_descriptor_common),

@@ -6,8 +6,11 @@
 #ifndef AVB_AECP_AEM_DESCRIPTORS_H
 #define AVB_AECP_AEM_DESCRIPTORS_H
 
-#include "internal.h"
+#include <stdint.h>
 
+/*
+* IEEE 1722.1-2021, Table 7-1 - Descriptor Types
+*/
 #define AVB_AEM_DESC_ENTITY			0x0000
 #define AVB_AEM_DESC_CONFIGURATION		0x0001
 #define AVB_AEM_DESC_AUDIO_UNIT			0x0002
@@ -128,6 +131,27 @@ struct avb_aem_desc_audio_unit {
 	uint16_t sampling_rates_offset;
 	uint16_t sampling_rates_count;
 	struct avb_aem_desc_sampling_rate sampling_rates[0];
+} __attribute__ ((__packed__));
+
+/* IEEE 1722.1-2021, Table 7-28 - AUDIO_CLUSTER format values */
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_IEC60958 0x00
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_MBLA 	0x40
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_MIDI 	0x80
+#define AVB_AEM_AUDIO_CLUSTER_TYPE_SMPTE 	0x88
+
+struct avb_aem_desc_audio_cluster {
+	char object_name[64];
+	uint16_t localized_description;
+
+	uint16_t signal_type;
+	uint16_t signal_index;
+	uint16_t signal_output;
+	uint32_t path_latency;
+	uint32_t block_latency;
+	uint16_t channel_count;
+	uint8_t  format;
+	uint8_t  aes3_data_type_ref;
+	uint16_t aes3_data_type;
 } __attribute__ ((__packed__));
 
 #define AVB_AEM_DESC_STREAM_FLAG_SYNC_SOURCE			(1u<<0)

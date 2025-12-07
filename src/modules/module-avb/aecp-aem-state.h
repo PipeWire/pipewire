@@ -5,8 +5,12 @@
 #ifndef AVB_AECP_AEM_STATE_H
 #define AVB_AECP_AEM_STATE_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #include "aecp-aem-descriptors.h"
 #include "aecp-aem-milan.h"
+#include "stream.h"
 
 /**
  * The way structure are organised in a "derived" manner.

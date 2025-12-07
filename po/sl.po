@@ -9,8 +9,8 @@ msgstr ""
 "Project-Id-Version: PipeWire master\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2025-11-04 03:33+0000\n"
-"PO-Revision-Date: 2025-11-08 15:23+0100\n"
+"POT-Creation-Date: 2025-12-04 15:34+0000\n"
+"PO-Revision-Date: 2025-12-07 08:53+0100\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <gnome-si@googlegroups.com>\n"
 "Language: sl\n"
@@ -76,7 +76,7 @@ msgstr "%s na %s@%s"
 msgid "%s on %s"
 msgstr "%s na %s"
 
-#: src/tools/pw-cat.c:1096
+#: src/tools/pw-cat.c:1103
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -92,7 +92,7 @@ msgstr ""
 "\n"
 "</file>\n"
 
-#: src/tools/pw-cat.c:1103
+#: src/tools/pw-cat.c:1110
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -129,7 +129,7 @@ msgstr ""
 "  -P  --properties                      Nastavi lastnosti vozlišča\n"
 "\n"
 
-#: src/tools/pw-cat.c:1121
+#: src/tools/pw-cat.c:1128
 #, c-format
 msgid ""
 "      --rate                            Sample rate (req. for rec) (default "
@@ -137,8 +137,8 @@ msgid ""
 "      --channels                        Number of channels (req. for rec) "
 "(default %u)\n"
 "      --channel-map                     Channel map\n"
-"                                            one of: \"stereo\", "
-"\"surround-51\",... or\n"
+"                                            one of: \"Stereo\", \"5.1\",... "
+"or\n"
 "                                            comma separated list of channel "
 "names: eg. \"FL,FR\"\n"
 "      --format                          Sample format %s (req. for rec) "
@@ -157,8 +157,8 @@ msgstr ""
 "      --channels                        Število kanalov (zaht. za snemanje) "
 "(privzeto %u)\n"
 "      --channel-map                     Preslikava kanalov\n"
-"                                            Ena izmed: \"stereo\", "
-"\"surround-51\",... ali\n"
+"                                            Ena izmed: \"Stereo\", "
+"\"5.1\",... ali\n"
 "                                            seznam imen kanalov, ločen z "
 "vejico: npr. \"FL,FR\"\n"
 "      --format                          Vzorčne oblike zapisa %s (zahtevano "
@@ -172,7 +172,7 @@ msgstr ""
 "  -n, --sample-count ŠTEVEC              Ustavi po ŠTEVEC vzorcih\n"
 "\n"
 
-#: src/tools/pw-cat.c:1141
+#: src/tools/pw-cat.c:1148
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -353,7 +353,7 @@ msgstr "Mono izhod slušalk"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2823
 msgid "Line Out"
-msgstr "Linijsk izhod"
+msgstr "Linijski izhod"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2824
 msgid "Analog Mono Output"
@@ -361,7 +361,7 @@ msgstr "Analogni mono izhod"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2825
 msgid "Speakers"
-msgstr "Govorniki"
+msgstr "Zvočniki"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2826
 msgid "HDMI / DisplayPort"

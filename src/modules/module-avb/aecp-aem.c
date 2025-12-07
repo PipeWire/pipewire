@@ -13,6 +13,7 @@
 #include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 #include "aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.h"
 #include "aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.h"
+#include "aecp-aem-cmds-resps/cmd-get-set-name.h"
 
 
 /* ACQUIRE_ENTITY */
@@ -303,6 +304,12 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_AVB_INFO, true,
 		 handle_get_avb_info_common),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_SET_NAME, false,
+		handle_cmd_set_name_common),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_NAME, true,
+		handle_cmd_get_name_common),
 };
 
 static const struct {

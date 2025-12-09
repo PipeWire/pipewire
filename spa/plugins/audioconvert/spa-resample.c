@@ -297,7 +297,7 @@ static int do_conversion(struct data *d)
 		if (pout_len > 0) {
 			for (k = 0, i = 0; i < pout_len; i++) {
 				for (j = 0; j < channels; j++) {
-					obuf[k++] = out[MAX_SAMPLES * j + i];
+					obuf[k++] = SPA_CLAMP(out[MAX_SAMPLES * j + i], -1.0f, 1.0f);
 				}
 			}
 			pout_len = sf_writef_float(d->ofile, obuf, pout_len);

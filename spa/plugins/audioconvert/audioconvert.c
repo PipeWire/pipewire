@@ -2588,6 +2588,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 	case SPA_NODE_COMMAND_Flush:
 		reset_node(this);
+		this->setup = false;
 		break;
 	default:
 		return -ENOTSUP;

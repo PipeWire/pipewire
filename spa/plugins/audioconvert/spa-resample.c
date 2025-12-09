@@ -187,6 +187,8 @@ static int open_files(struct data *d)
 				d->oname, sf_strerror(NULL));
 		return -EIO;
 	}
+	sf_command(d->ofile, SFC_SET_CLIPPING, NULL, 1);
+
 	if (d->verbose) {
 		fprintf(stdout, "input '%s': channels:%d rate:%d format:%s\n",
 				d->iname, d->iinfo.channels, d->iinfo.samplerate,
@@ -296,9 +298,8 @@ static int do_conversion(struct data *d)
 
 		if (pout_len > 0) {
 			for (k = 0, i = 0; i < pout_len; i++) {
-				for (j = 0; j < channels; j++) {
-					obuf[k++] = SPA_CLAMP(out[MAX_SAMPLES * j + i], -1.0f, 1.0f);
-				}
+				for (j = 0; j < channels; j++)
+					obuf[k++] = out[MAX_SAMPLES * j + i];
 			}
 			pout_len = sf_writef_float(d->ofile, obuf, pout_len);
 

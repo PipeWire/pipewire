@@ -2545,6 +2545,11 @@ static int setup_convert(struct impl *this)
 	this->setup = true;
 	this->recalc = true;
 
+	if (this->data_loop)
+		spa_loop_locked(this->data_loop, do_sync_filter_graph, 0, NULL, 0, this);
+	else
+		do_sync_filter_graph(NULL, false, 0, NULL, 0, this);
+
 	return 0;
 }
 

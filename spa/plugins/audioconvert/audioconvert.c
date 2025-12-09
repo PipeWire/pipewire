@@ -1344,6 +1344,14 @@ static int do_sync_filter_graph(struct spa_loop *loop, bool async, uint32_t seq,
 	return 0;
 }
 
+static void sync_filter_graph(struct impl *impl)
+{
+	if (impl->data_loop)
+		spa_loop_locked(impl->data_loop, do_sync_filter_graph, 0, NULL, 0, impl);
+	else
+		do_sync_filter_graph(NULL, false, 0, NULL, 0, impl);
+}
+
 static void clean_filter_handles(struct impl *impl, bool force)
 {
 	struct filter_graph *g, *t;
@@ -1431,7 +1439,7 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 	if (impl->setup)
 		res = setup_filter_graphs(impl, false);
 
-	spa_loop_locked(impl->data_loop, do_sync_filter_graph, 0, NULL, 0, impl);
+	sync_filter_graph(impl);
 
 	if (impl->in_filter_props == 0)
 		clean_filter_handles(impl, false);
@@ -2545,10 +2553,7 @@ static int setup_convert(struct impl *this)
 	this->setup = true;
 	this->recalc = true;
 
-	if (this->data_loop)
-		spa_loop_locked(this->data_loop, do_sync_filter_graph, 0, NULL, 0, this);
-	else
-		do_sync_filter_graph(NULL, false, 0, NULL, 0, this);
+	sync_filter_graph(this);
 
 	return 0;
 }
@@ -2566,6 +2571,7 @@ static void reset_node(struct impl *this)
 		resample_reset(&this->resample);
 	this->in_offset = 0;
 	this->out_offset = 0;
+	this->setup = false;
 }
 
 static int impl_node_send_command(void *object, const struct spa_command *command)
@@ -2586,14 +2592,12 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		reset_node(this);
-		this->setup = false;
 		SPA_FALLTHROUGH;
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
 		break;
 	case SPA_NODE_COMMAND_Flush:
 		reset_node(this);
-		this->setup = false;
 		break;
 	default:
 		return -ENOTSUP;

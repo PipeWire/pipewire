@@ -252,7 +252,7 @@ static void rtp_audio_process_playback(void *data)
 					avail = target_buffer;
 				}
 				impl->first = false;
-			} else if (avail > (int32_t)SPA_MIN(target_buffer * 8, BUFFER_SIZE / stride)) {
+			} else if (avail > (int32_t)SPA_MIN(target_buffer * 8, impl->buffer_size / stride)) {
 				pw_log_warn("receiver read overrun %u > %u", avail, target_buffer * 8);
 				timestamp += avail - target_buffer;
 				avail = target_buffer;
@@ -392,7 +392,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 
 		spa_dll_init(&impl->dll);
 		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
-		memset(impl->buffer, 0, BUFFER_SIZE);
+		memset(impl->buffer, 0, impl->buffer_size);
 		impl->have_sync = true;
 	} else if (expected_write != write) {
 		pw_log_debug("unexpected write (%u != %u)",
@@ -402,9 +402,9 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 	/* Write overrun only makes sense in constant delay mode. See the
 	 * RTP source module documentation and the rtp_audio_process_playback()
 	 * code for an explanation why. */
-	if (!impl->direct_timestamp && (filled + samples > BUFFER_SIZE / stride)) {
+	if (!impl->direct_timestamp && (filled + samples > impl->buffer_size / stride)) {
 		pw_log_debug("receiver write overrun %u + %u > %u", filled, samples,
-				BUFFER_SIZE / stride);
+				impl->buffer_size / stride);
 		impl->have_sync = false;
 	} else {
 		pw_log_trace("got samples:%u", samples);
@@ -736,9 +736,9 @@ static void rtp_audio_process_capture(void *data)
 			 * "Driver architecture and workflow" for an explanation why not. */
 			pw_log_warn("timestamp: expected %u != actual %u", expected_timestamp, actual_timestamp);
 			impl->have_sync = false;
-		} else if (filled + wanted > (int32_t)SPA_MIN(impl->target_buffer * 8, BUFFER_SIZE / stride)) {
+		} else if (filled + wanted > (int32_t)SPA_MIN(impl->target_buffer * 8, impl->buffer_size / stride)) {
 			pw_log_warn("sender write overrun %u + %u > %u/%u", filled, wanted,
-					impl->target_buffer * 8, BUFFER_SIZE / stride);
+					impl->target_buffer * 8, impl->buffer_size / stride);
 			impl->have_sync = false;
 			filled = 0;
 		}
@@ -754,7 +754,7 @@ static void rtp_audio_process_capture(void *data)
 				actual_timestamp, impl->seq, impl->ts_offset, impl->ts_align, impl->ssrc);
 		spa_ringbuffer_read_update(&impl->ring, actual_timestamp);
 		spa_ringbuffer_write_update(&impl->ring, actual_timestamp);
-		memset(impl->buffer, 0, BUFFER_SIZE);
+		memset(impl->buffer, 0, impl->buffer_size);
 		impl->have_sync = true;
 		expected_timestamp = actual_timestamp;
 		filled = 0;

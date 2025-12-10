@@ -62,7 +62,7 @@ static void rtp_opus_process_playback(void *data)
 				avail = target_buffer;
 			}
 			impl->first = false;
-		} else if (avail > (int32_t)SPA_MIN(target_buffer * 8, BUFFER_SIZE2 / stride)) {
+		} else if (avail > (int32_t)SPA_MIN(target_buffer * 8, impl->buffer_size2 / stride)) {
 			pw_log_warn("overrun %u > %u", avail, target_buffer * 8);
 			timestamp += avail - target_buffer;
 			avail = target_buffer;
@@ -83,8 +83,8 @@ static void rtp_opus_process_playback(void *data)
 		}
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer,
-				BUFFER_SIZE2,
-				(timestamp * stride) & BUFFER_MASK2,
+				impl->buffer_size2,
+				(timestamp * stride) & impl->buffer_mask2,
 				d[0].data, wanted * stride);
 
 		timestamp += wanted;
@@ -165,19 +165,19 @@ static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 
 		spa_dll_init(&impl->dll);
 		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
-		memset(impl->buffer, 0, BUFFER_SIZE);
+		memset(impl->buffer, 0, impl->buffer_size);
 		impl->have_sync = true;
 	} else if (expected_write != write) {
 		pw_log_debug("unexpected write (%u != %u)",
 				write, expected_write);
 	}
 
-	if (filled + 2880 > (int32_t)(BUFFER_SIZE2 / stride)) {
+	if (filled + 2880 > (int32_t)(impl->buffer_size2 / stride)) {
 		pw_log_debug("capture overrun %u + %d > %u", filled, 2880,
-				BUFFER_SIZE2 / stride);
+				impl->buffer_size2 / stride);
 		impl->have_sync = false;
 	} else {
-		uint32_t index = (write * stride) & BUFFER_MASK2, end;
+		uint32_t index = (write * stride) & impl->buffer_mask2, end;
 
 		res = opus_multistream_decode_float(dec,
 				&buffer[hlen], plen,
@@ -186,8 +186,8 @@ static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 
 		end = index + (res * stride);
 		/* fold to the lower part of the ringbuffer when overflow */
-		if (end > BUFFER_SIZE2)
-			memmove(impl->buffer, &impl->buffer[BUFFER_SIZE2], end - BUFFER_SIZE2);
+		if (end > impl->buffer_size2)
+			memmove(impl->buffer, &impl->buffer[impl->buffer_size2], end - impl->buffer_size2);
 
 		pw_log_info("receiving %zd len:%d timestamp:%d %u", plen, res, timestamp, index);
 		samples = res;
@@ -302,22 +302,22 @@ static void rtp_opus_process_capture(void *data)
 		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
 				timestamp, impl->seq, impl->ts_offset, impl->ssrc);
 		impl->ring.readindex = impl->ring.writeindex = expected_timestamp = timestamp;
-		memset(impl->buffer, 0, BUFFER_SIZE);
+		memset(impl->buffer, 0, impl->buffer_size);
 		impl->have_sync = true;
 	} else {
 		if (SPA_ABS((int32_t)expected_timestamp - (int32_t)timestamp) > 32) {
 			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
 			impl->have_sync = false;
-		} else if (filled + wanted > (int32_t)(BUFFER_SIZE / stride)) {
-			pw_log_warn("overrun %u + %u > %u", filled, wanted, BUFFER_SIZE / stride);
+		} else if (filled + wanted > (int32_t)(impl->buffer_size / stride)) {
+			pw_log_warn("overrun %u + %u > %u", filled, wanted, impl->buffer_size / stride);
 			impl->have_sync = false;
 		}
 	}
 
 	spa_ringbuffer_write_data(&impl->ring,
 			impl->buffer,
-			BUFFER_SIZE,
-			(filled * stride) & BUFFER_MASK,
+			impl->buffer_size,
+			(filled * stride) & impl->buffer_mask,
 			SPA_PTROFF(d[0].data, offs, void), wanted * stride);
 	expected_timestamp += wanted;
 	spa_ringbuffer_write_update(&impl->ring, expected_timestamp);

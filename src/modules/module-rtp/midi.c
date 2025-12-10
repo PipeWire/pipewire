@@ -49,7 +49,7 @@ static void rtp_midi_process_playback(void *data)
 		if (avail <= 0)
 			break;
 
-		ptr = SPA_PTROFF(impl->buffer, read & BUFFER_MASK2, void);
+		ptr = SPA_PTROFF(impl->buffer, read & impl->buffer_mask2, void);
 
 		if ((pod = spa_pod_from_data(ptr, avail, 0, avail)) == NULL)
 			goto done;
@@ -235,7 +235,7 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	}
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &write);
-	if (filled > (int32_t)BUFFER_SIZE2) {
+	if (filled > (int32_t)impl->buffer_size2) {
 		pw_log_warn("overflow");
 		return -ENOSPC;
 	}
@@ -261,11 +261,11 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	if (hdr.j)
 		parse_journal(impl, &packet[end], seq, plen - end);
 
-	ptr = SPA_PTROFF(impl->buffer, write & BUFFER_MASK2, void);
+	ptr = SPA_PTROFF(impl->buffer, write & impl->buffer_mask2, void);
 
 	/* each packet is written as a sequence of events. The offset is
 	 * the RTP timestamp */
-	spa_pod_builder_init(&b, ptr, BUFFER_SIZE2 - filled);
+	spa_pod_builder_init(&b, ptr, impl->buffer_size2 - filled);
 	spa_pod_builder_push_sequence(&b, &f[0], 0);
 
 	while (offs < end) {
@@ -472,7 +472,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			impl->seq++;
 			len = 0;
 		}
-		if ((unsigned int)size > BUFFER_SIZE || len > BUFFER_SIZE - size) {
+		if ((unsigned int)size > impl->buffer_size || len > impl->buffer_size - size) {
 			pw_log_error("Buffer overflow prevented!");
 			return; // FIXME: what to do instead?
 		}
@@ -488,7 +488,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			int res;
 			delta = offset - prev_offset;
 			prev_offset = offset;
-			res = write_event(&impl->buffer[len], BUFFER_SIZE - len, delta, data, size);
+			res = write_event(&impl->buffer[len], impl->buffer_size - len, delta, data, size);
 			if (res < 0) {
 				pw_log_warn("write_event error: %d", res);
 				return;

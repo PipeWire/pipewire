@@ -31,10 +31,7 @@
 PW_LOG_TOPIC_EXTERN(mod_topic);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define BUFFER_SIZE			(1u<<22)
-#define BUFFER_MASK			(BUFFER_SIZE-1)
-#define BUFFER_SIZE2			(BUFFER_SIZE>>1)
-#define BUFFER_MASK2			(BUFFER_SIZE2-1)
+#define BUFFER_SIZE1			(1u<<22)
 
 /* IMPORTANT: When using calls that have return values, like
  * rtp_stream_emit_open_connection, callers must set the variables
@@ -117,7 +114,11 @@ struct impl {
 	uint32_t ts_align;
 
 	struct spa_ringbuffer ring;
-	uint8_t buffer[BUFFER_SIZE];
+	uint8_t *buffer;
+	uint32_t buffer_size;
+	uint32_t buffer_mask;
+	uint32_t buffer_size2;
+	uint32_t buffer_mask2;
 	uint64_t last_recv_timestamp;
 
 	struct spa_io_rate_match *io_rate_match;
@@ -615,7 +616,7 @@ static void on_flush_timeout(void *d, uint64_t expirations)
 
 static void default_reset_ringbuffer(struct impl *impl)
 {
-	spa_memzero(impl->buffer, sizeof(impl->buffer));
+	spa_memzero(impl->buffer, impl->buffer_size);
 }
 
 struct rtp_stream *rtp_stream_new(struct pw_core *core,
@@ -782,9 +783,18 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	 * then, all grid cells are guaranteed to have the size impl->stride, so the
 	 * aforementioned division rest will always be zero.
 	 */
-	impl->actual_max_buffer_size = SPA_ROUND_DOWN(BUFFER_SIZE, impl->stride);
+	impl->buffer_size = pw_properties_get_uint32(props, "sess.buffer-size", BUFFER_SIZE1);
+	// find closest larger number rounded to power of two
+	impl->buffer_size = SPA_ROUND_UP_POW2_32(impl->buffer_size);
+	impl->buffer_mask = impl->buffer_size - 1;
+	impl->buffer_size2 = impl->buffer_size / 2;
+	impl->buffer_mask2 = impl->buffer_size2 - 1;
+
+	impl->buffer = calloc(1, impl->buffer_size);
+
+	impl->actual_max_buffer_size = SPA_ROUND_DOWN(impl->buffer_size, impl->stride);
 	pw_log_debug("possible / actual max buffer size: %" PRIu32 " / %" PRIu32,
-			(uint32_t)BUFFER_SIZE, impl->actual_max_buffer_size);
+			(uint32_t)impl->buffer_size, impl->actual_max_buffer_size);
 
 	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
 
@@ -1045,6 +1055,9 @@ void rtp_stream_destroy(struct rtp_stream *s)
 
 	if (impl->data_loop)
 		pw_context_release_loop(impl->context, impl->data_loop);
+
+	if (impl->buffer)
+		free(impl->buffer);
 
 	spa_hook_list_clean(&impl->listener_list);
 	free(impl);

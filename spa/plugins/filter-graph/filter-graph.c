@@ -19,6 +19,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/support/cpu.h>
+#include <spa/support/loop.h>
 #include <spa/support/plugin-loader.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
@@ -221,6 +222,7 @@ struct impl {
 	struct spa_cpu *cpu;
 	struct spa_fga_dsp *dsp;
 	struct spa_plugin_loader *loader;
+	struct spa_loop *data_loop;
 
 	uint64_t info_all;
 	struct spa_filter_graph_info info;
@@ -698,21 +700,46 @@ static int impl_reset(void *object)
 	return 0;
 }
 
-static void node_control_changed(struct node *node)
+static int
+do_emit_node_control_sync(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
+		size_t size, void *user_data)
 {
-	const struct spa_fga_descriptor *d = node->desc->desc;
+	struct impl *impl = user_data;
+	struct graph *graph = &impl->graph;
+	struct node *node;
+	uint32_t i;
+	spa_list_for_each(node, &graph->node_list, link) {
+		const struct spa_fga_descriptor *d = node->desc->desc;
+		if (!node->control_changed || d->control_sync == NULL)
+			continue;
+		for (i = 0; i < node->n_hndl; i++) {
+			if (node->hndl[i] != NULL)
+				d->control_sync(node->hndl[i]);
+		}
+	}
+	return 0;
+}
+
+static void emit_node_control_changed(struct impl *impl)
+{
+	struct graph *graph = &impl->graph;
+	struct node *node;
 	uint32_t i;
 
-	if (!node->control_changed)
-		return;
+	spa_loop_locked(impl->data_loop, do_emit_node_control_sync, 1, NULL, 0, impl);
 
-	for (i = 0; i < node->n_hndl; i++) {
-		if (node->hndl[i] == NULL)
+	spa_list_for_each(node, &graph->node_list, link) {
+		const struct spa_fga_descriptor *d = node->desc->desc;
+		if (!node->control_changed)
 			continue;
-		if (d->control_changed)
-			d->control_changed(node->hndl[i]);
+		if (d->control_changed != NULL) {
+			for (i = 0; i < node->n_hndl; i++) {
+				if (node->hndl[i] != NULL)
+					d->control_changed(node->hndl[i]);
+			}
+		}
+		node->control_changed = false;
 	}
-	node->control_changed = false;
 }
 
 static int sync_volume(struct graph *graph, struct volume *vol)
@@ -826,11 +853,7 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 	spa_pod_dynamic_builder_clean(&b);
 
 	if (changed > 0) {
-		struct node *node;
-
-		spa_list_for_each(node, &graph->node_list, link)
-			node_control_changed(node);
-
+		emit_node_control_changed(impl);
 		spa_filter_graph_emit_props_changed(&impl->hooks, SPA_DIRECTION_INPUT);
 	}
 	return 0;
@@ -1695,10 +1718,10 @@ static int impl_activate(void *object, const struct spa_dict *props)
 		for (i = 0; i < node->n_hndl; i++) {
 			if (d->activate)
 				d->activate(node->hndl[i]);
-			if (node->control_changed && d->control_changed)
-				d->control_changed(node->hndl[i]);
 		}
 	}
+	emit_node_control_changed(impl);
+
 	/* calculate latency */
 	sort_reset(graph);
 	while ((node = sort_next_node(graph)) != NULL) {
@@ -2346,6 +2369,7 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_log_topic_init(impl->log, &log_topic);
 
 	impl->cpu = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_CPU);
+	impl->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	impl->max_align = spa_cpu_get_max_align(impl->cpu);
 
 	impl->dsp = spa_fga_dsp_new(impl->cpu ? spa_cpu_get_flags(impl->cpu) : 0);

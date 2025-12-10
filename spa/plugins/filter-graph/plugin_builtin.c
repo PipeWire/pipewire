@@ -39,7 +39,6 @@ struct plugin {
 
 	struct spa_fga_dsp *dsp;
 	struct spa_log *log;
-	struct spa_loop *data_loop;
 };
 
 struct builtin {
@@ -547,11 +546,9 @@ static void bq_run(void *Instance, unsigned long samples)
 	spa_fga_dsp_biquad_run(impl->dsp, bq, 1, 0, &out, (const float **)&in, 1, samples);
 }
 
-static int
-do_bq_control_changed(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
-		size_t size, void *user_data)
+static void bq_control_sync(void * Instance)
 {
-	struct builtin *impl = user_data;
+	struct builtin *impl = Instance;
 	if (impl->type == BQ_NONE) {
 		float b0, b1, b2, a0, a1, a2;
 		b0 = impl->port[5][0];
@@ -571,13 +568,6 @@ do_bq_control_changed(struct spa_loop *loop, bool async, uint32_t seq, const voi
 		if (impl->freq != freq || impl->Q != Q || impl->gain != gain)
 			bq_freq_update(impl, impl->type, freq, Q, gain);
 	}
-	return 0;
-}
-
-static void bq_control_changed(void * Instance)
-{
-	struct builtin *impl = Instance;
-	spa_loop_locked(impl->plugin->data_loop, do_bq_control_changed, 1, NULL, 0, impl);
 }
 
 /** bq_lowpass */
@@ -589,7 +579,7 @@ static const struct spa_fga_descriptor bq_lowpass_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -604,7 +594,7 @@ static const struct spa_fga_descriptor bq_highpass_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -619,7 +609,7 @@ static const struct spa_fga_descriptor bq_bandpass_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -634,7 +624,7 @@ static const struct spa_fga_descriptor bq_lowshelf_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -649,7 +639,7 @@ static const struct spa_fga_descriptor bq_highshelf_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -664,7 +654,7 @@ static const struct spa_fga_descriptor bq_peaking_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -679,7 +669,7 @@ static const struct spa_fga_descriptor bq_notch_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -695,7 +685,7 @@ static const struct spa_fga_descriptor bq_allpass_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -710,7 +700,7 @@ static const struct spa_fga_descriptor bq_raw_desc = {
 
 	.instantiate = bq_instantiate,
 	.connect_port = builtin_connect_port,
-	.control_changed = bq_control_changed,
+	.control_sync = bq_control_sync,
 	.activate = bq_activate,
 	.run = bq_run,
 	.cleanup = builtin_cleanup,
@@ -3411,7 +3401,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
 	impl->dsp = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_FILTER_GRAPH_AudioDSP);
-	impl->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 
 	for (uint32_t i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

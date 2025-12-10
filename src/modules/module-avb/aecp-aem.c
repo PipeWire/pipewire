@@ -16,6 +16,7 @@
 #include "aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.h"
 #include "aecp-aem-cmds-resps/cmd-get-set-name.h"
 #include "aecp-aem-cmds-resps/cmd-get-set-stream-format.h"
+#include "aecp-aem-cmds-resps/cmd-get-set-clock-source.h"
 #include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 
 
@@ -328,6 +329,12 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_NAME, true,
 		handle_cmd_get_name_common),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_SET_CLOCK_SOURCE, false,
+		handle_cmd_set_clock_source_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, true,
+		handle_cmd_get_clock_source_milan_v12),
 };
 
 static const struct {

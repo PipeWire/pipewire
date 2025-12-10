@@ -96,6 +96,7 @@ int handle_cmd_set_stream_format_milan_v12(struct aecp *aecp, int64_t now,
 	int i;
 	int rc;
 	bool found = false;
+	void *stream;
 
 	set_cmd = (const struct avb_packet_aecp_aem_setget_stream_format *)p->payload;
 	desc_type = ntohs(set_cmd->descriptor_type);

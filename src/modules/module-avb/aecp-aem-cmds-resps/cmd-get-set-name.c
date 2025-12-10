@@ -72,7 +72,6 @@ static int send_unsol_name(struct aecp *aecp,
 {
 	uint8_t unsol_buf[512];
 	struct avb_ethernet_header *h_unsol = (void*)unsol_buf;
-	struct avb_packet_aecp_aem *p_unsol = SPA_PTROFF(h_unsol, sizeof(*h_unsol), void);
 	struct aecp_aem_base_info info = { 0 };
 
 	memcpy(unsol_buf, msg, len);

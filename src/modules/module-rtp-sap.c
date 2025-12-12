@@ -1235,7 +1235,10 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 			sess->has_sdp = true;
 	}
 
+	pw_log_debug("sending out initial SAP");
 	send_sap(impl, sess, 0);
+
+	pw_log_debug("new announcement session up and running");
 
 	return sess;
 
@@ -1835,6 +1838,7 @@ static int start_sap(struct impl *impl)
 			pw_timer_queue_add(impl->timer_queue, &impl->start_sap_retry_timer,
 					NULL, 1 * SPA_NSEC_PER_SEC,
 					on_start_sap_retry_timer_event, impl);
+			pw_log_info("starting SAP retry timer");
 
 			/* It is important to return 0 in this case. Otherwise, the nonzero return
 			 * value will later be propagated through the core as an error. */
@@ -2005,8 +2009,10 @@ static void impl_destroy(struct impl *impl)
 	pw_timer_queue_cancel(&impl->sap_send_timer);
 	pw_timer_queue_cancel(&impl->start_sap_retry_timer);
 	pw_timer_queue_cancel(&impl->igmp_recovery.timer);
-	if (impl->sap_source)
+	if (impl->sap_source) {
+		pw_log_info("destroying SAP source");
 		pw_loop_destroy_source(impl->loop, impl->sap_source);
+	}
 
 	if (impl->sap_fd != -1)
 		close(impl->sap_fd);

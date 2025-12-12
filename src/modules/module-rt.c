@@ -1132,7 +1132,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if (IS_VALID_NICE_LEVEL(impl->nice_level)) {
-		if (set_nice(impl, impl->nice_level, !can_use_rtkit) < 0)
+		if (set_nice(impl, impl->nice_level, !use_rtkit) < 0) 
 			use_rtkit = can_use_rtkit;
 	}
 	if (!use_rtkit)

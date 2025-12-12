@@ -1138,6 +1138,12 @@ HFP/HSP backend (default: native). Available values: any, none, hsphfpd, ofono, 
 
 @PAR@ monitor-prop  bluez5.hfphsp-backend-native-modem   # string
 
+@PAR@ monitor-prop  bluez5.disable-dummy-call   # boolean
+By default a call status event is sent on audio stream connection/disconnection to
+workaround some headset timeout disconnection when the HFP HF is used by another
+application than telephony one, e.g. a conference application/website.
+This prevent to send this event.
+
 @PAR@ monitor-prop  bluez5.dummy-avrcp player   # boolean
 Register dummy AVRCP player. Some devices have wrongly functioning
 volume or playback controls if this is not enabled. Default: false

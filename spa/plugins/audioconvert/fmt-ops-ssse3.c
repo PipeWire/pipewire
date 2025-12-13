@@ -6,6 +6,7 @@
 
 #include <tmmintrin.h>
 
+// Non static, referenced by `fmt-ops-sse41.c`.
 void
 conv_s24_to_f32d_4s_ssse3(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)

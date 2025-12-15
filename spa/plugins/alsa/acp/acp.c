@@ -1137,7 +1137,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 	}
 
 	old_position = pa_proplist_gets(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED);
-	if (eld.speakers == 0) {
+	if (eld.speakers == 0 || eld.lpcm_channels == 0) {
 		changed |= old_position != NULL;
 		pa_proplist_unset(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED);
 	} else {
@@ -1146,32 +1146,38 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 		struct spa_strbuf b;
 		int i = 0;
 
+#define _ADD_CHANNEL_POSITION(pos)			\
+		{					\
+			if (i + 1 < eld.lpcm_channels)	\
+			positions[i++] = pos;		\
+		}
+
 		if (eld.speakers & 0x01) {
-			positions[i++] = ACP_CHANNEL_FL;
-			positions[i++] = ACP_CHANNEL_FR;
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_FL);
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_FR);
 		}
 		if (eld.speakers & 0x02) {
-			positions[i++] = ACP_CHANNEL_LFE;
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_LFE);
 		}
 		if (eld.speakers & 0x04) {
-			positions[i++] = ACP_CHANNEL_FC;
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_FC);
 		}
 		if (eld.speakers & 0x08) {
-			positions[i++] = ACP_CHANNEL_RL;
-			positions[i++] = ACP_CHANNEL_RR;
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_RL);
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_RR);
 		}
 		/* The rest are out of order in order of what channels we would prefer to use/expose first */
 		if (eld.speakers & 0x40) {
 			/* Use SL/SR instead of RLC/RRC */
-			positions[i++] = ACP_CHANNEL_SL;
-			positions[i++] = ACP_CHANNEL_SR;
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_SL);
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_SR);
 		}
 		if (eld.speakers & 0x20) {
-			positions[i++] = ACP_CHANNEL_RLC;
-			positions[i++] = ACP_CHANNEL_RRC;
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_RLC);
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_RRC);
 		}
 		if (eld.speakers & 0x10) {
-			positions[i++] = ACP_CHANNEL_RC;
+			_ADD_CHANNEL_POSITION(ACP_CHANNEL_RC);
 		}
 		while (i < eld.lpcm_channels)
 			positions[i++] = ACP_CHANNEL_UNKNOWN;

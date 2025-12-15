@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "../aecp-aem.h"
 #include "../aecp-aem-state.h"
 #include "../descriptors.h"
 #include "../aecp-aem-types.h"

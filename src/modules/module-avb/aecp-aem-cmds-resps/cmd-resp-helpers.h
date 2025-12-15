@@ -8,8 +8,11 @@
 
 #include <stdint.h>
 #include <string.h>
+
 #include <spa/utils/defs.h>
 #include <pipewire/log.h>
+
+#include "../aecp.h"
 
 static inline int reply_status(struct aecp *aecp, int status, const void *m, int len)
 {

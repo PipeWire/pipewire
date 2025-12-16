@@ -3401,6 +3401,43 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	}
 	spa_bt_device_add_profile(d, profile);
 
+	/* Prevent to connect HSP/HFP in both directions, i.e. HS->AG and AG->HS.
+	 * This may only occur when connecting to a device which provides both
+	 * HS and AG which should not be the case with headsets and phones. */
+	spa_list_for_each(rfcomm, &backend->rfcomm_list, link) {
+		if (spa_streq(rfcomm->device->address, d->address) &&
+				spa_streq(rfcomm->device->adapter->address, d->adapter->address)) {
+			bool connected = false;
+
+			switch (profile) {
+			case SPA_BT_PROFILE_HFP_HF:
+				if (rfcomm->profile == SPA_BT_PROFILE_HFP_AG)
+					connected = true;
+				break;
+			case SPA_BT_PROFILE_HFP_AG:
+				if (rfcomm->profile == SPA_BT_PROFILE_HFP_HF)
+					connected = true;
+				break;
+			case SPA_BT_PROFILE_HSP_HS:
+				if (rfcomm->profile == SPA_BT_PROFILE_HSP_AG)
+					connected = true;
+				break;
+			case SPA_BT_PROFILE_HSP_AG:
+				if (rfcomm->profile == SPA_BT_PROFILE_HSP_HS)
+					connected = true;
+				break;
+			default:
+				spa_log_warn(backend->log, "Unsupported profile: %s", handler);
+				return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+			}
+
+			if (connected) {
+				spa_log_debug(backend->log, "Already connected in the opposite direction");
+				return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+			}
+		}
+	}
+
 	dbus_message_iter_next(&it);
 	dbus_message_iter_get_basic(&it, &fd);
 

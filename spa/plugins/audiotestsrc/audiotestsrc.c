@@ -113,6 +113,7 @@ struct impl {
 	struct props props;
 	struct spa_io_clock *clock;
 	struct spa_io_position *position;
+	bool following;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -306,6 +307,8 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	default:
 		return -ENOENT;
 	}
+	this->following = this->position && this->clock && this->position->clock.id != this->clock->id;
+
 	return 0;
 }
 
@@ -422,7 +425,8 @@ static int make_buffer(struct impl *this)
 
 	this->sample_count += n_samples;
 	this->elapsed_time = SAMPLES_TO_TIME(this, this->sample_count);
-	set_timer(this, true);
+	if (!this->following)
+		set_timer(this, true);
 
 	io->buffer_id = b->id;
 	io->status = SPA_STATUS_HAVE_DATA;
@@ -475,7 +479,8 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->elapsed_time = 0;
 
 		this->started = true;
-		set_timer(this, true);
+		if (!this->following)
+			set_timer(this, true);
 		break;
 	}
 	case SPA_NODE_COMMAND_Suspend:
@@ -891,7 +896,7 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 	b->outstanding = false;
 	spa_list_append(&port->empty, &b->link);
 
-	if (!this->props.live)
+	if (!this->props.live && !this->following)
 		set_timer(this, true);
 }
 
@@ -966,7 +971,7 @@ static int impl_node_process(void *object)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (!this->props.live)
+	if (!this->props.live || this->following)
 		return make_buffer(this);
 	else
 		return SPA_STATUS_OK;

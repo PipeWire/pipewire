@@ -363,6 +363,7 @@ static void on_timeout(struct spa_source *source)
 	double corr = 1.0, err = 0.0, abs_err = 0.0;
 	int res;
 	bool timer_was_canceled = false;
+	bool report_discont = false;
 
 	/* See set_timeout() for an explanation about timer cancelation. */
 
@@ -380,6 +381,7 @@ static void on_timeout(struct spa_source *source)
 			return;
 		}
 	}
+	report_discont = timer_was_canceled;
 
 	if (SPA_LIKELY(this->position)) {
 		duration = this->position->clock.target_duration;
@@ -487,6 +489,7 @@ static void on_timeout(struct spa_source *source)
 				spa_dll_set_bw(&this->dll, SPA_DLL_BW_MAX, duration, rate);
 				position = current_position;
 				err = 0.0;
+				report_discont = true;
 			} else {
 				err = SPA_CLAMPD(err, -this->max_error, this->max_error);
 			}
@@ -519,7 +522,7 @@ static void on_timeout(struct spa_source *source)
 		this->clock->next_nsec = this->next_time + nsec_offset;
 
 		SPA_FLAG_UPDATE(this->clock->flags, SPA_IO_CLOCK_FLAG_DISCONT,
-			timer_was_canceled);
+			report_discont);
 	}
 
 	spa_node_call_ready(&this->callbacks,

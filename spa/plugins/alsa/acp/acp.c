@@ -1148,7 +1148,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 
 #define _ADD_CHANNEL_POSITION(pos)			\
 		{					\
-			if (i + 1 < eld.lpcm_channels)	\
+			if (i < eld.lpcm_channels)	\
 			positions[i++] = pos;		\
 		}
 

@@ -75,7 +75,7 @@ static const struct spa_type_audio_layout_info {
 	{ "7.1", { SPA_AUDIO_LAYOUT_7_1 } },
 	{ "7.1W", { SPA_AUDIO_LAYOUT_7_1W } },
 	{ "7.1WR", { SPA_AUDIO_LAYOUT_7_1WR } },
-	{ NULL, },
+	{ NULL, { 0, { SPA_AUDIO_CHANNEL_UNKNOWN } } },
 };
 
 SPA_API_AUDIO_LAYOUT_TYPES int

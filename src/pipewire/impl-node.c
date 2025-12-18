@@ -537,6 +537,21 @@ static int suspend_node(struct pw_impl_node *this)
 	if (this->info.state > 0 && this->info.state <= PW_NODE_STATE_SUSPENDED)
 		return 0;
 
+	spa_list_for_each(p, &this->input_ports, link) {
+		if (p->busy_count > 0) {
+			pw_log_debug("%p: can't suspend, input port %d busy:%d",
+					this, p->port_id, p->busy_count);
+			return -EBUSY;
+		}
+	}
+	spa_list_for_each(p, &this->output_ports, link) {
+		if (p->busy_count > 0) {
+			pw_log_debug("%p: can't suspend, output port %d busy:%d",
+					this, p->port_id, p->busy_count);
+			return -EBUSY;
+		}
+	}
+
 	node_deactivate(this);
 
 	pw_log_debug("%p: suspend node driving:%d driver:%d prepared:%d", this,

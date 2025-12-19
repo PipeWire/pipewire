@@ -60,6 +60,11 @@ struct client {
 	struct pw_manager_object *metadata_routes;
 	struct pw_properties *routes;
 
+	struct pw_manager_object *metadata_schema_sm_settings;
+	bool have_force_mono_audio;
+	struct pw_manager_object *metadata_sm_settings;
+	bool force_mono_audio;
+
 	uint32_t connect_tag;
 
 	uint32_t in_index;

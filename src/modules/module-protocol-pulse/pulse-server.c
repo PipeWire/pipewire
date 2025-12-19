@@ -404,6 +404,14 @@ static void handle_metadata(struct client *client, struct pw_manager_object *old
 		if (client->metadata_routes == old)
 			client->metadata_routes = new;
 	}
+	else if (spa_streq(name, "sm-settings")) {
+		if (client->metadata_sm_settings == old)
+			client->metadata_sm_settings = new;
+	}
+	else if (spa_streq(name, "schema-sm-settings")) {
+		if (client->metadata_schema_sm_settings == old)
+			client->metadata_schema_sm_settings = new;
+	}
 }
 
 static uint32_t frac_to_bytes_round_up(struct spa_fraction val, const struct sample_spec *ss)
@@ -964,6 +972,14 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 	}
 	if (subject == PW_ID_CORE && o == client->metadata_routes)
 		client_update_routes(client, key, value);
+	if (subject == PW_ID_CORE && o == client->metadata_schema_sm_settings) {
+		if (spa_streq(key, METADATA_FEATURES_AUDIO_MONO))
+			client->have_force_mono_audio = true;
+	}
+	if (subject == PW_ID_CORE && o == client->metadata_sm_settings) {
+		if (spa_streq(key, METADATA_FEATURES_AUDIO_MONO))
+			client->force_mono_audio = spa_streq(value, "true");
+	}
 }
 
 

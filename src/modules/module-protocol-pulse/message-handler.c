@@ -19,6 +19,7 @@
 
 #include "client.h"
 #include "collect.h"
+#include "defs.h"
 #include "log.h"
 #include "manager.h"
 #include "module.h"
@@ -89,6 +90,46 @@ static int bluez_card_object_message_handler(struct client *client, struct pw_ma
 	return 0;
 }
 
+
+static int core_object_force_mono_output(struct client *client, const char *params, FILE *response)
+{
+	if (!client->have_force_mono_audio) {
+		/* Not supported, return a null value to indicate that */
+		fprintf(response, "null");
+		return 0;
+	}
+
+	if (!params || params[0] == '\0') {
+		/* No parameter => query the current value */
+		fprintf(response, "%s", client->force_mono_audio ? "true" : "false");
+		return 0;
+	} else {
+		/* The caller is trying to set a value or clear with a null */
+		int ret;
+
+		if (spa_streq(params, "true")) {
+			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
+					METADATA_FEATURES_AUDIO_MONO, "Spa:String:JSON", "true");
+		} else if (spa_streq(params, "false")) {
+			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
+					METADATA_FEATURES_AUDIO_MONO, "Spa:String:JSON", "false");
+		} else if (spa_streq(params, "null")) {
+			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
+					METADATA_FEATURES_AUDIO_MONO, NULL, NULL);
+		} else {
+			fprintf(response, "Value must be true, false, or clear");
+			return -EINVAL;
+		}
+
+		if (ret < 0)
+			fprintf(response, "Could not set metadata: %s", spa_strerror(ret));
+		else
+			fprintf(response, "%s", params);
+
+		return ret;
+	}
+}
+
 static int core_object_message_handler(struct client *client, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
 {
 	pw_log_debug(": core %p object message:'%s' params:'%s'", o, message, params);
@@ -97,13 +138,14 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 		fprintf(response,
 				"/core <command> [<params>]\n"
 				"available commands:\n"
-				"  help                           this help\n"
-				"  list-handlers                  show available object handlers\n"
-				"  pipewire-pulse:malloc-info     show malloc_info\n"
-				"  pipewire-pulse:malloc-trim     run malloc_trim\n"
-				"  pipewire-pulse:log-level       update log level with <params>\n"
-				"  pipewire-pulse:list-modules    list all module names\n"
-				"  pipewire-pulse:describe-module describe module info for <params>"
+				"  help					this help\n"
+				"  list-handlers                  	show available object handlers\n"
+				"  pipewire-pulse:malloc-info     	show malloc_info\n"
+				"  pipewire-pulse:malloc-trim     	run malloc_trim\n"
+				"  pipewire-pulse:log-level       	update log level with <params>\n"
+				"  pipewire-pulse:list-modules    	list all module names\n"
+				"  pipewire-pulse:describe-module 	describe module info for <params>\n"
+				"  pipewire-pulse:force-mono-output	force mono mixdown on all hardware outputs"
 				);
 	} else if (spa_streq(message, "list-handlers")) {
 		bool first = true;
@@ -164,6 +206,8 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 		} else {
 			fprintf(response, "Failed to open module.\n");
 		}
+	} else if (spa_streq(message, "pipewire-pulse:force-mono-output")) {
+		return core_object_force_mono_output(client, params, response);
 	} else {
 		return -ENOSYS;
 	}

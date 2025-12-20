@@ -314,6 +314,24 @@ static char *port_alias(char *buffer, int size, struct object *n, struct object 
 	return buffer;
 }
 
+static void print_port_latency(struct data *data, const char *prefix,
+		struct object *p, enum spa_direction direction)
+{
+	const char *state;
+	struct spa_latency_info *info = &p->latency[direction];
+
+	if (p->state == STATE_NONE || p->state == STATE_CHANGED)
+		state = p->latency_changed[direction] ? "*" : "=";
+	else
+		state = state_name(data, p);
+
+	printf("%s%s    %s latency:  { quantum=[ %f %f ], rate=[ %d %d ], ns=[ %"PRIi64" %"PRIi64" ] }\n",
+			state, prefix, direction == SPA_DIRECTION_INPUT ? "input ": "output",
+			info->min_quantum, info->max_quantum,
+			info->min_rate, info->max_rate, info->min_ns, info->max_ns);
+	p->latency_changed[direction] = false;
+}
+
 static void print_port(struct data *data, const char *prefix, const char *state,
 		struct object *n, struct object *p, bool verbose)
 {
@@ -338,6 +356,10 @@ static void print_port(struct data *data, const char *prefix, const char *state,
 		if (buffer[0] != '\0')
 			printf("%s  %s%s%s\n", state, prefix2, prefix, buffer);
 	}
+	if (data->opt_list & LIST_LATENCY) {
+		print_port_latency(data, "", p, SPA_DIRECTION_INPUT);
+		print_port_latency(data, "", p, SPA_DIRECTION_OUTPUT);
+	}
 }
 
 static void print_port_id(struct data *data, const char *prefix, uint32_t peer, struct object *l)
@@ -348,24 +370,6 @@ static void print_port_id(struct data *data, const char *prefix, uint32_t peer, 
 	if ((n = find_object(data, OBJECT_NODE, p->data.port.node)) == NULL)
 		return;
 	print_port(data, prefix, state_name(data, l), n, p, false);
-}
-
-static void print_port_latency(struct data *data, const char *prefix,
-		struct object *p, enum spa_direction direction)
-{
-	const char *state;
-	struct spa_latency_info *info = &p->latency[direction];
-
-	if (p->state == STATE_NONE || p->state == STATE_CHANGED)
-		state = p->latency_changed[direction] ? "*" : "=";
-	else
-		state = state_name(data, p);
-
-	printf("%s%s    %s latency:  { quantum=[ %f %f ], rate=[ %d %d ], ns=[ %"PRIi64" %"PRIi64" ] }\n",
-			state, prefix, direction == SPA_DIRECTION_INPUT ? "input ": "output",
-			info->min_quantum, info->max_quantum,
-			info->min_rate, info->max_rate, info->min_ns, info->max_ns);
-	p->latency_changed[direction] = false;
 }
 
 static void do_list_port_links(struct data *data, struct object *node, struct object *port)
@@ -462,10 +466,6 @@ static void do_list_ports(struct data *data, struct object *node,
 
 		if (data->opt_list & LIST_PORTS)
 			print_port(data, "", NULL, node, o, data->opt_verbose);
-		if (data->opt_list & LIST_LATENCY) {
-			print_port_latency(data, "", o, SPA_DIRECTION_INPUT);
-			print_port_latency(data, "", o, SPA_DIRECTION_OUTPUT);
-		}
 		if (data->opt_list & LIST_LINKS)
 			do_list_port_links(data, node, o);
 	}

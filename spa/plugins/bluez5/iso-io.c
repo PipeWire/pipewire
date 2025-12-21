@@ -80,6 +80,7 @@ struct stream {
 	int fd;
 	bool sink;
 	bool idle;
+	bool ready;
 
 	spa_bt_iso_io_pull_t pull;
 
@@ -269,6 +270,11 @@ static void group_on_timeout(struct spa_source *source)
 		return;
 
 	spa_list_for_each(stream, &group->streams, link) {
+		if (!stream->ready)
+			goto done;
+	}
+
+	spa_list_for_each(stream, &group->streams, link) {
 		if (!stream->sink) {
 			if (!stream->pull) {
 				/* Source not running: drop any incoming data */
@@ -343,7 +349,7 @@ done:
 	group->next += exp * group->duration_tx;
 
 	spa_list_for_each(stream, &group->streams, link) {
-		if (!stream->sink)
+		if (!stream->sink || !stream->ready)
 			continue;
 
 		if (resync)
@@ -574,6 +580,24 @@ void spa_bt_iso_io_destroy(struct spa_bt_iso_io *this)
 	stream->this.codec_data = NULL;
 
 	free(stream);
+}
+
+static int do_ready(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct stream *stream = user_data;
+
+	stream->ready = true;
+	return 0;
+}
+
+void spa_bt_iso_io_ready(struct spa_bt_iso_io *this)
+{
+	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
+	struct group *group = stream->group;
+	int res;
+
+	res = spa_loop_locked(group->data_loop, do_ready, 0, NULL, 0, stream);
+	spa_assert_se(res == 0);
 }
 
 static bool group_is_enabled(struct group *group)

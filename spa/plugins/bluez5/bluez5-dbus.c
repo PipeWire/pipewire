@@ -4029,6 +4029,20 @@ static int transport_create_iso_io(struct spa_bt_transport *transport)
 	return 0;
 }
 
+static void transport_check_iso_ready(struct spa_bt_monitor *monitor)
+{
+	struct spa_bt_transport *t;
+
+	/* Mark ISO ready after all pending acquires are complete */
+	spa_list_for_each(t, &monitor->transport_list, link)
+		if (t->acquire_call)
+			return;
+
+	spa_list_for_each(t, &monitor->transport_list, link)
+		if (t->iso_io)
+			spa_bt_iso_io_ready(t->iso_io);
+}
+
 static bool transport_in_same_cig(struct spa_bt_transport *transport, struct spa_bt_transport *other)
 {
 	return (other->profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) &&
@@ -4105,8 +4119,8 @@ finish:
 		 * is handled separately.
 		 */
 		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
-			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
-			return;
+				(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))
+			goto exit;
 	} else {
 		if (transport_create_iso_io(transport) < 0)
 			spa_log_error(monitor->log, "transport %p: transport_create_iso_io failed",
@@ -4117,9 +4131,9 @@ finish:
 		 */
 		/* TODO: handling multiple BIGs support */
 		if ((transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SINK) ||
-			(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))	{
+				(transport->profile == SPA_BT_PROFILE_BAP_BROADCAST_SOURCE))	{
 			spa_bt_transport_set_state(transport, SPA_BT_TRANSPORT_STATE_ACTIVE);
-			return;
+			goto exit;
 		}
 
 		if (!transport->bap_initiator)
@@ -4166,7 +4180,7 @@ finish:
 			if (!transport_in_same_cig(transport, t))
 				continue;
 			if (t->acquire_call)
-				return;
+				goto exit;
 		}
 		spa_list_for_each(t, &monitor->transport_list, link) {
 			if (!transport_in_same_cig(transport, t))
@@ -4175,6 +4189,9 @@ finish:
 				spa_bt_transport_set_state(t, SPA_BT_TRANSPORT_STATE_ACTIVE);
 		}
 	}
+
+exit:
+	transport_check_iso_ready(monitor);
 }
 
 static int do_transport_acquire(struct spa_bt_transport *transport)

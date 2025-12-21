@@ -1256,6 +1256,18 @@ Available sink contexts PACS bitmask of the the server.
 @PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.supported-contexts		# integer
 Supported sink contexts PACS bitmask of the the server.
 
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.delay-min		# integer
+Minimum presentation delay supported, in microseconds.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.delay-max		# integer
+Maximum presentation delay supported, in microseconds.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.preferred-delay-min		# integer
+Minimum preferred presentation delay supported, in microseconds.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.sink.preferred-delay-max		# integer
+Maximum preferred presentation delay supported, in microseconds.
+
 @PAR@ monitor-prop  bluez5.bap-server-capabilities.source.locations		# JSON or integer
 Source audio locations of the server, as channel positions or PACS bitmask.
 Example: `FL,FR`
@@ -1265,6 +1277,18 @@ Available source contexts PACS bitmask of the the server.
 
 @PAR@ monitor-prop  bluez5.bap-server-capabilities.source.supported-contexts		# integer
 Supported source contexts PACS bitmask of the the server.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.source.delay-min		# integer
+Minimum presentation delay supported, in microseconds.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.source.delay-max		# integer
+Maximum presentation delay supported, in microseconds.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.source.preferred-delay-min		# integer
+Minimum preferred presentation delay supported, in microseconds.
+
+@PAR@ monitor-prop  bluez5.bap-server-capabilities.source.preferred-delay-max		# integer
+Maximum preferred presentation delay supported, in microseconds.
 
 @PAR@ monitor-prop bluez5.bap-server-tmap-features = null  # array of string
 Override advertised TMAP service features. See TMAP specification for their meaning.

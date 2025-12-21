@@ -129,12 +129,8 @@ struct spa_bt_monitor {
 
 	struct spa_list bcast_source_config_list;
 
-	uint32_t bap_sink_locations;
-	uint32_t bap_sink_contexts;
-	uint32_t bap_sink_supported_contexts;
-	uint32_t bap_source_locations;
-	uint32_t bap_source_contexts;
-	uint32_t bap_source_supported_contexts;
+	struct bap_endpoint_qos bap_sink_qos;
+	struct bap_endpoint_qos bap_source_qos;
 
 	struct bap_features bap_features;
 
@@ -5579,6 +5575,18 @@ static void append_supported_features(DBusMessageIter *dict, struct bap_features
 	dbus_message_iter_close_container(dict, &dict_entry);
 }
 
+static void append_endpoint_qos(DBusMessageIter *dict, struct bap_endpoint_qos *qos)
+{
+	append_basic_variant_dict_entry(dict, "Framing", DBUS_TYPE_BYTE, "y", &qos->framing);
+	append_basic_variant_dict_entry(dict, "PHY", DBUS_TYPE_BYTE, "y", &qos->phy);
+	append_basic_variant_dict_entry(dict, "Retransmissions", DBUS_TYPE_BYTE, "y", &qos->retransmission);
+	append_basic_variant_dict_entry(dict, "MaximumLatency", DBUS_TYPE_UINT16, "q", &qos->latency);
+	append_basic_variant_dict_entry(dict, "MinimumDelay", DBUS_TYPE_UINT32, "u", &qos->delay_min);
+	append_basic_variant_dict_entry(dict, "MaximumDelay", DBUS_TYPE_UINT32, "u", &qos->delay_max);
+	append_basic_variant_dict_entry(dict, "PreferredMinimumDelay", DBUS_TYPE_UINT32, "u", &qos->preferred_delay_min);
+	append_basic_variant_dict_entry(dict, "PreferredMaximumDelay", DBUS_TYPE_UINT32, "u", &qos->preferred_delay_max);
+}
+
 static void append_media_object(struct spa_bt_monitor *monitor, DBusMessageIter *iter, const char *endpoint,
 		const char *uuid, uint8_t codec_id, uint8_t *caps, size_t caps_size)
 {
@@ -5605,25 +5613,25 @@ static void append_media_object(struct spa_bt_monitor *monitor, DBusMessageIter 
 		append_basic_variant_dict_entry(&dict, "DelayReporting", DBUS_TYPE_BOOLEAN, "b", &delay_reporting);
 	}
 	if (spa_bt_profile_from_uuid(uuid) & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
-		dbus_uint32_t locations;
-		dbus_uint16_t supported_contexts, contexts;
+		struct bap_endpoint_qos *qos;
 
-		if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_BAP_SINK) {
-			locations = monitor->bap_sink_locations;
-			contexts = monitor->bap_sink_contexts;
-			supported_contexts = monitor->bap_sink_supported_contexts;
-		} else {
-			locations = monitor->bap_source_locations;
-			contexts = monitor->bap_source_contexts;
-			supported_contexts = monitor->bap_source_supported_contexts;
-		}
+		if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_BAP_SINK)
+			qos = &monitor->bap_sink_qos;
+		else
+			qos = &monitor->bap_source_qos;
 
-		spa_log_debug(monitor->log, "BAP endpoint %s locations:0x%x contexts:0x%x supported-contexs:0x%x",
-				endpoint, locations, contexts, supported_contexts);
+		spa_log_debug(monitor->log, "BAP endpoint %s locations:0x%x contexts:0x%x supported-contexs:0x%x "
+				"framing:0x%x phy:0x%x rtn:0x%x latency:0x%x min-delay:0x%x max-delay:0x%x "
+				"pref-min-delay:0x%x pref-max-delay:0x%x",
+				endpoint, qos->locations, qos->context, qos->supported_context,
+				qos->framing, qos->phy, qos->retransmission, qos->latency, qos->delay_min,
+				qos->delay_max, qos->preferred_delay_min, qos->preferred_delay_max);
 
-		append_basic_variant_dict_entry(&dict, "Locations", DBUS_TYPE_UINT32, "u", &locations);
-		append_basic_variant_dict_entry(&dict, "Context", DBUS_TYPE_UINT16, "q", &contexts);
-		append_basic_variant_dict_entry(&dict, "SupportedContext", DBUS_TYPE_UINT16, "q", &supported_contexts);
+		append_basic_variant_dict_entry(&dict, "Locations", DBUS_TYPE_UINT32, "u", &qos->locations);
+		append_basic_variant_dict_entry(&dict, "Context", DBUS_TYPE_UINT16, "q", &qos->context);
+		append_basic_variant_dict_entry(&dict, "SupportedContext", DBUS_TYPE_UINT16, "q", &qos->supported_context);
+
+		append_endpoint_qos(&dict, qos);
 	}
 
 	if (spa_bt_profile_from_uuid(uuid) & SPA_BT_PROFILE_BAP_AUDIO)
@@ -7191,24 +7199,80 @@ static void parse_bap_features(struct spa_bt_monitor *this, const struct spa_dic
 	bap_feature_parse(this, gmap_uuid, spa_dict_lookup(info, "bluez5.bap-server-gmap-features"));
 }
 
+static void bap_init_qos(struct spa_bt_monitor *this)
+{
+	/* BlueZ has default values for phy/rtn/latency/delays */
+	struct bap_endpoint_qos sink = {
+		.locations = BAP_CHANNEL_FL | BAP_CHANNEL_FR,
+		.context = BAP_CONTEXT_ALL,
+		.delay_min = 20000,
+		.delay_max = 200000,
+		.preferred_delay_min = 40000,
+		.framing = 0x00,  /* unframed supported */
+	};
+	struct bap_endpoint_qos source = {
+		.locations = BAP_CHANNEL_FL | BAP_CHANNEL_FR,
+		.context = (BAP_CONTEXT_UNSPECIFIED | BAP_CONTEXT_CONVERSATIONAL |
+				BAP_CONTEXT_MEDIA | BAP_CONTEXT_GAME),
+		.delay_min = 20000,
+		.delay_max = 200000,
+		.preferred_delay_min = 40000,
+		.framing = 0x00,  /* unframed supported */
+	};
+
+	sink.supported_context = sink.context;
+	source.supported_context = source.context;
+
+	this->bap_sink_qos = sink;
+	this->bap_source_qos = source;
+}
+
+static bool bap_atou16(const char *str, uint16_t *value, int base)
+{
+	uint32_t v;
+
+	if (spa_atou32(str, &v, base)) {
+		*value = v;
+		return true;
+	}
+	return false;
+}
+
+static void bap_clamp_qos_delay(struct bap_endpoint_qos *qos)
+{
+	qos->delay_max = SPA_MAX(qos->delay_max, qos->delay_min);
+
+	if (qos->preferred_delay_min && qos->preferred_delay_max)
+		qos->preferred_delay_max = SPA_MAX(qos->preferred_delay_max, qos->preferred_delay_min);
+	if (qos->preferred_delay_min)
+		qos->preferred_delay_min = SPA_CLAMP(qos->preferred_delay_min, qos->delay_min, qos->delay_max);
+	if (qos->preferred_delay_max)
+		qos->preferred_delay_max = SPA_CLAMP(qos->preferred_delay_max, qos->delay_min, qos->delay_max);
+}
+
 static void parse_bap_server(struct spa_bt_monitor *this, const struct spa_dict *info)
 {
-	this->bap_sink_locations = BAP_CHANNEL_FL | BAP_CHANNEL_FR;
-	this->bap_source_locations = BAP_CHANNEL_FL | BAP_CHANNEL_FR;
-	this->bap_sink_contexts = this->bap_sink_supported_contexts = BAP_CONTEXT_ALL;
-	this->bap_source_contexts = this->bap_source_supported_contexts = (BAP_CONTEXT_UNSPECIFIED | BAP_CONTEXT_CONVERSATIONAL |
-					BAP_CONTEXT_MEDIA | BAP_CONTEXT_GAME);
-
 	if (!info)
 		return;
 
-	parse_bap_locations(this, info, "bluez5.bap-server-capabilities.sink.locations", &this->bap_sink_locations);
-	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.contexts"), &this->bap_sink_contexts, 0);
-	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.supported-contexts"), &this->bap_sink_supported_contexts, 0);
+	parse_bap_locations(this, info, "bluez5.bap-server-capabilities.sink.locations", &this->bap_sink_qos.locations);
+	bap_atou16(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.contexts"), &this->bap_sink_qos.context, 0);
+	bap_atou16(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.supported-contexts"), &this->bap_sink_qos.supported_context, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.delay-min"), &this->bap_sink_qos.delay_min, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.delay-max"), &this->bap_sink_qos.delay_max, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.preferred-delay-min"), &this->bap_sink_qos.preferred_delay_min, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.sink.preferred-delay-max"), &this->bap_sink_qos.preferred_delay_max, 0);
 
-	parse_bap_locations(this, info, "bluez5.bap-server-capabilities.source.locations", &this->bap_source_locations);
-	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.contexts"), &this->bap_source_contexts, 0);
-	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.supported-contexts"), &this->bap_source_supported_contexts, 0);
+	parse_bap_locations(this, info, "bluez5.bap-server-capabilities.source.locations", &this->bap_source_qos.locations);
+	bap_atou16(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.contexts"), &this->bap_source_qos.context, 0);
+	bap_atou16(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.supported-contexts"), &this->bap_source_qos.supported_context, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.delay-min"), &this->bap_source_qos.delay_min, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.delay-max"), &this->bap_source_qos.delay_max, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.preferred-delay-min"), &this->bap_source_qos.preferred_delay_min, 0);
+	spa_atou32(spa_dict_lookup(info, "bluez5.bap-server-capabilities.source.preferred-delay-max"), &this->bap_source_qos.preferred_delay_max, 0);
+
+	bap_clamp_qos_delay(&this->bap_sink_qos);
+	bap_clamp_qos_delay(&this->bap_source_qos);
 
 	parse_bap_features(this, info);
 }
@@ -7330,6 +7394,7 @@ impl_init(const struct spa_handle_factory *factory,
 	if ((res = parse_codec_array(this, info)) < 0)
 		goto fail;
 
+	bap_init_qos(this);
 	parse_roles(this, info);
 	parse_broadcast_source_config(this, info);
 	parse_bap_server(this, info);

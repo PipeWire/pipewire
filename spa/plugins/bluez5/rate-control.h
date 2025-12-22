@@ -94,10 +94,13 @@ static inline bool spa_bt_ptp_valid(struct spa_bt_ptp *p)
  * The deviation from the buffer level target evolves as
  *
  *     delta(j) = level(j) - target
- *     delta(j+1) = delta(j) + r(j) - c(j+1)
+ *     delta(j+1) = delta(j) + r(j) - c(j)
  *
  * where r is samples received in one duration, and c corrected rate
  * (samples per duration).
+ *
+ * Note that the rate correction calculated on *previous* cycle is what affects the
+ * current one.
  *
  * The rate correction is in general determined by linear filter f
  *
@@ -111,7 +114,7 @@ static inline bool spa_bt_ptp_valid(struct spa_bt_ptp *p)
  *
  *     delta(z) = G(z) r(z)
  *     c(z) = F(z) delta(z)
- *     G(z) = (z - 1) / [(z - 1)^2 + z f(z)]
+ *     G(z) = (z - 1) / [(z - 1)^2 + f(z)]
  *     F(z) = f(z) / (z - 1)
  *
  * We now want: poles of G(z) must be in |z|<1 for stability, F(z)
@@ -119,23 +122,22 @@ static inline bool spa_bt_ptp_valid(struct spa_bt_ptp *p)
  *
  * To satisfy the conditions, take
  *
- *     (z - 1)^2 + z f(z) = p(z) / q(z)
+ *     (z - 1)^2 + f(z) = p(z) / q(z)
  *
- * where p(z) is polynomial with leading term z^n with wanted root
- * structure, and q(z) is any polynomial with leading term z^{n-2}.
- * This guarantees f(z) is causal, and G(z) = (z-1) q(z) / p(z).
+ * where p(z) / q(z) are polynomials such that p(z)/q(z) ~ z^2 - 2 z + O(1)
+ * in 1/z expansion. This guarantees f(z) is causal, and G(z) = (z-1) q(z) / p(z).
  * We can choose p(z) and q(z) to improve low-pass properties of F(z).
  *
- * Simplest choice is p(z)=(z-x)^2 and q(z)=1, but that gives flat
+ * Simplest choice is p(z)=(z-1)^2 and q(z)=1, but that does not supress
  * high frequency response in F(z). Better choice is p(z) = (z-u)*(z-v)*(z-w)
- * and q(z) = z - r. To make F(z) better lowpass, one can cancel
- * a resulting 1/z pole in F(z) by setting r=u*v*w. Then,
+ * and q(z) = z - r. Causality requires r = u + v + w - 2.
+ * Then,
  *
  *     G(z) = (z - u*v*w)*(z - 1) / [(z - u)*(z - v)*(z - w)]
  *     F(z) = (a z + b - a) / (z - 1) *	 H(z)
  *     H(z) = beta / (z - 1 + beta)
- *     beta = 1 - u*v*w
- *     a = [(1-u) + (1-v) + (1-w) - beta] / beta
+ *     beta = 3 - u - v - w
+ *     a = [u*v + u*w + v*w - u - v - w + beta] / beta
  *     b = (1-u)*(1-v)*(1-w) / beta
  *
  * which corresponds to iteration for c(j):
@@ -147,8 +149,10 @@ static inline bool spa_bt_ptp_valid(struct spa_bt_ptp *p)
  * which gives the low-pass property for c(j).
  *
  * The simplest filter is obtained by putting the poles at
- * u=v=w=(1-beta)**(1/3). Since beta << 1, computing the root
- * can be avoided by expanding in series.
+ * u=v=w=(1 - beta/3). Then a=beta/3 and b=beta^2/27
+ *
+ * The same filter is obtained if one uses c(j+1) instead of c(j)
+ * in the starting point and takes limit beta -> 0.
  *
  * Overshoot in impulse response could be reduced by moving one of the
  * poles closer to z=1, but this increases the step response time.
@@ -169,12 +173,8 @@ static inline double spa_bt_rate_control_update(struct spa_bt_rate_control *this
 		double target, double duration, double period, double rate_diff_max)
 {
 	/*
-	 * u = (1 - beta)^(1/3)
 	 * x = a / beta
 	 * y = b / beta
-	 * a = (2 + u) * (1 - u)^2 / beta
-	 * b = (1 - u)^3 / beta
-	 * beta -> 0
 	 */
 	const double beta = SPA_CLAMP(duration / period, 0, 0.5);
 	const double x = 1.0/3;

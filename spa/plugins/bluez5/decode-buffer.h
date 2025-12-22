@@ -87,6 +87,7 @@ struct spa_bt_decode_buffer
 	double rate_diff;
 	int32_t delay;
 	int32_t delay_frac;
+	uint32_t prev_samples;
 
 	double level;
 
@@ -265,8 +266,7 @@ static inline void spa_bt_decode_buffer_recover(struct spa_bt_decode_buffer *thi
 	spa_log_debug(this->log, "%p recover level:%f", this, this->level);
 }
 
-static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, int64_t duration_ns,
-		double rate_diff, int64_t next_nsec, int32_t delay, int32_t delay_frac)
+static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, int64_t duration_ns)
 {
 	const uint32_t data_size = samples * this->frame_size;
 	const int32_t packet_size = SPA_CLAMP(this->packet_size.max, 0, INT32_MAX/8);
@@ -274,15 +274,7 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 	uint32_t avail;
 	double level;
 
-	this->rate_diff = rate_diff;
-	this->next_nsec = next_nsec;
-	this->delay = delay;
-	this->delay_frac = delay_frac;
-
-	/* The fractional delay is given at the start of current cycle. Make it relative
-	 * to next_nsec used for the level calculations.
-	 */
-	this->delay_frac += (int32_t)(1e9 * samples - duration_ns * this->rate * this->rate_diff);
+	this->prev_samples = samples;
 
 	if (SPA_UNLIKELY(duration_ns != this->duration_ns)) {
 		this->duration_ns = duration_ns;
@@ -332,6 +324,11 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 
 	this->pos += samples;
 
+	this->corr = spa_bt_rate_control_update(&this->ctl,
+			level * SPA_NSEC_PER_SEC / this->rate,
+			((double)target + 0.5/this->rate) * SPA_NSEC_PER_SEC / this->rate,
+			duration_ns, this->avg_period, this->rate_diff_max);
+
 	enum spa_log_level log_level = (this->pos > this->rate) ? SPA_LOG_LEVEL_DEBUG : SPA_LOG_LEVEL_TRACE;
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(this->log, SPA_LOG_TOPIC_DEFAULT, log_level))) {
 		spa_log_lev(this->log, log_level,
@@ -346,11 +343,6 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 		this->pos = 0;
 	}
 
-	this->corr = spa_bt_rate_control_update(&this->ctl,
-			level * SPA_NSEC_PER_SEC / this->rate,
-			((double)target + 0.5/this->rate) * SPA_NSEC_PER_SEC / this->rate,
-			duration_ns, this->avg_period, this->rate_diff_max);
-
 	spa_bt_decode_buffer_get_read(this, &avail);
 	if (avail < data_size) {
 		spa_log_debug(this->log, "%p underrun samples:%d", this,
@@ -358,6 +350,27 @@ static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *thi
 		this->buffering = true;
 		spa_bt_ptp_update(&this->spike, samples, 0);
 	}
+}
+
+static inline void spa_bt_decode_buffer_set_next(struct spa_bt_decode_buffer *this, double rate_diff, int64_t next_nsec,
+		int32_t delay, int32_t delay_frac, bool delay_at_start)
+{
+	/* Called after spa_bt_decode_buffer_process() on the same cycle to update
+	 * next_nsec & rate_diff values.
+	 */
+	this->rate_diff = rate_diff;
+	this->next_nsec = next_nsec;
+	this->delay = delay;
+	this->delay_frac = delay_frac;
+
+	/* If fractional delay is given at the start of current cycle, make it relative to
+	 * next_nsec used for the level calculations.
+	 */
+	if (delay_at_start)
+		this->delay_frac += (int32_t)(1e9 * this->prev_samples - this->duration_ns * this->rate * this->rate_diff);
+
+	/* Recalculate this->level */
+	spa_bt_decode_buffer_write_packet(this, 0, 0);
 }
 
 struct spa_bt_recvmsg_data {

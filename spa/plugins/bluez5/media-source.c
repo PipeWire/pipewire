@@ -872,6 +872,13 @@ static void media_on_timeout(struct spa_source *source)
 		spa_log_trace(this->log, "%p: io:%d->%d status:%d", this, io_status, port->io->status, status);
 	}
 
+	/* Use any updated rate correction already for the next cycle */
+	this->next_time = (uint64_t)(now_time + duration * SPA_NSEC_PER_SEC / port->buffer.corr / rate);
+	if (SPA_LIKELY(this->clock)) {
+		this->clock->rate_diff = port->buffer.corr;
+		this->clock->next_nsec = this->next_time;
+	}
+
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_DATA);
 
 	set_timeout(this, this->next_time);
@@ -1807,13 +1814,9 @@ static void process_buffering(struct impl *this)
 	if (plc)
 		spa_bt_decode_buffer_recover(&port->buffer);
 
-	setup_matching(this);
+	spa_bt_decode_buffer_process(&port->buffer, samples, duration_ns);
 
-	spa_bt_decode_buffer_process(&port->buffer, samples, duration_ns,
-			this->position ? this->position->clock.rate_diff : 1.0,
-			this->position ? this->position->clock.next_nsec : 0,
-			this->resampling ? this->port.rate_match->delay : 0,
-			this->resampling ? this->port.rate_match->delay_frac : 0);
+	setup_matching(this);
 
 	/* copy data to buffers */
 	if (!spa_list_is_empty(&port->free)) {
@@ -1935,6 +1938,7 @@ static int impl_node_process(void *object)
 	struct impl *this = object;
 	struct port *port;
 	struct spa_io_buffers *io;
+	int ret;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -1959,9 +1963,19 @@ static int impl_node_process(void *object)
 
 	/* Follower produces buffers here, driver in timeout */
 	if (this->following)
-		return produce_buffer(this);
+		ret = produce_buffer(this);
 	else
-		return SPA_STATUS_OK;
+		ret = SPA_STATUS_OK;
+
+	/* Update decode buffer vs. next wakeup timing */
+	spa_bt_decode_buffer_set_next(&port->buffer,
+			this->position ? this->position->clock.rate_diff : 1.0,
+			this->position ? this->position->clock.next_nsec : 0,
+			this->resampling ? this->port.rate_match->delay : 0,
+			this->resampling ? this->port.rate_match->delay_frac : 0,
+			this->following);
+
+	return ret;
 }
 
 static const struct spa_node_methods impl_node = {

@@ -197,8 +197,6 @@ static inline size_t spa_bt_decode_buffer_get_size(struct spa_bt_decode_buffer *
 
 static inline void spa_bt_decode_buffer_write_packet(struct spa_bt_decode_buffer *this, uint32_t size, uint64_t nsec)
 {
-	const int32_t duration = this->duration_ns * this->rate / SPA_NSEC_PER_SEC;
-
 	if (nsec) {
 		this->rx.nsec = nsec;
 		this->rx.position = size / this->frame_size;
@@ -217,7 +215,8 @@ static inline void spa_bt_decode_buffer_write_packet(struct spa_bt_decode_buffer
 		this->level = dt * this->rate_diff * this->rate / SPA_NSEC_PER_SEC
 			+ avail + this->delay + this->delay_frac/1e9 - this->rx.position;
 	} else {
-		this->level = spa_bt_decode_buffer_get_size(this) / this->frame_size - duration;
+		this->level = spa_bt_decode_buffer_get_size(this) / this->frame_size
+			+ this->delay + this->delay_frac/1e9;
 	}
 }
 
@@ -259,8 +258,11 @@ static inline void spa_bt_decode_buffer_recover(struct spa_bt_decode_buffer *thi
 
 	this->rx.nsec = 0;
 	this->corr = 1.0;
+
 	spa_bt_rate_control_init(&this->ctl, target * SPA_NSEC_PER_SEC / this->rate);
 	spa_bt_decode_buffer_write_packet(this, 0, 0);
+
+	spa_log_debug(this->log, "%p recover level:%f", this, this->level);
 }
 
 static inline void spa_bt_decode_buffer_process(struct spa_bt_decode_buffer *this, uint32_t samples, int64_t duration_ns,

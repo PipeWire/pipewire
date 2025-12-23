@@ -573,6 +573,7 @@ static int produce_plc_data(struct impl *this)
 static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 		uint8_t *dst, uint32_t dst_size, uint32_t *dst_out, int pkt_seqnum)
 {
+	struct port *port = &this->port;
 	ssize_t processed;
 	size_t written, avail;
 	size_t src_avail = src_size;
@@ -606,14 +607,19 @@ static int32_t decode_data(struct impl *this, uint8_t *src, uint32_t src_size,
 			lost = 0;
 		}
 
-		if (lost >= this->plc_packets) {
+		if (lost >= this->plc_packets)
 			lost -= this->plc_packets;
-		} else {
-			/* We already produced PLC audio for this packet.  However, this
-			 * only occurs if we are underflowing, so we should retain this
-			 * packet regardless and let rate matching take care of it.
+		else
+			this->plc_packets -= lost;
+
+		if (this->plc_packets &&
+				port->buffer.level > spa_bt_decode_buffer_get_target_latency(&port->buffer)) {
+			/* We already produced PLC audio for this packet, and have enough
+			 * data, so drop the packet.
 			 */
-			lost = 0;
+			spa_log_debug(this->log, "%p: PLC drop %u sn:%u", this, this->plc_packets, seqnum);
+			this->plc_packets--;
+			return 0;
 		}
 
 		/* Pad with PLC audio for any missing packets */
@@ -1750,7 +1756,8 @@ static uint32_t get_samples(struct impl *this, int64_t *duration_ns)
 		rate_denom = port->current_format.info.raw.rate;
 	}
 
-	*duration_ns = duration * SPA_NSEC_PER_SEC / rate_denom;
+	if (duration_ns)
+		*duration_ns = duration * SPA_NSEC_PER_SEC / rate_denom;
 
 	if (SPA_LIKELY(port->rate_match) && this->resampling) {
 		samples = port->rate_match->size;
@@ -1805,16 +1812,19 @@ static void process_buffering(struct impl *this)
 	if (samples > this->quantum_limit)
 		return;
 
-	/* Produce PLC data if possible to avoid underrun */
+	spa_bt_decode_buffer_process(&port->buffer, samples, duration_ns);
+
+	/* Produce PLC data if possible to avoid underrun instead of buffering pause */
 	while (spa_bt_decode_buffer_get_size(&port->buffer) < data_size) {
 		if (produce_plc_data(this) <= 0)
 			break;
 		plc = true;
 	}
-	if (plc)
-		spa_bt_decode_buffer_recover(&port->buffer);
-
-	spa_bt_decode_buffer_process(&port->buffer, samples, duration_ns);
+	if (plc) {
+		port->buffer.buffering = false;
+		if (port->buffer.corr > 1.0)
+			spa_bt_decode_buffer_recover(&port->buffer);
+	}
 
 	setup_matching(this);
 

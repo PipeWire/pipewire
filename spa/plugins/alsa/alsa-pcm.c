@@ -2784,6 +2784,18 @@ static inline int do_drop(struct state *state)
 	return 0;
 }
 
+static inline int emit_node_error (struct spa_loop *loop,
+	bool async, uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct state *state = user_data;
+	struct spa_event event = SPA_EVENT_INIT(SPA_TYPE_EVENT_Node, SPA_NODE_EVENT_Error);
+
+	spa_log_info(state->log, "%s: emit SPA_NODE_EVENT_Error", state->name);
+
+	spa_node_emit_event(&state->hooks, &event);
+	return 0;
+}
+
 static inline int do_start(struct state *state)
 {
 	int res;
@@ -2792,6 +2804,7 @@ static inline int do_start(struct state *state)
 		if (!state->linked && (res = snd_pcm_start(state->hndl)) < 0) {
 			spa_log_error(state->log, "%s: snd_pcm_start: %s",
 					state->name, snd_strerror(res));
+			spa_loop_invoke(state->main_loop, emit_node_error, 0, NULL, 0, false, state);
 			return res;
 		}
 		state->alsa_started = true;

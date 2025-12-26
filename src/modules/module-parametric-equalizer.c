@@ -288,6 +288,9 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
+	if (impl->eq_module)
+		pw_impl_module_destroy(impl->eq_module);
+
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);
 	pw_properties_free(impl->props);

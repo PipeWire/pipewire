@@ -454,6 +454,10 @@ static int stream_stop(struct impl *impl)
 	 * meaning that the timer was no longer running, and the connection
 	 * could be closed. */
 	if (!timer_running) {
+		/* Clear the ringbuffer to prevent old invalid packets from being
+		 * sent when processing resumes via rtp_audio_flush_packets() */
+		if (impl->reset_ringbuffer)
+			impl->reset_ringbuffer(impl);
 		set_internal_stream_state(impl, RTP_STREAM_INTERNAL_STATE_STOPPED);
 		pw_log_info("stream stopped");
 	}

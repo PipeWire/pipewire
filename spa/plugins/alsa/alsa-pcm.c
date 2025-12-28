@@ -3040,10 +3040,17 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	}
 
 	if (state->rate_match) {
-		if (state->stream == SND_PCM_STREAM_PLAYBACK)
-			state->rate_match->rate = corr;
-		else
-			state->rate_match->rate = 1.0/corr;
+		/* Only set rate_match rate when matching is active. When not matching,
+		 * set it to 1.0 to indicate no rate adjustment needed, even though DLL
+		 * may still be running for buffer level management. */
+		if (state->matching) {
+			if (state->stream == SND_PCM_STREAM_PLAYBACK)
+				state->rate_match->rate = corr;
+			else
+				state->rate_match->rate = 1.0/corr;
+		} else {
+			state->rate_match->rate = 1.0;
+		}
 
 		if (state->pitch_elem && state->matching)
 			spa_alsa_update_rate_match(state);

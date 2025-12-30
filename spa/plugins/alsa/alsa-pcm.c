@@ -1119,6 +1119,8 @@ int spa_alsa_clear(struct state *state)
 		}
 	}
 
+	spa_clear_ptr(state->alsa_chmap, free);
+
 	return err;
 }
 
@@ -1664,6 +1666,69 @@ skip_channels:
 	return 1;
 }
 
+static snd_pcm_chmap_t *dup_alsa_chmap(snd_pcm_chmap_t *map)
+{
+	snd_pcm_chmap_t *chmap;
+	size_t sz;
+
+	sz = sizeof(*chmap) + sizeof(*chmap->pos) * map->channels;
+	chmap = calloc(1, sz);
+	if (chmap)
+		memcpy(chmap, map, sz);
+
+	return chmap;
+}
+
+static int get_alsa_chmap(snd_pcm_t *hndl, uint32_t channels, const uint32_t *position,
+		snd_pcm_chmap_t **chmap)
+{
+	snd_pcm_chmap_query_t **maps = snd_pcm_query_chmaps(hndl);
+	size_t i, j;
+	int err = 0;
+
+	*chmap = NULL;
+
+	if (!maps)
+		return 0;
+
+	/* Find corresponding ALSA chmap */
+	for (i = 0; maps[i]; ++i) {
+		spa_autofree snd_pcm_chmap_t *map = NULL;
+
+		if (maps[i]->map.channels != channels)
+			continue;
+
+		map = dup_alsa_chmap(&maps[i]->map);
+		if (!map) {
+			err = -ENOMEM;
+			break;
+		}
+		sanitize_map(map);
+
+		for (j = 0; j < channels; ++j) {
+			if (position[j] != chmap_position_to_channel(map->pos[j]))
+				break;
+		}
+		if (j < channels)
+			continue;
+
+		*chmap = dup_alsa_chmap(&maps[i]->map);
+		if (!*chmap)
+			err = -ENOMEM;
+		break;
+	}
+	if (!maps[i])
+		err = -ENOENT;
+
+	snd_pcm_free_chmaps(maps);
+
+	if (err) {
+		free(*chmap);
+		*chmap = NULL;
+	}
+	return err;
+}
+
 static void debug_hw_params(struct state *state, const char *prefix, snd_pcm_hw_params_t *params)
 {
 	if (SPA_UNLIKELY(spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_DEBUG))) {
@@ -2091,7 +2156,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	unsigned int periods;
 	bool match = true, planar = false;
 	char spdif_params[128] = "";
+	char alsa_chmap_str[256] = "";
 	uint32_t default_period;
+	const uint32_t *position = NULL;
 
 	spa_log_debug(state->log, "opened:%d format:%d started:%d", state->opened,
 			state->have_format, state->started);
@@ -2105,6 +2172,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		struct spa_audio_info_raw *f = &fmt->info.raw;
 		rrate = f->rate;
 		rchannels = f->channels;
+		if (!SPA_FLAG_IS_SET(f->flags, SPA_AUDIO_FLAG_UNPOSITIONED))
+			position = f->position;
 		rformat = spa_format_to_alsa(f->format, &planar);
 		break;
 	}
@@ -2169,6 +2238,7 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 		rrate = f->rate;
 		rchannels = f->channels;
+		position = f->position;
 
 		switch (f->interleave) {
 		case 4:
@@ -2256,6 +2326,28 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 			state->use_mmap ? "mmap" : "rw",
 			planar ? "planar" : "interleaved", rchannels);
 	CHECK(snd_pcm_hw_params_set_format(hndl, params, rformat), "set_format");
+
+	/* prepare channel map */
+	{
+		spa_autofree snd_pcm_chmap_t *alsa_chmap = NULL;
+
+		if (state->props.use_chmap && position) {
+			if ((err = get_alsa_chmap(hndl, rchannels, position, &alsa_chmap)) < 0) {
+				struct channel_map map = { .n_pos = SPA_MIN(MAX_CHANNELS, rchannels) };
+				char buf[256] = "";
+
+				memcpy(map.pos, position, map.n_pos * sizeof(map.pos[0]));
+				position_to_string(&map, buf, sizeof(buf));
+				spa_log_warn(state->log, "%s: failed to get ALSA chmap '%s': %s",
+						state->name, buf, spa_strerror(err));
+			}
+		}
+		SPA_SWAP(state->alsa_chmap, alsa_chmap);
+
+		alsa_chmap_str[0] = '\0';
+		if (state->alsa_chmap)
+			snd_pcm_chmap_print(state->alsa_chmap, sizeof(alsa_chmap_str), alsa_chmap_str);
+	}
 
 	/* set the count of channels */
 	val = rchannels;
@@ -2434,13 +2526,13 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	recalc_headroom(state);
 
-	spa_log_info(state->log, "%s: format:%s access:%s-%s rate:%d channels:%d "
+	spa_log_info(state->log, "%s: format:%s access:%s-%s rate:%d channels:%d chmap:'%s' "
 			"buffer frames %lu, period frames %lu (min:%lu), periods %u, frame_size %zd "
 			"headroom %u start-delay:%u batch:%u tsched:%u resample:%u",
 			state->name, snd_pcm_format_name(state->format),
 			state->use_mmap ? "mmap" : "rw",
 			planar ? "planar" : "interleaved",
-			state->rate, state->channels, state->buffer_frames, state->period_frames,
+			state->rate, state->channels, alsa_chmap_str, state->buffer_frames, state->period_frames,
 			state->period_size_min, periods, state->frame_size, state->headroom,
 			state->start_delay, state->is_batch, !state->disable_tsched, state->resample);
 
@@ -2631,6 +2723,16 @@ static int do_prepare(struct state *state)
 				state->name, snd_strerror(err));
 		return err;
 	}
+
+	if (state->alsa_chmap) {
+		if ((err = snd_pcm_set_chmap(state->hndl, state->alsa_chmap)) < 0)
+			spa_log_error(state->log, "%s: snd_pcm_set_chmap error: %s",
+					state->name, snd_strerror(err));
+
+		/* it's enough to set chmap only on the initial prepare after hwparams */
+		spa_clear_ptr(state->alsa_chmap, free);
+	}
+
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
 		snd_pcm_uframes_t silence = state->start_delay + state->threshold + state->headroom;
 		if (state->disable_tsched)

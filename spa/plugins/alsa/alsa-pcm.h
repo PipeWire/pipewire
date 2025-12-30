@@ -280,6 +280,8 @@ struct state {
 	struct spa_list driver_link;
 
 	struct rt_state rt;
+
+	snd_pcm_chmap_t *alsa_chmap;
 };
 
 struct spa_pod *spa_alsa_enum_propinfo(struct state *state,

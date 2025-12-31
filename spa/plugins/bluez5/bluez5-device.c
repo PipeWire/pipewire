@@ -809,17 +809,10 @@ static void dynamic_node_volume_changed(void *data)
 	SPA_FLAG_CLEAR(id, DYNAMIC_NODE_ID_FLAG);
 
 	/* Remote device is the controller */
-	if (!node->transport || impl->profile != DEVICE_PROFILE_AG
-	    || !spa_bt_transport_volume_enabled(node->transport))
+	if (!node->transport || !spa_bt_transport_volume_enabled(node->transport))
 		return;
 
-	if (id == 0 || id == 2)
-		volume_id = SPA_BT_VOLUME_ID_RX;
-	else if (id == 1)
-		volume_id = SPA_BT_VOLUME_ID_TX;
-	else
-		return;
-
+	volume_id = get_volume_id(id);
 	t_volume = &node->transport->volumes[volume_id];
 	if (!t_volume->active)
 		return;

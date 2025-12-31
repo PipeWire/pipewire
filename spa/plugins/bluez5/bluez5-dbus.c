@@ -3552,6 +3552,12 @@ static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)
 		volume_id = SPA_BT_VOLUME_ID_RX;
 	else if (transport->profile & SPA_BT_PROFILE_ASHA_SINK)
 		volume_id = SPA_BT_VOLUME_ID_TX;
+	else if (transport->profile & SPA_BT_PROFILE_BAP_SINK)
+		volume_id = SPA_BT_VOLUME_ID_TX;
+	else if (transport->profile & SPA_BT_PROFILE_BAP_SOURCE)
+		volume_id = SPA_BT_VOLUME_ID_RX;
+	else if (transport->profile & SPA_BT_PROFILE_BAP_BROADCAST_SOURCE)
+		volume_id = SPA_BT_VOLUME_ID_RX;
 	else
 		return;
 

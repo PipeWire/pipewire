@@ -3557,6 +3557,9 @@ static void spa_bt_transport_volume_changed(struct spa_bt_transport *transport)
 
 	t_volume = &transport->volumes[volume_id];
 
+	if (!t_volume->active)
+		return;
+
 	if (t_volume->hw_volume != t_volume->new_hw_volume) {
 		t_volume->hw_volume = t_volume->new_hw_volume;
 		t_volume->volume = (float)spa_bt_volume_hw_to_linear(t_volume->hw_volume,
@@ -5276,8 +5279,25 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		/* PW is the rendering device so it's responsible for reporting hardware volume. */
 		transport->volumes[SPA_BT_VOLUME_ID_RX].active = true;
 	} else if (profile & SPA_BT_PROFILE_A2DP_SINK) {
+		/* Retain remote volume (if present) */
+		spa_bt_transport_volume_changed(transport);
+
 		transport->volumes[SPA_BT_VOLUME_ID_TX].active
 			|= transport->device->a2dp_volume_active[SPA_BT_VOLUME_ID_TX];
+	} else if (profile & (SPA_BT_PROFILE_BAP_SINK | SPA_BT_PROFILE_BAP_SOURCE)) {
+		if (transport->bap_initiator) {
+			/* BAP Client: Retain remote volume (if present) */
+			spa_bt_transport_volume_changed(transport);
+		} else {
+			/* BAP Server: rendering/capture device */
+			if (profile & SPA_BT_PROFILE_BAP_SOURCE)
+				transport->volumes[SPA_BT_VOLUME_ID_RX].active = true;
+			if (profile & SPA_BT_PROFILE_BAP_SINK)
+				transport->volumes[SPA_BT_VOLUME_ID_TX].active = true;
+		}
+	} else if (profile & SPA_BT_PROFILE_BAP_BROADCAST_SOURCE) {
+		/* PW is the rendering device */
+		transport->volumes[SPA_BT_VOLUME_ID_RX].active = true;
 	}
 
 	if (codec->validate_config) {

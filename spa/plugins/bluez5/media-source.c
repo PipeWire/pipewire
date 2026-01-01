@@ -888,6 +888,15 @@ static void media_on_timeout(struct spa_source *source)
 		this->clock->next_nsec = this->next_time;
 	}
 
+	/* Set next position also here in case impl_node_process() fails to be scheduled */
+	if (this->transport_started)
+		spa_bt_decode_buffer_set_next(&port->buffer,
+			this->position ? this->position->clock.next_nsec : 0,
+			this->resampling ? this->port.rate_match->delay : 0,
+			this->resampling ? this->port.rate_match->delay_frac : 0,
+			this->resampling && this->matching ? port->rate_match->rate : 1.0,
+			true);
+
 	spa_node_call_ready(&this->callbacks, SPA_STATUS_HAVE_DATA);
 
 	set_timeout(this, this->next_time);
@@ -1831,8 +1840,6 @@ static void process_buffering(struct impl *this)
 			spa_bt_decode_buffer_recover(&port->buffer);
 	}
 
-	setup_matching(this);
-
 	/* copy data to buffers */
 	if (!spa_list_is_empty(&port->free)) {
 		struct buffer *buffer;
@@ -1883,8 +1890,13 @@ static void process_buffering(struct impl *this)
 	if (this->transport->iso_io && this->position && !this->initial_buffering)
 		spa_bt_iso_io_check_rx_sync(this->transport->iso_io, this->position->clock.position);
 
-	if (!port->buffer.buffering)
+	setup_matching(this);
+
+	if (!port->buffer.buffering) {
+		if (this->initial_buffering && this->transport->iso_io)
+			this->transport->iso_io->need_resync = true;
 		this->initial_buffering = false;
+	}
 
 	if (this->update_delay_event) {
 		int32_t target = spa_bt_decode_buffer_get_target_latency(&port->buffer);
@@ -1987,10 +1999,10 @@ static int impl_node_process(void *object)
 
 	/* Update decode buffer vs. next wakeup timing */
 	spa_bt_decode_buffer_set_next(&port->buffer,
-			this->position ? this->position->clock.rate_diff : 1.0,
 			this->position ? this->position->clock.next_nsec : 0,
 			this->resampling ? this->port.rate_match->delay : 0,
 			this->resampling ? this->port.rate_match->delay_frac : 0,
+			this->resampling && this->matching ? port->rate_match->rate : 1.0,
 			this->following);
 
 	return ret;

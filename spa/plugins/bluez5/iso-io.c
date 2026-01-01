@@ -682,7 +682,6 @@ void spa_bt_iso_io_set_source_buffer(struct spa_bt_iso_io *this, struct spa_bt_d
 	if (buffer) {
 		/* Take over buffer overrun handling */
 		buffer->no_overrun_drop = true;
-		buffer->buffering = false;
 		buffer->avg_period = ISO_BUFFERING_AVG_PERIOD;
 		buffer->rate_diff_max = ISO_BUFFERING_RATE_DIFF_MAX;
 	}

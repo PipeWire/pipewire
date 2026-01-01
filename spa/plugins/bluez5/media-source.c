@@ -173,6 +173,7 @@ struct impl {
 
 	int seqnum;
 	uint32_t plc_packets;
+	bool initial_buffering;
 
 	uint32_t errqueue_count;
 
@@ -555,6 +556,8 @@ static int produce_plc_data(struct impl *this)
 
 	if (!this->codec->produce_plc)
 		return -ENOTSUP;
+	if (this->initial_buffering)
+		return -EINVAL;
 
 	buf = spa_bt_decode_buffer_get_write(&port->buffer, &avail);
 	res = this->codec->produce_plc(this->codec_data, buf, avail);
@@ -1058,6 +1061,8 @@ static int transport_start(struct impl *this)
 			goto fail;
 		spa_loop_locked(this->data_loop, do_start_sco_iso_io, 0, NULL, 0, this);
 	}
+
+	this->initial_buffering = true;
 
 	this->transport_started = true;
 
@@ -1875,8 +1880,11 @@ static void process_buffering(struct impl *this)
 		spa_list_append(&port->ready, &buffer->link);
 	}
 
-	if (this->transport->iso_io && this->position)
+	if (this->transport->iso_io && this->position && !this->initial_buffering)
 		spa_bt_iso_io_check_rx_sync(this->transport->iso_io, this->position->clock.position);
+
+	if (!port->buffer.buffering)
+		this->initial_buffering = false;
 
 	if (this->update_delay_event) {
 		int32_t target = spa_bt_decode_buffer_get_target_latency(&port->buffer);

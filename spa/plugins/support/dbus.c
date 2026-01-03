@@ -445,7 +445,7 @@ impl_get_connection(void *object,
 
 	conn = calloc(1, sizeof(struct connection));
 	if (conn == NULL)
-		return FALSE;
+		return NULL;
 	conn->this = impl_connection;
 	conn->impl = impl;
 	conn->type = type;

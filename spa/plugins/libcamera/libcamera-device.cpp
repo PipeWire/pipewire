@@ -98,7 +98,7 @@ const char *cameraRot(const Camera& camera)
 
 int emit_info(struct impl *impl, bool full)
 {
-	struct spa_dict_item items[10];
+	struct spa_dict_item items[12];
 	struct spa_dict dict;
 	uint32_t n_items = 0;
 	struct spa_device_info info;
@@ -117,6 +117,8 @@ int emit_info(struct impl *impl, bool full)
 	ADD_ITEM(SPA_KEY_DEVICE_API, "libcamera");
 	ADD_ITEM(SPA_KEY_MEDIA_CLASS, "Video/Device");
 	ADD_ITEM(SPA_KEY_API_LIBCAMERA_PATH, impl->device_id.c_str());
+	ADD_ITEM(KEY_VERSION_LIBRARY, libcamera_library_version());
+	ADD_ITEM(KEY_VERSION_HEADER, libcamera_header_version());
 
 	if (auto location = cameraLoc(camera))
 		ADD_ITEM(SPA_KEY_API_LIBCAMERA_LOCATION, location);

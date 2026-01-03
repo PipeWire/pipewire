@@ -1608,6 +1608,8 @@ void emit_node_info(struct impl *impl, bool full)
 		{ SPA_KEY_MEDIA_CLASS, "Video/Source" },
 		{ SPA_KEY_MEDIA_ROLE, "Camera" },
 		{ SPA_KEY_NODE_DRIVER, "true" },
+		{ KEY_VERSION_LIBRARY, libcamera_library_version() },
+		{ KEY_VERSION_HEADER, libcamera_header_version() },
 	};
 	uint64_t old = full ? impl->info.change_mask : 0;
 	if (full)

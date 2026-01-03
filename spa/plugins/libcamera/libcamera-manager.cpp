@@ -132,6 +132,8 @@ int emit_object_info(struct impl *impl, const struct device *device)
 		{ SPA_KEY_DEVICE_API, "libcamera" },
 		{ SPA_KEY_MEDIA_CLASS, "Video/Device" },
 		{ SPA_KEY_API_LIBCAMERA_PATH, device->camera->id().c_str() },
+		{ KEY_VERSION_LIBRARY, libcamera_library_version() },
+		{ KEY_VERSION_HEADER, libcamera_header_version() },
 	};
 
 	dict = SPA_DICT_INIT_ARRAY(items);

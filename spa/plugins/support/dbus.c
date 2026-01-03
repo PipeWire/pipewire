@@ -141,20 +141,34 @@ static dbus_bool_t add_watch(DBusWatch *watch, void *userdata)
 	struct connection *conn = userdata;
 	struct impl *impl = conn->impl;
 	struct source_data *data;
+	int dupfd;
 
 	spa_log_debug(impl->log, "add watch %p %d", watch, dbus_watch_get_unix_fd(watch));
 
 	data = calloc(1, sizeof(struct source_data));
+	if (data == NULL)
+		goto error;
 	data->conn = conn;
+	dupfd = dup(dbus_watch_get_unix_fd(watch));
+	if (dupfd == -1)
+		goto error_free;
+
 	/* we dup because dbus tends to add the same fd multiple times and our epoll
 	 * implementation does not like that */
 	data->source = spa_loop_utils_add_io(impl->utils,
-				dup(dbus_watch_get_unix_fd(watch)),
-				dbus_to_io(watch), true, handle_io_event, watch);
+				dupfd, dbus_to_io(watch), true, handle_io_event, watch);
+	if (data->source == NULL)
+		goto error_free;
 	spa_list_append(&conn->source_list, &data->link);
 
 	dbus_watch_set_data(watch, data, source_data_free);
 	return TRUE;
+
+error_free:
+	free(data);
+error:
+	spa_log_error(impl->log, "Failed to add watch: %m");
+	return FALSE;
 }
 
 static void remove_watch(DBusWatch *watch, void *userdata)
@@ -221,8 +235,12 @@ static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
 	spa_log_debug(impl->log, "add timeout %p conn:%p impl:%p", timeout, conn, impl);
 
 	data = calloc(1, sizeof(struct source_data));
+	if (data == NULL)
+		goto error;
 	data->conn = conn;
 	data->source = spa_loop_utils_add_timer(impl->utils, handle_timer_event, timeout);
+	if (data->source == NULL)
+		goto error_free;
 	spa_list_append(&conn->source_list, &data->link);
 
 	dbus_timeout_set_data(timeout, data, source_data_free);
@@ -233,6 +251,12 @@ static dbus_bool_t add_timeout(DBusTimeout *timeout, void *userdata)
 	spa_loop_utils_update_timer(impl->utils, data->source, &ts, NULL, false);
 
 	return TRUE;
+
+error_free:
+	free(data);
+error:
+	spa_log_error(impl->log, "Failed to add timeout: %m");
+	return FALSE;
 }
 
 static void remove_timeout(DBusTimeout *timeout, void *userdata)
@@ -420,6 +444,8 @@ impl_get_connection(void *object,
 	int res;
 
 	conn = calloc(1, sizeof(struct connection));
+	if (conn == NULL)
+		return FALSE;
 	conn->this = impl_connection;
 	conn->impl = impl;
 	conn->type = type;

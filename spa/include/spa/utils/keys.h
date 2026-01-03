@@ -98,15 +98,6 @@ extern "C" {
 #define SPA_KEY_API_LIBCAMERA_ROTATION	"api.libcamera.rotation"	/**< rotation of the camera:
 									  * "0", "90", "180" or "270" */
 
-/** info from libcamera_capability */
-#define SPA_KEY_API_LIBCAMERA_CAP_DRIVER	"api.libcamera.cap.driver"	/**< driver from capbility */
-#define SPA_KEY_API_LIBCAMERA_CAP_CARD	"api.libcamera.cap.card"		/**< caps from capability */
-#define SPA_KEY_API_LIBCAMERA_CAP_BUS_INFO	"api.libcamera.cap.bus_info"/**< bus_info from capability */
-#define SPA_KEY_API_LIBCAMERA_CAP_VERSION	"api.libcamera.cap.version"	/**< version from capability as %u.%u.%u */
-#define SPA_KEY_API_LIBCAMERA_CAP_CAPABILITIES	\
-					"api.libcamera.cap.capabilities"	/**< capabilities from capability */
-#define SPA_KEY_API_LIBCAMERA_CAP_DEVICE_CAPS	\
-					"api.libcamera.cap.device-caps"	/**< device_caps from capability */
 /** info from v4l2_capability */
 #define SPA_KEY_API_V4L2_CAP_DRIVER	"api.v4l2.cap.driver"		/**< driver from capbility */
 #define SPA_KEY_API_V4L2_CAP_CARD	"api.v4l2.cap.card"		/**< caps from capability */

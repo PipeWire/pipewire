@@ -162,6 +162,7 @@ struct impl {
 	unsigned int switching_codec:1;
 	unsigned int switching_codec_other:1;
 	unsigned int save_profile:1;
+	unsigned int autoswitch_routes:1;
 	uint32_t prev_bt_connected_profiles;
 
 	struct device_set device_set;
@@ -1756,7 +1757,7 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 		media_codec = get_supported_media_codec(this, codec, NULL, device->connected_profiles);
 		if (media_codec && media_codec->duplex_codec)
 			have_input = true;
-		if (hfp_input_for_a2dp && this->nodes[DEVICE_ID_SOURCE].active)
+		if (hfp_input_for_a2dp && (device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))
 			have_input = true;
 		break;
 	case DEVICE_PROFILE_BAP:
@@ -2067,6 +2068,9 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			}
 			priority = 128;
 		}
+
+		if (this->autoswitch_routes && (device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))
+			n_source++;
 		break;
 	}
 	case DEVICE_PROFILE_BAP_SINK:
@@ -2515,7 +2519,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		if (!profile_has_route(j, route))
 			continue;
 
-		profile_mask = profile_direction_mask(this, j, codec, false);
+		profile_mask = profile_direction_mask(this, j, codec, this->autoswitch_routes);
 		if (!(profile_mask & (1 << direction)))
 			continue;
 
@@ -2537,7 +2541,8 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		struct node *node = &this->nodes[dev];
 		struct spa_bt_transport_volume *t_volume;
 
-		mask = profile_direction_mask(this, this->profile, this->props.codec, true);
+		mask = profile_direction_mask(this, this->profile, this->props.codec,
+				this->nodes[DEVICE_ID_SOURCE].active);
 		if (!(mask & (1 << direction)))
 			return NULL;
 
@@ -2683,6 +2688,8 @@ static struct spa_pod *build_props(struct impl *this, struct spa_pod_builder *b,
 	spa_pod_builder_push_struct(b, &f[1]);
 	spa_pod_builder_string(b, "bluez5.disable-dummy-call");
 	spa_pod_builder_bool(b, this->bt_dev->disable_dummy_call);
+	spa_pod_builder_string(b, "bluez5.autoswitch-routes");
+	spa_pod_builder_bool(b, this->autoswitch_routes);
 	spa_pod_builder_pop(b, &f[1]);
 
 	param = spa_pod_builder_pop(b, &f[0]);
@@ -3051,6 +3058,19 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 			bool disable_dummy_call = SPA_POD_VALUE(struct spa_pod_bool, pod);
 			spa_log_info(this->log, "key:'%s' val:'%u'", name, disable_dummy_call);
 			this->bt_dev->disable_dummy_call = disable_dummy_call;
+		} else if (spa_streq(name, "bluez5.autoswitch-routes") && spa_pod_is_bool(pod)) {
+			bool autoswitch_routes = SPA_POD_VALUE(struct spa_pod_bool, pod);
+			spa_log_info(this->log, "key:'%s' val:'%u'", name, autoswitch_routes);
+
+			if (this->autoswitch_routes == autoswitch_routes)
+				continue;
+			this->autoswitch_routes = autoswitch_routes;
+
+			this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+			this->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
+			this->params[IDX_EnumRoute].flags ^= SPA_PARAM_INFO_SERIAL;
+			this->params[IDX_Profile].flags ^= SPA_PARAM_INFO_SERIAL;
+			this->params[IDX_EnumProfile].flags ^= SPA_PARAM_INFO_SERIAL;
 		} else
 			continue;
 
@@ -3305,12 +3325,11 @@ impl_init(const struct spa_handle_factory *factory,
 				this->bt_dev->hw_volume_profiles = profiles;
 		}
 
-		if ((str = spa_dict_lookup(info, "bluez5.disable-dummy-call")) != NULL) {
-			bool value;
+		if ((str = spa_dict_lookup(info, "bluez5.disable-dummy-call")) != NULL)
+			this->bt_dev->disable_dummy_call = spa_atob(str);
 
-			if (spa_json_parse_bool(str, strlen(str), &value) > 0)
-					this->bt_dev->disable_dummy_call = value;
-		}
+		if ((str = spa_dict_lookup(info, "bluez5.autoswitch-routes")) != NULL)
+			this->autoswitch_routes = spa_atob(str);
 	}
 
 	this->device.iface = SPA_INTERFACE_INIT(

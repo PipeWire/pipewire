@@ -114,6 +114,8 @@ struct node {
 	uint8_t tmp[TMP_BUFFER];
 	uint8_t data[DATA_BUFFER];
 
+	uint64_t last_profile_time;
+
 	unsigned enabled:1;
 };
 
@@ -139,7 +141,6 @@ struct impl {
 	size_t flush_size;
 
 	uint32_t interval;
-	uint64_t last_signal_time;
 };
 
 struct resource_data {
@@ -220,10 +221,10 @@ static void context_do_profile(void *data)
 	if (SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_FREEWHEEL))
 		return;
 
-	if (a->signal_time - impl->last_signal_time < impl->interval)
+	if (a->signal_time - n->last_profile_time < impl->interval)
 		goto done;
 
-	impl->last_signal_time = a->signal_time;
+	n->last_profile_time = a->signal_time;
 
 	spa_pod_builder_init(&b, n->tmp, sizeof(n->tmp));
 	spa_pod_builder_push_object(&b, &f[0],
@@ -546,7 +547,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->interval = SPA_NSEC_PER_MSEC *
 		pw_properties_get_uint32(props, "profile.interval.ms", DEFAULT_INTERVAL);
-	impl->last_signal_time = 0;
 
 	impl->global = pw_global_new(context,
 			PW_TYPE_INTERFACE_Profiler,

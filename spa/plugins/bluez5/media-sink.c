@@ -159,6 +159,7 @@ struct impl {
 
 	unsigned int is_duplex:1;
 	unsigned int is_internal:1;
+	unsigned int iso_debug_mono:1;
 
 	struct spa_source source;
 	int timerfd;
@@ -1566,6 +1567,8 @@ static int transport_start(struct impl *this)
 					this->codec->description);
 			return -EIO;
 		}
+
+		this->transport->iso_io->debug_mono = this->iso_debug_mono;
 	} else {
 		this->own_codec_data = false;
 		this->codec_data = this->transport->iso_io->codec_data;
@@ -2624,6 +2627,9 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info && (str = spa_dict_lookup(info, "api.bluez5.internal")) != NULL)
 		this->is_internal = spa_atob(str);
+
+	if (info && (str = spa_dict_lookup(info, "bluez5.debug.iso-mono")) != NULL)
+		this->iso_debug_mono = spa_atob(str);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))
 		sscanf(str, "pointer:%p", &this->transport);

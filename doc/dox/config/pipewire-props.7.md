@@ -1382,6 +1382,10 @@ Latency adjustment to apply on the node. Larger values add a
 constant latency, but reduces timing jitter caused by Bluetooth
 transport.
 
+@PAR@ node-prop bluez5.debug.iso-mono = false  # boolean
+Debugging option for forcing ISO sinks send identical packets out for
+all streams.
+
 # PORT PROPERTIES  @IDX@ props
 
 Port properties are usually not directly configurable via PipeWire

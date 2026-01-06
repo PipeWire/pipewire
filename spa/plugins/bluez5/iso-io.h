@@ -35,6 +35,8 @@ struct spa_bt_iso_io
 	struct spa_audio_info format;	/**< Audio format */
 	void *codec_data;		/**< Codec data */
 
+	bool debug_mono;	/**< Duplicate packets from first sink to other sinks */
+
 	void *user_data;
 };
 

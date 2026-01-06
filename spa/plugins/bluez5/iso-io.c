@@ -257,6 +257,7 @@ static void group_on_timeout(struct spa_source *source)
 	struct stream *stream;
 	bool resync = false;
 	bool fail = false;
+	bool debug_mono = false;
 	uint64_t exp;
 	uint64_t now_realtime;
 	int res;
@@ -295,12 +296,38 @@ static void group_on_timeout(struct spa_source *source)
 
 		if (!group->started && !stream->idle && stream->this.size > 0)
 			group->started = true;
+
+		debug_mono = debug_mono || stream->this.debug_mono;
 	}
 
 	if (group_latency_check(group)) {
 		spa_list_for_each(stream, &group->streams, link)
 			spa_bt_latency_reset(&stream->tx_latency);
 		goto done;
+	}
+
+	/* Force same data in all streams */
+	if (debug_mono) {
+		struct stream *s0 = NULL;
+
+		spa_list_for_each(stream, &group->streams, link) {
+			if (!stream->sink)
+				continue;
+			if (stream->this.size) {
+				s0 = stream;
+				break;
+			}
+		}
+		if (s0) {
+			spa_list_for_each(stream, &group->streams, link) {
+				if (!stream->sink)
+					continue;
+				if (stream != s0) {
+					stream->this.size = s0->this.size;
+					memcpy(stream->this.buf, s0->this.buf, s0->this.size);
+				}
+			}
+		}
 	}
 
 	/* Produce output */

@@ -3813,7 +3813,8 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			t_volume->active = true;
 			t_volume->new_hw_volume = value;
 
-			if (transport->profile & SPA_BT_PROFILE_A2DP_SINK)
+			if ((transport->profile & SPA_BT_PROFILE_A2DP_SINK) ||
+					((transport->profile & SPA_BT_PROFILE_BAP_DUPLEX) && transport->bap_initiator))
 				spa_bt_transport_start_volume_timer(transport);
 			else
 				spa_bt_transport_volume_changed(transport);

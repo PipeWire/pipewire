@@ -910,6 +910,55 @@ static void device_set_clear(struct impl *impl, struct device_set *set)
 		set->source[i].impl = impl;
 }
 
+static void device_set_volume_changed(void *data)
+{
+	struct device_set_member *member = data;
+	struct impl *impl = member->impl;
+	struct device_set *dset = &impl->device_set;
+	bool sink = (member->id & SINK_ID_FLAG);
+	int id = sink ? DEVICE_ID_SINK_SET : DEVICE_ID_SOURCE_SET;
+	struct node *node = &impl->nodes[id];
+	int volume_id = get_volume_id(member->id);
+	struct device_set_member *members = sink ? dset->sink : dset->source;
+	uint32_t n_members = sink ? dset->sinks : dset->sources;
+	struct spa_bt_transport_volume *t_volume;
+	float prev_hw_volume;
+	unsigned int i;
+
+	if (!node->active || !spa_bt_transport_volume_enabled(member->transport))
+		return;
+
+	t_volume = &member->transport->volumes[volume_id];
+	if (!t_volume->active)
+		return;
+
+	spa_log_debug(impl->log, "%p device set changed hw volume %d %f", impl, volume_id, t_volume->volume);
+
+	prev_hw_volume = node_get_hw_volume(node);
+
+	for (uint32_t i = 0; i < node->n_channels; ++i) {
+		node->volumes[i] = prev_hw_volume > 0.0f
+			? node->volumes[i] * t_volume->volume / prev_hw_volume
+			: t_volume->volume;
+	}
+
+	/* CAP v1.0.1 7.3.2.2: spread hw volume to other devices in set */
+	if (member->transport->bap_initiator) {
+		for (i = 0; i < n_members; ++i)
+			spa_bt_transport_set_volume(members[i].transport, volume_id, t_volume->volume);
+	}
+
+	node_update_soft_volumes(node, t_volume->volume);
+
+	node->save = true;
+
+	emit_volume(impl, node);
+
+	impl->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	impl->params[IDX_Route].flags ^= SPA_PARAM_INFO_SERIAL;
+	emit_info(impl, false);
+}
+
 static void device_set_transport_destroy(void *data)
 {
 	struct device_set_member *member = data;
@@ -921,6 +970,7 @@ static void device_set_transport_destroy(void *data)
 static const struct spa_bt_transport_events device_set_transport_events = {
 	SPA_VERSION_BT_DEVICE_EVENTS,
 	.destroy = device_set_transport_destroy,
+	.volume_changed = device_set_volume_changed,
 };
 
 static void device_set_update_asha(struct impl *this, struct device_set *dset)
@@ -2839,6 +2889,8 @@ static void device_set_update_volumes(struct node *node)
 		if (!t_volume || !t_volume->active)
 			goto soft_volume;
 	}
+
+	spa_log_info(impl->log, "%p device set set hw volume %d %f", impl, volume_id, hw_volume);
 
 	node_update_soft_volumes(node, hw_volume);
 	for (i = 0; i < n_members; ++i)

@@ -94,7 +94,12 @@ struct avb_aem_desc_configuration {
 	struct avb_aem_desc_descriptor_count descriptor_counts[0];
 } __attribute__ ((__packed__));
 
-struct avb_aem_desc_sampling_rate {
+
+union avb_aem_desc_sampling_rate {
+	struct {
+		uint32_t frequency:29;
+		uint32_t pull:3;
+	};
 	uint32_t pull_frequency;
 } __attribute__ ((__packed__));
 
@@ -134,10 +139,10 @@ struct avb_aem_desc_audio_unit {
 	uint16_t base_transcoder;
 	uint16_t number_of_control_blocks;
 	uint16_t base_control_block;
-	uint32_t current_sampling_rate;
+	union avb_aem_desc_sampling_rate current_sampling_rate;
 	uint16_t sampling_rates_offset;
 	uint16_t sampling_rates_count;
-	struct avb_aem_desc_sampling_rate sampling_rates[0];
+	union avb_aem_desc_sampling_rate sampling_rates[0];
 } __attribute__ ((__packed__));
 
 /* IEEE 1722.1-2021, Table 7-28 - AUDIO_CLUSTER format values */

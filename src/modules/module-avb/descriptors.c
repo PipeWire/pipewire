@@ -94,7 +94,7 @@ static void init_descriptor_legacy_avb(struct server *server)
 
 	struct {
 		struct avb_aem_desc_audio_unit desc;
-		struct avb_aem_desc_sampling_rate sampling_rates[6];
+		union avb_aem_desc_sampling_rate sampling_rates[6];
 	} __attribute__ ((__packed__)) audio_unit =
 	{
 		{
@@ -133,7 +133,7 @@ static void init_descriptor_legacy_avb(struct server *server)
 		.base_transcoder = htons(0),
 		.number_of_control_blocks = htons(0),
 		.base_control_block = htons(0),
-		.current_sampling_rate = htonl(48000),
+		.current_sampling_rate.pull_frequency = htonl(48000),
 		.sampling_rates_offset = htons(
 			4 + sizeof(struct avb_aem_desc_audio_unit)),
 		.sampling_rates_count = htons(6),
@@ -541,7 +541,7 @@ static void init_descriptor_milan_v12(struct server *server)
 
 	struct {
 		struct avb_aem_desc_audio_unit desc;
-		struct avb_aem_desc_sampling_rate sampling_rates[DSC_AUDIO_UNIT_SUPPORTED_SAMPLING_RATE_COUNT];
+		union avb_aem_desc_sampling_rate sampling_rates[DSC_AUDIO_UNIT_SUPPORTED_SAMPLING_RATE_COUNT];
 	} __attribute__ ((__packed__)) audio_unit =
 	{
 		{
@@ -580,7 +580,7 @@ static void init_descriptor_milan_v12(struct server *server)
 		.base_transcoder = htons(DSC_AUDIO_UNIT_BASE_TRANSCODER),
 		.number_of_control_blocks = htons(DSC_AUDIO_UNIT_NUMBER_OF_CONTROL_BLOCKS),
 		.base_control_block = htons(DSC_AUDIO_UNIT_BASE_CONTROL_BLOCK),
-		.current_sampling_rate = htonl(DSC_AUDIO_UNIT_CURRENT_SAMPLING_RATE_IN_HZ),
+		.current_sampling_rate.pull_frequency = htonl(DSC_AUDIO_UNIT_CURRENT_SAMPLING_RATE_IN_HZ),
 		.sampling_rates_offset = htons(DSC_AUDIO_UNIT_SAMPLING_RATES_OFFSET),
 		.sampling_rates_count = htons(DSC_AUDIO_UNIT_SUPPORTED_SAMPLING_RATE_COUNT),
 		},

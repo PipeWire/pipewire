@@ -104,10 +104,18 @@ struct avb_packet_aecp_aem_setget_association_id {
 	uint64_t association_id;
 } __attribute__ ((__packed__));
 
+union avb_packet_aecp_aem_pull_frequency {
+	struct {
+		uint32_t frequency:29;
+		uint32_t pull:3;
+	};
+	uint32_t pull_frequency;
+}__attribute__ ((__packed__));
+
 struct avb_packet_aecp_aem_setget_sampling_rate {
 	uint16_t descriptor_type;
 	uint16_t descriptor_id;
-	uint32_t sampling_rate;
+	union avb_packet_aecp_aem_pull_frequency sampling_rate;
 } __attribute__ ((__packed__));
 
 struct avb_packet_aecp_aem_setget_clock_source {

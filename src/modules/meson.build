@@ -739,6 +739,7 @@ if build_module_avb
       'module-avb/aecp-aem-cmds-resps/cmd-available.c',
       'module-avb/aecp-aem-cmds-resps/cmd-get-set-name.c',
       'module-avb/aecp-aem-cmds-resps/cmd-get-set-clock-source.c',
+      'module-avb/aecp-aem-cmds-resps/cmd-get-set-sampling-rate.c',
       'module-avb/aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.c',
       'module-avb/aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.c',
       'module-avb/aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.c',

@@ -602,7 +602,8 @@ static int start_unix_server(struct server *server, const struct sockaddr_storag
 {
 	const struct sockaddr_un * const addr_un = (const struct sockaddr_un *) addr;
 	struct stat socket_stat;
-	int fd, res;
+	spa_autoclose int fd = -1;
+	int res;
 
 	spa_assert(addr_un->sun_family == AF_UNIX);
 
@@ -678,10 +679,8 @@ static int start_unix_server(struct server *server, const struct sockaddr_storag
 done:
 	server->addr = *addr;
 
-	return fd;
+	return spa_steal_fd(fd);
 
-error_close:
-	close(fd);
 error:
 	return res;
 }
@@ -873,7 +872,8 @@ static int parse_ip_address(const char *address, struct sockaddr_storage *addrs,
 static int start_ip_server(struct server *server, const struct sockaddr_storage *addr)
 {
 	char ip[FORMATTED_IP_ADDR_STRLEN];
-	int fd, res;
+	spa_autoclose int fd = -1;
+	int res;
 
 	spa_assert(addr->ss_family == AF_INET || addr->ss_family == AF_INET6);
 
@@ -913,10 +913,8 @@ static int start_ip_server(struct server *server, const struct sockaddr_storage 
 
 	server->addr = *addr;
 
-	return fd;
+	return spa_steal_fd(fd);
 
-error_close:
-	close(fd);
 error:
 	return res;
 }

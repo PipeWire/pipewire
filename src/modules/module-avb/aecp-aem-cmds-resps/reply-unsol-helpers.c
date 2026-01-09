@@ -12,7 +12,7 @@
 #include <pipewire/log.h>
 
 #define AECP_UNSOL_BUFFER_SIZE 		(128U)
-#define AECP_AEM_MIN_PACKET_LENGTH 	(64U)
+#define AECP_AEM_MIN_PACKET_LENGTH 	(60U)
 
 static int reply_unsol_get_specific_info(struct aecp *aecp, struct descriptor *desc,
 	struct aecp_aem_unsol_notification_state **unsol_state, size_t *count)
@@ -76,13 +76,13 @@ static int reply_unsol_send(struct aecp *aecp, uint64_t controller_id,
 			&& !internal) {
 			/* Do not send unsolicited if that the one triggering
 			 changes this is not a timeout. */
-			pw_log_debug("Do not send twice of %"PRIx64" %"PRIx64, 
+			pw_log_debug("Do not send twice of %"PRIx64" %"PRIx64,
 				controller_id,
 				unsol_state[ctrler_index].ctrler_entity_id);
 			continue;
 		}
 
-		p->aecp.controller_guid = 
+		p->aecp.controller_guid =
 			htobe64(unsol_state[ctrler_index].ctrler_entity_id);
 
 		p->aecp.sequence_id = htons(unsol_state[ctrler_index].next_seq_id);
@@ -111,8 +111,8 @@ static void reply_unsol_notifications_prepare(struct aecp *aecp,
 
 	/* Here the value of 12 is the delta between the target_entity_id and
 	   start of the AECP message specific data. */
-	ctrl_data_length = len - (sizeof(*h) + sizeof(*p)) + 
-		AVB_PACKET_CONTROL_DATA_OFFSET;
+	ctrl_data_length = len - (sizeof(*h) + sizeof(*p))
+				+ AVB_PACKET_CONTROL_DATA_OFFSET;
 
 	h = (struct avb_ethernet_header*) packet;
 	p = SPA_PTROFF(h, sizeof(*h), void);
@@ -137,6 +137,10 @@ int reply_unsolicited_notifications(struct aecp *aecp,
 	 bool internal)
 {
 	uint8_t buf[AECP_UNSOL_BUFFER_SIZE];
+	/* Make sure to get the actual original len if the packet
+	 * re-adjusted to comply with the 60 bytes min packet size.
+	 */
+	size_t original_len = len;
 
 	if (len < AECP_AEM_MIN_PACKET_LENGTH) {
 		memset(buf, 0, AECP_AEM_MIN_PACKET_LENGTH);
@@ -146,7 +150,7 @@ int reply_unsolicited_notifications(struct aecp *aecp,
 	}
 
 	/** Retrieve the entity descriptor */
-	reply_unsol_notifications_prepare(aecp, buf, packet, len);
+	reply_unsol_notifications_prepare(aecp, buf, packet, original_len);
 
     return reply_unsol_send(aecp, b_state->controller_entity_id, packet, len,
 							 internal);

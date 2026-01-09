@@ -11,7 +11,7 @@
 struct spa_pod;
 struct spa_pod_builder;
 
-#define RATE_MAX	(48000u*16u)
+#define RATE_MAX	(48000u*32u)
 #define CHANNELS_MAX	(64u)
 
 enum sample_format {

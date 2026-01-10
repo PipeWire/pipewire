@@ -737,6 +737,7 @@ if build_module_avb
       'module-avb/aecp.c',
       'module-avb/aecp-aem.c',
       'module-avb/aecp-aem-cmds-resps/cmd-available.c',
+      'module-avb/aecp-aem-cmds-resps/cmd-get-set-control.c',
       'module-avb/aecp-aem-cmds-resps/cmd-get-set-name.c',
       'module-avb/aecp-aem-cmds-resps/cmd-get-set-clock-source.c',
       'module-avb/aecp-aem-cmds-resps/cmd-get-set-sampling-rate.c',

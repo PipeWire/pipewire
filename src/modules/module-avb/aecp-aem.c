@@ -12,6 +12,7 @@
 #include "aecp-aem-cmds-resps/cmd-available.h"
 #include "aecp-aem-cmds-resps/cmd-get-set-configuration.h"
 #include "aecp-aem-cmds-resps/cmd-get-set-sampling-rate.h"
+#include "aecp-aem-cmds-resps/cmd-get-set-control.h"
 #include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 #include "aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.h"
 #include "aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.h"
@@ -339,6 +340,12 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_CLOCK_SOURCE, true,
 		handle_cmd_get_clock_source_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_SET_CONTROL, false,
+		handle_cmd_set_control_milan_v12),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_CONTROL, true,
+		handle_cmd_get_control_milan_v12),
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_SET_SAMPLING_RATE, false,
 		handle_cmd_set_sampling_rate_milan_v12),

@@ -128,6 +128,7 @@ struct avb_packet_aecp_aem_setget_clock_source {
 struct avb_packet_aecp_aem_setget_control {
 	uint16_t descriptor_type;
 	uint16_t descriptor_id;
+	uint8_t payload[0];
 } __attribute__ ((__packed__));
 
 struct avb_packet_aecp_aem_incdec_control {

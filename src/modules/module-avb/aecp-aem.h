@@ -1,5 +1,6 @@
 /* AVB support */
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
+/* SPDX-FileCopyrightText: Copyright © 2027 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
 #ifndef AVB_AEM_H
@@ -237,6 +238,8 @@ struct avb_packet_aecp_aem {
 	uint8_t cmd2;
 	uint8_t payload[0];
 } __attribute__ ((__packed__));
+
+#define AVB_PACKET_MILAN_DEFAULT_MTU		(1500)
 
 #define AVB_PACKET_CONTROL_DATA_OFFSET		(12U)
 

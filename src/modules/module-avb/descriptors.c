@@ -302,7 +302,7 @@ static void init_descriptor_milan_v12(struct server *server)
 			sizeof(struct avb_aem_desc_entity),
 			&(struct avb_aem_desc_entity)
 	{
-		.entity_id = htobe64(DSC_ENTITY_MODEL_ENTITY_ID),
+		.entity_id = htobe64(server->entity_id),
 		.entity_model_id = htobe64(DSC_ENTITY_MODEL_ID),
 		.entity_capabilities = htonl(DSC_ENTITY_MODEL_ENTITY_CAPABILITIES),
 

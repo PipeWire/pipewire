@@ -1315,7 +1315,10 @@ static void media_on_flush_error(struct spa_source *source)
 			if (spa_bt_iso_io_recv_errqueue(this->transport->iso_io) == 0)
 				return;
 		} else {
-			if (spa_bt_latency_recv_errqueue(&this->tx_latency, this->flush_source.fd, this->log) == 0)
+			struct timespec ts;
+
+			spa_system_clock_gettime(this->data_system, CLOCK_REALTIME, &ts);
+			if (spa_bt_latency_recv_errqueue(&this->tx_latency, this->flush_source.fd, SPA_TIMESPEC_TO_NSEC(&ts), this->log) == 0)
 				return;
 		}
 

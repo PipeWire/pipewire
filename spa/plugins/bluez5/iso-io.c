@@ -258,6 +258,7 @@ static void group_on_timeout(struct spa_source *source)
 	bool resync = false;
 	bool fail = false;
 	uint64_t exp;
+	uint64_t now_realtime;
 	int res;
 
 	if ((res = spa_system_timerfd_read(group->data_system, group->timerfd, &exp)) < 0) {
@@ -268,6 +269,8 @@ static void group_on_timeout(struct spa_source *source)
 	}
 	if (!exp)
 		return;
+
+	now_realtime = get_time_ns(group->data_system, CLOCK_REALTIME);
 
 	spa_list_for_each(stream, &group->streams, link) {
 		if (!stream->ready)
@@ -283,7 +286,7 @@ static void group_on_timeout(struct spa_source *source)
 			continue;
 		}
 
-		spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, group->log);
+		spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, now_realtime, group->log);
 
 		if (stream->this.need_resync) {
 			resync = true;
@@ -649,6 +652,7 @@ int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *this)
 {
 	struct stream *stream = SPA_CONTAINER_OF(this, struct stream, this);
 	struct group *group = stream->group;
+	uint64_t now_realtime;
 
 	if (!stream->sink) {
 		struct stream *s;
@@ -661,7 +665,8 @@ int spa_bt_iso_io_recv_errqueue(struct spa_bt_iso_io *this)
 		}
 	}
 
-	return spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, group->log);
+	now_realtime = get_time_ns(group->data_system, CLOCK_REALTIME);
+	return spa_bt_latency_recv_errqueue(&stream->tx_latency, stream->fd, now_realtime, group->log);
 }
 
 /**

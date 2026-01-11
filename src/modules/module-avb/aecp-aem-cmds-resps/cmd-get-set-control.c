@@ -152,7 +152,7 @@ static int handle_cmd_set_control_identify(struct aecp *aecp, struct descriptor 
 		goto value_error;
 	}
 
-	desc_format->current_value = *value_req;
+	desc_formats->current_value = *value_req;
 	rc = reply_success(aecp, m, len);
 	if (rc) {
 		pw_log_error("Could not send the set-control response\n");

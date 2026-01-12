@@ -1,3 +1,45 @@
+# PipeWire 1.4.10 (2026-01-16)
+
+This is a small bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Fix a regression in restoring volumes on nodes.
+  - Clean up timed out stream on pulse-server.
+  - Backport filter-graph channel support.
+  - More small fixes and improvements.
+
+## PipeWire
+  - Backport the timer queue from 1.5.
+
+## modules
+  - Fix module leak in module-eq. (#5045)
+  - Fix profiling of multiple drivers when profile.interval.ms is
+    set. (#5061)
+  - Allow both sink and source pulse tunnels with the same name.
+    (#5079)
+
+## SPA
+  - Emit props events in all cases. (#4610)
+  - Backport some filter-graph changes to make it adapt better to the
+    number of channels of the stream.
+  - Fix some port errors in filter-graph. (#4700)
+  - Avoid a memcpy in the convolver.
+  - Handle some DBus errors better instead of crashing.
+  - Fix AVX2 functions and flags. (#5072)
+  - Limit resampler phases to avoid crashes (#5073)
+  - Support some more channel downmix positions.
+
+## pulse-server
+  - Clean up timed out streams. (#4901)
+  - Add message to force mono mixdown.
+
+## GStreamer
+  - Avoid scaling overflow in the clock.
+
+
+Older versions:
+
 # PipeWire 1.4.9 (2025-10-09)
 
 This is a small bugfix release that is API and ABI compatible with
@@ -35,9 +77,6 @@ previous 1.x releases.
   - Improve headroom for SOF cards by setting it to the minimal period
     size by default. (#4489)
   - Adapt to newer libcamera changes.
-
-
-Older versions:
 
 # PipeWire 1.4.8 (2025-09-11)
 

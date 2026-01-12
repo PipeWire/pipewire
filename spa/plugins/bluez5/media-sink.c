@@ -1567,12 +1567,11 @@ static int transport_start(struct impl *this)
 					this->codec->description);
 			return -EIO;
 		}
-
-		this->transport->iso_io->debug_mono = this->iso_debug_mono;
 	} else {
 		this->own_codec_data = false;
 		this->codec_data = this->transport->iso_io->codec_data;
 		this->codec_props_changed = true;
+		this->transport->iso_io->debug_mono = this->iso_debug_mono;
 	}
 
 	this->encoder_delay = 0;

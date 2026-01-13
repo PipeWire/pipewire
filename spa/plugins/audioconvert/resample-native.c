@@ -95,8 +95,8 @@ static struct resample_info resample_table[] =
 #if defined (HAVE_NEON)
 	MAKE(F32, copy_c, full_neon, inter_neon, SPA_CPU_FLAG_NEON),
 #endif
-#if defined(HAVE_AVX) && defined(HAVE_FMA)
-	MAKE(F32, copy_c, full_avx, inter_avx, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3),
+#if defined(HAVE_AVX2) && defined(HAVE_FMA)
+	MAKE(F32, copy_c, full_avx2, inter_avx2, SPA_CPU_FLAG_AVX2 | SPA_CPU_FLAG_FMA3),
 #endif
 #if defined (HAVE_SSSE3)
 	MAKE(F32, copy_c, full_ssse3, inter_ssse3, SPA_CPU_FLAG_SSSE3 | SPA_CPU_FLAG_SLOW_UNALIGNED),

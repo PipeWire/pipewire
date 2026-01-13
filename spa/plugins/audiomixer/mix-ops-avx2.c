@@ -13,7 +13,7 @@
 #include <immintrin.h>
 
 void
-mix_f32_avx(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
+mix_f32_avx2(struct mix_ops *ops, void * SPA_RESTRICT dst, const void * SPA_RESTRICT src[],
 		uint32_t n_src, uint32_t n_samples)
 {
 	n_samples *= ops->n_channels;

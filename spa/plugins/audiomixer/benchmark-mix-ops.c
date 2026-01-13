@@ -143,9 +143,9 @@ static void test_f32(void)
 		run_test("test_f32", "sse", mix_f32_sse);
 	}
 #endif
-#if defined (HAVE_AVX)
-	if (cpu_flags & SPA_CPU_FLAG_AVX) {
-		run_test("test_f32", "avx", mix_f32_avx);
+#if defined (HAVE_AVX2)
+	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
+		run_test("test_f32", "avx2", mix_f32_avx2);
 	}
 #endif
 }

@@ -220,11 +220,11 @@ static void test_f32(void)
 		run_test("test_f32_4_sse", src, 4, out_4, sizeof(out_4), SPA_N_ELEMENTS(out_4), mix_f32_sse);
 	}
 #endif
-#if defined(HAVE_AVX)
-	if (cpu_flags & SPA_CPU_FLAG_AVX) {
-		run_test("test_f32_0_avx", NULL, 0, out, sizeof(out), SPA_N_ELEMENTS(out), mix_f32_avx);
-		run_test("test_f32_1_avx", src, 1, in_1, sizeof(in_1), SPA_N_ELEMENTS(in_1), mix_f32_avx);
-		run_test("test_f32_4_avx", src, 4, out_4, sizeof(out_4), SPA_N_ELEMENTS(out_4), mix_f32_avx);
+#if defined(HAVE_AVX2)
+	if (cpu_flags & SPA_CPU_FLAG_AVX2) {
+		run_test("test_f32_0_avx", NULL, 0, out, sizeof(out), SPA_N_ELEMENTS(out), mix_f32_avx2);
+		run_test("test_f32_1_avx", src, 1, in_1, sizeof(in_1), SPA_N_ELEMENTS(in_1), mix_f32_avx2);
+		run_test("test_f32_4_avx", src, 4, out_4, sizeof(out_4), SPA_N_ELEMENTS(out_4), mix_f32_avx2);
 	}
 #endif
 }

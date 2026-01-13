@@ -16,7 +16,7 @@
 
 #include <immintrin.h>
 
-static void dsp_add_avx(void *obj, float *dst, const float * SPA_RESTRICT src[],
+static void dsp_add_avx2(void *obj, float *dst, const float * SPA_RESTRICT src[],
 		uint32_t n_src, uint32_t n_samples)
 {
 	uint32_t n, i, unrolled;
@@ -61,7 +61,7 @@ static void dsp_add_avx(void *obj, float *dst, const float * SPA_RESTRICT src[],
 	}
 }
 
-static void dsp_add_1_gain_avx(void *obj, float *dst, const float * SPA_RESTRICT src[],
+static void dsp_add_1_gain_avx2(void *obj, float *dst, const float * SPA_RESTRICT src[],
 		uint32_t n_src, float gain, uint32_t n_samples)
 {
 	uint32_t n, i, unrolled;
@@ -110,7 +110,7 @@ static void dsp_add_1_gain_avx(void *obj, float *dst, const float * SPA_RESTRICT
 	}
 }
 
-static void dsp_add_n_gain_avx(void *obj, float *dst,
+static void dsp_add_n_gain_avx2(void *obj, float *dst,
 		const float * SPA_RESTRICT src[], uint32_t n_src,
 		float gain[], uint32_t n_gain, uint32_t n_samples)
 {
@@ -162,7 +162,7 @@ static void dsp_add_n_gain_avx(void *obj, float *dst,
 }
 
 
-void dsp_mix_gain_avx(void *obj,
+void dsp_mix_gain_avx2(void *obj,
 		float * SPA_RESTRICT dst,
 		const float * SPA_RESTRICT src[], uint32_t n_src,
 		float gain[], uint32_t n_gain, uint32_t n_samples)
@@ -174,15 +174,15 @@ void dsp_mix_gain_avx(void *obj,
 			spa_memcpy(dst, src[0], n_samples * sizeof(float));
 	} else {
 		if (n_gain == 0)
-			dsp_add_avx(obj, dst, src, n_src, n_samples);
+			dsp_add_avx2(obj, dst, src, n_src, n_samples);
 		else if (n_gain < n_src)
-			dsp_add_1_gain_avx(obj, dst, src, n_src, gain[0], n_samples);
+			dsp_add_1_gain_avx2(obj, dst, src, n_src, gain[0], n_samples);
 		else
-			dsp_add_n_gain_avx(obj, dst, src, n_src, gain, n_gain, n_samples);
+			dsp_add_n_gain_avx2(obj, dst, src, n_src, gain, n_gain, n_samples);
 	}
 }
 
-void dsp_sum_avx(void *obj, float *r, const float *a, const float *b, uint32_t n_samples)
+void dsp_sum_avx2(void *obj, float *r, const float *a, const float *b, uint32_t n_samples)
 {
 	uint32_t n, unrolled;
 	__m256 in[4];
@@ -245,7 +245,7 @@ inline static __m256 _mm256_mul_pz(__m256 ab, __m256 cd)
 	return _mm256_addsub_ps(x0, x1);
 }
 
-void dsp_fft_cmul_avx(void *obj, void *fft,
+void dsp_fft_cmul_avx2(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
@@ -282,7 +282,7 @@ void dsp_fft_cmul_avx(void *obj, void *fft,
 #endif
 }
 
-void dsp_fft_cmuladd_avx(void *obj, void *fft,
+void dsp_fft_cmuladd_avx2(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT src,
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
 	uint32_t len, const float scale)

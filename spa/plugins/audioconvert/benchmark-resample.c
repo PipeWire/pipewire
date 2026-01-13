@@ -156,17 +156,17 @@ int main(int argc, char *argv[])
 		}
 	}
 #endif
-#if defined (HAVE_AVX) && defined(HAVE_FMA)
-	if (SPA_FLAG_IS_SET(cpu_flags, SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3)) {
+#if defined (HAVE_AVX2) && defined(HAVE_FMA)
+	if (SPA_FLAG_IS_SET(cpu_flags, SPA_CPU_FLAG_AVX2 | SPA_CPU_FLAG_FMA3)) {
 		for (i = 0; i < SPA_N_ELEMENTS(in_rates); i++) {
 			spa_zero(r);
 			r.channels = 2;
-			r.cpu_flags = SPA_CPU_FLAG_AVX | SPA_CPU_FLAG_FMA3;
+			r.cpu_flags = SPA_CPU_FLAG_AVX2 | SPA_CPU_FLAG_FMA3;
 			r.i_rate = in_rates[i];
 			r.o_rate = out_rates[i];
 			r.quality = RESAMPLE_DEFAULT_QUALITY;
 			resample_native_init(&r);
-			run_test("native", "avx", &r);
+			run_test("native", "avx2", &r);
 			resample_free(&r);
 		}
 	}

@@ -23,13 +23,13 @@ struct dsp_info {
 
 static const struct dsp_info dsp_table[] =
 {
-#if defined (HAVE_AVX)
-	{ SPA_CPU_FLAG_AVX,
+#if defined (HAVE_AVX2)
+	{ SPA_CPU_FLAG_AVX2,
 		.funcs.clear = dsp_clear_c,
 		.funcs.copy = dsp_copy_c,
-		.funcs.mix_gain = dsp_mix_gain_avx,
+		.funcs.mix_gain = dsp_mix_gain_avx2,
 		.funcs.biquad_run = dsp_biquad_run_sse,
-		.funcs.sum = dsp_sum_avx,
+		.funcs.sum = dsp_sum_avx2,
 		.funcs.linear = dsp_linear_c,
 		.funcs.mult = dsp_mult_c,
 		.funcs.fft_new = dsp_fft_new_c,
@@ -38,8 +38,8 @@ static const struct dsp_info dsp_table[] =
 		.funcs.fft_memfree = dsp_fft_memfree_c,
 		.funcs.fft_memclear = dsp_fft_memclear_c,
 		.funcs.fft_run = dsp_fft_run_c,
-		.funcs.fft_cmul = dsp_fft_cmul_avx,
-		.funcs.fft_cmuladd = dsp_fft_cmuladd_avx,
+		.funcs.fft_cmul = dsp_fft_cmul_avx2,
+		.funcs.fft_cmuladd = dsp_fft_cmuladd_avx2,
 		.funcs.delay = dsp_delay_sse,
 	},
 #endif

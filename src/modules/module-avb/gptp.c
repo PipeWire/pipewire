@@ -203,6 +203,7 @@ static void gptp_destroy(void *data)
 {
 	struct gptp *gptp = data;
 	spa_hook_remove(&gptp->server_listener);
+	free(gptp->ptp_mgmt_socket_path);
 	free(gptp);
 }
 

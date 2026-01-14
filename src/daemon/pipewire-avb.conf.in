@@ -71,6 +71,7 @@ avb.properties = {
     #ifname = "eth0.2"
     ifname = "enp3s0"
     milan = false
+    ptp.management-socket = "/var/run/ptp4lro"
 }
 
 avb.properties.rules = [

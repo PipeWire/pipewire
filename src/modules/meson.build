@@ -821,6 +821,7 @@ if build_module_avb
       'module-avb/es-builder.c',
       'module-avb/avdecc.c',
       'module-avb/descriptors.c',
+      'module-avb/gptp.c',
       'module-avb/maap.c',
       'module-avb/mmrp.c',
       'module-avb/mrp.c',

@@ -21,6 +21,7 @@
 #include "avb.h"
 #include "packets.h"
 #include "internal.h"
+#include "gptp.h"
 #include "stream.h"
 #include "acmp.h"
 #include "adp.h"
@@ -405,6 +406,9 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 	if ((res = server->transport->setup(server)) < 0)
 		goto error_free;
 
+	server->gptp = avb_gptp_new(server);
+
+	init_descriptors(server);
 
 	server->mrp = avb_mrp_new(server);
 	if (server->mrp == NULL)

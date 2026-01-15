@@ -95,6 +95,7 @@ struct impl {
 
 struct tunnel_info {
 	const char *name;
+	const char *mode;
 };
 
 #define TUNNEL_INFO(...) ((struct tunnel_info){ __VA_ARGS__ })
@@ -117,6 +118,7 @@ static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *i
 		return NULL;
 
 	t->info.name = strdup(info->name);
+	t->info.mode = strdup(info->mode);
 	spa_list_append(&impl->tunnel_list, &t->link);
 
 	return t;
@@ -126,7 +128,8 @@ static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *i
 {
 	struct tunnel *t;
 	spa_list_for_each(t, &impl->tunnel_list, link) {
-		if (spa_streq(t->info.name, info->name))
+		if (spa_streq(t->info.name, info->name) &&
+		    spa_streq(t->info.mode, info->mode))
 			return t;
 	}
 	return NULL;
@@ -138,6 +141,7 @@ static void free_tunnel(struct tunnel *t)
 	if (t->module)
 		pw_impl_module_destroy(t->module);
 	free((char *) t->info.name);
+	free((char *) t->info.mode);
 
 	free(t);
 }
@@ -245,7 +249,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	struct impl *impl = userdata;
 	struct tunnel *t;
 	struct tunnel_info tinfo;
-	const char *str, *device, *desc, *fqdn, *user;
+	const char *str, *device, *desc, *fqdn, *user, *mode;
 	char if_suffix[16] = "";
 	char at[AVAHI_ADDRESS_STR_MAX];
 	AvahiStringList *l;
@@ -255,13 +259,16 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	struct pw_impl_module *mod;
 	struct pw_properties *props = NULL;
 
+
 	if (event != AVAHI_RESOLVER_FOUND) {
 		pw_log_error("Resolving of '%s' failed: %s", name,
 				avahi_strerror(avahi_client_errno(impl->client)));
 		goto done;
 	}
 
-	tinfo = TUNNEL_INFO(.name = name);
+	mode = strstr(type, "sink") ? "sink" : "source";
+
+	tinfo = TUNNEL_INFO(.name = name, .mode = mode);
 
 	t = find_tunnel(impl, &tinfo);
 	if (t == NULL)
@@ -299,8 +306,7 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		pw_properties_setf(props, PW_KEY_NODE_NAME,
 				"tunnel.%s", host_name);
 
-	str = strstr(type, "sink") ? "sink" : "source";
-	pw_properties_set(props, "tunnel.mode", str);
+	pw_properties_set(props, "tunnel.mode", mode);
 
 	if (a->proto == AVAHI_PROTO_INET6 &&
 	    a->data.ipv6.address[0] == 0xfe &&

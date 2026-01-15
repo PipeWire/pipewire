@@ -13,6 +13,9 @@
 
 SPA_LOG_TOPIC_DEFINE(resample_log_topic, "spa.resample");
 
+#define MAX_TAPS	(1u<<18)
+#define MAX_PHASES	1024u
+
 struct quality {
 	uint32_t n_taps;
 	double cutoff;
@@ -148,7 +151,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	in_rate = r->i_rate;
 	out_rate = r->o_rate;
 
-	if (rate != 1.0) {
+	if (rate != 1.0 || data->force_inter) {
 		in_rate = (uint32_t)(in_rate / rate);
 		data->func = data->info->process_inter;
 	}
@@ -362,16 +365,17 @@ int resample_native_init(struct resample *r)
 
 	/* multiple of 8 taps to ease simd optimizations */
 	n_taps = SPA_ROUND_UP_N((uint32_t)ceil(q->n_taps / scale), 8);
-	n_taps = SPA_MIN(n_taps, 1u << 18);
+	n_taps = SPA_MIN(n_taps, MAX_TAPS);
 
 	/* try to get at least 256 phases so that interpolation is
 	 * accurate enough when activated */
-	n_phases = out_rate;
+	n_phases = SPA_MIN(MAX_PHASES, out_rate);
 	oversample = (255 + n_phases) / n_phases;
 	n_phases *= oversample;
 
 	filter_stride = SPA_ROUND_UP_N(n_taps * sizeof(float), 64);
 	filter_size = filter_stride * (n_phases + 1);
+
 	history_stride = SPA_ROUND_UP_N(2 * n_taps * sizeof(float), 64);
 	history_size = r->channels * history_stride;
 
@@ -389,6 +393,7 @@ int resample_native_init(struct resample *r)
 	d->n_phases = n_phases;
 	d->in_rate = in_rate;
 	d->out_rate = out_rate;
+	d->force_inter = out_rate > n_phases;
 	d->gcd = gcd;
 	d->pm = (float)n_phases / r->o_rate;
 	d->filter = SPA_PTROFF_ALIGN(d, sizeof(struct native_data), 64, float);

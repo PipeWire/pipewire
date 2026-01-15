@@ -98,9 +98,12 @@ static void rtp_audio_process_playback(void *data)
 		 * pace of the driver. */
 
 		if (impl->io_position) {
-			/* Shift clock position by stream delay to compensate
-			 * for processing and output delay. */
-			timestamp = impl->io_position->clock.position + device_delay;
+			/* Use the clock position directly as the read index.
+			 * Do NOT add device_delay here - the sink's DLL handles
+			 * matching its hardware clock to the driver pace. Adding
+			 * device_delay would create a feedback loop since rate
+			 * adjustments affect both ringbuffer and device buffer. */
+			timestamp = impl->io_position->clock.position;
 			spa_ringbuffer_read_update(&impl->ring, timestamp);
 		} else {
 			/* In the unlikely case that no spa_io_position pointer

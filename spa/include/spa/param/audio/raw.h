@@ -152,41 +152,42 @@ enum spa_audio_channel {
 
 	SPA_AUDIO_CHANNEL_MONO,         /**< mono stream */
 
-	SPA_AUDIO_CHANNEL_FL,           /**< front left */
-	SPA_AUDIO_CHANNEL_FR,           /**< front right */
-	SPA_AUDIO_CHANNEL_FC,           /**< front center */
-	SPA_AUDIO_CHANNEL_LFE,          /**< LFE */
-	SPA_AUDIO_CHANNEL_SL,           /**< side left */
-	SPA_AUDIO_CHANNEL_SR,           /**< side right */
-	SPA_AUDIO_CHANNEL_FLC,          /**< front left center */
-	SPA_AUDIO_CHANNEL_FRC,          /**< front right center */
-	SPA_AUDIO_CHANNEL_RC,           /**< rear center */
-	SPA_AUDIO_CHANNEL_RL,           /**< rear left */
-	SPA_AUDIO_CHANNEL_RR,           /**< rear right */
-	SPA_AUDIO_CHANNEL_TC,           /**< top center */
-	SPA_AUDIO_CHANNEL_TFL,          /**< top front left */
-	SPA_AUDIO_CHANNEL_TFC,          /**< top front center */
-	SPA_AUDIO_CHANNEL_TFR,          /**< top front right */
-	SPA_AUDIO_CHANNEL_TRL,          /**< top rear left */
-	SPA_AUDIO_CHANNEL_TRC,          /**< top rear center */
-	SPA_AUDIO_CHANNEL_TRR,          /**< top rear right */
-	SPA_AUDIO_CHANNEL_RLC,          /**< rear left center */
-	SPA_AUDIO_CHANNEL_RRC,          /**< rear right center */
-	SPA_AUDIO_CHANNEL_FLW,          /**< front left wide */
-	SPA_AUDIO_CHANNEL_FRW,          /**< front right wide */
-	SPA_AUDIO_CHANNEL_LFE2,		/**< LFE 2 */
-	SPA_AUDIO_CHANNEL_FLH,          /**< front left high */
-	SPA_AUDIO_CHANNEL_FCH,          /**< front center high */
-	SPA_AUDIO_CHANNEL_FRH,          /**< front right high */
-	SPA_AUDIO_CHANNEL_TFLC,         /**< top front left center */
-	SPA_AUDIO_CHANNEL_TFRC,         /**< top front right center */
-	SPA_AUDIO_CHANNEL_TSL,          /**< top side left */
-	SPA_AUDIO_CHANNEL_TSR,          /**< top side right */
-	SPA_AUDIO_CHANNEL_LLFE,         /**< left LFE */
-	SPA_AUDIO_CHANNEL_RLFE,         /**< right LFE */
-	SPA_AUDIO_CHANNEL_BC,           /**< bottom center */
-	SPA_AUDIO_CHANNEL_BLC,          /**< bottom left center */
-	SPA_AUDIO_CHANNEL_BRC,          /**< bottom right center */
+	/**                                                        Azimuth Elevation */
+	SPA_AUDIO_CHANNEL_FL,           /**< front left               30       0     */
+	SPA_AUDIO_CHANNEL_FR,           /**< front right             -30       0     */
+	SPA_AUDIO_CHANNEL_FC,           /**< front center              0       0     */
+	SPA_AUDIO_CHANNEL_LFE,          /**< LFE                       0     -30     */
+	SPA_AUDIO_CHANNEL_SL,           /**< side left                90       0     */
+	SPA_AUDIO_CHANNEL_SR,           /**< side right              -90       0     */
+	SPA_AUDIO_CHANNEL_FLC,          /**< front left center        22.5     0     */
+	SPA_AUDIO_CHANNEL_FRC,          /**< front right center      -22.5     0     */
+	SPA_AUDIO_CHANNEL_RC,           /**< rear center             180       0     */
+	SPA_AUDIO_CHANNEL_RL,           /**< rear left               110       0     */
+	SPA_AUDIO_CHANNEL_RR,           /**< rear right             -110       0     */
+	SPA_AUDIO_CHANNEL_TC,           /**< top center                0      90     */
+	SPA_AUDIO_CHANNEL_TFL,          /**< top front left           30      30     */
+	SPA_AUDIO_CHANNEL_TFC,          /**< top front center          0      30     */
+	SPA_AUDIO_CHANNEL_TFR,          /**< top front right         -30      30     */
+	SPA_AUDIO_CHANNEL_TRL,          /**< top rear left           110      30     */
+	SPA_AUDIO_CHANNEL_TRC,          /**< top rear center         180      30     */
+	SPA_AUDIO_CHANNEL_TRR,          /**< top rear right         -110      30     */
+	SPA_AUDIO_CHANNEL_RLC,          /**< rear left center        135       0     */
+	SPA_AUDIO_CHANNEL_RRC,          /**< rear right center      -135       0     */
+	SPA_AUDIO_CHANNEL_FLW,          /**< front left wide          60       0     */
+	SPA_AUDIO_CHANNEL_FRW,          /**< front right wide        -60       0     */
+	SPA_AUDIO_CHANNEL_LFE2,		/**< LFE 2                     0     -30     */
+	SPA_AUDIO_CHANNEL_FLH,          /**< front left high         22.5     30     */
+	SPA_AUDIO_CHANNEL_FCH,          /**< front center high        0       30     */
+	SPA_AUDIO_CHANNEL_FRH,          /**< front right high       -22.5     30     */
+	SPA_AUDIO_CHANNEL_TFLC,         /**< top front left center    45      30     */
+	SPA_AUDIO_CHANNEL_TFRC,         /**< top front right center  -45      30     */
+	SPA_AUDIO_CHANNEL_TSL,          /**< top side left            90       0     */
+	SPA_AUDIO_CHANNEL_TSR,          /**< top side right          -90       0     */
+	SPA_AUDIO_CHANNEL_LLFE,         /**< left LFE                 45     -30     */
+	SPA_AUDIO_CHANNEL_RLFE,         /**< right LFE               -45     -30     */
+	SPA_AUDIO_CHANNEL_BC,           /**< bottom center             0     -30     */
+	SPA_AUDIO_CHANNEL_BLC,          /**< bottom left center       45     -30     */
+	SPA_AUDIO_CHANNEL_BRC,          /**< bottom right center     -45     -30     */
 
 	SPA_AUDIO_CHANNEL_START_Aux	= 0x1000,	/**< aux channels */
 	SPA_AUDIO_CHANNEL_AUX0 = SPA_AUDIO_CHANNEL_START_Aux,

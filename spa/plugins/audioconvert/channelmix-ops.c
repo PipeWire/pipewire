@@ -117,6 +117,7 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 #define SQRT3_2      1.224744871f  /* sqrt(3/2) */
 #define SQRT1_2      0.707106781f
 #define SQRT2	     1.414213562f
+#define HALF         0.5f
 
 #define MATRIX_NORMAL	0
 #define MATRIX_DOLBY	1
@@ -127,7 +128,11 @@ static const struct channelmix_info *find_channelmix_info(uint32_t src_chan, uin
 #define _MASK(ch)	(1ULL << _CH(ch))
 #define FRONT		(_MASK(FC))
 #define STEREO		(_MASK(FL)|_MASK(FR))
+#define TSTEREO		(_MASK(TFL)|_MASK(TFR))
+#define TCSTEREO	(_MASK(TFLC)|_MASK(TFRC))
 #define REAR		(_MASK(RL)|_MASK(RR))
+#define TREAR		(_MASK(TRL)|_MASK(TRR))
+#define CREAR		(_MASK(RLC)|_MASK(RRC))
 #define SIDE		(_MASK(SL)|_MASK(SR))
 #define CHANNEL_BITS	(64u)
 
@@ -404,7 +409,7 @@ static int make_matrix(struct channelmix *mix)
 			}
 			normalize = true;
 		} else {
-			spa_log_warn(mix->log, "can't assign RL");
+			spa_log_warn(mix->log, "can't assign RL+RR");
 		}
 	}
 
@@ -497,6 +502,93 @@ static int make_matrix(struct channelmix *mix)
 			normalize = true;
 		} else {
 			spa_log_warn(mix->log, "can't assign LFE");
+		}
+	}
+	if (unassigned & TSTEREO){
+		if (dst_mask & STEREO) {
+			spa_log_info(mix->log, "assign TSTEREO to FL+FR (%f)", HALF);
+			_MATRIX(FL,TFL) += HALF;
+			_MATRIX(FR,TFR) += HALF;
+		} else if (dst_mask & _MASK(MONO)){
+			spa_log_info(mix->log, "assign TSTEREO to MONO (%f)", 1.0f);
+			for (i = 0; i < MAX_CHANNELS; i++) {
+				matrix[i][_CH(TFL)]= 1.0f;
+				matrix[i][_CH(TFR)]= 1.0f;
+			}
+			normalize = true;
+		} else {
+			spa_log_warn(mix->log, "can't assign TSTEREO");
+		}
+	}
+	if (unassigned & TCSTEREO){
+		if (dst_mask & STEREO) {
+			spa_log_info(mix->log, "assign TCSTEREO to FL+FR (%f)", HALF);
+			_MATRIX(FL,TFLC) += HALF;
+			_MATRIX(FR,TFRC) += HALF;
+		} else if (dst_mask & _MASK(MONO)){
+			spa_log_info(mix->log, "assign TCSTEREO to MONO (%f)", 1.0f);
+			for (i = 0; i < MAX_CHANNELS; i++) {
+				matrix[i][_CH(TFLC)]= 1.0f;
+				matrix[i][_CH(TFRC)]= 1.0f;
+			}
+			normalize = true;
+		} else {
+			spa_log_warn(mix->log, "can't assign TCSTEREO");
+		}
+	}
+	if (unassigned & TREAR){
+		if (dst_mask & REAR) {
+			if (src_mask & _MASK(RL)) {
+				spa_log_info(mix->log, "assign TREAR to RL+RR (%f)", HALF);
+				_MATRIX(RL,TRL) += HALF;
+				_MATRIX(RR,TRR) += HALF;
+			} else {
+				spa_log_info(mix->log, "assign TREAR to RL+RR (%f)", 1.0f);
+				_MATRIX(RL,TRL) += 1.0f;
+				_MATRIX(RR,TRR) += 1.0f;
+			}
+			keep &= ~REAR;
+		} else if (dst_mask & STEREO) {
+			spa_log_info(mix->log, "assign TREAR to FL+FR (%f)", HALF);
+			_MATRIX(FL,TRL) += HALF;
+			_MATRIX(FR,TRR) += HALF;
+		} else if (dst_mask & _MASK(MONO)){
+			spa_log_info(mix->log, "assign TREAR to MONO (%f)", 1.0f);
+			for (i = 0; i < MAX_CHANNELS; i++) {
+				matrix[i][_CH(TRL)]= 1.0f;
+				matrix[i][_CH(TRR)]= 1.0f;
+			}
+			normalize = true;
+		} else {
+			spa_log_warn(mix->log, "can't assign TREAR");
+		}
+	}
+	if (unassigned & CREAR){
+		if (dst_mask & REAR) {
+			if (src_mask & _MASK(RL)) {
+				spa_log_info(mix->log, "assign CREAR to RL+RR (%f)", SQRT1_2);
+				_MATRIX(RL,RLC) += SQRT1_2;
+				_MATRIX(RR,RRC) += SQRT1_2;
+			} else {
+				spa_log_info(mix->log, "assign CREAR to RL+RR (%f)", 1.0f);
+				_MATRIX(RL,RLC) += 1.0f;
+				_MATRIX(RR,RRC) += 1.0f;
+			}
+			keep &= ~REAR;
+		} else if (dst_mask & STEREO) {
+			spa_log_info(mix->log, "assign CREAR to FL+FR (%f)",
+					SQRT1_2);
+			_MATRIX(FL,RLC) += SQRT1_2;
+			_MATRIX(FR,RRC) += SQRT1_2;
+		} else if (dst_mask & _MASK(MONO)){
+			spa_log_info(mix->log, "assign CREAR to MONO (%f)", 1.0f);
+			for (i = 0; i < MAX_CHANNELS; i++) {
+				matrix[i][_CH(RLC)]= 1.0f;
+				matrix[i][_CH(RRC)]= 1.0f;
+			}
+			normalize = true;
+		} else {
+			spa_log_warn(mix->log, "can't assign CREAR");
 		}
 	}
 

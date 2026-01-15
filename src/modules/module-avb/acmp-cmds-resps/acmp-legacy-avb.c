@@ -2,6 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2026 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include "acmp-common.h"
+#include "acmp-legacy-avb.h"
+
 int handle_connect_tx_command_legacy_avb(struct acmp *acmp, uint64_t now,
 	const void *m, int len)
 {
@@ -153,7 +156,8 @@ int handle_disconnect_tx_response_legacy_avb(struct acmp *acmp, uint64_t now,
 	return res;
 }
 
-int handle_connect_rx_command_legacy_avb(struct acmp *acmp, uint64_t now, const void *m, int len)
+int handle_connect_rx_command_legacy_avb(struct acmp *acmp, uint64_t now,
+	const void *m, int len)
 {
 	struct server *server = acmp->server;
 	struct avb_ethernet_header *h;
@@ -175,9 +179,7 @@ int handle_connect_rx_command_legacy_avb(struct acmp *acmp, uint64_t now, const 
 	return avb_server_send_packet(server, h->dest, AVB_TSN_ETH, h, len);
 }
 
-
-
-nt handle_disconnect_rx_command_legacy_avb(struct acmp *acmp, uint64_t now,
+int handle_disconnect_rx_command_legacy_avb(struct acmp *acmp, uint64_t now,
 	const void *m, int len)
 {
 	struct server *server = acmp->server;

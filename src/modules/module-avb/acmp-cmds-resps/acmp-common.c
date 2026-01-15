@@ -2,6 +2,10 @@
 /* SPDX-License-Identifier: MIT */
 
 #include "acmp-common.h"
+#include "../aecp-aem-descriptors.h"
+#include "../aecp-aem-state.h"
+#include "../stream.h"
+
 
 struct pending *pending_find(struct acmp *acmp, uint32_t type, uint16_t sequence_id)
 {

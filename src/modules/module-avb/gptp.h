@@ -20,8 +20,11 @@ extern "C" {
 #define PTP_TLV_TYPE_MGMT 0x0001
 #define PTP_MGMT_ID_PARENT_DATA_SET 0x2002
 
+/**************************************************************************************/
+/* IEEE 1588-2019, Sec. 15.4.1 PTP management message format - Common Fields */
 
 struct ptp_management_msg {
+/* IEEE 1588-2019, Sec. 13.3 Header */
 	// 4 for major_sdo, 4 for msg_type
 	uint8_t  major_sdo_id_message_type;
 	// 4 for minor, 4 for major
@@ -37,6 +40,7 @@ struct ptp_management_msg {
 	uint16_t sequence_id_be;
 	uint8_t  control_field;
 	uint8_t  log_message_interval;
+
 	uint8_t  target_port_identity[8];
 	uint16_t target_port_id_be;
 	uint8_t  starting_boundary_hops;

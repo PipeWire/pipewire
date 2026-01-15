@@ -118,7 +118,7 @@ static void rtp_audio_process_playback(void *data)
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer,
 				impl->actual_max_buffer_size,
-				(timestamp * stride) % impl->actual_max_buffer_size,
+				((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
 				d[0].data, wanted * stride);
 
 		/* Clear the bytes that were just retrieved. Since the fill level
@@ -130,7 +130,7 @@ static void rtp_audio_process_playback(void *data)
 		ringbuffer_clear(&impl->ring,
 				impl->buffer,
 				impl->actual_max_buffer_size,
-				(timestamp * stride) % impl->actual_max_buffer_size,
+				((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
 				wanted * stride);
 
 		if (!impl->io_position) {
@@ -219,7 +219,7 @@ static void rtp_audio_process_playback(void *data)
 			spa_ringbuffer_read_data(&impl->ring,
 					impl->buffer,
 					impl->actual_max_buffer_size,
-					(timestamp * stride) % impl->actual_max_buffer_size,
+					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
 					d[0].data, wanted * stride);
 
 			timestamp += wanted;
@@ -319,7 +319,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 		spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer,
 				impl->actual_max_buffer_size,
-				(write * stride) % impl->actual_max_buffer_size,
+				((uint64_t)write * stride) % impl->actual_max_buffer_size,
 				&buffer[hlen], (samples * stride));
 
 		/* Only update the write index if data was actually _appended_.
@@ -435,7 +435,7 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 
 		set_iovec(&impl->ring,
 			impl->buffer, impl->actual_max_buffer_size,
-			(timestamp * stride) % impl->actual_max_buffer_size,
+			((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
 			&iov[1], tosend * stride);
 
 		pw_log_trace("sending %d packet:%d ts_offset:%d timestamp:%d",
@@ -587,7 +587,7 @@ static void rtp_audio_process_capture(void *data)
 	spa_ringbuffer_write_data(&impl->ring,
 			impl->buffer,
 			impl->actual_max_buffer_size,
-			(expected_timestamp * stride) % impl->actual_max_buffer_size,
+			((uint64_t)expected_timestamp * stride) % impl->actual_max_buffer_size,
 			SPA_PTROFF(d[0].data, offs, void), wanted * stride);
 	expected_timestamp += wanted;
 	spa_ringbuffer_write_update(&impl->ring, expected_timestamp);

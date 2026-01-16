@@ -18,7 +18,11 @@ extern "C" {
  * \{
  */
 
+/* This is the max number of channels, changing this will change the
+ * size of some helper structures. This value should be at least 64 */
+#ifndef SPA_AUDIO_MAX_CHANNELS
 #define SPA_AUDIO_MAX_CHANNELS	64u
+#endif
 
 enum spa_audio_format {
 	SPA_AUDIO_FORMAT_UNKNOWN,

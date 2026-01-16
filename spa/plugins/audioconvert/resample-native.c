@@ -266,7 +266,7 @@ static void impl_native_update_rate(struct resample *r, double rate)
 	in_rate = UINT32_TO_FIXP(r->i_rate);
 	out_rate = r->o_rate;
 
-	if (rate != 1.0 || out_rate > data->n_phases) {
+	if (rate != 1.0 || data->force_inter) {
 		in_rate.value = (uint64_t)round(in_rate.value / rate);
 		data->func = data->info->process_inter;
 	}
@@ -534,6 +534,7 @@ int resample_native_init(struct resample *r)
 	d->n_phases = n_phases;
 	d->in_rate = UINT32_TO_FIXP(in_rate);
 	d->out_rate = out_rate;
+	d->force_inter = out_rate > n_phases;
 	d->gcd = gcd;
 	d->pm = (float)n_phases / r->o_rate / FIXP_SCALE;
 	d->filter = SPA_PTROFF_ALIGN(d, sizeof(struct native_data), 64, float);

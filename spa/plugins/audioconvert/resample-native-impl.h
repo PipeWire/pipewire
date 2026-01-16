@@ -59,6 +59,7 @@ struct native_data {
 	float *filter;
 	float *hist_mem;
 	const struct resample_info *info;
+	bool force_inter;
 };
 
 #define DEFINE_RESAMPLER(type,arch)						\

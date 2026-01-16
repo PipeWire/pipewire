@@ -249,6 +249,25 @@ static void rtp_audio_process_playback(void *data)
 					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
 					d[0].data, wanted * stride);
 
+			/* Clear the bytes that were just retrieved. Unlike in the
+			 * direct timestamp mode, here, bytes are always read out
+			 * of the ring buffer in sequence - the read pointer does
+			 * not "jump around" (which can happen in direct timestamp
+			 * mode if the last iteration has been a while ago and the
+			 * driver clock time advanced significantly, or if the driver
+			 * time experienced a discontinuity). However, should there
+			 * be packet loss, it could lead to segments in the ring
+			 * buffer that should have been written to but weren't written
+			 * to. These segments would then contain old stale data. By
+			 * clearing data out of the ring buffer after reading it, it
+			 * is ensured that no stale data can exist - in the packet loss
+			 * case, the outcome would be a gap made of nullsamples instead. */
+			ringbuffer_clear(&impl->ring,
+					impl->buffer,
+					impl->actual_max_buffer_size,
+					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
+					wanted * stride);
+
 			timestamp += wanted;
 			spa_ringbuffer_read_update(&impl->ring, timestamp);
 		}

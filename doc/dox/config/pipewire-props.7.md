@@ -1171,6 +1171,15 @@ in a platform-specific way. See `tests/examples/bt-pinephone.lua` in WirePlumber
 Do not enable this setting if you don't know what all this means, as it won't work.
 \endparblock
 
+@PAR@ device-param bluez5.hw-offload-datapath # integer
+\parblock
+HFP/HSP hardware offload data path ID (default: 0).
+
+This feature configures the SCO hardware‑offload data path for HFP/HSP using the Bluetooth 
+SIG–specified procedure. It is intended for advanced setups and vendor integrations. Do not 
+edit this unless required; incorrect values can disable SCO offload.
+\endparblock
+
 @PAR@ monitor-prop  bluez5.a2dp.opus.pro.channels = 3   # integer
 PipeWire Opus Pro audio profile channel count.
 

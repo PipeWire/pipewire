@@ -135,7 +135,8 @@ extern "C" {
 #define PROFILE_HFP_AG	"/Profile/HFPAG"
 #define PROFILE_HFP_HF	"/Profile/HFPHF"
 
-#define HSP_HS_DEFAULT_CHANNEL  3
+#define HSP_HS_DEFAULT_CHANNEL      3
+#define HFP_SCO_DEFAULT_DATAPATH    0
 
 #define SOURCE_ID_BLUETOOTH	0x1	/* Bluetooth SIG */
 #define SOURCE_ID_USB		0x2	/* USB Implementer's Forum */
@@ -809,6 +810,7 @@ enum spa_bt_feature {
 	SPA_BT_FEATURE_SBC_XQ		= (1 << 5),
 	SPA_BT_FEATURE_FASTSTREAM	= (1 << 6),
 	SPA_BT_FEATURE_A2DP_DUPLEX	= (1 << 7),
+	SPA_BT_FEATURE_HW_OFFLOAD	= (1 << 8),
 };
 
 struct spa_bt_quirks;

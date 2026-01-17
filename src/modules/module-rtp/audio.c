@@ -61,6 +61,8 @@ static void rtp_audio_process_playback(void *data)
 	 * read or write index itself.) */
 
 	if (impl->direct_timestamp) {
+		uint32_t num_samples_to_read;
+
 		/* In direct timestamp mode, the focus lies on synchronized playback, not
 		 * on a constant latency. The ring buffer fill level is not of interest
 		 * here. The code in rtp_audio_receive() writes to the ring buffer at
@@ -89,19 +91,28 @@ static void rtp_audio_process_playback(void *data)
 		 * timestamp mode, since all of them shift the timestamp by the same
 		 * `sess.latency.msec` into the future.
 		 *
-		 * "Fill level" makes no sense in this mode, since a constant latency
-		 * is not important in this mode, so no DLL is needed. Also, matching
-		 * the pace of the synchronized clock is done by having the graph
-		 * driver be synchronized to that clock, which will in turn cause
-		 * any output sinks to adjust their DLLs (or similar control loop
-		 * mechanisms) to match the pace of their data consumption with the
-		 * pace of the driver. */
+		 * Since in this mode, a constant latency is not important, tracking
+		 * the fill level to keep it steady makes no sense. Consequently,
+		 * no DLL is needed. Also, matching the pace of the synchronized clock
+		 * is done by having the graph driver be synchronized to that clock,
+		 * which will in turn cause any output sinks to adjust their DLLs
+		 * (or similar control loop mechanisms) to match the pace of their
+		 * data consumption with the pace of the driver.
+		 *
+		 * The fill level is still important though to correctly handle corner
+		 * cases where the ring buffer is (almost) empty. If fewer samples
+		 * are available than what the read operation wants, the deficit
+		 * has to be compensated with nullbytes. To that end, the "avail"
+		 * quantity tracks how many samples are actually available. */
 
 		if (impl->io_position) {
+			uint32_t dummy_read_index;
+
 			/* Shift clock position by stream delay to compensate
 			 * for processing and output delay. */
 			timestamp = impl->io_position->clock.position + device_delay;
 			spa_ringbuffer_read_update(&impl->ring, timestamp);
+			avail = spa_ringbuffer_get_read_index(&impl->ring, &dummy_read_index);
 		} else {
 			/* In the unlikely case that no spa_io_position pointer
 			 * was passed yet by PipeWire to this node, resort to a
@@ -109,26 +120,45 @@ static void rtp_audio_process_playback(void *data)
 			 * This most likely is not in sync with other nodes,
 			 * but _something_ is needed as read index until the
 			 * spa_io_position is available. */
-			spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
+			avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
 		}
 
-		spa_ringbuffer_read_data(&impl->ring,
-				impl->buffer,
-				impl->actual_max_buffer_size,
-				((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
-				d[0].data, wanted * stride);
+		/* If avail is 0, it means that the ring buffer is empty. <0 means
+		 * that there is an underrun, typically because the PTP time now
+		 * is ahead of the RTP data (this can happen when the PTP master
+		 * changes for example). And in cases where only a little bit of
+		 * data is left, it is important to not try to use more than what
+		 * is actually available. */
+		num_samples_to_read = (avail > 0) ? SPA_MIN((uint32_t)avail, wanted) : 0;
 
-		/* Clear the bytes that were just retrieved. Since the fill level
-		 * is not tracked in this buffer mode, it is possible that as soon
-		 * as actual playback ends, the RTP source node re-reads old data.
-		 * Make sure it reads silence when no actual new data is present
-		 * and the RTP source node still runs. Do this by filling the
-		 * region of the retrieved data with null bytes. */
-		ringbuffer_clear(&impl->ring,
-				impl->buffer,
-				impl->actual_max_buffer_size,
-				((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
-				wanted * stride);
+		if (num_samples_to_read > 0) {
+			spa_ringbuffer_read_data(&impl->ring,
+					impl->buffer,
+					impl->actual_max_buffer_size,
+					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
+					d[0].data, num_samples_to_read * stride);
+
+			/* Clear the bytes that were just retrieved. Since the fill level
+			 * is not tracked in this buffer mode, it is possible that as soon
+			 * as actual playback ends, the RTP source node re-reads old data.
+			 * Make sure it reads silence when no actual new data is present
+			 * and the RTP source node still runs. Do this by filling the
+			 * region of the retrieved data with null bytes. */
+			ringbuffer_clear(&impl->ring,
+					impl->buffer,
+					impl->actual_max_buffer_size,
+					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
+					num_samples_to_read * stride);
+		}
+
+		if (num_samples_to_read < wanted) {
+			/* If fewer samples were available than what was wanted,
+			 * fill the remaining space in the destination memory
+			 * with nullsamples. */
+			void *bytes_to_clear = SPA_PTROFF(d[0].data, num_samples_to_read * stride, void);
+			size_t num_bytes_to_clear = (wanted - num_samples_to_read) * stride;
+			spa_memzero(bytes_to_clear, num_bytes_to_clear);
+		}
 
 		if (!impl->io_position) {
 			/* In the unlikely case that no spa_io_position pointer

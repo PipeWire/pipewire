@@ -87,20 +87,20 @@ static bool update_ts_refclk(struct gptp *gptp) {
 
 	req.major_sdo_id_message_type = PTP_MESSAGE_TYPE_MANAGEMENT;
 	req.ver = PTP_VERSION_1588_2008_2_1;
-	req.message_length_be = htobe16(sizeof(struct ptp_management_msg));
+	req.message_length_be = htons(sizeof(struct ptp_management_msg));
 	spa_zero(req.clock_identity);
-	req.source_port_id_be = htobe16(getpid());
+	req.source_port_id_be = htons(getpid());
 	req.log_message_interval = 127;
-	req.sequence_id_be = htobe16(gptp->ptp_seq++);
+	req.sequence_id_be = htons(gptp->ptp_seq++);
 	memset(req.target_port_identity, 0xff, 8);
-	req.target_port_id_be = htobe16(0xffff);
+	req.target_port_id_be = htons(0xffff);
 	req.starting_boundary_hops = 1;
 	req.boundary_hops = 1;
 	req.action = PTP_MGMT_ACTION_GET;
-	req.tlv_type_be = htobe16(PTP_TLV_TYPE_MGMT);
+	req.tlv_type_be = htons(PTP_TLV_TYPE_MGMT);
 	// sent empty TLV, only sending management_id
-	req.management_message_length_be = htobe16(2);
-	req.management_id_be = htobe16(PTP_MGMT_ID_PARENT_DATA_SET);
+	req.management_message_length_be = htons(2);
+	req.management_id_be = htons(PTP_MGMT_ID_PARENT_DATA_SET);
 
 	if (write(gptp->ptp_fd, &req, sizeof(req)) == -1) {
 		pw_log_warn("Failed to send PTP management request: %m");
@@ -138,17 +138,17 @@ static bool update_ts_refclk(struct gptp *gptp) {
 		return false;
 	}
 
-	if (be16toh(res.tlv_type_be) != PTP_TLV_TYPE_MGMT) {
-		pw_log_warn("PTP management returned tlv type %d, expected management", be16toh(res.tlv_type_be));
+	if (ntohs(res.tlv_type_be) != PTP_TLV_TYPE_MGMT) {
+		pw_log_warn("PTP management returned tlv type %d, expected management", ntohs(res.tlv_type_be));
 		return false;
 	}
 
-	if (be16toh(res.management_id_be) != PTP_MGMT_ID_PARENT_DATA_SET) {
-		pw_log_warn("PTP management returned ID %d, expected PARENT_DATA_SET", be16toh(res.management_id_be));
+	if (ntohs(res.management_id_be) != PTP_MGMT_ID_PARENT_DATA_SET) {
+		pw_log_warn("PTP management returned ID %d, expected PARENT_DATA_SET", ntohs(res.management_id_be));
 		return false;
 	}
 
-	uint16_t data_len = be16toh(res.management_message_length_be) - 2;
+	uint16_t data_len = ntohs(res.management_message_length_be) - 2;
 	if (data_len != sizeof(struct ptp_parent_data_set))
 		pw_log_warn("Unexpected PTP GET PARENT_DATA_SET response length %u, expected %zu", data_len, sizeof(struct ptp_parent_data_set));
 

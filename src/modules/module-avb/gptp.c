@@ -78,7 +78,10 @@ static bool update_ts_refclk(struct gptp *gptp) {
 	int avail;
 	uint8_t tmp;
 
-	ioctl(gptp->ptp_fd, FIONREAD, &avail);
+	if (ioctl(gptp->ptp_fd, FIONREAD, &avail) == -1) {
+		pw_log_warn("Failed to get number of byes in ptp_fd input buffer: %m");
+		return false;
+	}
 	pw_log_debug("Flushing stale data: %u bytes", avail);
 	while (avail-- && read(gptp->ptp_fd, &tmp, 1));
 

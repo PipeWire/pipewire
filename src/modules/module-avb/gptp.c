@@ -114,8 +114,14 @@ static bool update_ts_refclk(struct gptp *gptp) {
 	}
 
 	uint8_t buf[sizeof(struct ptp_management_msg) + sizeof(struct ptp_parent_data_set)];
-	if (read(gptp->ptp_fd, &buf, sizeof(buf)) == -1) {
+	ssize_t ret = read(gptp->ptp_fd, &buf, sizeof(buf));
+	if (ret == -1) {
 		pw_log_warn("Failed to receive PTP management response: %m");
+		return false;
+	}
+
+	if (ret != sizeof(buf)) {
+		pw_log_warn("Received incomplete PTP management response: %m");
 		return false;
 	}
 

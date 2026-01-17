@@ -304,7 +304,7 @@ static int sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
 	char buffer[255];
 	struct bt_codecs *codecs;
 
-	spa_log_info(backend->log, "%s: sock(%d) msbc(%d)", __func__, sock, msbc);
+	spa_log_info(backend->log, "sock(%d) msbc(%d)", sock, msbc);
 
 	memset(buffer, 0, sizeof(buffer));
 	codecs = (void *)buffer;
@@ -318,9 +318,9 @@ static int sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
 
 	err = setsockopt(sock, SOL_BLUETOOTH, BT_CODEC, codecs, sizeof(buffer));
 	if (err < 0)
-		spa_log_error(backend->log, "%s: ERROR: %s (%d)", __func__, strerror(errno), errno);
+		spa_log_error(backend->log, "ERROR: %s (%d)", strerror(errno), errno);
 	else
-		spa_log_info(backend->log, "%s: set offload codec succeeded", __func__);
+		spa_log_info(backend->log, "set offload codec succeeded");
 	return err;
 }
 

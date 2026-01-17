@@ -110,7 +110,8 @@ static bool update_ts_refclk(struct gptp *gptp) {
 	req.management_message_length_be = htons(2);
 	req.management_id_be = htons(PTP_MGMT_ID_PARENT_DATA_SET);
 
-	if (write(gptp->ptp_fd, &req, sizeof(req)) == -1) {
+	ret = write(gptp->ptp_fd, &req, sizeof(req));
+	if (ret == -1) {
 		pw_log_warn("Failed to send PTP management request: %m");
 		if (errno != ENOTCONN)
 			return false;
@@ -118,6 +119,10 @@ static bool update_ts_refclk(struct gptp *gptp) {
 		gptp->ptp_fd = make_unix_ptp_mgmt_socket(gptp->ptp_mgmt_socket_path);
 		if (gptp->ptp_fd > -1)
 			pw_log_info("Reopened PTP management socket");
+		return false;
+	}
+	if (ret != sizeof(req)) {
+		pw_log_warn("Incomplete PTP management request: %m");
 		return false;
 	}
 

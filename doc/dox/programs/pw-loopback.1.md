@@ -49,7 +49,7 @@ Target device to play to
 Wanted properties of capture node (in JSON)
 
 \par -o | \--playback-props=PROPS
-Wanted properties of capture node (in JSON)
+Wanted properties of playback node (in JSON)
 
 # AUTHORS
 

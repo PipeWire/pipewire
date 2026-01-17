@@ -77,13 +77,18 @@ static bool update_ts_refclk(struct gptp *gptp) {
 	// Read if something is left in the socket
 	int avail;
 	uint8_t tmp;
+	ssize_t ret;
 
 	if (ioctl(gptp->ptp_fd, FIONREAD, &avail) == -1) {
 		pw_log_warn("Failed to get number of byes in ptp_fd input buffer: %m");
 		return false;
 	}
-	pw_log_debug("Flushing stale data: %u bytes", avail);
-	while (avail-- && read(gptp->ptp_fd, &tmp, 1));
+	pw_log_debug("Clearing stale data: %u bytes", avail);
+	while (avail-- && (ret = read(gptp->ptp_fd, &tmp, 1)) > 0);
+	if (ret == -1) {
+		pw_log_warn("Failed to clear ptp_fd input buffer: %m");
+		return false;
+	}
 
 	struct ptp_management_msg req;
 	spa_zero(req);
@@ -117,7 +122,7 @@ static bool update_ts_refclk(struct gptp *gptp) {
 	}
 
 	uint8_t buf[sizeof(struct ptp_management_msg) + sizeof(struct ptp_parent_data_set)];
-	ssize_t ret = read(gptp->ptp_fd, &buf, sizeof(buf));
+	ret = read(gptp->ptp_fd, &buf, sizeof(buf));
 	if (ret == -1) {
 		pw_log_warn("Failed to receive PTP management response: %m");
 		return false;

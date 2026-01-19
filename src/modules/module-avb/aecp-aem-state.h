@@ -33,68 +33,37 @@
  * 	notificaction.
  */
 struct aecp_aem_state_base {
-    /**
-     * Originator of the control
-     * This is needed so the unsoolictied notification does not send back SUCCESS
-     * to the originator of of the unsolicited notification
-     */
-    uint64_t controller_entity_id;
+	uint64_t controller_entity_id;
 
-    /**
-     * To avoid sending on every change for unsol notifications, only once a
-     * second
-     */
-    int64_t last_update;
+	int64_t last_update;
 
-    /** timeout absolute time*/
-    int64_t expire_timeout;
+	/** timeout absolute time*/
+	int64_t expire_timeout;
 };
 
 /**
  * \brief the structure keeps track of the registered controller entities
  */
 struct aecp_aem_unsol_notification_state {
-    /**
-     * The controller is that is locking this system
-     */
-    uint64_t ctrler_entity_id;
+	uint64_t ctrler_entity_id;
 
-    /**
-     * mac Address of the controller
-     */
-    uint8_t ctrler_mac_addr[6];
+	uint8_t ctrler_mac_addr[6];
 
-    /**
-     * Port where the registeration originated from
-     */
-    uint8_t port_id;
+	uint8_t port_id;
 
-    /***
-     * The sequence ID of the next unsolicited notification
-     */
 
-    uint16_t next_seq_id;
-    /**
-     * Actual value of the lock, get removed when unregistere or expired.
-     */
-    bool is_registered;
+	uint16_t next_seq_id;
+	bool is_registered;
 
 };
 
 struct aecp_aem_base_info {
-    /** Originator of the control
-     * This is needed so the unsoolictied notification does not send back SUCCESS
-     * to the originator of of the unsolicited notification */
-    uint64_t controller_entity_id;
+	uint64_t controller_entity_id;
 
-    /**
-     * To avoid sending on every change for unsol notifications, only once a
-     * a second
-     * */
-    int64_t last_update;
+	int64_t last_update;
 
-    /** timeout absolute time*/
-    int64_t expire_timeout;
+	/** timeout absolute time*/
+	int64_t expire_timeout;
 };
 
 struct aecp_aem_lock_state {
@@ -138,43 +107,79 @@ struct aecp_aem_entity_legacy_avb_state {
  * 	Table 7-156
  */
 struct aecp_aem_stream_input_counters {
-    struct aecp_aem_state_base base_state;
+	struct aecp_aem_state_base base_state;
 
-    uint32_t media_locked;
-    uint32_t media_unlocked;
-    uint32_t stream_interrupted;
-    uint32_t seq_mistmatch;
-    uint32_t media_reset;
-    /** Timestamp Uncertain */
-    uint32_t tu;
-    uint32_t unsupported_format;
-    uint32_t late_timestamp;
-    uint32_t early_timestamp;
-    uint32_t frame_rx;
+	uint32_t media_locked;
+	uint32_t media_unlocked;
+	uint32_t stream_interrupted;
+	uint32_t seq_mistmatch;
+	uint32_t media_reset;
+	/** Timestamp Uncertain */
+	uint32_t tu;
+	uint32_t unsupported_format;
+	uint32_t late_timestamp;
+	uint32_t early_timestamp;
+	uint32_t frame_rx;
+};
+
+struct stream_common {
+	struct stream stream;
+	struct avb_msrp_attribute *msrp_attr;
 };
 
 struct aecp_aem_stream_input_state {
-    struct avb_aem_desc_stream desc;
+	struct avb_aem_desc_stream desc;
 
-    struct aecp_aem_stream_input_counters counters;
-    struct stream stream;
+	struct aecp_aem_stream_input_counters counters;
+	struct stream_common common;
+};
+
+struct stream_input_saved_binding_param {
+	uint64_t controller_guid;
+	uint64_t talker_guid;
+	uint64_t listener_guid;
+	uint16_t talker_unique_id;
+	uint16_t listener_unique_id;
+	/** 1722.1-2021 Table 7.145 use the same as in the aecp packet*/
+	uint32_t aem_flags;
+};
+
+struct acmp_stream_status_common {
+	struct stream_input_saved_binding_param saved_bindings;
+	uint8_t probing_status;
+	uint8_t acmp_status;
+	uint8_t stream_dest_mac[6];
+	uint16_t stream_vlanid;
+};
+
+struct acmp_stream_status_milan_v12 {
+	struct acmp_stream_status_common common;
+	uint32_t fsm_acmp_state;
+};
+
+/**
+ * \brief The Milan v1.2 stream structure needs more information
+ * about the different protocol*/
+struct aecp_aem_stream_input_state_milan_v12 {
+	struct aecp_aem_stream_input_state stream_in_sta;
+	struct acmp_stream_status_milan_v12 acmp_status;
 };
 
 struct aecp_aem_stream_output_counters {
-    struct aecp_aem_state_base base_state;
+	struct aecp_aem_state_base base_state;
 
-    uint32_t stream_start;
-    uint32_t stream_stop;
-    uint32_t media_reset;
-    uint32_t tu;
-    uint32_t frame_tx;
+	uint32_t stream_start;
+	uint32_t stream_stop;
+	uint32_t media_reset;
+	uint32_t tu;
+	uint32_t frame_tx;
 };
 
 struct aecp_aem_stream_output_state {
-    struct avb_aem_desc_stream desc;
+	struct avb_aem_desc_stream desc;
 
-    struct aecp_aem_stream_output_counters counters;
-    struct stream stream;
+	struct aecp_aem_stream_output_counters counters;
+	struct stream_common common;
 };
 
 #endif // AVB_AECP_AEM_STATE_H

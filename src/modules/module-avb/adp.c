@@ -7,6 +7,7 @@
 #include <pipewire/pipewire.h>
 
 #include "adp.h"
+#include "acmp.h"
 #include "aecp-aem-descriptors.h"
 #include "internal.h"
 #include "utils.h"
@@ -80,7 +81,7 @@ static int send_discover(struct adp *adp, uint64_t entity_id)
 	AVB_PACKET_SET_SUBTYPE(&p->hdr, AVB_SUBTYPE_ADP);
 	AVB_PACKET_SET_LENGTH(&p->hdr, AVB_ADP_CONTROL_DATA_LENGTH);
 	AVB_PACKET_ADP_SET_MESSAGE_TYPE(p, AVB_ADP_MESSAGE_TYPE_ENTITY_DISCOVER);
-	p->entity_id = htonl(entity_id);
+	p->entity_id = htobe64(entity_id);
 	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, buf, len);
 	return 0;
 }
@@ -128,15 +129,63 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 			spa_list_append(&adp->entities, &e->link);
 			pw_log_info("entity %s available",
 				avb_utils_format_id(buf, sizeof(buf), entity_id));
+
+			if (server->avb_mode == AVB_MODE_MILAN_V12) {
+				//Milan V1.2 Section 5.6.4.5.1
+				if (handle_evt_tk_discovered(server->acmp, entity_id)) {
+					pw_log_info("handling available event");
+					return -1;
+				}
+			}
+		} else {
+			if (server->avb_mode == AVB_MODE_MILAN_V12) {
+				//Milan V1.2
+				//Milan V1.2 Section 5.6.4.5.2
+				struct avb_ethernet_header *h_saved = (struct avb_ethernet_header *) e->buf;
+				struct avb_packet_adp *p_saved =
+				       	SPA_PTROFF(h_saved, sizeof(*h_saved), void);
+
+				if (p_saved->available_index != p->available_index) {
+					if (handle_evt_tk_departed(server->acmp, entity_id)) {
+						pw_log_info("handling departing event");
+						return -1;
+					}
+
+					bool has_gptp_domain_changed =
+						(p_saved->gptp_domain_number != p->gptp_domain_number) ||
+						(p_saved->gptp_grandmaster_id != p->gptp_grandmaster_id);
+
+					if (has_gptp_domain_changed) {
+						e->last_time = INT64_MAX;
+						spa_list_remove(&e->link);
+						pw_log_info("Removing from the adp list \n");
+						return 0;
+					}
+
+					if (handle_evt_tk_discovered(server->acmp, entity_id)) {
+						pw_log_warn("handling available event");
+						return -1;
+					}
+				}
+
+				memcpy(e->buf, message, len);
+			}
 		}
 		e->last_time = now;
+
 		break;
 	case AVB_ADP_MESSAGE_TYPE_ENTITY_DEPARTING:
 		if (e != NULL) {
+			if (server->avb_mode == AVB_MODE_MILAN_V12) {
+				// Milan v1.2 Section 5.6.4.5.3
+				handle_evt_tk_departed(server->acmp, entity_id);
+			}
+
 			pw_log_info("entity %s departing",
 				avb_utils_format_id(buf, sizeof(buf), entity_id));
 			entity_free(e);
 		}
+
 		break;
 	case AVB_ADP_MESSAGE_TYPE_ENTITY_DISCOVER:
 		pw_log_info("entity %s advertise",
@@ -174,6 +223,7 @@ static void check_timeout(struct adp *adp, uint64_t now)
 {
 	struct entity *e, *t;
 	char buf[128];
+	struct avb_acmp *avb_acmp = adp->server->acmp;
 
 	spa_list_for_each_safe(e, t, &adp->entities, link) {
 		if (e->last_time + (e->valid_time + 2) * SPA_NSEC_PER_SEC > now)
@@ -181,6 +231,8 @@ static void check_timeout(struct adp *adp, uint64_t now)
 
 		pw_log_info("entity %s timeout",
 			avb_utils_format_id(buf, sizeof(buf), e->entity_id));
+
+		handle_evt_tk_departed(avb_acmp, e->entity_id);
 
 		if (e->advertise)
 			send_departing(adp, now, e);
@@ -218,7 +270,7 @@ static int check_advertise(struct adp *adp, uint64_t now)
 
 	d = server_find_descriptor(server, AVB_AEM_DESC_ENTITY, 0);
 	if (d == NULL)
-		return 0;
+		return -1;
 
 	entity = d->ptr;
 	entity_id = be64toh(entity->entity_id);
@@ -344,6 +396,40 @@ static const struct server_events server_events = {
 	.periodic = adp_periodic,
 	.command = adp_command
 };
+
+bool adp_is_discovered_entity(struct server *server, uint64_t entity_id)
+{
+	struct adp *adp = (struct adp*)server->adp;
+	struct entity *entity = find_entity_by_id(adp, entity_id);
+
+	if (entity == NULL) {
+		return false;
+	}
+
+	return true;
+}
+
+int adp_start_discovery_entity(struct server *server, uint64_t entity_id)
+{
+	pw_log_info("ADP: start discovery of entity 0x%"PRIx64, entity_id);
+	return send_discover((struct adp*) server->adp, entity_id);
+}
+
+void adp_stop_discovery_entity(struct server *server, uint64_t entity_id)
+{
+	struct entity *e, *t;
+	struct adp *adp = (struct adp*)server->adp;
+	pw_log_info("ADP: stop discovery of entity 0x%" PRIx64, entity_id);
+
+        spa_list_for_each_safe(e, t, &adp->entities, link) {
+		if (e->entity_id == entity_id) {
+			entity_free(e);
+			return;
+		}
+        }
+
+	pw_log_warn("Could not find entity 0x%"PRIx64, entity_id);
+}
 
 struct avb_adp *avb_adp_register(struct server *server)
 {

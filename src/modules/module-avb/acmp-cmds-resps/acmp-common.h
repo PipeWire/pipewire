@@ -9,20 +9,14 @@
 #include <pipewire/pipewire.h>
 #include "../acmp.h"
 
-struct pending {
-	struct spa_list link;
-	uint64_t last_time;
-	uint64_t timeout;
-	uint16_t old_sequence_id;
-	uint16_t sequence_id;
-	uint16_t retry;
-	size_t size;
-	void *ptr;
-};
-
 struct acmp {
 	struct server *server;
 	struct spa_hook server_listener;
+};
+
+
+struct acmp_legacy_avb {
+	struct acmp acmp;
 
 #define PENDING_TALKER		0
 #define PENDING_LISTENER	1
@@ -31,20 +25,18 @@ struct acmp {
 	uint16_t sequence_id[3];
 };
 
-struct pending *pending_find(struct acmp *acmp, uint32_t type, uint16_t sequence_id);
+struct acmp_milan_v12 {
+	struct acmp acmp;
 
-void pending_free(struct acmp *acmp, struct pending *p);
+	struct spa_list timers_lt;
+	struct spa_list pending_tk;
+	uint16_t sequence_id[2];
+};
 
-void pending_destroy(struct acmp *acmp);
-
-void *pending_new(struct acmp *acmp, uint32_t type, uint64_t now,
-	uint32_t timeout_ms, const void *m, size_t size);
-
-int retry_pending(struct acmp *acmp, uint64_t now, struct pending *p);
 
 struct stream *find_stream(struct server *server, enum spa_direction direction,
 	uint16_t index);
 
-int reply_not_supported(struct acmp *acmp, uint8_t type, const void *m, int len);
+int acmp_reply_not_supported(struct acmp *acmp, uint8_t type, const void *m, int len);
 
 #endif //AVB_ACMP_COMMON_H

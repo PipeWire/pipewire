@@ -113,6 +113,8 @@ struct server {
 	struct avb_mvrp *mvrp;
 	struct avb_msrp *msrp;
 	struct avb_maap *maap;
+	struct avb_adp *adp;
+	struct avb_acmp *acmp;
 
 	struct avb_msrp_attribute *domain_attr;
 };

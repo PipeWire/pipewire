@@ -54,6 +54,8 @@
 
 #define AVB_ADP_CONTROL_DATA_LENGTH		56
 
+struct avb_adp;
+
 struct avb_packet_adp {
 	struct avb_packet_header hdr;
 	uint64_t entity_id;
@@ -80,6 +82,9 @@ struct avb_packet_adp {
 #define AVB_PACKET_ADP_GET_MESSAGE_TYPE(p)		AVB_PACKET_GET_SUB1(&(p)->hdr)
 #define AVB_PACKET_ADP_GET_VALID_TIME(p)		AVB_PACKET_GET_SUB2(&(p)->hdr)
 
+bool adp_is_discovered_entity(struct server *server, uint64_t entity_id);
+int adp_start_discovery_entity(struct server *server, uint64_t entity_id);
+void adp_stop_discovery_entity(struct server *server, uint64_t entity_id);
 struct avb_adp *avb_adp_register(struct server *server);
 void avb_adp_unregister(struct avb_adp *adp);
 

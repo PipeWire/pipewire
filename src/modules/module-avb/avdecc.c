@@ -412,8 +412,8 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 	server->mmrp = avb_mmrp_register(server);
 	server->msrp = avb_msrp_register(server);
 	server->mvrp = avb_mvrp_register(server);
-	avb_adp_register(server);
-	avb_acmp_register(server);
+	server->adp  = avb_adp_register(server);
+	server->acmp = avb_acmp_register(server);
 
 	server->domain_attr = avb_msrp_attribute_new(server->msrp,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);

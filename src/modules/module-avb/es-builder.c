@@ -80,7 +80,7 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 		}
 
 		pstream_input = desc->ptr;
-		stream = &pstream_input->stream;
+		stream = &pstream_input->common.stream;
 		direction = SPA_DIRECTION_INPUT;
 		break;
 	case AVB_AEM_DESC_STREAM_OUTPUT:
@@ -96,7 +96,7 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 		}
 
 		pstream_output = desc->ptr;
-		stream = &pstream_output->stream;
+		stream = &pstream_output->common.stream;
 		direction = SPA_DIRECTION_OUTPUT;
 
 		break;

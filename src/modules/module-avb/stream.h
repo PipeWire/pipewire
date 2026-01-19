@@ -61,10 +61,6 @@ struct stream {
 	uint64_t format;
 	uint32_t stride;
 	struct spa_audio_info info;
-
-	struct avb_msrp_attribute *talker_attr;
-	struct avb_msrp_attribute *listener_attr;
-	struct avb_mvrp_attribute *vlan_attr;
 };
 
 #include "msrp.h"

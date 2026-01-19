@@ -63,11 +63,17 @@ struct avb_packet_aecp_aem_setget_sensor_format {
 } __attribute__ ((__packed__));
 
 
-#define AVB_AEM_STREAM_INFO_FLAG_CLASS_B			(1u<<0)
-#define AVB_AEM_STREAM_INFO_FLAG_FAST_CONNECT			(1u<<1)
-#define AVB_AEM_STREAM_INFO_FLAG_SAVED_STATE			(1u<<2)
-#define AVB_AEM_STREAM_INFO_FLAG_STREAMING_WAIT			(1u<<3)
-#define AVB_AEM_STREAM_INFO_FLAG_ENCRYPTED_PDU			(1u<<4)
+
+#define AVB_AEM_STREAM_INFO_FLAG_CLASS_B                  	(1u<<0)
+#define AVB_AEM_STREAM_INFO_FLAG_FAST_CONNECT             	(1u<<1)
+#define AVB_AEM_STREAM_INFO_FLAG_SAVED_STATE              	(1u<<2)
+#define AVB_AEM_STREAM_INFO_FLAG_STREAMING_WAIT           	(1u<<3)
+#define AVB_AEM_STREAM_INFO_FLAG_SUPPORTS_ENCRYPTED       	(1u<<4)
+#define AVB_AEM_STREAM_INFO_FLAG_ENCRYPTED_PDU            	(1u<<5)
+#define AVB_AEM_STREAM_INFO_FLAG_SRP_REGISTERING_FAILED		(1u<<6)
+#define AVB_AEM_STREAM_INFO_FLAG_CL_ENTRIES_VALID          	(1u<<7)
+#define AVB_AEM_STREAM_INFO_FLAG_NO_SRP                    	(1u<<8)
+#define AVB_AEM_STREAM_INFO_FLAG_UDP                       	(1u<<9)
 #define AVB_AEM_STREAM_INFO_FLAG_STREAM_VLAN_ID_VALID		(1u<<25)
 #define AVB_AEM_STREAM_INFO_FLAG_CONNECTED			(1u<<26)
 #define AVB_AEM_STREAM_INFO_FLAG_MSRP_FAILURE_VALID		(1u<<27)
@@ -76,10 +82,59 @@ struct avb_packet_aecp_aem_setget_sensor_format {
 #define AVB_AEM_STREAM_INFO_FLAG_STREAM_ID_VALID		(1u<<30)
 #define AVB_AEM_STREAM_INFO_FLAG_STREAM_FORMAT_VALID		(1u<<31)
 
+union aem_stream_info_flags {
+	struct {
+		uint32_t class_b:1;
+		uint32_t fast_connect:1;
+		uint32_t saved_state:1;
+		uint32_t streaming_wait:1;
+		uint32_t supports_encrypted:1;
+		uint32_t encrypted_pdu:1;
+		union {
+			uint32_t talker_failed:1;
+			// Milan V1.2
+			uint32_t registering_failed:1;
+		};
+		uint32_t rsvd_0:1;
+		uint32_t no_srp:1;
+		uint32_t rsvd_1:10;
+		uint32_t ip_flags_valid:1;
+		uint32_t ip_src_port_valid:1;
+		uint32_t ip_dst_port_valid:1;
+		uint32_t ip_src_addr_valid:1;
+		uint32_t ip_dst_addr_valid:1;
+		uint32_t not_registering_srp:1;
+		uint32_t stream_vlan_id_valid:1;
+		uint32_t connected:1;
+		uint32_t msrp_failure_valid:1;
+		uint32_t stream_dst_valid:1;
+		uint32_t msrp_acc_lat_valid:1;
+		uint32_t stream_id_valid:1;
+		uint32_t stream_format_valid:1;
+	} ;
+	uint32_t flags;
+} __attribute__ ((__packed__));
+
+union aem_stream_info_flag_extended {
+	struct {
+		uint16_t ip_flags;
+		uint16_t source_port;
+		uint16_t destination_port;
+	} legacy_avb;
+	struct {
+		uint16_t rsvd_0;
+		uint32_t flags_ex_registering:1;
+		uint32_t rsvd_1:31;
+		uint32_t pbsta:3;
+		uint32_t acmpsta:5;
+		uint32_t rsvd_2:24;
+	} milan_v12;
+} __attribute__ ((__packed__));
+
 struct avb_packet_aecp_aem_setget_stream_info {
 	uint16_t descriptor_type;
 	uint16_t descriptor_index;
-	uint32_t aem_stream_info_flags;
+	union aem_stream_info_flags flags;
 	uint64_t stream_format;
 	uint64_t stream_id;
 	uint32_t msrp_accumulated_latency;
@@ -88,7 +143,7 @@ struct avb_packet_aecp_aem_setget_stream_info {
 	uint8_t reserved;
 	uint64_t msrp_failure_bridge_id;
 	uint16_t stream_vlan_id;
-	uint16_t reserved2;
+	union aem_stream_info_flag_extended flags_ex;
 } __attribute__ ((__packed__));
 
 struct avb_packet_aecp_aem_setget_name {

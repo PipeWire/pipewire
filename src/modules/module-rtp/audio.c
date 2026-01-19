@@ -62,6 +62,7 @@ static void rtp_audio_process_playback(void *data)
 
 	if (impl->direct_timestamp) {
 		uint32_t num_samples_to_read;
+		uint32_t read_index;
 
 		/* In direct timestamp mode, the focus lies on synchronized playback, not
 		 * on a constant latency. The ring buffer fill level is not of interest
@@ -106,13 +107,11 @@ static void rtp_audio_process_playback(void *data)
 		 * quantity tracks how many samples are actually available. */
 
 		if (impl->io_position) {
-			uint32_t dummy_read_index;
-
 			/* Shift clock position by stream delay to compensate
 			 * for processing and output delay. */
 			timestamp = impl->io_position->clock.position + device_delay;
 			spa_ringbuffer_read_update(&impl->ring, timestamp);
-			avail = spa_ringbuffer_get_read_index(&impl->ring, &dummy_read_index);
+			avail = spa_ringbuffer_get_read_index(&impl->ring, &read_index);
 		} else {
 			/* In the unlikely case that no spa_io_position pointer
 			 * was passed yet by PipeWire to this node, resort to a
@@ -121,6 +120,7 @@ static void rtp_audio_process_playback(void *data)
 			 * but _something_ is needed as read index until the
 			 * spa_io_position is available. */
 			avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
+			read_index = timestamp;
 		}
 
 		/* If avail is 0, it means that the ring buffer is empty. <0 means
@@ -128,8 +128,34 @@ static void rtp_audio_process_playback(void *data)
 		 * is ahead of the RTP data (this can happen when the PTP master
 		 * changes for example). And in cases where only a little bit of
 		 * data is left, it is important to not try to use more than what
-		 * is actually available. */
-		num_samples_to_read = (avail > 0) ? SPA_MIN((uint32_t)avail, wanted) : 0;
+		 * is actually available.
+		 * Overruns would happen if the write pointer is further ahead than
+		 * what the ringbuffer size actually allows. This too can happen
+		 * if the PTP time jumps. No actual buffer overflow would happen
+		 * then, since the write operations always apply modulo to the
+		 * timestamps to wrap around the ringbuffer borders.
+		 */
+		bool has_underrun = (avail < 0);
+		bool has_overrun = !has_underrun && ((uint32_t)avail) > impl->actual_max_buffer_size;
+		num_samples_to_read = has_underrun ? 0 : SPA_MIN((uint32_t)avail, wanted);
+
+		/* Do some additional logging in the under/overrun cases. */
+		if (SPA_UNLIKELY(pw_log_topic_enabled(SPA_LOG_LEVEL_TRACE, PW_LOG_TOPIC_DEFAULT)))
+		{
+			uint32_t write_index;
+			int32_t filled = spa_ringbuffer_get_write_index(&impl->ring, &write_index);
+
+			if (has_underrun) {
+				pw_log_trace("Direct timestamp mode: Read index underrun: write_index: %"
+					     PRIu32 ", read_index: %" PRIu32 ", wanted: %u - filled: %" PRIi32,
+					     write_index, read_index, wanted, filled);
+			} else if (has_overrun) {
+				pw_log_trace("Direct timestamp mode: Read index overrun: write_index: %"
+					     PRIu32 ", read_index: %" PRIu32 ", wanted: %u - filled: %" PRIi32
+					     ", buffer size: %u", write_index, read_index, wanted, filled,
+					     impl->actual_max_buffer_size);
+			}
+		}
 
 		if (num_samples_to_read > 0) {
 			spa_ringbuffer_read_data(&impl->ring,
@@ -498,20 +524,27 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 	iov[0].iov_len = sizeof(header);
 
 	while (num_packets > 0) {
+		uint32_t rtp_timestamp;
+
 		if (impl->marker_on_first && impl->first)
 			header.m = 1;
 		else
 			header.m = 0;
+
+		rtp_timestamp = impl->ts_offset + (set_timestamp ? set_timestamp : timestamp);
+
 		header.sequence_number = htons(impl->seq);
-		header.timestamp = htonl(impl->ts_offset + (set_timestamp ? set_timestamp : timestamp));
+		header.timestamp = htonl(rtp_timestamp);
 
 		set_iovec(&impl->ring,
 			impl->buffer, impl->actual_max_buffer_size,
 			((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
 			&iov[1], tosend * stride);
 
-		pw_log_trace("sending %d packet:%d ts_offset:%d timestamp:%d",
-				tosend, num_packets, impl->ts_offset, timestamp);
+		pw_log_trace("sending %d packet:%d ts_offset:%d timestamp:%u (%f s)",
+				tosend, num_packets, impl->ts_offset, timestamp,
+				(double)timestamp * impl->io_position->clock.rate.num /
+				impl->io_position->clock.rate.denom);
 
 		rtp_stream_emit_send_packet(impl, iov, 3);
 

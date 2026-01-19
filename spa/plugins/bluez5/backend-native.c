@@ -63,6 +63,9 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.bluez5.native");
 
 #define RFCOMM_MESSAGE_MAX_LENGTH 256
 
+#define BT_CODEC_CVSD		0x02
+#define BT_CODEC_MSBC		0x05
+
 enum {
 	HFP_AG_INITIAL_CODEC_SETUP_NONE = 0,
 	HFP_AG_INITIAL_CODEC_SETUP_SEND,
@@ -312,12 +315,11 @@ static void sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
 	memset(buffer, 0, sizeof(buffer));
 	codecs = (void *)buffer;
 	if (msbc)
-		codecs->codecs[0].id = 0x05;
+		codecs->codecs[0].id = BT_CODEC_MSBC;
 	else
-		codecs->codecs[0].id = 0x02;
+		codecs->codecs[0].id = BT_CODEC_CVSD;
 	codecs->num_codecs = 1;
 	codecs->codecs[0].data_path_id = backend->hfphsp_sco_datapath;
-	codecs->codecs[0].num_caps = 0x00;
 
 	err = setsockopt(sock, SOL_BLUETOOTH, BT_CODEC, codecs, sizeof(buffer));
 	if (err < 0)

@@ -4136,14 +4136,10 @@ static void parse_hfp_default_volumes(struct impl *backend, const struct spa_dic
 
 static void parse_sco_datapath(struct impl *backend, const struct spa_dict *info)
 {
-	uint32_t tmp;
-	const char *str;
-
 	backend->hfphsp_sco_datapath = HFP_SCO_DEFAULT_DATAPATH;
 
-	if ((str = spa_dict_lookup(info, "bluez5.hw-offload-datapath")) != NULL &&
-	    (tmp = atoi(str)) > 0)
-		backend->hfphsp_sco_datapath = tmp;
+	spa_atou32(spa_dict_lookup(info, "bluez5.hw-offload-datapath"),
+		&backend->hfphsp_sco_datapath, 10);
 }
 
 static const struct spa_bt_backend_implementation backend_impl = {

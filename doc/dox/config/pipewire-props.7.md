@@ -551,7 +551,7 @@ The quality of a resampler depends on multiple factors:
 
 1. Anti-Aliasing, how well are unwanted frequencies filtered out. Poor anti-aliasing
    will make the original inaudible frequencies audible as distortion and noise.
-2. Cutoff frequence. At what frequency the transition band will start. This is the
+2. Cutoff frequency. At what frequency the transition band will start. This is the
    frequency where the signal will start to fade out. A too low cutoff might remove too
    much of the high frequencies and make the sound dull. A too high cutoff might cause
    aliasing. The cutoff frequency is usually expressed as a ratio of the Nyquist
@@ -561,19 +561,21 @@ The quality of a resampler depends on multiple factors:
    causes less aliasing. The transition band length is expressed as a ratio of the
    Nyquist frequency.
 4. Stopband attenuation. How well the unwanted frequencies are filtered out. This is
-   usually measured in dB. 96dB is below audidle on CD quality audio, 150dB is below
+   usually measured in dB. 96dB is below audible on CD quality audio, 150dB is below
    the precision of floating point values.
 5. CPU usage. Better anti-aliasing needs longer filters and is therefore more CPU
    intensive.
 6. Latency. Longer filters have a higher Latency. In real-time application the latency
-   should be kept as low as possible.
+   should be kept as low as possible. The required latency is usually
+   (filter-length/2)/source-sample-rate, so a resample filter with length of 128 on a
+   48Khz signal has 1.3ms ((128/2)/48000) of latency.
 7. Ringing. A too short transition band length might cause ringing because of how the
    sinc filters work. This can sound like flutter on sharp attacks in the audio signal.
 
 Increasing the quality will result in better cutoff and less aliasing at the expense of
-(much) more CPU consumption and more ringing. The default quality of 4 has been selected
-as a good compromise between quality and performance with no artifacts that are well
-below the audible range.
+(much) more CPU consumption, latency and more ringing. The default quality of 4 has
+been selected as a good compromise between quality and performance with no artifact
+s that are well below the audible range.
 
 The default resampler quality for the exp window results in a cutoff of 0.87 and a
 filter size of about 48 taps. It has a Stopband attenuation of about 150 dB.

@@ -380,17 +380,43 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 		 * and not _appended_. In this example, `expected_write` would
 		 * be 100 (since `expected_write` is the current write index),
 		 * `write` would be 90, `samples` would be 10. In this case,
-		 * the inequality below does not hold, so data is being
-		 * _inserted_. By contrast, during normal operation, `write`
-		 * and `expected_write` are equal, so the inequality below
-		 * _does_ hold, meaning that data is being appended.
+		 * the (expected_write < (write + samples)) inequality does
+		 * not hold, so data is being _inserted_. By contrast, during
+		 * normal operation, `write` and `expected_write` are equal,
+		 * so the aforementioned inequality _does_ hold, meaning that
+		 * data is being appended.
+		 *
+		 * The code below handles this, and also handles a 32-bit
+		 * integer overflow corner case where the comparison has
+		 * to be done differently to account for the wrap-around.
 		 *
 		 * (Note that this write index update is only important if
 		 * the constant delay mode is active, or if no spa_io_position
 		 * was not provided yet. See the rtp_audio_process_playback()
 		 * code for more about this.) */
-		if (expected_write < (write + samples)) {
-			write += samples;
+
+		/* Compute new_write, handling potential 32-bit overflow.
+		 * In unsigned arithmetic, if write + samples exceeds UINT32_MAX,
+		 * it wraps around to a smaller value. We detect this by checking
+		 * if new_write < write (which can only happen on overflow). */
+		const uint32_t new_write = write + samples;
+		const bool wrapped_around = new_write < write;
+
+		/* Determine if new_write is ahead of expected_write.
+		 * We're appending (ahead) if:
+		 *
+		 * 1. Normal case: new_write > expected_write (forward progress)
+		 * 2. Wrap-around case: new_write wrapped around (wrapped_around == true),
+		 *    meaning we've cycled through the 32-bit index space and are
+		 *    continuing from the beginning. In this case, we're always ahead.
+		 *
+		 * We're NOT appending (inserting/behind) if:
+		 * - new_write <= expected_write AND no wrap-around occurred
+		 *   (we're filling a gap or writing behind the current position) */
+		const bool is_appending = wrapped_around || (new_write > expected_write);
+
+		if (is_appending) {
+			write = new_write;
 			spa_ringbuffer_write_update(&impl->ring, write);
 		}
 	}

@@ -1,3 +1,65 @@
+# PipeWire 1.5.85 (2026-01-19)
+
+This is the fifth and hopefully last 1.6 release candidate that
+is API and ABI compatible with previous 1.4.x, 1.2.x and 1.0.x
+releases.
+
+## Highlights
+  - Fix errors in older clients that blindly mmap buffer data.
+  - ALSA channel mapping should work in more cases.
+  - Fix an overflow in the resampler with some sample rates.
+  - Device ID negotiation for DMABUF was added.
+  - The channelmixer can now also downmix most REAR and TOP
+    channel positions.
+  - Various small fixes and improvements.
+
+
+## PipeWire
+  - Avoid doing flushing invoke in pw-stream. (#5010)
+  - Fix stream time delay calculations in some cases. (#4957)
+  - Avoid suspending a node when the ports are busy.
+
+## Modules
+  - Mode AVB module updates.
+  - Remove MAPPABLE flag from memptr data in client-node. This avoids
+    errors in older clients that blindly map buffers. (#5003)
+  - Don't leak the filter-chain module in module-parametric-equalizer.
+    (#5045)
+  - make it possible to run pulse tunnel sink and source with the same
+    name. (#5079)
+
+## SPA
+  - The delay filter in filter-graph now has feedback and feedforward
+    options to make it possible to implement comb and allpass filters.
+  - The resampler can be compiled with a custom default quality.
+  - Firewire latency is scaled correctly now. (#4977)
+  - The mixer will only passthrough dynamic data.
+  - Fix filter-graph state in audioconvert after flush.
+  - Set the channel map in ALSA nodes to tell ALSA our channel layout
+    and avoid wrong channels.
+  - Fix AVX2 function, make sure they don't run on AVX-only CPUs.
+    (#5072)
+  - Fix an overflow and crash when too many phases are used in the
+    resampler. (#5073)
+  - Add some more channel downmix positions, mostly REAR and TOP
+    channels.
+
+## pulse-server
+  - Add a message to enable mono mixdown.
+
+## Tools
+  - Support filenames in raw mode in pw-cat. (#5012)
+  - Enable clipping in spa-resample.
+
+## examples
+  - Update device ID negotiation examples.
+
+## Docs
+  - Document the resampler properties better.
+
+
+Older versions:
+
 # PipeWire 1.5.84 (2025-11-27)
 
 This is the fourth 1.6 release candidate that is API and ABI
@@ -42,9 +104,6 @@ Changes since the last pre-release:
   - Add BAP context metadata to improve compatibility.
   - Improve compatiblity with Creative Zen Hybrid Pro by releasing
     transports simultaneously.
-
-
-Older versions:
 
 # PipeWire 1.5.83 (2025-11-06)
 

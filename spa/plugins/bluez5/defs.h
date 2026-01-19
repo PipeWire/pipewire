@@ -810,7 +810,6 @@ enum spa_bt_feature {
 	SPA_BT_FEATURE_SBC_XQ		= (1 << 5),
 	SPA_BT_FEATURE_FASTSTREAM	= (1 << 6),
 	SPA_BT_FEATURE_A2DP_DUPLEX	= (1 << 7),
-	SPA_BT_FEATURE_HW_OFFLOAD	= (1 << 8),
 };
 
 struct spa_bt_quirks;

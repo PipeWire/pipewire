@@ -298,11 +298,14 @@ static const struct media_codec *codec_list_best(struct impl *backend, struct sp
 	return NULL;
 }
 
-static int sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
+static void sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
 {
 	int err;
 	char buffer[255];
 	struct bt_codecs *codecs;
+
+	if (backend->hfphsp_sco_datapath == HFP_SCO_DEFAULT_DATAPATH)
+		return;
 
 	spa_log_info(backend->log, "sock(%d) msbc(%d)", sock, msbc);
 
@@ -321,7 +324,6 @@ static int sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
 		spa_log_error(backend->log, "ERROR: %s (%d)", strerror(errno), errno);
 	else
 		spa_log_info(backend->log, "set offload codec succeeded");
-	return err;
 }
 
 static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -2623,10 +2625,7 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
 		}
 	}
 
-	if (backend->quirks &&
-		(spa_bt_quirks_get_features(backend->quirks, NULL, NULL, &bt_features) == 0) &&
-		((bt_features & (SPA_BT_FEATURE_HW_OFFLOAD)) != 0))
-		sco_offload_btcodec(backend, sock, transparent);
+	sco_offload_btcodec(backend, sock, transparent);
 
 	return spa_steal_fd(sock);
 }

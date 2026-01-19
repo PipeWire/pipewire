@@ -14,6 +14,7 @@
 
 #define KEY_VERSION_LIBRARY	"api.libcamera.version.library"
 #define KEY_VERSION_HEADER	"api.libcamera.version.header"
+#define KEY_PROPERTY_PREFIX	"api.libcamera.property"
 
 extern "C" {
 

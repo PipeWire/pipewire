@@ -5,12 +5,20 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <cstddef>
+#include <ios>
+#include <locale>
+#include <optional>
 #include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
+#include <spa/utils/json.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/result.h>
 #include <spa/utils/names.h>
@@ -42,6 +50,8 @@ struct impl {
 
 	std::shared_ptr<CameraManager> manager;
 	std::shared_ptr<Camera> camera;
+
+	std::vector<std::pair<std::string, std::string>> properties;
 
 	impl(spa_log *log,
 	     std::shared_ptr<CameraManager> manager,
@@ -96,11 +106,144 @@ const char *cameraRot(const Camera& camera)
 	return nullptr;
 }
 
+std::optional<std::string>
+string_to_json(std::string_view str)
+{
+	std::string result(str.size() + 2, '\0');
+
+	auto l = spa_json_encode_stringn(result.data(), result.size(), str.data(), str.size());
+	if (l > result.size()) {
+		result.resize(l);
+
+		l = spa_json_encode_stringn(result.data(), result.size(), str.data(), str.size());
+		if (l > result.size())
+			return {};
+	}
+
+	result.resize(l);
+	return result;
+}
+
+constexpr auto default_control_value_print = [](std::ostream& os, const auto& x) { os << x; };
+
+template<typename T, typename Print = decltype(default_control_value_print)>
+[[nodiscard]]
+bool
+control_value_to_string(std::ostream& os, const libcamera::ControlValue& v, Print print = {})
+{
+	if (v.isArray()) {
+		os << "[ ";
+
+		bool first = true;
+		for (const auto& x : v.get<libcamera::Span<const T>>()) {
+			if (!first)
+				os << ", ";
+
+			print(os, x);
+			first = false;
+		}
+
+		os << " ]";
+	}
+	else {
+		print(os, v.get<T>());
+	}
+
+	return true;
+}
+
+[[nodiscard]]
+bool
+control_value_to_string(std::ostream& os, const libcamera::ControlValue& v,
+			const libcamera::ControlId *cid)
+{
+	switch (v.type()) {
+	case libcamera::ControlTypeNone:
+		os << "null";
+		return true;
+	case libcamera::ControlTypeBool:
+		return control_value_to_string<bool>(os, v);
+	case libcamera::ControlTypeByte:
+		return control_value_to_string<uint8_t>(os, v);
+	case libcamera::ControlTypeUnsigned16:
+		return control_value_to_string<uint16_t>(os, v);
+	case libcamera::ControlTypeUnsigned32:
+		return control_value_to_string<uint32_t>(os, v);
+	case libcamera::ControlTypeInteger32:
+		return control_value_to_string<int32_t>(os, v, [&](std::ostream& os, int32_t x) {
+			if (cid) {
+				auto it = cid->enumerators().find(x);
+				if (it != cid->enumerators().end()) {
+					auto str = string_to_json(it->second);
+					if (str) {
+						os << *str;
+						return;
+					}
+				}
+			}
+
+			os << x;
+		});
+	case libcamera::ControlTypeInteger64:
+		return control_value_to_string<int64_t>(os, v);
+	case libcamera::ControlTypeFloat:
+		return control_value_to_string<float>(os, v);
+	case libcamera::ControlTypeString: {
+		auto str = string_to_json(v.get<std::string_view>());
+		if (!str)
+			return false;
+
+		os << *str;
+		return true;
+	}
+	}
+
+	return false;
+}
+
+[[nodiscard]]
+std::vector<std::pair<std::string, std::string>>
+control_list_to_dict(const libcamera::ControlList& list, std::string_view prefix)
+{
+	static const std::locale c_locale("C");
+
+	std::vector<std::pair<std::string, std::string>> res;
+	const auto *id_map = list.idMap();
+	std::ostringstream value_s;
+	std::ostringstream key_s;
+
+	spa_assert(id_map);
+
+	key_s.imbue(c_locale);
+
+	value_s.imbue(c_locale);
+	value_s << std::boolalpha;
+
+	res.reserve(list.size());
+
+	for (const auto& [ id, value ] : list) {
+		auto it = id_map->find(id);
+		const auto *cid = it != id_map->end() ? it->second : nullptr;
+
+		if (!control_value_to_string(value_s, value, cid))
+			continue;
+
+		key_s << prefix << '.';
+
+		if (cid)
+			key_s << cid->vendor() << '.' << cid->name();
+		else
+			key_s << id;
+
+		res.emplace_back(std::move(key_s).str(), std::move(value_s).str());
+	}
+
+	return res;
+}
+
 int emit_info(struct impl *impl, bool full)
 {
-	struct spa_dict_item items[12];
 	struct spa_dict dict;
-	uint32_t n_items = 0;
 	struct spa_device_info info;
 	Camera& camera = *impl->camera;
 
@@ -108,7 +251,8 @@ int emit_info(struct impl *impl, bool full)
 
 	info.change_mask = SPA_DEVICE_CHANGE_MASK_PROPS;
 
-#define ADD_ITEM(key, value) items[n_items++] = SPA_DICT_ITEM_INIT(key, value)
+	std::vector<spa_dict_item> items;
+#define ADD_ITEM(key, value) items.push_back({ key, value })
 
 	const auto path = "libcamera:" + impl->device_id;
 	ADD_ITEM(SPA_KEY_OBJECT_PATH, path.c_str());
@@ -149,7 +293,10 @@ int emit_info(struct impl *impl, bool full)
 
 #undef ADD_ITEM
 
-	dict = SPA_DICT_INIT(items, n_items);
+	for (const auto& [ k, v ] : impl->properties)
+		items.push_back({ k.c_str(), v.c_str() });
+
+	dict = SPA_DICT_INIT(items.data(), uint32_t(items.size()));
 	info.props = &dict;
 
 	spa_device_emit_info(&impl->hooks, &info);
@@ -252,7 +399,8 @@ impl::impl(spa_log *log,
 	  log(log),
 	  device_id(std::move(device_id)),
 	  manager(std::move(manager)),
-	  camera(std::move(camera))
+	  camera(std::move(camera)),
+	  properties(control_list_to_dict(this->camera->properties(), KEY_PROPERTY_PREFIX))
 {
 	libcamera_log_topic_init(log);
 

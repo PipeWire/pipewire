@@ -641,7 +641,8 @@ static void rtp_audio_process_capture(void *data)
 	if (!impl->have_sync) {
 		pw_log_info("(re)sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
 				actual_timestamp, impl->seq, impl->ts_offset, impl->ssrc);
-		impl->ring.readindex = impl->ring.writeindex = actual_timestamp;
+		spa_ringbuffer_read_update(&impl->ring, actual_timestamp);
+		spa_ringbuffer_write_update(&impl->ring, actual_timestamp);
 		memset(impl->buffer, 0, BUFFER_SIZE);
 		impl->have_sync = true;
 		expected_timestamp = actual_timestamp;

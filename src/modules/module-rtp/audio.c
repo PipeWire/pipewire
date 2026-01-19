@@ -22,6 +22,15 @@ static void ringbuffer_clear(struct spa_ringbuffer *rbuf SPA_UNUSED,
 	memset(iov[1].iov_base, 0, iov[1].iov_len);
 }
 
+static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
+{
+#if 0
+	return ((__uint128_t)val * num) / denom;
+#else
+	return (uint64_t)((double)val / denom * num);
+#endif
+}
+
 static void rtp_audio_process_playback(void *data)
 {
 	struct impl *impl = data;
@@ -107,9 +116,15 @@ static void rtp_audio_process_playback(void *data)
 		 * quantity tracks how many samples are actually available. */
 
 		if (impl->io_position) {
-			/* Shift clock position by stream delay to compensate
-			 * for processing and output delay. */
-			timestamp = impl->io_position->clock.position + device_delay;
+			uint32_t clock_rate = impl->io_position->clock.rate.denom;
+
+			/* Translate the clock position to an RTP timestamp and
+			 * shift it to compensate for device delay and ASRC delay.
+			 * The device delay is scaled along with the clock position,
+			 * since both are expressed in clock sample units, while
+			 * pwt.buffered is expressed in stream time. */
+			timestamp = scale_u64(impl->io_position->clock.position + device_delay,
+					      impl->rate, clock_rate) + pwt.buffered;
 			spa_ringbuffer_read_update(&impl->ring, timestamp);
 			avail = spa_ringbuffer_get_read_index(&impl->ring, &read_index);
 		} else {

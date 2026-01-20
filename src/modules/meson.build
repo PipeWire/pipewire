@@ -573,6 +573,22 @@ if build_module_zeroconf_discover
 endif
 summary({'zeroconf-discover': build_module_zeroconf_discover}, bool_yn: true, section: 'Optional Modules')
 
+# Several modules (rtp-sink, rtp-source, raop-sink) use the same code
+# for actual RTP transport. To not have to recompile the same code
+# multiple times, and to make the build script a little more robust
+# (by avoiding build script code duplication), create a static library
+# that contains that common code.
+pipewire_module_rtp_common_lib = static_library('pipewire-module-rtp-common-lib',
+  [ 'module-rtp/stream.c' ],
+  include_directories : [configinc],
+  install : false,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep],
+)
+pipewire_module_rtp_common_dep = declare_dependency(
+  link_with: pipewire_module_rtp_common_lib,
+  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep],
+)
+
 build_module_raop_discover = avahi_dep.found()
 if build_module_raop_discover
   pipewire_module_raop_discover = shared_library('pipewire-module-raop-discover',
@@ -605,13 +621,12 @@ build_module_raop = openssl_lib.found()
 if build_module_raop
   pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
     [ 'module-raop-sink.c',
-      'module-raop/rtsp-client.c',
-      'module-rtp/stream.c' ],
+      'module-raop/rtsp-client.c' ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep, openssl_lib],
+    dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
   )
 endif
 summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
@@ -620,36 +635,33 @@ roc_dep = dependency('roc', version: '>= 0.4.0', required: get_option('roc'))
 summary({'ROC': roc_dep.found()}, bool_yn: true, section: 'Streaming between daemons')
 
 pipewire_module_rtp_source = shared_library('pipewire-module-rtp-source',
-  [ 'module-rtp-source.c',
-    'module-rtp/stream.c' ],
+  [ 'module-rtp-source.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep],
+  dependencies : [pipewire_module_rtp_common_dep],
 )
 
 pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
-  [ 'module-rtp-sink.c',
-    'module-rtp/stream.c' ],
+  [ 'module-rtp-sink.c' ],
   include_directories : [configinc],
   install : true,
   install_dir : modules_install_dir,
   install_rpath: modules_install_dir,
-  dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, opus_dep],
+  dependencies : [pipewire_module_rtp_common_dep],
 )
 
 build_module_rtp_session = avahi_dep.found()
 if build_module_rtp_session
   pipewire_module_rtp_session = shared_library('pipewire-module-rtp-session',
-    [ 'module-rtp/stream.c',
-      'module-zeroconf-discover/avahi-poll.c',
-     'module-rtp-session.c' ],
+    [ 'module-zeroconf-discover/avahi-poll.c',
+      'module-rtp-session.c' ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep, opus_dep],
+    dependencies : [pipewire_module_rtp_common_dep, avahi_dep],
   )
 endif
 

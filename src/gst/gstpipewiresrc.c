@@ -781,7 +781,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
   crop = data->crop;
   if (crop) {
-    GstVideoCropMeta *meta = gst_buffer_get_video_crop_meta(buf);
+    GstVideoCropMeta *meta = gst_buffer_add_video_crop_meta(buf);
     if (meta) {
       meta->x = crop->region.position.x;
       meta->y = crop->region.position.y;

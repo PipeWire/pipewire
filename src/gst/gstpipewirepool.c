@@ -209,8 +209,6 @@ void gst_pipewire_pool_wrap_buffer (GstPipeWirePool *pool, struct pw_buffer *b)
   data->b = b;
   data->buf = buf;
   data->crop = spa_buffer_find_meta_data (b->buffer, SPA_META_VideoCrop, sizeof(*data->crop));
-  if (data->crop)
-	  gst_buffer_add_video_crop_meta(buf);
   data->videotransform =
     spa_buffer_find_meta_data (b->buffer, SPA_META_VideoTransform, sizeof(*data->videotransform));
   data->cursor = spa_buffer_find_meta_data (b->buffer, SPA_META_Cursor, sizeof(*data->cursor));

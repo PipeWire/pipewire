@@ -2595,7 +2595,6 @@ static int sco_create_socket(struct impl *backend, struct spa_bt_adapter *adapte
 	struct sockaddr_sco addr;
 	socklen_t len;
 	bdaddr_t src;
-	uint32_t bt_features;
 
 	spa_autoclose int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET | SOCK_NONBLOCK, BTPROTO_SCO);
 	if (sock < 0) {

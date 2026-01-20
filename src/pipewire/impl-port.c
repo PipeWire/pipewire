@@ -1595,6 +1595,8 @@ void pw_impl_port_destroy(struct pw_impl_port *port)
 	pw_param_clear(&impl->pending_list, SPA_ID_INVALID);
 	free(port->tag[SPA_DIRECTION_INPUT]);
 	free(port->tag[SPA_DIRECTION_OUTPUT]);
+	free(port->cap[SPA_DIRECTION_INPUT]);
+	free(port->cap[SPA_DIRECTION_OUTPUT]);
 
 	pw_map_clear(&port->mix_port_map);
 

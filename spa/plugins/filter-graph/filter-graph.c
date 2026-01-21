@@ -80,7 +80,6 @@ struct descriptor {
 	unsigned long *output;
 	unsigned long *control;
 	unsigned long *notify;
-	float *default_control;
 };
 
 struct port {
@@ -94,6 +93,9 @@ struct port {
 	uint32_t n_links;
 	uint32_t external;
 
+	bool control_initialized;
+
+	float control_current;
 	float control_data[MAX_HNDL];
 	float *audio_data[MAX_HNDL];
 	void *audio_mem[MAX_HNDL];
@@ -349,12 +351,6 @@ static int impl_process(void *object,
 	return 0;
 }
 
-static float get_default(struct impl *impl, struct descriptor *desc, uint32_t p)
-{
-	struct spa_fga_port *port = &desc->desc->ports[p];
-	return port->def;
-}
-
 static struct node *find_node(struct graph *graph, const char *name)
 {
 	struct node *node;
@@ -443,6 +439,20 @@ static struct port *find_port(struct node *node, const char *name, int descripto
 	return NULL;
 }
 
+static void get_ranges(struct impl *impl, struct spa_fga_port *p,
+		float *def, float *min, float *max)
+{
+	uint32_t rate = impl->rate ? impl->rate : DEFAULT_RATE;
+	*def = p->def;
+	*min = p->min;
+	*max = p->max;
+	if (p->hint & SPA_FGA_HINT_SAMPLE_RATE) {
+		*def *= rate;
+		*min *= rate;
+		*max *= rate;
+	}
+}
+
 static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builder *b,
 		struct spa_pod **param)
 {
@@ -457,7 +467,6 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 	struct spa_fga_port *p;
 	float def, min, max;
 	char name[512];
-	uint32_t rate = impl->rate ? impl->rate : DEFAULT_RATE;
 
 	if (idx >= graph->n_control)
 		return 0;
@@ -468,15 +477,7 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 	d = desc->desc;
 	p = &d->ports[port->p];
 
-	if (p->hint & SPA_FGA_HINT_SAMPLE_RATE) {
-		def = p->def * rate;
-		min = p->min * rate;
-		max = p->max * rate;
-	} else {
-		def = p->def;
-		min = p->min;
-		max = p->max;
-	}
+	get_ranges(impl, p, &def, &min, &max);
 
 	if (node->name[0] != '\0')
 		snprintf(name, sizeof(name), "%s:%s", node->name, p->name);
@@ -575,41 +576,58 @@ static int impl_get_props(void *object, struct spa_pod_builder *b, struct spa_po
 	return 1;
 }
 
-static int port_set_control_value(struct port *port, float *value, uint32_t id)
+static int port_id_set_control_value(struct port *port, uint32_t id, float value)
 {
 	struct node *node = port->node;
 	struct impl *impl = node->graph->impl;
-
 	struct descriptor *desc = node->desc;
+	struct spa_fga_port *p = &desc->desc->ports[port->p];
 	float old;
 	bool changed;
 
 	old = port->control_data[id];
-	port->control_data[id] = value ? *value : desc->default_control[port->idx];
+	port->control_data[id] = value;
+
 	spa_log_info(impl->log, "control %d %d ('%s') from %f to %f", port->idx, id,
-			desc->desc->ports[port->p].name, old, port->control_data[id]);
+			p->name, old, value);
+
 	changed = old != port->control_data[id];
 	node->control_changed |= changed;
+
 	return changed ? 1 : 0;
+}
+
+static int port_set_control_value(struct port *port, float *value)
+{
+	struct node *node = port->node;
+	struct impl *impl = node->graph->impl;
+	struct spa_fga_port *p;
+	float v, def, min, max;
+	uint32_t i;
+	int count = 0;
+
+	p = &node->desc->desc->ports[port->p];
+	get_ranges(impl, p, &def, &min, &max);
+	v = SPA_CLAMP(value ? *value : def, min, max);
+
+	port->control_current = v;
+	port->control_initialized = true;
+
+	for (i = 0; i < node->n_hndl; i++)
+		count += port_id_set_control_value(port, i, v);
+
+	return count;
 }
 
 static int set_control_value(struct node *node, const char *name, float *value)
 {
 	struct port *port;
-	int count = 0;
-	uint32_t i, n_hndl;
 
 	port = find_port(node, name, SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL);
 	if (port == NULL)
 		return -ENOENT;
 
-	/* if we don't have any instances yet, set the first control value, we will
-	 * copy to other instances later */
-	n_hndl = SPA_MAX(1u, port->node->n_hndl);
-	for (i = 0; i < n_hndl; i++)
-		count += port_set_control_value(port, value, i);
-
-	return count;
+	return port_set_control_value(port, value);
 }
 
 static int parse_params(struct graph *graph, const struct spa_pod *pod)
@@ -716,7 +734,7 @@ static int sync_volume(struct graph *graph, struct volume *vol)
 		v = v * (vol->max[n_port] - vol->min[n_port]) + vol->min[n_port];
 
 		n_hndl = SPA_MAX(1u, p->node->n_hndl);
-		res += port_set_control_value(p, &v, i % n_hndl);
+		res += port_id_set_control_value(p, i % n_hndl, v);
 	}
 	return res;
 }
@@ -935,7 +953,6 @@ static void descriptor_unref(struct descriptor *desc)
 	free(desc->input);
 	free(desc->output);
 	free(desc->control);
-	free(desc->default_control);
 	free(desc->notify);
 	free(desc);
 }
@@ -946,7 +963,7 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	struct plugin *pl;
 	struct descriptor *desc;
 	const struct spa_fga_descriptor *d;
-	uint32_t i, n_input, n_output, n_control, n_notify;
+	uint32_t n_input, n_output, n_control, n_notify;
 	unsigned long p;
 	int res;
 
@@ -1000,7 +1017,6 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	desc->input = calloc(n_input, sizeof(unsigned long));
 	desc->output = calloc(n_output, sizeof(unsigned long));
 	desc->control = calloc(n_control, sizeof(unsigned long));
-	desc->default_control = calloc(n_control, sizeof(float));
 	desc->notify = calloc(n_notify, sizeof(unsigned long));
 
 	for (p = 0; p < d->n_ports; p++) {
@@ -1029,12 +1045,6 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 				desc->notify[desc->n_notify++] = p;
 			}
 		}
-	}
-	for (i = 0; i < desc->n_control; i++) {
-		p = desc->control[i];
-		desc->default_control[i] = get_default(impl, desc, p);
-		spa_log_info(impl->log, "control %d ('%s') default to %f", i,
-				d->ports[p].name, desc->default_control[i]);
 	}
 	spa_list_append(&pl->descriptor_list, &desc->link);
 
@@ -1415,7 +1425,6 @@ static int load_node(struct graph *graph, struct spa_json *json)
 		port->external = SPA_ID_INVALID;
 		port->p = desc->control[i];
 		spa_list_init(&port->link_list);
-		port->control_data[0] = desc->default_control[i];
 	}
 	for (i = 0; i < desc->n_notify; i++) {
 		struct port *port = &node->notify_port[i];
@@ -2020,11 +2029,9 @@ static int setup_graph(struct graph *graph)
 			}
 		}
 		for (i = 0; i < desc->n_control; i++) {
-			/* any default values for the controls are set in the first instance
-			 * of the control data. Duplicate this to the other instances now. */
 			struct port *port = &node->control_port[i];
-			for (j = 1; j < n_hndl; j++)
-				port->control_data[j] = port->control_data[0];
+			port_set_control_value(port,
+				port->control_initialized ? &port->control_current : NULL);
 		}
 	}
 	res = 0;

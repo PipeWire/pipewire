@@ -187,6 +187,11 @@ ATTRS{idVendor}=="1395", ATTRS{idProduct}=="0300", ENV{ACP_PROFILE_SET}="usb-gam
 # Sennheiser GSP 670 USB headset
 ATTRS{idVendor}=="1395", ATTRS{idProduct}=="008a", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 
+# JBL Quantum One
+ATTRS{idVendor}=="0ecb", ATTRS{idProduct}=="203a", ENV{ACP_PROFILE_SET}="usb-gaming-headset-gamefirst.conf"
+# JBL Quantum 810 Wireless
+ATTRS{idVendor}=="0ecb", ATTRS{idProduct}=="2069", ENV{ACP_PROFILE_SET}="usb-gaming-headset-gamefirst.conf"
+
 # Audioengine HD3 powered speakers support IEC958 but don't actually
 # have any digital outputs.
 ATTRS{idVendor}=="0a12", ATTRS{idProduct}=="4007", ENV{ACP_PROFILE_SET}="analog-only.conf"

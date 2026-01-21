@@ -652,6 +652,36 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * of "Attack (s)" seconds. The noise gate stays open for at least "Hold (s)"
  * seconds before it can close again.
  *
+ * ### Busy
+ *
+ * The `busy` plugin has no input or output ports and it can be used to keep the
+ * CPU or graph busy for the given percent of time.
+ *
+ * The node requires a `config` section with extra configuration:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = busy
+ *             config = {
+ *                 wait-percent = 0.0
+ *                 cpu-percent = 50.0
+ *             }
+ *             ...
+ *         }
+ *     }
+ *     ...
+ * }
+ *\endcode
+ *
+ * - `wait-percent` the percentage of time to wait. This keeps the graph busy but
+ *                  not the CPU. Default 0.0
+ * - `cpu-percent` the percentage of time to keep the CPU busy. This keeps both the
+ *                  graph and CPU busy. Default 0.0
+ *
  *
  * ## SOFA filters
  *

@@ -1030,11 +1030,6 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 			}
 		}
 	}
-	if (desc->n_input == 0 && desc->n_output == 0 && desc->n_control == 0 && desc->n_notify == 0) {
-		spa_log_error(impl->log, "plugin has no input and no output ports");
-		res = -ENOTSUP;
-		goto exit;
-	}
 	for (i = 0; i < desc->n_control; i++) {
 		p = desc->control[i];
 		desc->default_control[i] = get_default(impl, desc, p);
@@ -1794,7 +1789,7 @@ static int setup_graph(struct graph *graph)
 	struct port *port;
 	struct graph_port *gp;
 	struct graph_hndl *gh;
-	uint32_t i, j, n, n_input, n_output, n_hndl = 0;
+	uint32_t i, j, n, n_input, n_output, n_hndl = 0, n_out_hndl;
 	int res;
 	struct descriptor *desc;
 	const struct spa_fga_descriptor *d;
@@ -1815,16 +1810,11 @@ static int setup_graph(struct graph *graph)
 	    SPA_FLAG_IS_SET(first->desc->desc->flags, SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA) &&
 	    SPA_FLAG_IS_SET(last->desc->desc->flags, SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA);
 
-	if (n_input == 0) {
-		spa_log_error(impl->log, "no inputs");
-		res = -EINVAL;
-		goto error;
-	}
-	if (n_output == 0) {
-		spa_log_error(impl->log, "no outputs");
-		res = -EINVAL;
-		goto error;
-	}
+	if (n_input == 0)
+		n_input = n_output;
+	if (n_output == 0)
+		n_output = n_input;
+
 	if (graph->n_inputs == 0)
 		graph->n_inputs = impl->info.n_inputs;
 	if (graph->n_inputs == 0)
@@ -1835,12 +1825,14 @@ static int setup_graph(struct graph *graph)
 
 	/* compare to the requested number of inputs and duplicate the
 	 * graph n_hndl times when needed. */
-	n_hndl = graph->n_inputs / n_input;
+	n_hndl = n_input ? graph->n_inputs / n_input : 1;
 
 	if (graph->n_outputs == 0)
 		graph->n_outputs = n_output * n_hndl;
 
-	if (n_hndl != graph->n_outputs / n_output) {
+	n_out_hndl = n_output ? graph->n_outputs / n_output : 1;
+
+	if (n_hndl != n_out_hndl) {
 		spa_log_error(impl->log, "invalid ports. The input stream has %1$d ports and "
 				"the filter has %2$d inputs. The output stream has %3$d ports "
 				"and the filter has %4$d outputs. input:%1$d / input:%2$d != "

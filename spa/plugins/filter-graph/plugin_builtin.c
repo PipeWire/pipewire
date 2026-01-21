@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <fcntl.h>
+#include <time.h>
 
 #include <spa/utils/json.h>
 #include <spa/utils/result.h>
@@ -3115,6 +3116,107 @@ static const struct spa_fga_descriptor noisegate_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/* busy */
+struct busy_impl {
+	struct plugin *plugin;
+
+	struct spa_fga_dsp *dsp;
+	struct spa_log *log;
+
+	unsigned long rate;
+
+	float wait_scale;
+	float cpu_scale;
+};
+
+static void *busy_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		unsigned long SampleRate, int index, const char *config)
+{
+	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
+	struct busy_impl *impl;
+	struct spa_json it[1];
+	const char *val;
+	char key[256];
+	float wait_percent = 0.0f, cpu_percent = 0.0f;
+	int len;
+
+	if (config != NULL) {
+		if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
+			spa_log_error(pl->log, "busy:config must be an object");
+			return NULL;
+		}
+
+		while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
+			if (spa_streq(key, "wait-percent")) {
+				if (spa_json_parse_float(val, len, &wait_percent) <= 0) {
+					spa_log_error(pl->log, "busy:wait-percent requires a number");
+					return NULL;
+				}
+			} else if (spa_streq(key, "cpu-percent")) {
+				if (spa_json_parse_float(val, len, &cpu_percent) <= 0) {
+					spa_log_error(pl->log, "busy:cpu-percent requires a number");
+					return NULL;
+				}
+			} else {
+				spa_log_warn(pl->log, "busy: ignoring config key: '%s'", key);
+			}
+		}
+		if (wait_percent <= 0.0f)
+			wait_percent = 0.0f;
+		if (cpu_percent <= 0.0f)
+			cpu_percent = 0.0f;
+	}
+
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		return NULL;
+
+	impl->plugin = pl;
+	impl->dsp = pl->dsp;
+	impl->log = pl->log;
+	impl->rate = SampleRate;
+	impl->wait_scale = wait_percent * SPA_NSEC_PER_SEC / (100.0f * SampleRate);
+	impl->cpu_scale = cpu_percent * SPA_NSEC_PER_SEC / (100.0f * SampleRate);
+	spa_log_info(impl->log, "wait-percent:%f cpu-percent:%f", wait_percent, cpu_percent);
+
+	return impl;
+}
+
+static void busy_run(void * Instance, unsigned long SampleCount)
+{
+	struct busy_impl *impl = Instance;
+	struct timespec ts;
+	uint64_t busy_nsec;
+
+	if (impl->wait_scale > 0.0f) {
+		busy_nsec = (uint64_t)(impl->wait_scale * SampleCount);
+		ts.tv_sec = busy_nsec / SPA_NSEC_PER_SEC;
+		ts.tv_nsec = busy_nsec % SPA_NSEC_PER_SEC;
+		clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, NULL);
+	}
+	if (impl->cpu_scale > 0.0f) {
+		clock_gettime(CLOCK_MONOTONIC, &ts);
+		busy_nsec = SPA_TIMESPEC_TO_NSEC(&ts);
+		busy_nsec += (uint64_t)(impl->cpu_scale * SampleCount);
+		do {
+			clock_gettime(CLOCK_MONOTONIC, &ts);
+		} while ((uint64_t)SPA_TIMESPEC_TO_NSEC(&ts) < busy_nsec);
+	}
+}
+
+static const struct spa_fga_descriptor busy_desc = {
+	.name = "busy",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = 0,
+	.ports = NULL,
+
+	.instantiate = busy_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = busy_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -3180,6 +3282,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &zeroramp_desc;
 	case 30:
 		return &noisegate_desc;
+	case 31:
+		return &busy_desc;
 	}
 	return NULL;
 }

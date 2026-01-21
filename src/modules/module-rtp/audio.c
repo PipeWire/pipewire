@@ -620,6 +620,7 @@ static void rtp_audio_process_capture(void *data)
 	uint32_t pending, num_queued;
 	struct spa_io_position *pos;
 	uint64_t next_nsec, quantum;
+	struct pw_time pwt;
 
 	if (impl->separate_sender) {
 		/* apply the DLL rate */
@@ -637,6 +638,8 @@ static void rtp_audio_process_capture(void *data)
 	stride = impl->stride;
 	wanted = size / stride;
 
+	pw_stream_get_time_n(impl->stream, &pwt, sizeof(pwt));
+
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_timestamp);
 
 	pos = impl->io_position;
@@ -652,6 +655,21 @@ static void rtp_audio_process_capture(void *data)
 			impl->sink_next_nsec = pos->clock.next_nsec;
 			impl->sink_resamp_delay = impl->io_rate_match->delay;
 			impl->sink_quantum = (uint64_t)(pos->clock.duration * SPA_NSEC_PER_SEC / rate);
+		}
+
+		/* Compensate for the stream resampler's delay. */
+		actual_timestamp -= pwt.buffered;
+
+		/* If we got a request for less than quantum worth of samples, it indicates that there
+		 * is a gap created by the resampler. We have to skip it to avoid timestamp discontinuity. */
+		if (pwt.buffered > 0) {
+			int32_t ideal_quantum = (int32_t)scale_u64(pos->clock.duration, impl->rate, rate);
+			if (wanted < ideal_quantum) {
+				int32_t num_samples_to_skip = ideal_quantum - wanted;
+				pw_log_info("wanted: %" PRId32 " < ideal quantum: %" PRId32 " - skipping %"
+					    PRId32" samples", wanted, ideal_quantum, num_samples_to_skip);
+				actual_timestamp += num_samples_to_skip;
+			}
 		}
 	} else {
 		actual_timestamp = expected_timestamp;

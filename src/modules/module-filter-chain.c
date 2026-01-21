@@ -1711,20 +1711,11 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 {
 	struct impl *impl = object;
 	struct spa_dict *props = info->props;
-	uint32_t i;
-
-	if (impl->capture_info.channels == 0)
-		impl->capture_info.channels = info->n_inputs;
-	if (impl->playback_info.channels == 0)
-		impl->playback_info.channels = info->n_outputs;
+	uint32_t i, val = 0;
 
 	impl->n_inputs = info->n_inputs;
 	impl->n_outputs = info->n_outputs;
 
-	if (impl->capture_info.channels == impl->playback_info.channels) {
-		copy_position(&impl->capture_info, &impl->playback_info);
-		copy_position(&impl->playback_info, &impl->capture_info);
-	}
 	for (i = 0; props && i < props->n_items; i++) {
 		const char *k = props->items[i].key;
 		const char *s = props->items[i].value;
@@ -1738,6 +1729,22 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 				}
 			}
 		}
+		else if (spa_streq(k, "n_default_inputs") &&
+		    impl->capture_info.channels == 0 &&
+		    spa_atou32(s, &val, 0)) {
+			pw_log_info("using default inputs %d", val);
+			impl->capture_info.channels = val;
+		}
+		else if (spa_streq(k, "n_default_outputs") &&
+		    impl->playback_info.channels == 0 &&
+		    spa_atou32(s, &val, 0)) {
+			pw_log_info("using default outputs %d", val);
+			impl->playback_info.channels = val;
+		}
+	}
+	if (impl->capture_info.channels == impl->playback_info.channels) {
+		copy_position(&impl->capture_info, &impl->playback_info);
+		copy_position(&impl->playback_info, &impl->capture_info);
 	}
 }
 

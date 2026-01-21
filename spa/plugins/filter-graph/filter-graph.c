@@ -193,6 +193,9 @@ struct graph {
 
 	struct volume volume[2];
 
+	uint32_t default_inputs;
+	uint32_t default_outputs;
+
 	uint32_t n_inputs;
 	uint32_t n_outputs;
 	uint32_t inputs_position[MAX_CHANNELS];
@@ -257,16 +260,23 @@ static void emit_filter_graph_info(struct impl *impl, bool full)
 		impl->info.change_mask = impl->info_all;
 	if (impl->info.change_mask || full) {
 		char n_inputs[64], n_outputs[64], latency[64];
+		char n_default_inputs[64], n_default_outputs[64];
 		struct spa_dict_item items[6];
 		struct spa_dict dict = SPA_DICT(items, 0);
 		char in_pos[MAX_CHANNELS * 8];
 		char out_pos[MAX_CHANNELS * 8];
 
+		/* these are the current graph inputs/outputs */
 		snprintf(n_inputs, sizeof(n_inputs), "%d", impl->graph.n_inputs);
 		snprintf(n_outputs, sizeof(n_outputs), "%d", impl->graph.n_outputs);
+		/* these are the default number of graph inputs/outputs */
+		snprintf(n_default_inputs, sizeof(n_default_inputs), "%d", impl->graph.default_inputs);
+		snprintf(n_default_outputs, sizeof(n_default_outputs), "%d", impl->graph.default_outputs);
 
 		items[dict.n_items++] = SPA_DICT_ITEM("n_inputs", n_inputs);
 		items[dict.n_items++] = SPA_DICT_ITEM("n_outputs", n_outputs);
+		items[dict.n_items++] = SPA_DICT_ITEM("n_default_inputs", n_default_inputs);
+		items[dict.n_items++] = SPA_DICT_ITEM("n_default_outputs", n_default_outputs);
 		if (graph->n_inputs_position) {
 			print_channels(in_pos, sizeof(in_pos),
 					graph->n_inputs_position, graph->inputs_position);
@@ -1796,19 +1806,8 @@ static int setup_graph(struct graph *graph)
 	first = spa_list_first(&graph->node_list, struct node, link);
 	last = spa_list_last(&graph->node_list, struct node, link);
 
-	/* calculate the number of inputs and outputs into the graph.
-	 * If we have a list of inputs/outputs, just use them. Otherwise
-	 * we count all input ports of the first node and all output
-	 * ports of the last node */
-	if (graph->n_input_names != 0)
-		n_input = graph->n_input_names;
-	else
-		n_input = first->desc->n_input;
-
-	if (graph->n_output_names != 0)
-		n_output = graph->n_output_names;
-	else
-		n_output = last->desc->n_output;
+	n_input = graph->default_inputs;
+	n_output = graph->default_outputs;
 
 	/* we allow unconnected ports when not explicitly given and the nodes support
 	 * NULL data */
@@ -2083,6 +2082,7 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 	struct spa_json inputs, outputs, *pinputs = NULL, *poutputs = NULL;
 	struct spa_json ivolumes, ovolumes, *pivolumes = NULL, *povolumes = NULL;
 	struct spa_json nodes, *pnodes = NULL, links, *plinks = NULL;
+	struct node *first, *last;
 	const char *json, *val;
 	char key[256];
 	int res, len;
@@ -2232,6 +2232,25 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 	}
 	if ((res = setup_graph_controls(graph)) < 0)
 		return res;
+
+	first = spa_list_first(&graph->node_list, struct node, link);
+	last = spa_list_last(&graph->node_list, struct node, link);
+
+	/* calculate the number of inputs and outputs into the graph.
+	 * If we have a list of inputs/outputs, just use them. Otherwise
+	 * we count all input ports of the first node and all output
+	 * ports of the last node */
+	if (graph->n_input_names != 0)
+		graph->default_inputs = graph->n_input_names;
+	else
+		graph->default_inputs = first->desc->n_input;
+
+	if (graph->n_output_names != 0)
+		graph->default_outputs = graph->n_output_names;
+	else
+		graph->default_outputs = last->desc->n_output;
+
+
 	return 0;
 }
 

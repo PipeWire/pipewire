@@ -3217,6 +3217,35 @@ static const struct spa_fga_descriptor busy_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/* null */
+static void null_run(void * Instance, unsigned long SampleCount)
+{
+}
+
+static struct spa_fga_port null_ports[] = {
+	{ .index = 0,
+	  .name = "In",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "Control",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	},
+};
+
+static const struct spa_fga_descriptor null_desc = {
+	.name = "null",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(null_ports),
+	.ports = null_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = null_run,
+	.cleanup = builtin_cleanup,
+};
+
 static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 {
 	switch(Index) {
@@ -3284,6 +3313,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &noisegate_desc;
 	case 31:
 		return &busy_desc;
+	case 32:
+		return &null_desc;
 	}
 	return NULL;
 }

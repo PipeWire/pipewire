@@ -682,6 +682,10 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `cpu-percent` the percentage of time to keep the CPU busy. This keeps both the
  *                  graph and CPU busy. Default 0.0
  *
+ * ### Null
+ *
+ * The `null` plugin has one data input "In" and one control input "Control" that
+ * simply discards the data.
  *
  * ## SOFA filters
  *

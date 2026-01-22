@@ -450,8 +450,9 @@ discover_capabilities(struct data *data, const struct spa_pod *param)
 				return;
 
 			spa_dict_for_each(it, &dict) {
-				if (spa_streq(it->key, PW_CAPABILITY_DEVICE_ID_NEGOTIATION) &&
-				    spa_streq(it->value, "true")) {
+				if (spa_streq(it->key, PW_CAPABILITY_DEVICE_ID_NEGOTIATION)) {
+				    int version = atoi(it->value);
+				    if (version >= 1)
 					data->device_negotiation_supported = true;
 				}
 			}
@@ -799,7 +800,7 @@ int main(int argc, char *argv[])
 
 	params[n_params++] =
 		spa_param_dict_build_dict(&b, SPA_PARAM_Capability,
-			&SPA_DICT_ITEMS(SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "true"),
+			&SPA_DICT_ITEMS(SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "1"),
 #ifdef SUPPORT_DEVICE_IDS_LIST
 					SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_IDS, device_ids)
 #endif /* SUPPORT_DEVICE_IDS_LIST */

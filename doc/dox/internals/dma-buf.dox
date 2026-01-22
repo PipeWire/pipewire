@@ -313,12 +313,13 @@ performed.
 Device ID negotiation needs explicit support by both end points of a stream, thus, the
 first step of negotiation is discovering whether other peer has support for it. This is
 done by advertising a \ref SPA_PARAM_Capability with the key \ref
-PW_CAPABILITY_DEVICE_ID_NEGOTIATION and value `true`
+PW_CAPABILITY_DEVICE_ID_NEGOTIATION and value `1` which corresponds to the
+current negotiation API version.
 
 ```
 	spa_param_dict_build_dict(&b, SPA_PARAM_Capability,
 		&SPA_DICT_ITEMS(
-			SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "true")));
+			SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "1")));
 ```
 
 To do this, when connecting to the stream, the \ref PW_STREAM_FLAG_INACTIVE flag must be
@@ -369,7 +370,7 @@ To achieve this, the consumer adds another \ref SPA_PARAM_PeerCapability item wi
 ```
 	char *device_ids = ...; /* Base 64 encoding of a dev_t. */.
 	&SPA_DICT_ITEMS(
-		SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "true"),
+		SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "1"),
 		SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_IDS, device_ids)));
 ```
 

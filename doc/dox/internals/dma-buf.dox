@@ -365,10 +365,13 @@ with. This can be used to reduce the amount of devices that are queried for form
 metadata, which can be a time consuming task, if devices needs to be woken up.
 
 To achieve this, the consumer adds another \ref SPA_PARAM_PeerCapability item with the key
-\ref PW_CAPABILITY_DEVICE_IDS set to a string of base 64 encoded `dev_t` device IDs.
+\ref PW_CAPABILITY_DEVICE_IDS set to a JSON object describing what device IDs are supported.
+
+This JSON object as of version 1 contains a single key "available-devices" that contain
+a list of hexadecimal encoded `dev_t` device IDs.
 
 ```
-	char *device_ids = ...; /* Base 64 encoding of a dev_t. */.
+	char *device_ids = "{\"available-devices\": [\"6464000000000000\",\"c8c8000000000000\"]}";
 	&SPA_DICT_ITEMS(
 		SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_ID_NEGOTIATION, "1"),
 		SPA_DICT_ITEM(PW_CAPABILITY_DEVICE_IDS, device_ids)));

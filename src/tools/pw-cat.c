@@ -1700,6 +1700,25 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 			break;
 		}
 	}
+	if (format == -1) {
+		if (sf_command(NULL, SFC_GET_SIMPLE_FORMAT_COUNT, &count, sizeof(int)) != 0)
+			count = 0;
+
+		for (i = 0; i < count; i++) {
+			SF_FORMAT_INFO fi;
+
+			spa_zero(fi);
+			fi.format = i;
+			if (sf_command(NULL, SFC_GET_SIMPLE_FORMAT, &fi, sizeof(fi)) != 0)
+				continue;
+
+			if (spa_strendswith(filename, fi.extension)) {
+				format = fi.format;
+				info->format = 0;
+				break;
+			}
+		}
+	}
 	if (format == -1)
 		format = spa_streq(filename, "-") ? SF_FORMAT_AU : SF_FORMAT_WAV;
 	if (format == SF_FORMAT_WAV && info->channels > 2)

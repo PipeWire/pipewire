@@ -324,5 +324,6 @@ static inline uint32_t port_type_value(const char *port_type)
 #define METADATA_TARGET_NODE            "target.node"
 #define METADATA_TARGET_OBJECT          "target.object"
 #define METADATA_FEATURES_AUDIO_MONO    "node.features.audio.mono"
+#define METADATA_BLUETOOTH_HEADSET_AUTOSWITCH "bluetooth.autoswitch-to-headset-profile"
 
 #endif /* PULSE_SERVER_DEFS_H */

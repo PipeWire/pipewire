@@ -110,12 +110,15 @@ static int core_object_force_mono_output(struct client *client, const char *para
 		if (spa_streq(params, "true")) {
 			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
 					METADATA_FEATURES_AUDIO_MONO, "Spa:String:JSON", "true");
+			client->force_mono_audio = true;
 		} else if (spa_streq(params, "false")) {
 			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
 					METADATA_FEATURES_AUDIO_MONO, "Spa:String:JSON", "false");
+			client->force_mono_audio = false;
 		} else if (spa_streq(params, "null")) {
 			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
 					METADATA_FEATURES_AUDIO_MONO, NULL, NULL);
+			client->force_mono_audio = client->default_force_mono_audio;
 		} else {
 			fprintf(response, "Value must be true, false, or clear");
 			return -EINVAL;

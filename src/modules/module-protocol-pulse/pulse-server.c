@@ -973,8 +973,17 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 	if (subject == PW_ID_CORE && o == client->metadata_routes)
 		client_update_routes(client, key, value);
 	if (subject == PW_ID_CORE && o == client->metadata_schema_sm_settings) {
-		if (spa_streq(key, METADATA_FEATURES_AUDIO_MONO))
+		char default_[16];
+
+		if (spa_streq(key, METADATA_FEATURES_AUDIO_MONO)) {
 			client->have_force_mono_audio = true;
+
+			if (spa_json_str_object_find(value, strlen(value),
+						"default", default_, sizeof(default_)) < 0)
+				client->default_force_mono_audio = false;
+			else
+				client->default_force_mono_audio = spa_streq(default_, "true");
+		}
 	}
 	if (subject == PW_ID_CORE && o == client->metadata_sm_settings) {
 		if (spa_streq(key, METADATA_FEATURES_AUDIO_MONO))

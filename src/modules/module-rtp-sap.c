@@ -1376,6 +1376,9 @@ static int rule_matched(void *data, const char *location, const char *action,
 
 		session_new_announce(i->impl, i->node, props);
 	}
+	else if (i->node && i->node->session && spa_streq(action, "deannounce-stream")) {
+		session_free(i->node->session);
+	}
 	return res;
 }
 

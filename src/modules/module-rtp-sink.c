@@ -404,6 +404,13 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 					}
 					pw_properties_setf(impl->stream_props, key, "%d", value_int);
 					items[n_items++] = SPA_DICT_ITEM_INIT(key, pw_properties_get(impl->stream_props, key));
+				} else if (spa_streq(key, "sess.sap.announce")) {
+					if (!value_str) {
+						pw_log_error("invalid sess.sap.announce");
+						break;
+					}
+					pw_properties_setf(impl->stream_props, key, "%s", value_str);
+					items[n_items++] = SPA_DICT_ITEM_INIT(key, pw_properties_get(impl->stream_props, key));
 				}
 			}
 

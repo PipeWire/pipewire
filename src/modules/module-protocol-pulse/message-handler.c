@@ -120,7 +120,7 @@ static int core_object_force_mono_output(struct client *client, const char *para
 					METADATA_FEATURES_AUDIO_MONO, NULL, NULL);
 			client->force_mono_audio = client->default_force_mono_audio;
 		} else {
-			fprintf(response, "Value must be true, false, or clear");
+			fprintf(response, "Value must be true, false, or null");
 			return -EINVAL;
 		}
 
@@ -162,7 +162,7 @@ static int core_object_bluetooth_headset_autoswitch(struct client *client, const
 					METADATA_BLUETOOTH_HEADSET_AUTOSWITCH, NULL, NULL);
 			client->bluetooth_headset_autoswitch = client->default_bluetooth_headset_autoswitch;
 		} else {
-			fprintf(response, "Value must be true, false, or clear");
+			fprintf(response, "Value must be true, false, or null");
 			return -EINVAL;
 		}
 

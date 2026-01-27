@@ -1,3 +1,102 @@
+# PipeWire 1.6.0 (2026-02-19)
+
+This is the 1.6 release that is API and ABI compatible with previous
+1.4.x releases.
+
+This release contains some of the bigger changes that happened since
+the 1.4 release last year, including:
+
+  * An LDAC decoder was added for bluetooth.
+  * SpanDSP for bluetooth packet loss concealment.
+  * Safe parsing and building of PODs in shared memory.
+  * Added support for metadata features. This is used to signal that
+    the sync_timeline metadata supports the RELEASE operation.
+  * Node commands and events can contain extra user data.
+  * Support for more compressed format helper functions to create
+    and parse formats.
+  * Support for compile time max channels. The max channels was
+    increased to 128.
+  * Support for audio channel layouts was added. This makes it possible
+    to set "audio.layout" = "5.1" instead of the more verbose
+    audio.position = [ FL, FR, FC, LFE, SL, SR ]
+  * Support for Capability Params was added. This can be used to
+    negotiate capabilities on a link before format and buffer
+    negotiation takes place.
+  * More HDR colortypes are added.
+  * Loops now have locking with priority inversion. Most code was adapted
+    to use the faster locks instead of epoll/eventfd to update shared state.
+  * Channel position are parsed from EDID data.
+  * Channel maps are now set on ALSA.
+  * The resampler now supports configurable window functions such
+    as blackman and kaiser windows. The phases are now also calculated
+    with fixed point math, which makes it more accurate.
+  * Many bluetooth updates and improvements.
+  * The filter-graph has an ffmpeg and ONNX plugin. The ffmpeg plugin
+    can run an audio AVFilterGraph. The ONNX plugin can run some models
+    such as the silero VAD.
+  * Many AVB updates. Work is ongoing to merge the Milan protocol.
+  * Support for v0 clients was removed.
+  * The jack-tunnel module can now autoconnect ports.
+  * ROC support multitrack layouts now.
+  * Many RTP updates.
+  * rlimits can now be set in the config file.
+  * Thread reset on fork can now be configured. JACK clients expect this
+    to be disabled.
+  * node.exclusive is now enforced.
+  * node.reliable enables reliable transport.
+  * pw-cat supports sysex and midiclip as well as some more uncompressed
+    formats. Options were added to set the container and codec formats
+    as well as list the supported containers, codecs, layouts and channel
+    names.
+  * Documentation updates.
+
+
+## Highlights (since the previous 1.5.85 prerelease)
+  - Fix a 64 channel limit in the channel mixer.
+  - Fix an fd leak in pulse-server in some error cases.
+  - Some small fixes and improvements.
+
+
+## PipeWire
+  - Fix Capability leaks.
+  - Return an error in pw-stream get-time when not STREAMING.
+  - Set the current time in the driver position before starting.
+    Some followers might look at it.
+
+## Modules
+  - Improve default channel handling in module-filter-chain.
+  - Support source and sink only module-filter-chain.
+  - Tweak the filter-chain spatializer example gains.
+  - Handle new snapcast service type. (#5104)
+  - Implement socket activation without depending on libsystemd.
+  - Support ipv4 link-local addresses in RAOP and snapcast. (#4830)
+  - Forward ROC-toolkit logs to pipewire.
+
+## SPA
+  - Improve default channel handling in filter-graph. (#5084)
+  - Clamp control values to min/max. (#5088)
+  - Support mode JBL gaming headsets.
+  - Handle some SOFA errors and add gain option.
+  - Really handle more than 64 channels in the channelmixer. (#5118)
+  - Allow removal in ALSA-udev of ignored cards.
+
+# pulse-server
+  - Fix mono mixdown query.
+  - Expose headset autoswitch message.
+  - Handle EPROTO errors by disconnecting.
+  - Handle timeouts in play-sample streams. (#5099)
+
+## GStreamer
+  - Fix crop metadata.
+  - Fix a race in the buffer release function.
+
+## Tools
+  - Improve format support and detection in pw-cat.
+  - Add some more options to pw-cat to list supported containers
+    and formats. (#5117)
+
+Older versions:
+
 # PipeWire 1.5.85 (2026-01-19)
 
 This is the fifth and hopefully last 1.6 release candidate that
@@ -56,9 +155,6 @@ releases.
 
 ## Docs
   - Document the resampler properties better.
-
-
-Older versions:
 
 # PipeWire 1.5.84 (2025-11-27)
 

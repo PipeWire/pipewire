@@ -1621,7 +1621,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	struct pw_manager_object *o;
 	bool is_monitor;
 
-	props = pw_properties_copy(client->props);
+	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		goto error_errno;
 
@@ -1907,7 +1907,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	struct pw_manager_object *o;
 	bool is_monitor = false;
 
-	props = pw_properties_copy(client->props);
+	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
 		goto error_errno;
 
@@ -2298,7 +2298,7 @@ static int do_create_upload_stream(struct client *client, uint32_t command, uint
 	struct message *reply;
 	int res;
 
-	if ((props = pw_properties_copy(client->props)) == NULL)
+	if ((props = pw_properties_new(NULL, NULL)) == NULL)
 		goto error_errno;
 
 	if ((res = message_get(m,
@@ -4068,6 +4068,25 @@ static const char *get_media_name(struct pw_node_info *info)
 	return media_name;
 }
 
+static int fill_node_info_proplist(struct message *m, const struct spa_dict *node_props,
+		const struct pw_manager_object *client)
+{
+	struct pw_client_info *client_info = client ? client->info : NULL;
+	spa_autoptr(pw_properties) props = NULL;
+
+	if (client_info && client_info->props) {
+		props = pw_properties_new_dict(node_props);
+		if (props == NULL)
+			return -ENOMEM;
+
+		pw_properties_add(props, client_info->props);
+
+		node_props = &props->dict;
+	}
+	message_put(m, TAG_PROPLIST, node_props, TAG_INVALID);
+	return 0;
+}
+
 static int fill_sink_input_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
@@ -4128,10 +4147,16 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 		message_put(m,
 			TAG_BOOLEAN, dev_info.volume_info.mute,	/* muted */
 			TAG_INVALID);
-	if (client->version >= 13)
-		message_put(m,
-			TAG_PROPLIST, info->props,
-			TAG_INVALID);
+	if (client->version >= 13) {
+		int res;
+		struct pw_manager_object *c = NULL;
+		if (client_id != SPA_ID_INVALID) {
+			struct selector sel = { .id = client_id, .type = pw_manager_object_is_client, };
+			c = select_object(manager, &sel);
+		}
+		if ((res = fill_node_info_proplist(m, info->props, c)) < 0)
+			return res;
+	}
 	if (client->version >= 19)
 		message_put(m,
 			TAG_BOOLEAN, corked,		/* corked */
@@ -4207,10 +4232,16 @@ static int fill_source_output_info(struct client *client, struct message *m,
 		TAG_STRING, "PipeWire",			/* resample method */
 		TAG_STRING, "PipeWire",			/* driver */
 		TAG_INVALID);
-	if (client->version >= 13)
-		message_put(m,
-			TAG_PROPLIST, info->props,
-			TAG_INVALID);
+	if (client->version >= 13) {
+		int res;
+		struct pw_manager_object *c = NULL;
+		if (client_id != SPA_ID_INVALID) {
+			struct selector sel = { .id = client_id, .type = pw_manager_object_is_client, };
+			c = select_object(manager, &sel);
+		}
+		if ((res = fill_node_info_proplist(m, info->props, c)) < 0)
+			return res;
+	}
 	if (client->version >= 19)
 		message_put(m,
 			TAG_BOOLEAN, corked,		/* corked */

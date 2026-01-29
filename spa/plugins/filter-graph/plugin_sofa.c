@@ -168,10 +168,13 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 			reason = "Only sources with MC supported";
 			errno = ENOTSUP;
 			break;
-		default:
 		case MYSOFA_INTERNAL_ERROR:
 			errno = EIO;
 			reason = "Internal error";
+			break;
+		default:
+			errno = ret;
+			reason = strerror(errno);
 			break;
 		}
 		spa_log_error(impl->log, "Unable to load HRTF from %s: %s (%d)", filename, reason, ret);

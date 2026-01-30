@@ -1211,6 +1211,7 @@ PipeWire Opus Pro audio profile duplex max bitrate.
 PipeWire Opus Pro audio profile duplex frame duration (1/10 ms).
 
 @PAR@ monitor-prop  bluez5.bcast_source.config = []  # JSON
+For a per-adapter configuration of multiple BIGs use an "adapter" entry in the BIG with the HCI device name (e.g. hci0).
 \parblock
 Example:
 ```

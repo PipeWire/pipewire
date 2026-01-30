@@ -3102,11 +3102,13 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%"PRIu64, remote_endpoint, key, remote_endpoint->hisyncid);
 		} else if (spa_streq(key, "SupportedFeatures")) {
+			DBusMessageIter iter;
+
 			if (!check_iter_signature(&it[1], "a{sv}"))
 				goto next;
 
-			dbus_message_iter_recurse(&it[1], &it[2]);
-			parse_supported_features(monitor, &it[2], &remote_endpoint->bap_features);
+			dbus_message_iter_recurse(&it[1], &iter);
+			parse_supported_features(monitor, &iter, &remote_endpoint->bap_features);
 		} else {
 unhandled:
 			spa_log_debug(monitor->log, "remote_endpoint %p: unhandled key %s", remote_endpoint, key);

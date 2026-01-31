@@ -17,10 +17,12 @@
 #include <pipewire/properties.h>
 #include <pipewire/stream.h>
 
+#include "defs.h"
 #include "format.h"
 #include "log.h"
 #include "sample.h"
 #include "sample-play.h"
+#include "internal.h"
 
 static void sample_play_stream_state_changed(void *data, enum pw_stream_state old,
 					     enum pw_stream_state state, const char *error)
@@ -30,15 +32,30 @@ static void sample_play_stream_state_changed(void *data, enum pw_stream_state ol
 	switch (state) {
 	case PW_STREAM_STATE_UNCONNECTED:
 	case PW_STREAM_STATE_ERROR:
+		pw_timer_queue_cancel(&p->timer);
 		sample_play_emit_done(p, -EIO);
 		break;
 	case PW_STREAM_STATE_PAUSED:
 		p->id = pw_stream_get_node_id(p->stream);
 		sample_play_emit_ready(p, p->id);
 		break;
+	case PW_STREAM_STATE_STREAMING:
+		pw_timer_queue_cancel(&p->timer);
+		break;
 	default:
 		break;
 	}
+}
+
+static void sample_play_start_timeout(void *user_data)
+{
+	struct sample_play *p = user_data;
+
+	pw_log_info("timeout on sample %s", p->sample->name);
+
+	if (p->stream)
+		pw_stream_set_active(p->stream, false);
+	sample_play_emit_done(p, -ETIMEDOUT);
 }
 
 static void sample_play_stream_destroy(void *data)
@@ -163,6 +180,10 @@ struct sample_play *sample_play_new(struct pw_core *core,
 	if (res < 0)
 		goto error_cleanup;
 
+	/* Time out if we don't get a link; same timeout as for normal streams */
+	pw_timer_queue_add(sample->impl->timer_queue, &p->timer, NULL,
+			STREAM_CREATE_TIMEOUT, sample_play_start_timeout, p);
+
 	return p;
 
 error_cleanup:
@@ -180,6 +201,8 @@ void sample_play_destroy(struct sample_play *p)
 		pw_stream_destroy(p->stream);
 
 	spa_hook_list_clean(&p->hooks);
+
+	pw_timer_queue_cancel(&p->timer);
 
 	free(p);
 }

@@ -107,7 +107,7 @@ struct stream *stream_new(struct client *client, enum stream_type type, uint32_t
 	/* Time out if we don't get a link and can't send a reply to create in 35s. Client will time out in
 	 * 30s and clean up its stream anyway. */
 	pw_timer_queue_add(stream->impl->timer_queue, &stream->timer, NULL,
-			35 * SPA_NSEC_PER_SEC, create_stream_timeout, stream);
+			STREAM_CREATE_TIMEOUT, create_stream_timeout, stream);
 
 	return stream;
 

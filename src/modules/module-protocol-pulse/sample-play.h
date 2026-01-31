@@ -11,6 +11,8 @@
 #include <spa/utils/list.h>
 #include <spa/utils/hook.h>
 
+#include <pipewire/pipewire.h>
+
 struct sample;
 struct pw_core;
 struct pw_loop;
@@ -41,6 +43,7 @@ struct sample_play {
 	uint32_t offset;
 	uint32_t stride;
 	struct spa_hook_list hooks;
+	struct pw_timer timer;
 	void *user_data;
 };
 

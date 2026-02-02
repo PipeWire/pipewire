@@ -7,6 +7,12 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <sys/un.h>
+
+#include <spa/utils/string.h>
 
 #ifdef __FreeBSD__
 #define ifr_ifindex ifr_index
@@ -131,5 +137,70 @@ static inline bool pw_net_addr_is_any(struct sockaddr_storage *addr)
 	return false;
 }
 
+#ifndef LISTEN_FDS_START
+#define LISTEN_FDS_START 3
+#endif
+
+/* Returns the number of file descriptors passed for socket activation.
+ * Returns 0 if none, -1 on error. */
+static inline int listen_fd(void)
+{
+	uint32_t n;
+	int i, flags;
+
+	if (!spa_atou32(getenv("LISTEN_FDS"), &n, 10) || n > INT_MAX - LISTEN_FDS_START) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (i = 0; i < (int)n; i++) {
+		flags = fcntl(LISTEN_FDS_START + i, F_GETFD);
+		if (flags == -1)
+			return -1;
+		if (fcntl(LISTEN_FDS_START + i, F_SETFD, flags | FD_CLOEXEC) == -1)
+			return -1;
+	}
+
+	unsetenv("LISTEN_FDS");
+
+	return (int)n;
+}
+
+/* Check if the fd is a listening unix socket of the given type,
+ * optionally bound to the given path. */
+static inline int is_socket_unix(int fd, int type, const char *path)
+{
+	struct sockaddr_un addr;
+	int val;
+	socklen_t len = sizeof(val);
+
+	if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &val, &len) < 0)
+		return -errno;
+	if (val != type)
+		return 0;
+
+	if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &val, &len) < 0)
+		return -errno;
+	if (!val)
+		return 0;
+
+	if (path) {
+		len = sizeof(addr);
+		memset(&addr, 0, sizeof(addr));
+		if (getsockname(fd, (struct sockaddr *)&addr, &len) < 0)
+			return -errno;
+		if (addr.sun_family != AF_UNIX)
+			return 0;
+		size_t length = strlen(path);
+		if (length > 0) {
+			if (len < offsetof(struct sockaddr_un, sun_path) + length)
+				return 0;
+			if (memcmp(addr.sun_path, path, length) != 0)
+				return 0;
+		}
+	}
+
+	return 1;
+}
 
 #endif /* NETWORK_UTILS_H */

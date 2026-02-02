@@ -21,9 +21,6 @@
 #include <netinet/ip.h>
 #include <unistd.h>
 
-#ifdef HAVE_SYSTEMD
-#include <systemd/sd-daemon.h>
-#endif
 
 #include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
@@ -577,26 +574,19 @@ static bool is_stale_socket(int fd, const struct sockaddr_un *addr_un)
 	return false;
 }
 
-#ifdef HAVE_SYSTEMD
-static int check_systemd_activation(const char *path)
+static int check_socket_activation(const char *path)
 {
-	const int n = sd_listen_fds(0);
+	const int n = listen_fd();
 
 	for (int i = 0; i < n; i++) {
-		const int fd = SD_LISTEN_FDS_START + i;
+		const int fd = LISTEN_FDS_START + i;
 
-		if (sd_is_socket_unix(fd, SOCK_STREAM, 1, path, 0) > 0)
+		if (is_socket_unix(fd, SOCK_STREAM, path) > 0)
 			return fd;
 	}
 
 	return -1;
 }
-#else
-static inline int check_systemd_activation(SPA_UNUSED const char *path)
-{
-	return -1;
-}
-#endif
 
 static int start_unix_server(struct server *server, const struct sockaddr_storage *addr)
 {
@@ -606,10 +596,10 @@ static int start_unix_server(struct server *server, const struct sockaddr_storag
 
 	spa_assert(addr_un->sun_family == AF_UNIX);
 
-	fd = check_systemd_activation(addr_un->sun_path);
+	fd = check_socket_activation(addr_un->sun_path);
 	if (fd >= 0) {
 		server->activated = true;
-		pw_log_info("server %p: found systemd socket activation socket for '%s'",
+		pw_log_info("server %p: found socket activation socket for '%s'",
 			    server, addr_un->sun_path);
 		goto done;
 	}

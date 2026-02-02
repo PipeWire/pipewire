@@ -34,10 +34,6 @@
 #include <spa/utils/json.h>
 #include <spa/debug/log.h>
 
-#ifdef HAVE_SYSTEMD
-#include <systemd/sd-daemon.h>
-#endif
-
 #ifdef HAVE_SELINUX
 #include <selinux/selinux.h>
 #endif
@@ -45,6 +41,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/extensions/protocol-native.h>
 
+#include "network-utils.h"
 #include "pipewire/private.h"
 
 #include "modules/module-protocol-native/connection.h"
@@ -909,13 +906,12 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 	int fd = -1, res;
 	bool activated = false;
 
-#ifdef HAVE_SYSTEMD
 	{
-		int i, n = sd_listen_fds(0);
+		int i, n = listen_fd();
 		for (i = 0; i < n; ++i) {
-			if (sd_is_socket_unix(SD_LISTEN_FDS_START + i, SOCK_STREAM,
-						1, s->addr.sun_path, 0) > 0) {
-				fd = SD_LISTEN_FDS_START + i;
+			if (is_socket_unix(LISTEN_FDS_START + i, SOCK_STREAM,
+						s->addr.sun_path) > 0) {
+				fd = LISTEN_FDS_START + i;
 				activated = true;
 				pw_log_info("server %p: Found socket activation socket for '%s'",
 						s, s->addr.sun_path);
@@ -923,7 +919,6 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 			}
 		}
 	}
-#endif
 
 	if (fd < 0) {
 		struct stat socket_stat;

@@ -717,6 +717,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *                 blocksize = ...
  *                 tailsize = ...
  *                 filename = ...
+ *                 gain = ...
  *             }
  *             control = {
  *                 "Azimuth" = ...
@@ -733,9 +734,10 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `blocksize` specifies the size of the blocks to use in the FFT. It is a value
  *               between 64 and 256. When not specified, this value is
  *               computed automatically from the number of samples in the file.
- * - `tailsize` specifies the size of the tail blocks to use in the FFT.
- * - `filename` The SOFA file to load. SOFA files usually end in the .sofa extension
- *              and contain the HRTF for the various spatial positions.
+ * - `tailsize`  specifies the size of the tail blocks to use in the FFT.
+ * - `filename`  The SOFA file to load. SOFA files usually end in the .sofa extension
+ *               and contain the HRTF for the various spatial positions.
+ * - `gain`      the overall gain to apply to the IR file.
  *
  * - `Azimuth`   controls the azimuth, this is the direction the sound is coming from
  *               in degrees between 0 and 360. 0 is straight ahead. 90 is left, 180

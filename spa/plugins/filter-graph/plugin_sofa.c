@@ -32,6 +32,7 @@ struct spatializer_impl {
 	unsigned long rate;
 	float *port[7];
 	int n_samples, blocksize, tailsize;
+	float gain;
 	float *tmp[2];
 
 	struct MYSOFA_EASY *sofa;
@@ -71,6 +72,7 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
+	impl->gain = 1.0f;
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "blocksize")) {
@@ -90,6 +92,13 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 		else if (spa_streq(key, "filename")) {
 			if (spa_json_parse_stringn(val, len, filename, sizeof(filename)) <= 0) {
 				spa_log_error(impl->log, "spatializer:filename requires a string");
+				errno = EINVAL;
+				goto error;
+			}
+		}
+		else if (spa_streq(key, "gain")) {
+			if (spa_json_parse_float(val, len, &impl->gain) <= 0) {
+				spa_log_error(impl->log, "spatializer:gain requires a number");
 				errno = EINVAL;
 				goto error;
 			}
@@ -186,8 +195,8 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	if (impl->tailsize <= 0)
 		impl->tailsize = SPA_CLAMP(4096, impl->blocksize, 32768);
 
-	spa_log_info(impl->log, "using n_samples:%u %d:%d blocksize sofa:%s", impl->n_samples,
-		impl->blocksize, impl->tailsize, filename);
+	spa_log_info(impl->log, "using n_samples:%u %d:%d blocksize gain:%f sofa:%s", impl->n_samples,
+		impl->blocksize, impl->tailsize, impl->gain, filename);
 
 	impl->tmp[0] = calloc(impl->plugin->quantum_limit, sizeof(float));
 	impl->tmp[1] = calloc(impl->plugin->quantum_limit, sizeof(float));
@@ -252,6 +261,13 @@ static void spatializer_reload(void * Instance)
 		convolver_free(impl->l_conv[2]);
 	if (impl->r_conv[2])
 		convolver_free(impl->r_conv[2]);
+
+	if (impl->gain != 1.0f) {
+		for (int i = 0; i < impl->n_samples; i++) {
+			left_ir[i] *= impl->gain;
+			right_ir[i] *= impl->gain;
+		}
+	}
 
 	impl->l_conv[2] = convolver_new(impl->dsp, impl->blocksize, impl->tailsize,
 			left_ir, impl->n_samples);

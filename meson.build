@@ -82,6 +82,7 @@ common_flags = [
   '-fvisibility=hidden',
   '-fno-strict-aliasing',
   '-fno-strict-overflow',
+  '-DSPA_AUDIO_MAX_CHANNELS=128u',
   '-Werror=suggest-attribute=format',
   '-Wsign-compare',
   '-Wpointer-arith',
@@ -115,7 +116,6 @@ cc_flags = common_flags + [
   '-Werror=old-style-definition',
   '-Werror=missing-parameter-type',
   '-Werror=strict-prototypes',
-  '-DSPA_AUDIO_MAX_CHANNELS=128u',
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
 add_project_arguments(cc_native.get_supported_arguments(cc_flags),

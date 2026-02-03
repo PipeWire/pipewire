@@ -7044,7 +7044,7 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 					goto parse_failed;
 				if (strlen(adapter) > HCI_DEV_NAME_LEN)
 					goto parse_failed;
-				memcpy(big_entry->adapter, adapter, sizeof(adapter));
+				memcpy(big_entry->adapter, adapter, strlen(adapter));
 				spa_log_debug(monitor->log, "big_entry->adapter %s", big_entry->adapter);
 			} else if (spa_streq(key, "encryption")) {
 				if (spa_json_get_bool(&it[0], &big_entry->encryption) <= 0)

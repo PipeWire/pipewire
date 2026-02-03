@@ -162,7 +162,8 @@ static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-#define SERVICE_TYPE_CONTROL "_snapcast-jsonrpc._tcp"
+#define SERVICE_TYPE_JSONRPC "_snapcast-jsonrpc._tcp"
+#define SERVICE_TYPE_CONTROL "_snapcast-ctrl._tcp"
 
 struct impl {
 	struct pw_context *context;
@@ -176,7 +177,8 @@ struct impl {
 
 	AvahiPoll *avahi_poll;
 	AvahiClient *client;
-	AvahiServiceBrowser *sink_browser;
+	AvahiServiceBrowser *jsonrpc_browser;
+	AvahiServiceBrowser *ctrl_browser;
 
 	struct spa_list tunnel_list;
 	uint32_t id;
@@ -252,8 +254,10 @@ static void impl_free(struct impl *impl)
 	spa_list_consume(t, &impl->tunnel_list, link)
 		free_tunnel(t);
 
-	if (impl->sink_browser)
-		avahi_service_browser_free(impl->sink_browser);
+	if (impl->jsonrpc_browser)
+		avahi_service_browser_free(impl->jsonrpc_browser);
+	if (impl->ctrl_browser)
+		avahi_service_browser_free(impl->ctrl_browser);
 	if (impl->client)
 		avahi_client_free(impl->client);
 	if (impl->avahi_poll)
@@ -818,9 +822,13 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *userda
 	case AVAHI_CLIENT_S_REGISTERING:
 	case AVAHI_CLIENT_S_RUNNING:
 	case AVAHI_CLIENT_S_COLLISION:
-		if (impl->sink_browser == NULL)
-			impl->sink_browser = make_browser(impl, SERVICE_TYPE_CONTROL);
-		if (impl->sink_browser == NULL)
+		if (impl->ctrl_browser == NULL)
+			impl->ctrl_browser = make_browser(impl, SERVICE_TYPE_CONTROL);
+		if (impl->ctrl_browser == NULL)
+			goto error;
+		if (impl->jsonrpc_browser == NULL)
+			impl->jsonrpc_browser = make_browser(impl, SERVICE_TYPE_JSONRPC);
+		if (impl->jsonrpc_browser == NULL)
 			goto error;
 		break;
 	case AVAHI_CLIENT_FAILURE:
@@ -829,9 +837,13 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *userda
 
 		SPA_FALLTHROUGH;
 	case AVAHI_CLIENT_CONNECTING:
-		if (impl->sink_browser) {
-			avahi_service_browser_free(impl->sink_browser);
-			impl->sink_browser = NULL;
+		if (impl->ctrl_browser) {
+			avahi_service_browser_free(impl->ctrl_browser);
+			impl->ctrl_browser = NULL;
+		}
+		if (impl->jsonrpc_browser) {
+			avahi_service_browser_free(impl->jsonrpc_browser);
+			impl->jsonrpc_browser = NULL;
 		}
 		break;
 	default:

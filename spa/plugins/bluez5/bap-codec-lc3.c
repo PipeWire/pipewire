@@ -55,6 +55,7 @@ struct settings {
 	int latency;
 	int64_t delay;
 	int framing;
+	char *force_target_latency;
 };
 
 struct pac_data {
@@ -76,6 +77,7 @@ struct bap_qos {
 	uint16_t latency;
 	uint32_t delay;
 	unsigned int priority;
+	char *tag;
 };
 
 typedef struct {
@@ -96,50 +98,50 @@ struct config_data {
 	struct settings settings;
 };
 
-#define BAP_QOS(name_, rate_, duration_, framing_, framelen_, rtn_, latency_, delay_, priority_) \
+#define BAP_QOS(name_, rate_, duration_, framing_, framelen_, rtn_, latency_, delay_, priority_, tag_) \
 	((struct bap_qos){ .name = (name_), .rate = (rate_), .frame_duration = (duration_), .framing = (framing_), \
 			 .framelen = (framelen_), .retransmission = (rtn_), .latency = (latency_),	\
-			 .delay = (delay_), .priority = (priority_) })
+			 .delay = (delay_), .priority = (priority_), .tag = (tag_) })
 
 static const struct bap_qos bap_qos_configs[] = {
 	/* Priority: low-latency > high-reliability, 7.5ms > 10ms,
 	 * bigger frequency and sdu better */
 
 	/* BAP v1.0.1 Table 5.2; low-latency */
-	BAP_QOS("8_1_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30), /* 8_1_1 */
-	BAP_QOS("8_2_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20), /* 8_2_1 */
-	BAP_QOS("16_1_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31), /* 16_1_1 */
-	BAP_QOS("16_2_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21), /* 16_2_1 (mandatory) */
-	BAP_QOS("24_1_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32), /* 24_1_1 */
-	BAP_QOS("24_2_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22), /* 24_2_1 */
-	BAP_QOS("32_1_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33), /* 32_1_1 */
-	BAP_QOS("32_2_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23), /* 32_2_1 */
-	BAP_QOS("441_1_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 5, 24, 40000, 34), /* 441_1_1 */
-	BAP_QOS("441_2_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 5, 31, 40000, 24), /* 441_2_1 */
-	BAP_QOS("48_1_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 5, 15, 40000, 35), /* 48_1_1 */
-	BAP_QOS("48_2_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 5, 20, 40000, 25), /* 48_2_1 */
-	BAP_QOS("48_3_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 5, 15, 40000, 36), /* 48_3_1 */
-	BAP_QOS("48_4_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 5, 20, 40000, 26), /* 48_4_1 */
-	BAP_QOS("48_5_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 5, 15, 40000, 37), /* 48_5_1 */
-	BAP_QOS("48_6_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 5, 20, 40000, 27), /* 48_6_1 */
+	BAP_QOS("8_1_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30, "low-latency"), /* 8_1_1 */
+	BAP_QOS("8_2_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20, "low-latency"), /* 8_2_1 */
+	BAP_QOS("16_1_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31, "low-latency"), /* 16_1_1 */
+	BAP_QOS("16_2_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21, "low-latency"), /* 16_2_1 (mandatory) */
+	BAP_QOS("24_1_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32, "low-latency"), /* 24_1_1 */
+	BAP_QOS("24_2_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22, "low-latency"), /* 24_2_1 */
+	BAP_QOS("32_1_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33, "low-latency"), /* 32_1_1 */
+	BAP_QOS("32_2_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23, "low-latency"), /* 32_2_1 */
+	BAP_QOS("441_1_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 5, 24, 40000, 34, "low-latency"), /* 441_1_1 */
+	BAP_QOS("441_2_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 5, 31, 40000, 24, "low-latency"), /* 441_2_1 */
+	BAP_QOS("48_1_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 5, 15, 40000, 35, "low-latency"), /* 48_1_1 */
+	BAP_QOS("48_2_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 5, 20, 40000, 25, "low-latency"), /* 48_2_1 */
+	BAP_QOS("48_3_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 5, 15, 40000, 36, "low-latency"), /* 48_3_1 */
+	BAP_QOS("48_4_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 5, 20, 40000, 26, "low-latency"), /* 48_4_1 */
+	BAP_QOS("48_5_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 5, 15, 40000, 37, "low-latency"), /* 48_5_1 */
+	BAP_QOS("48_6_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 5, 20, 40000, 27, "low-latency"), /* 48_6_1 */
 
 	/* BAP v1.0.1 Table 5.2; high-reliability */
-	BAP_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 13,  75, 40000, 10), /* 8_1_2 */
-	BAP_QOS("8_2_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 13,  95, 40000,  0), /* 8_2_2 */
-	BAP_QOS("16_1_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 13,  75, 40000, 11), /* 16_1_2 */
-	BAP_QOS("16_2_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 13,  95, 40000,  1), /* 16_2_2 */
-	BAP_QOS("24_1_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 13,  75, 40000, 12), /* 24_1_2 */
-	BAP_QOS("24_2_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 13,  95, 40000,  2), /* 24_2_2 */
-	BAP_QOS("32_1_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 13,  75, 40000, 13), /* 32_1_2 */
-	BAP_QOS("32_2_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 13,  95, 40000,  3), /* 32_2_2 */
-	BAP_QOS("441_1_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 13,  80, 40000, 54), /* 441_1_2 */
-	BAP_QOS("441_2_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 13,  85, 40000, 44), /* 441_2_2 */
-	BAP_QOS("48_1_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 13,  75, 40000, 55), /* 48_1_2 */
-	BAP_QOS("48_2_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 13,  95, 40000, 45), /* 48_2_2 */
-	BAP_QOS("48_3_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 13,  75, 40000, 56), /* 48_3_2 */
-	BAP_QOS("48_4_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 13, 100, 40000, 46), /* 48_4_2 */
-	BAP_QOS("48_5_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 13,  75, 40000, 57), /* 48_5_2 */
-	BAP_QOS("48_6_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 13, 100, 40000, 47), /* 48_6_2 */
+	BAP_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 13,  75, 40000, 10, "high-reliabilty"), /* 8_1_2 */
+	BAP_QOS("8_2_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 13,  95, 40000,  0, "high-reliabilty"), /* 8_2_2 */
+	BAP_QOS("16_1_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 13,  75, 40000, 11, "high-reliabilty"), /* 16_1_2 */
+	BAP_QOS("16_2_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 13,  95, 40000,  1, "high-reliabilty"), /* 16_2_2 */
+	BAP_QOS("24_1_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 13,  75, 40000, 12, "high-reliabilty"), /* 24_1_2 */
+	BAP_QOS("24_2_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 13,  95, 40000,  2, "high-reliabilty"), /* 24_2_2 */
+	BAP_QOS("32_1_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 13,  75, 40000, 13, "high-reliabilty"), /* 32_1_2 */
+	BAP_QOS("32_2_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 13,  95, 40000,  3, "high-reliabilty"), /* 32_2_2 */
+	BAP_QOS("441_1_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5,  true,  97, 13,  80, 40000, 54, "high-reliabilty"), /* 441_1_2 */
+	BAP_QOS("441_2_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,   true, 130, 13,  85, 40000, 44, "high-reliabilty"), /* 441_2_2 */
+	BAP_QOS("48_1_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 13,  75, 40000, 55, "high-reliabilty"), /* 48_1_2 */
+	BAP_QOS("48_2_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 13,  95, 40000, 45, "high-reliabilty"), /* 48_2_2 */
+	BAP_QOS("48_3_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 13,  75, 40000, 56, "high-reliabilty"), /* 48_3_2 */
+	BAP_QOS("48_4_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 13, 100, 40000, 46, "high-reliabilty"), /* 48_4_2 */
+	BAP_QOS("48_5_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 13,  75, 40000, 57, "high-reliabilty"), /* 48_5_2 */
+	BAP_QOS("48_6_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 13, 100, 40000, 47, "high-reliabilty"), /* 48_6_2 */
 };
 
 static const struct bap_qos bap_bcast_qos_configs[] = {
@@ -147,40 +149,40 @@ static const struct bap_qos bap_bcast_qos_configs[] = {
 	 * bigger frequency and sdu better */
 
 	/* BAP v1.0.1 Table 6.4; low-latency */
-	BAP_QOS("8_1_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30), /* 8_1_1 */
-	BAP_QOS("8_2_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20), /* 8_2_1 */
-	BAP_QOS("16_1_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31), /* 16_1_1 */
-	BAP_QOS("16_2_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21), /* 16_2_1 (mandatory) */
-	BAP_QOS("24_1_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32), /* 24_1_1 */
-	BAP_QOS("24_2_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22), /* 24_2_1 */
-	BAP_QOS("32_1_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33), /* 32_1_1 */
-	BAP_QOS("32_2_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23), /* 32_2_1 */
-	BAP_QOS("441_1_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4, 24, 40000, 34), /* 441_1_1 */
-	BAP_QOS("441_2_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4, 31, 40000, 24), /* 441_2_1 */
-	BAP_QOS("48_1_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4, 15, 40000, 35), /* 48_1_1 */
-	BAP_QOS("48_2_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4, 20, 40000, 25), /* 48_2_1 */
-	BAP_QOS("48_3_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4, 15, 40000, 36), /* 48_3_1 */
-	BAP_QOS("48_4_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4, 20, 40000, 26), /* 48_4_1 */
-	BAP_QOS("48_5_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4, 15, 40000, 37), /* 48_5_1 */
-	BAP_QOS("48_6_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4, 20, 40000, 27), /* 48_6_1 */
+	BAP_QOS("8_1_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 2,  8, 40000, 30, "low-latency"), /* 8_1_1 */
+	BAP_QOS("8_2_1",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 2, 10, 40000, 20, "low-latency"), /* 8_2_1 */
+	BAP_QOS("16_1_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 2,  8, 40000, 31, "low-latency"), /* 16_1_1 */
+	BAP_QOS("16_2_1",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 2, 10, 40000, 21, "low-latency"), /* 16_2_1 (mandatory) */
+	BAP_QOS("24_1_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 2,  8, 40000, 32, "low-latency"), /* 24_1_1 */
+	BAP_QOS("24_2_1",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 2, 10, 40000, 22, "low-latency"), /* 24_2_1 */
+	BAP_QOS("32_1_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 2,  8, 40000, 33, "low-latency"), /* 32_1_1 */
+	BAP_QOS("32_2_1",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 2, 10, 40000, 23, "low-latency"), /* 32_2_1 */
+	BAP_QOS("441_1_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4, 24, 40000, 34, "low-latency"), /* 441_1_1 */
+	BAP_QOS("441_2_1", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4, 31, 40000, 24, "low-latency"), /* 441_2_1 */
+	BAP_QOS("48_1_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4, 15, 40000, 35, "low-latency"), /* 48_1_1 */
+	BAP_QOS("48_2_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4, 20, 40000, 25, "low-latency"), /* 48_2_1 */
+	BAP_QOS("48_3_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4, 15, 40000, 36, "low-latency"), /* 48_3_1 */
+	BAP_QOS("48_4_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4, 20, 40000, 26, "low-latency"), /* 48_4_1 */
+	BAP_QOS("48_5_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4, 15, 40000, 37, "low-latency"), /* 48_5_1 */
+	BAP_QOS("48_6_1",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4, 20, 40000, 27, "low-latency"), /* 48_6_1 */
 
 	/* BAP v1.0.1 Table 6.4; high-reliability */
-	BAP_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 4,  45, 40000, 10), /* 8_1_2 */
-	BAP_QOS("8_2_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 4,  60, 40000,  0), /* 8_2_2 */
-	BAP_QOS("16_1_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 4,  45, 40000, 11), /* 16_1_2 */
-	BAP_QOS("16_2_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 4,  60, 40000,  1), /* 16_2_2 */
-	BAP_QOS("24_1_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 4,  45, 40000, 12), /* 24_1_2 */
-	BAP_QOS("24_2_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 4,  60, 40000,  2), /* 24_2_2 */
-	BAP_QOS("32_1_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 4,  45, 40000, 13), /* 32_1_2 */
-	BAP_QOS("32_2_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 4,  60, 40000,  3), /* 32_2_2 */
-	BAP_QOS("441_1_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4,  54, 40000, 14), /* 441_1_2 */
-	BAP_QOS("441_2_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4,  60, 40000,  4), /* 441_2_2 */
-	BAP_QOS("48_1_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4,  50, 40000, 15), /* 48_1_2 */
-	BAP_QOS("48_2_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4,  65, 40000,  5), /* 48_2_2 */
-	BAP_QOS("48_3_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4,  50, 40000, 16), /* 48_3_2 */
-	BAP_QOS("48_4_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4,  65, 40000,  6), /* 48_4_2 */
-	BAP_QOS("48_5_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4,  50, 40000, 17), /* 48_5_2 */
-	BAP_QOS("48_6_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4,  65, 40000,  7), /* 48_6_2 */
+	BAP_QOS("8_1_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_7_5, false,  26, 4,  45, 40000, 10, "high-reliabilty"), /* 8_1_2 */
+	BAP_QOS("8_2_2",   LC3_CONFIG_FREQ_8KHZ,  LC3_CONFIG_DURATION_10,  false,  30, 4,  60, 40000,  0, "high-reliabilty"), /* 8_2_2 */
+	BAP_QOS("16_1_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_7_5, false,  30, 4,  45, 40000, 11, "high-reliabilty"), /* 16_1_2 */
+	BAP_QOS("16_2_2",  LC3_CONFIG_FREQ_16KHZ, LC3_CONFIG_DURATION_10,  false,  40, 4,  60, 40000,  1, "high-reliabilty"), /* 16_2_2 */
+	BAP_QOS("24_1_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_7_5, false,  45, 4,  45, 40000, 12, "high-reliabilty"), /* 24_1_2 */
+	BAP_QOS("24_2_2",  LC3_CONFIG_FREQ_24KHZ, LC3_CONFIG_DURATION_10,  false,  60, 4,  60, 40000,  2, "high-reliabilty"), /* 24_2_2 */
+	BAP_QOS("32_1_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_7_5, false,  60, 4,  45, 40000, 13, "high-reliabilty"), /* 32_1_2 */
+	BAP_QOS("32_2_2",  LC3_CONFIG_FREQ_32KHZ, LC3_CONFIG_DURATION_10,  false,  80, 4,  60, 40000,  3, "high-reliabilty"), /* 32_2_2 */
+	BAP_QOS("441_1_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_7_5, true,   97, 4,  54, 40000, 14, "high-reliabilty"), /* 441_1_2 */
+	BAP_QOS("441_2_2", LC3_CONFIG_FREQ_44KHZ, LC3_CONFIG_DURATION_10,  true,  130, 4,  60, 40000,  4, "high-reliabilty"), /* 441_2_2 */
+	BAP_QOS("48_1_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  75, 4,  50, 40000, 15, "high-reliabilty"), /* 48_1_2 */
+	BAP_QOS("48_2_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 100, 4,  65, 40000,  5, "high-reliabilty"), /* 48_2_2 */
+	BAP_QOS("48_3_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false,  90, 4,  50, 40000, 16, "high-reliabilty"), /* 48_3_2 */
+	BAP_QOS("48_4_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 120, 4,  65, 40000,  6, "high-reliabilty"), /* 48_4_2 */
+	BAP_QOS("48_5_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_7_5, false, 117, 4,  50, 40000, 17, "high-reliabilty"), /* 48_5_2 */
+	BAP_QOS("48_6_2",  LC3_CONFIG_FREQ_48KHZ, LC3_CONFIG_DURATION_10,  false, 155, 4,  65, 40000,  7, "high-reliabilty"), /* 48_6_2 */
 };
 
 static unsigned int get_rate_mask(uint8_t rate) {
@@ -474,6 +476,9 @@ static bool select_bap_qos(struct bap_qos *conf,
 		if (spa_streq(c.name, s->qos_name))
 			c.priority = UINT_MAX;
 		else if (c.priority < conf->priority)
+			continue;
+
+		if (s->force_target_latency && !spa_streq(s->force_target_latency, c.tag))
 			continue;
 
 		if (s->retransmission >= 0)
@@ -844,6 +849,9 @@ static void parse_settings(struct settings *s, const struct spa_dict *settings,
 	if ((str = spa_dict_lookup(settings, "bluez5.bap.preset")))
 		s->qos_name = strdup(str);
 
+	if ((str = spa_dict_lookup(settings, "bluez5.bap.force-target-latency")))
+		s->force_target_latency = strdup(str);
+
 	if (spa_atou32(spa_dict_lookup(settings, "bluez5.bap.rtn"), &value, 0))
 		s->retransmission = value;
 
@@ -881,11 +889,11 @@ static void parse_settings(struct settings *s, const struct spa_dict *settings,
 
 	spa_debugc(&debug_ctx->ctx,
 			"BAP LC3 settings: preset:%s rtn:%d latency:%d delay:%d framing:%d "
-			"locations:%x chnalloc:%x sink:%d duplex:%d",
+			"locations:%x chnalloc:%x sink:%d duplex:%d force-target-latency:%s",
 			s->qos_name ? s->qos_name : "auto",
 			s->retransmission, s->latency, (int)s->delay, s->framing,
 			(unsigned int)s->locations, (unsigned int)s->channel_allocation,
-			(int)s->sink, (int)s->duplex);
+			(int)s->sink, (int)s->duplex, s->force_target_latency);
 }
 
 static void free_config_data(struct config_data *d)
@@ -893,6 +901,7 @@ static void free_config_data(struct config_data *d)
 	if (!d)
 		return;
 	free(d->settings.qos_name);
+	free(d->settings.force_target_latency);
 	free(d);
 }
 

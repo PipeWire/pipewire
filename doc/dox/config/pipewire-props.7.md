@@ -1373,6 +1373,12 @@ BAP QoS framing that needs to be applied for vendor defined preset
 This property is experimental.
 Default: as per QoS preset.
 
+@PAR@ device-prop  bluez5.bap.force-target-latency = "balanced" # string
+BAP QoS target latency profile forced for QoS configuration selection.
+If not set or set to "balanced", both low-latency and high-reliabilty QoS configuration table are used.
+This property is experimental.
+Available: low-latency, high-reliabilty, balanced
+
 ## Node properties
 
 @PAR@ node-prop  bluez5.media-source-role   # string

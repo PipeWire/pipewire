@@ -262,7 +262,6 @@ SPA_API_JSON_BUILDER void spa_json_builder_object_uint(struct spa_json_builder *
 	snprintf(str, sizeof(str), "%" PRIu64, val);
 	spa_json_builder_add_simple(b, key, INT_MAX, 'd', str, INT_MAX);
 }
-
 SPA_API_JSON_BUILDER void spa_json_builder_object_double(struct spa_json_builder *b,
 		const char *key, double val)
 {
@@ -270,7 +269,6 @@ SPA_API_JSON_BUILDER void spa_json_builder_object_double(struct spa_json_builder
 	spa_json_format_float(str, sizeof(str), (float)val);
 	spa_json_builder_add_simple(b, key, INT_MAX, 'd', str, INT_MAX);
 }
-
 SPA_API_JSON_BUILDER void spa_json_builder_object_string(struct spa_json_builder *b,
 		const char *key, const char *val)
 {

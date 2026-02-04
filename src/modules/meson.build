@@ -700,6 +700,38 @@ pipewire_module_vban_recv = shared_library('pipewire-module-vban-recv',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 
+ pipewire_module_sendspin_sources = []
+ pipewire_module_sendspin_deps = [ mathlib, dl_lib, rt_lib, pipewire_dep ]
+
+if avahi_dep.found()
+  pipewire_module_sendspin_sources += [
+    'module-sendspin/zeroconf.c',
+    'module-zeroconf-discover/avahi-poll.c',
+  ]
+  pipewire_module_sendspin_deps += avahi_dep
+endif
+
+pipewire_module_sendspin_recv = shared_library('pipewire-module-sendspin-recv',
+  [ 'module-sendspin-recv.c',
+    'module-sendspin/websocket.c',
+    pipewire_module_sendspin_sources ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : pipewire_module_sendspin_deps,
+)
+pipewire_module_sendspin_send = shared_library('pipewire-module-sendspin-send',
+  [ 'module-sendspin-send.c',
+    'module-sendspin/websocket.c',
+    pipewire_module_sendspin_sources ],
+  include_directories : [configinc],
+  install : true,
+  install_dir : modules_install_dir,
+  install_rpath: modules_install_dir,
+  dependencies : pipewire_module_sendspin_deps,
+)
+
 build_module_roc = roc_dep.found()
 if build_module_roc
   pipewire_module_roc_sink = shared_library('pipewire-module-roc-sink',

@@ -32,8 +32,11 @@ updated as follows:
 
 - \ref spa_io_clock::nsec : Must be set to the time (according to the monotonic
   system clock) when the cycle that the driver is about to trigger started. To
-  minimize jitter, it is usually a good idea to increment this by a fixed amount
+  minimize jitter, it is usually a good idea to increment this by a computed
+  amount (instead of sampling a timestamp from the monotonic system clock)
   except for when the driver starts and when discontinuities occur in its clock.
+  The computed amount can be fixed, or varying over time, for example due to
+  adjustments made by a DLL (more on that below).
 - \ref spa_io_clock::rate : Set to a value that can translate samples to nanoseconds.
 - \ref spa_io_clock::position : Current cycle position, in samples. This is the
   ideal position of the graph cycle (this is explained in greater detail further below).
@@ -52,13 +55,18 @@ updated as follows:
   some cases, this may actually be in the past relative to nsec, for example, when
   some internal driver clock experienced a discontinuity. Consider setting the
   \ref SPA_IO_CLOCK_FLAG_DISCONT flag in such a case. Just like with nsec, to
-  minimize jitter, it is usually a good idea to increment this by a fixed amount
+  minimize jitter, it is usually a good idea to increment this by a computed amount
   except for when the driver starts and when discontinuities occur in its clock.
 
 The driver node signals the start of the graph cycle by calling \ref spa_node_call_ready
 with the \ref SPA_STATUS_HAVE_DATA and \ref SPA_STATUS_NEED_DATA flags passed
 to that function call. That call must happen inside the thread that runs the
 data loop assigned to the driver node.
+
+Drivers must make sure that the next cycle is started at the time indicated by
+the \ref spa_io_clock::next_nsec timestamp. They do not have to use the monotonic
+clock itself for scheduling the next cycle. If for example the internal clock
+can directly be used with \c timerfd , the next cycle can be triggered that way.
 
 As mentioned above, the \ref spa_io_clock::position field is the _ideal_ position
 of the graph cycle, in samples. This contrasts with \ref spa_io_clock::nsec, which
@@ -103,11 +111,12 @@ expected position (in samples) and the actual position (derived from the current
 of the driver's internal clock), passes the delta between these two quantities into the
 DLL, and the DLL computes a correction factor (2.0 in the above example) which is used
 for scaling durations between \c timerfd timeouts. This forms a control loop, since the
-correction factor causes the durations between the timeouts to be adjusted such that the
-difference between the expected position and the actual position reaches zero. Keep in
-mind the notes above about \ref spa_io_clock::position being the ideal position of the
-graph cycle, meaning that even in this case, the duration it is incremented by is
-_not_ scaled by the correction factor; the duration in samples remains unchanged.
+correction factor causes the \ref spa_io_clock::next_nsec increments (that is, the
+durations between the timerfd timeouts) to be adjusted such that, over time, the difference
+between the expected position and the actual position reaches zero. Keep in mind the
+notes above about \ref spa_io_clock::position being the ideal position of the graph
+cycle, meaning that even in this case, the duration it is incremented by is _not_
+scaled by the correction factor; the duration in samples remains unchanged.
 
 (Other popular control loop mechanisms that are suitable alternatives to the DLL are
 PID controllers and Kalman filters.)

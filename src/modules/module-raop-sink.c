@@ -45,6 +45,7 @@
 #include "network-utils.h"
 
 #include "module-raop/rtsp-client.h"
+#include "module-raop/base64.h"
 #include "module-rtp/rtp.h"
 #include "module-rtp/stream.h"
 
@@ -703,49 +704,6 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 	}
 }
 
-static void base64_encode(const uint8_t *data, size_t len, char *enc, char pad)
-{
-	static const char tab[] =
-	    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	size_t i;
-	for (i = 0; i < len; i += 3) {
-		uint32_t v;
-		v  =              data[i+0]      << 16;
-		v |= (i+1 < len ? data[i+1] : 0) << 8;
-		v |= (i+2 < len ? data[i+2] : 0);
-		*enc++ =             tab[(v >> (3*6)) & 0x3f];
-		*enc++ =             tab[(v >> (2*6)) & 0x3f];
-		*enc++ = i+1 < len ? tab[(v >> (1*6)) & 0x3f] : pad;
-		*enc++ = i+2 < len ? tab[(v >> (0*6)) & 0x3f] : pad;
-	}
-	*enc = '\0';
-}
-
-static size_t base64_decode(const char *data, size_t len, uint8_t *dec)
-{
-	uint8_t tab[] = {
-		62, -1, -1, -1, 63, 52, 53, 54, 55, 56,
-		57, 58, 59, 60, 61, -1, -1, -1, -1, -1,
-		-1, -1,  0,  1,  2,  3,  4,  5,  6,  7,
-		 8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
-		18, 19, 20, 21, 22, 23, 24, 25, -1, -1,
-		-1, -1, -1, -1, 26, 27, 28, 29, 30, 31,
-		32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-		42, 43, 44, 45, 46, 47, 48, 49, 50, 51 };
-	size_t i, j;
-	for (i = 0, j = 0; i < len; i += 4) {
-		uint32_t v;
-		v =                          tab[data[i+0]-43]  << (3*6);
-		v |=                         tab[data[i+1]-43]  << (2*6);
-		v |= (data[i+2] == '=' ? 0 : tab[data[i+2]-43]) << (1*6);
-		v |= (data[i+3] == '=' ? 0 : tab[data[i+3]-43]);
-		                      dec[j++] = (v >> 16) & 0xff;
-		if (data[i+2] != '=') dec[j++] = (v >> 8)  & 0xff;
-		if (data[i+3] != '=') dec[j++] =  v        & 0xff;
-	}
-	return j;
-}
-
 SPA_PRINTF_FUNC(2,3)
 static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
 {
@@ -778,7 +736,7 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 		char buf[256];
 		char enc[512];
 		spa_scnprintf(buf, sizeof(buf), "%s:%s", RAOP_AUTH_USER_NAME, impl->password);
-		base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
+		pw_base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
 		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
 	}
 	else if (spa_streq(impl->auth_method, "Digest")) {
@@ -1136,8 +1094,8 @@ static int rsa_encrypt(uint8_t *data, int len, uint8_t *enc)
 		"imNVvYFZeCXg/IdTQ+x4IRdiXNv5hEew==";
 	char e[] = "AQAB";
 
-	msize = base64_decode(n, strlen(n), modulus);
-	esize = base64_decode(e, strlen(e), exponent);
+	msize = pw_base64_decode(n, strlen(n), modulus);
+	esize = pw_base64_decode(e, strlen(e), exponent);
 
 #if OPENSSL_API_LEVEL >= 30000
 	EVP_PKEY *pkey = NULL;
@@ -1263,15 +1221,15 @@ static int rtsp_do_announce(struct impl *impl)
 		    (res = pw_getrandom(impl->aes_iv, sizeof(impl->aes_iv), 0)) < 0)
 			return res;
 
-		base64_encode(rac, sizeof(rac), sac, '\0');
+		pw_base64_encode(rac, sizeof(rac), sac, '\0');
 		pw_properties_set(impl->headers, "Apple-Challenge", sac);
 
 		rsa_len = rsa_encrypt(impl->aes_key, 16, rsakey);
 		if (rsa_len < 0)
 			return -rsa_len;
 
-		base64_encode(rsakey, rsa_len, key, '=');
-		base64_encode(impl->aes_iv, 16, iv, '=');
+		pw_base64_encode(rsakey, rsa_len, key, '=');
+		pw_base64_encode(impl->aes_iv, 16, iv, '=');
 
 		sdp = spa_aprintf("v=0\r\n"
 				"o=iTunes %s 0 IN IP%d %s\r\n"

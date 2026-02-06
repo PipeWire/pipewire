@@ -736,6 +736,11 @@ static void bap_features_clear(struct bap_features *feat)
 	spa_zero(*feat);
 }
 
+const struct spa_dict *get_device_codec_settings(struct spa_bt_device *device, bool bap)
+{
+    return bap ? device->settings : &device->monitor->global_settings;
+}
+
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
 	struct spa_bt_monitor *monitor = userdata;
@@ -2760,6 +2765,7 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 		{ SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX, SPA_BT_FEATURE_A2DP_DUPLEX },
 	};
 	bool is_a2dp = codec->kind == MEDIA_CODEC_A2DP;
+	bool is_bap = codec->kind == MEDIA_CODEC_BAP;
 	size_t i;
 
 	codec_target_profile = get_codec_target_profile(monitor, codec);
@@ -2801,7 +2807,8 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 			continue;
 
 		if (media_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len,
-						&ep->monitor->default_audio_info, &monitor->global_settings))
+						&ep->monitor->default_audio_info,
+						get_device_codec_settings(device, is_bap)))
 			return true;
 	}
 
@@ -4655,7 +4662,7 @@ static bool codec_switch_check_endpoint(struct spa_bt_remote_endpoint *ep,
 
 	if (!media_codec_check_caps(codec, ep->codec, ep->capabilities, ep->capabilities_len,
 					&ep->device->monitor->default_audio_info,
-					&ep->device->monitor->global_settings))
+					get_device_codec_settings(ep->device, codec->kind == MEDIA_CODEC_BAP)))
 		return false;
 
 	if (ep_profile & (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_BAP_SINK)) {

@@ -120,6 +120,7 @@ struct data {
 	const char *media_role;
 	const char *channel_map;
 	const char *format;
+	const char *container;
 	const char *target;
 	const char *latency;
 	struct pw_properties *props;
@@ -194,8 +195,6 @@ struct data {
 	uint64_t samples_processed;
 };
 
-#define STR_FMTS "(ulaw|alaw|u8|s8|s16|s32|f32|f64)"
-
 static const struct format_info {
 	const char *name;
 	int sf_format;
@@ -217,6 +216,29 @@ static const struct format_info {
 	{  "mp3", SF_FORMAT_MPEG_LAYER_III, SPA_AUDIO_FORMAT_F32, 1 },
 	{  "vorbis", SF_FORMAT_VORBIS, SPA_AUDIO_FORMAT_F32, 1 },
 	{  "opus", SF_FORMAT_OPUS, SPA_AUDIO_FORMAT_F32, 1 },
+
+	{  "ima-adpcm", SF_FORMAT_IMA_ADPCM, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "ms-adpcm", SF_FORMAT_MS_ADPCM, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "nms-adpcm-16", SF_FORMAT_NMS_ADPCM_16, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "nms-adpcm-24", SF_FORMAT_NMS_ADPCM_24, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "nms-adpcm-32", SF_FORMAT_NMS_ADPCM_32, SPA_AUDIO_FORMAT_F32, 1 },
+
+	{  "alac-16", SF_FORMAT_ALAC_16, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "alac-20", SF_FORMAT_ALAC_20, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "alac-24", SF_FORMAT_ALAC_24, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "alac-32", SF_FORMAT_ALAC_32, SPA_AUDIO_FORMAT_F32, 1 },
+
+	{  "gsm610", SF_FORMAT_GSM610, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "g721-32", SF_FORMAT_G721_32, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "g723-24", SF_FORMAT_G723_24, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "g723-40", SF_FORMAT_G723_40, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "dwvw-12", SF_FORMAT_DWVW_12, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "dwvw-16", SF_FORMAT_DWVW_16, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "dwvw-24", SF_FORMAT_DWVW_24, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "vox", SF_FORMAT_VOX_ADPCM, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "dpcm-16", SF_FORMAT_DPCM_16, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "dpcm-8", SF_FORMAT_DPCM_8, SPA_AUDIO_FORMAT_F32, 1 },
+
 };
 
 static const struct format_info *format_info_by_name(const char *str)
@@ -234,6 +256,14 @@ static const struct format_info *format_info_by_sf_format(int format)
 		if (i->sf_format == sub_type)
 			return i;
 	return NULL;
+}
+
+static void list_formats(struct data *d)
+{
+
+	fprintf(stdout, _("Supported formats:\n"));
+	SPA_FOR_EACH_ELEMENT_VAR(format_info, i)
+		fprintf(stdout, "  %s\n", i->name);
 }
 
 static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
@@ -714,6 +744,34 @@ static int parse_channelmap(const char *channel_map, struct spa_audio_layout_inf
 	return 0;
 }
 
+static void list_layouts(struct data *d)
+{
+	fprintf(stderr, _("Supported channel layouts:\n"));
+	SPA_FOR_EACH_ELEMENT_VAR(spa_type_audio_layout_info, i) {
+		if (i->name == NULL)
+			break;
+		fprintf(stdout, "    %s: [", i->name);
+		for (uint32_t j = 0; j < i->layout.n_channels; j++)
+			fprintf(stdout, "%s%s", j == 0 ? " " : ", ",
+				spa_type_audio_channel_to_short_name(i->layout.position[j]));
+		fprintf(stdout, " ]\n");
+	}
+	fprintf(stderr, _("Supported channel layout aliases:\n"));
+	SPA_FOR_EACH_ELEMENT_VAR(maps, m)
+		fprintf(stdout, _("    %s -> %s\n"), m->name, m->alias);
+}
+
+static void list_channel_names(struct data *d)
+{
+	fprintf(stderr, _("Supported channel names:\n"));
+	SPA_FOR_EACH_ELEMENT_VAR(spa_type_audio_channel, i) {
+		if (i->name == NULL || SPA_AUDIO_CHANNEL_IS_AUX(i->type))
+			break;
+		fprintf(stdout, "    %s\n", spa_type_short_name(i->name));
+	}
+	fprintf(stderr, "    AUX0 ... AUX4095\n");
+}
+
 static int channelmap_default(struct spa_audio_layout_info *map, int n_channels)
 {
 	switch(n_channels) {
@@ -1054,6 +1112,11 @@ enum {
 	OPT_CHANNELMAP,
 	OPT_FORMAT,
 	OPT_VOLUME,
+	OPT_CONTAINER,
+	OPT_LISTFORMATS,
+	OPT_LISTCONTAINERS,
+	OPT_LISTLAYOUTS,
+	OPT_LISTCHANNELNAMES,
 };
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
@@ -1088,13 +1151,18 @@ static const struct option long_options[] = {
 	{ "rate",		required_argument, NULL, OPT_RATE },
 	{ "channels",		required_argument, NULL, OPT_CHANNELS },
 	{ "channel-map",	required_argument, NULL, OPT_CHANNELMAP },
+	{ "list-layouts",	no_argument,       NULL, OPT_LISTLAYOUTS },
+	{ "list-channel-names",	no_argument,       NULL, OPT_LISTCHANNELNAMES },
 	{ "format",		required_argument, NULL, OPT_FORMAT },
+	{ "list-formats",	no_argument,       NULL, OPT_LISTFORMATS },
+	{ "container",		required_argument, NULL, OPT_CONTAINER },
+	{ "list-containers",	no_argument,       NULL, OPT_LISTCONTAINERS },
 	{ "volume",		required_argument, NULL, OPT_VOLUME },
 	{ "quality",		required_argument, NULL, 'q' },
-	{ "raw",		no_argument, NULL, 'a' },
+	{ "raw",		no_argument,       NULL, 'a' },
 	{ "force-midi",		required_argument, NULL, 'M' },
 	{ "sample-count",	required_argument, NULL, 'n' },
-	{ "midi-clip",		no_argument, NULL, 'c' },
+	{ "midi-clip",		no_argument,       NULL, 'c' },
 
 	{ NULL, 0, NULL, 0 }
 };
@@ -1131,12 +1199,17 @@ static void show_usage(const char *name, bool is_error)
 	     DEFAULT_TARGET, DEFAULT_LATENCY_PLAY);
 
 	fprintf(fp,
-	   _("      --rate                            Sample rate (req. for rec) (default %u)\n"
-	     "      --channels                        Number of channels (req. for rec) (default %u)\n"
+	   _("      --rate                            Sample rate (default %u)\n"
+	     "      --channels                        Number of channels (default %u)\n"
 	     "      --channel-map                     Channel map\n"
-	     "                                            one of: \"Stereo\", \"5.1\",... or\n"
+	     "                                            a channel layout: \"Stereo\", \"5.1\",... or\n"
 	     "                                            comma separated list of channel names: eg. \"FL,FR\"\n"
-	     "      --format                          Sample format %s (req. for rec) (default %s)\n"
+	     "      --list-layouts                    List supported channel layouts\n"
+	     "      --list-channel-names              List supported channel maps\n"
+	     "      --format                          Sample format (default %s)\n"
+	     "      --list-formats                    List supported sample formats\n"
+	     "      --container                       Container format\n"
+	     "      --list-containers                 List supported containers and extensions\n"
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
 	     "  -a, --raw                             RAW mode\n"
@@ -1145,7 +1218,7 @@ static void show_usage(const char *name, bool is_error)
 	     "\n"),
 	     DEFAULT_RATE,
 	     DEFAULT_CHANNELS,
-	     STR_FMTS, DEFAULT_FORMAT,
+	     DEFAULT_FORMAT,
 	     DEFAULT_VOLUME,
 	     DEFAULT_QUALITY);
 
@@ -1679,11 +1752,20 @@ static int fill_properties(struct data *data)
 
 	return 0;
 }
-static void format_from_filename(SF_INFO *info, const char *filename)
+static void format_from_filename(SF_INFO *info, const char *filename, const char *container)
 {
 	int i, count = 0;
 	int format = -1;
+	const char *extension;
 
+	if (spa_streq(filename, "-"))
+		extension = container ? container : "au";
+	else if (container)
+		extension = container;
+	else
+		extension = filename;
+
+	fprintf(stderr, "%s\n", filename);
 	if (sf_command(NULL, SFC_GET_FORMAT_MAJOR_COUNT, &count, sizeof(int)) != 0)
 		count = 0;
 
@@ -1695,7 +1777,7 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 		if (sf_command(NULL, SFC_GET_FORMAT_MAJOR, &fi, sizeof(fi)) != 0)
 			continue;
 
-		if (spa_strendswith(filename, fi.extension)) {
+		if (spa_strendswith(extension, fi.extension)) {
 			format = fi.format;
 			break;
 		}
@@ -1712,7 +1794,7 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 			if (sf_command(NULL, SFC_GET_SIMPLE_FORMAT, &fi, sizeof(fi)) != 0)
 				continue;
 
-			if (spa_strendswith(filename, fi.extension)) {
+			if (spa_strendswith(extension, fi.extension)) {
 				format = fi.format;
 				info->format = 0;
 				break;
@@ -1720,7 +1802,7 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 		}
 	}
 	if (format == -1)
-		format = spa_streq(filename, "-") ? SF_FORMAT_AU : SF_FORMAT_WAV;
+		format = SF_FORMAT_WAV;
 	if (format == SF_FORMAT_WAV && info->channels > 2)
 		format = SF_FORMAT_WAVEX;
 
@@ -1736,6 +1818,26 @@ static void format_from_filename(SF_INFO *info, const char *filename)
 		break;
 	}
 	info->format |= format;
+}
+
+static void list_containers(struct data *d)
+{
+	int i, count = 0;
+
+	fprintf(stderr, _("Supported containers and extensions:\n"));
+	if (sf_command(NULL, SFC_GET_FORMAT_MAJOR_COUNT, &count, sizeof(int)) != 0)
+		count = 0;
+
+	for (i = 0; i < count; i++) {
+		SF_FORMAT_INFO fi;
+
+		spa_zero(fi);
+		fi.format = i;
+		if (sf_command(NULL, SFC_GET_FORMAT_MAJOR, &fi, sizeof(fi)) != 0)
+			continue;
+
+		fprintf(stderr, "    %s: %s\n", fi.extension, fi.name);
+	}
 }
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
@@ -1859,7 +1961,7 @@ static int setup_sndfile(struct data *data)
 		info.samplerate = data->rate;
 		info.channels = data->channels;
 		info.format = fi->sf_format;
-		format_from_filename(&info, data->filename);
+		format_from_filename(&info, data->filename, data->container);
 	}
 
 	data->sndfile.file = sf_open(data->filename,
@@ -2220,6 +2322,9 @@ int main(int argc, char *argv[])
 		case OPT_FORMAT:
 			data.format = optarg;
 			break;
+		case OPT_CONTAINER:
+			data.container = optarg;
+			break;
 
 		case OPT_VOLUME:
 			if (!spa_atof(optarg, &data.volume))
@@ -2231,6 +2336,18 @@ int main(int argc, char *argv[])
 		case 'c':
 			data.data_type = TYPE_MIDI2;
 			break;
+		case OPT_LISTFORMATS:
+			list_formats(&data);
+			return EXIT_SUCCESS;
+		case OPT_LISTCONTAINERS:
+			list_containers(&data);
+			return EXIT_SUCCESS;
+		case OPT_LISTLAYOUTS:
+			list_layouts(&data);
+			return EXIT_SUCCESS;
+		case OPT_LISTCHANNELNAMES:
+			list_channel_names(&data);
+			return EXIT_SUCCESS;
 		default:
 			goto error_usage;
 		}

@@ -24,9 +24,9 @@ Play and record media with PipeWire
 
 **pw-cat** is a simple tool for playing back or capturing raw or encoded
 media files on a PipeWire server. It understands all audio file formats
-supported by `libsndfile` for PCM capture and playback. When capturing
-PCM, the filename extension is used to guess the file format with the
-WAV file format as the default.
+supported by `libsndfile` for PCM capture and playback. When no container
+is specified for capturing PCM, the filename extension is used to guess
+the file format with the WAV file format as the default.
 
 It understands standard MIDI files and MIDI 2.0 clip files for playback
 and recording. This tool will not render MIDI files, it will simply make
@@ -37,8 +37,15 @@ DSD playback is supported with the DSF file format. This tool will only
 work with native DSD capable hardware and will produce an error when no
 such hardware was found.
 
-When the *FILE* is - input and output will be raw data from STDIN and
-STDOUT respectively.
+When the *FILE* is - input will be from STDIN. If no format is specified,
+libsndfile will attempt to parse and stream the format from STDIN. For
+some formats, this is not possible and libsndfile will give an error.
+Raw, MIDI and DSD formats are all streamable from STDIN.
+
+When the *FILE* is - output will be to STDOUT. If no format is specified,
+libsndfile is instructed to output the .au format, which is streamble and
+preserves the format, rate and channels.
+Raw and DSD formats are all streamable to STDOUT.
 
 # OPTIONS
 
@@ -86,6 +93,11 @@ DSD mode. *FILE* is a DSF file. If the tool is called under the name
 **pw-dsdplay** this is the default. Note that this program will *not*
 render the DSD audio. You need a DSD capable device to play DSD content
 or this program will exit with an error.
+
+\par -s | \--sysex
+SysEx mode. *FILE* is a File that contains a raw SysEx MIDI message.
+If the tool is called under the name **pw-sysex** this is the default.
+The File is read and sent as a MIDI control message into the graph.
 
 \par \--media-type=VALUE
 Set the media type property (default Audio/Midi depending on mode). The
@@ -138,6 +150,17 @@ does not match the samplerate of the server, the data will be resampled.
 Higher quality uses more CPU. Values between 0 and 15 are allowed, the
 default quality is 4.
 
+\par -a | \--raw
+Raw samples will be read or written. The \--rate, \--format, \--channels
+and \--channelmap can be used to specify the raw format.
+
+\par -M | \--force-midi
+Force midi format, one of "midi" or "ump", (default ump).
+When reading or writing midi, for one of midi or UMP.
+
+\par -n | \--sample-count=COUNT
+Stop after COUNT samples.
+
 \par \--rate=VALUE
 The sample rate, default 48000.
 
@@ -145,19 +168,38 @@ The sample rate, default 48000.
 The number of channels, default 2.
 
 \par \--channel-map=VALUE
-The channelmap. Possible values include: **mono**, **stereo**,
+The channelmap. Possible values include are either a channel layout
+such as **mono**, **stereo**,
 **surround-21**, **quad**, **surround-22**, **surround-40**,
-**surround-31**, **surround-41**, **surround-50**, **surround-51**,
-**surround-51r**, **surround-70**, **surround-71** or a comma separated
-list of channel names: **FL**, **FR**, **FC**, **LFE**, **SL**, **SR**,
-**FLC**, **FRC**, **RC**, **RL**, **RR**, **TC**, **TFL**, **TFC**,
-**TFR**, **TRL**, **TRC**, **TRR**, **RLC**, **RRC**, **FLW**, **FRW**,
-**LFE2**, **FLH**, **FCH**, **FRH**, **TFLC**, **TFRC**, **TSL**,
-**TSR**, **LLFR**, **RLFE**, **BC**, **BLC**, **BRC**
+or comma separated array of channel names such as **FL,FR**.
+See \--list-layouts and \--list-channel-names to get a complete
+list of possible values.
+
+\par \--list-layouts
+List all known channel layouts. One of these can be used as the
+\--channel-map value.
+
+\par \--list-channel-names
+List all known channel names. An array of these can be used as the
+\--channel-map value.
 
 \par \--format=VALUE
-The sample format to use. One of: **u8**, **s8**, **s16** (default),
-**s24**, **s32**, **f32**, **f64**.
+The sample format to use. Some possible values include: **u8**, **s8**,
+**s16** (default), **s24**, **s32**, **f32**, **f64**. See
+\--list-formats to get a complete list of values.
+
+\par \--list-formats
+List all known format values.
+
+\par \--container=VALUE
+Specify the container to use when saving. This is usually guessed from
+the filename extension but can be specified explicitly. When using
+STDOUT and no container is specified, the AU container will be used.
+Then using a filename and the container was not specified and it could
+not be derived from the filename, the WAV container is used.
+
+\par \--list-containers
+List all known container values.
 
 \par \--volume=VALUE
 The stream volume, default 1.000. Depending on the locale you have

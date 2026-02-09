@@ -76,7 +76,15 @@ enum rtp_stream_internal_state {
 };
 
 struct impl {
+	/* This audio info's content originates from the props that
+	 * are passed to rtp_stream_new(). */
 	struct spa_audio_info info;
+	/* The stream info that are used for connecting the pw_stream
+	 * and for defining the SPA_PARAM_EnumFormat value. This info
+	 * is derived from the info above, but may be tweaked as-needed,
+	 * for example, when a specific audio type only works with
+	 * a certain PCM format, or when the subtype needs to be set
+	 * to something that deviates from the info.subtype value. */
 	struct spa_audio_info stream_info;
 
 	struct pw_context *context;
@@ -90,7 +98,10 @@ struct impl {
 	struct spa_hook_list listener_list;
 	struct spa_hook listener;
 
-	const struct format_info *format_info;
+	/* This stores RTP specific format information, such as the
+	 * media type to use in the rtp.media and rtp.mime properties,
+	 * which are used in SDP announcements. */
+	const struct rtp_format_info *rtp_format_info;
 
 	enum spa_direction direction;
 	void *stream_data;
@@ -301,7 +312,7 @@ static int do_finish_stopping_state(struct spa_loop *loop, bool async, uint32_t 
 #include "module-rtp/midi.c"
 #include "module-rtp/opus.c"
 
-struct format_info {
+struct rtp_format_info {
 	uint32_t media_subtype;
 	uint32_t format;
 	uint32_t size;
@@ -309,15 +320,21 @@ struct format_info {
 	const char *media_type;
 };
 
-static const struct format_info audio_format_info[] = {
+static const struct rtp_format_info rtp_pcm_audio_format_info[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_U8, 1, "L8", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ALAW, 1, "PCMA", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ULAW, 1, "PCMU", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_LE, 2, "L16", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio" },
-	{ SPA_MEDIA_SUBTYPE_control, 0, 1, "rtp-midi", "audio" },
-	{ SPA_MEDIA_SUBTYPE_opus, 0, 4, "opus", "audio" },
+};
+
+static const struct rtp_format_info rtp_midi_format_info = {
+	SPA_MEDIA_SUBTYPE_control, 0, 1, "rtp-midi", "audio"
+};
+
+static const struct rtp_format_info rtp_opus_format_info = {
+	SPA_MEDIA_SUBTYPE_opus, 0, 4, "opus", "audio"
 };
 
 static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
@@ -575,9 +592,9 @@ static const struct pw_stream_events stream_events = {
 	.io_changed = stream_io_changed,
 };
 
-static const struct format_info *find_audio_format_info(const struct spa_audio_info *info)
+static const struct rtp_format_info *find_rtp_pcm_audio_format_info(const struct spa_audio_info *info)
 {
-	SPA_FOR_EACH_ELEMENT_VAR(audio_format_info, f)
+	SPA_FOR_EACH_ELEMENT_VAR(rtp_pcm_audio_format_info, f)
 		if (f->media_subtype == info->media_subtype &&
 		    (f->format == 0 || f->format == info->info.raw.format))
 			return f;
@@ -696,26 +713,23 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 			goto out;
 		}
 		impl->stream_info = impl->info;
-		impl->format_info = find_audio_format_info(&impl->info);
-		if (impl->format_info == NULL) {
-			pw_log_error("unsupported audio format:%d channels:%d",
+		impl->rtp_format_info = find_rtp_pcm_audio_format_info(&impl->info);
+		if (impl->rtp_format_info == NULL) {
+			pw_log_error("unsupported audio format:%d (%s) channels:%d",
 					impl->stream_info.info.raw.format,
+					spa_type_audio_format_to_short_name(impl->stream_info.info.raw.format),
 					impl->stream_info.info.raw.channels);
 			res = -EINVAL;
 			goto out;
 		}
-		impl->stride = impl->format_info->size * impl->stream_info.info.raw.channels;
+		impl->stride = impl->rtp_format_info->size * impl->stream_info.info.raw.channels;
 		impl->rate = impl->stream_info.info.raw.rate;
 		break;
 	case SPA_MEDIA_SUBTYPE_control:
 		impl->stream_info = impl->info;
-		impl->format_info = find_audio_format_info(&impl->info);
-		if (impl->format_info == NULL) {
-			res = -EINVAL;
-			goto out;
-		}
+		impl->rtp_format_info = &rtp_midi_format_info;
 		pw_properties_set(props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
-		impl->stride = impl->format_info->size;
+		impl->stride = impl->rtp_format_info->size;
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)
 			impl->rate = 10000;
@@ -731,15 +745,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->info.info.opus.rate = impl->stream_info.info.raw.rate;
 		impl->info.info.opus.channels = impl->stream_info.info.raw.channels;
 
-		impl->format_info = find_audio_format_info(&impl->info);
-		if (impl->format_info == NULL) {
-			pw_log_error("unsupported audio format:%d channels:%d",
-					impl->stream_info.info.raw.format,
-					impl->stream_info.info.raw.channels);
-			res = -EINVAL;
-			goto out;
-		}
-		impl->stride = impl->format_info->size * impl->stream_info.info.raw.channels;
+		impl->rtp_format_info = &rtp_opus_format_info;
+		impl->stride = impl->rtp_format_info->size * impl->stream_info.info.raw.channels;
 		impl->rate = impl->stream_info.info.raw.rate;
 		break;
 	default:
@@ -796,7 +803,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	pw_log_debug("possible / actual max buffer size: %" PRIu32 " / %" PRIu32,
 			(uint32_t)impl->buffer_size, impl->actual_max_buffer_size);
 
-	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
+	pw_properties_setf(props, "rtp.mime", "%s", impl->rtp_format_info->mime);
 
 	if (pw_properties_get(props, PW_KEY_NODE_VIRTUAL) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
@@ -921,8 +928,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	}
 
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
-	pw_properties_setf(props, "rtp.media", "%s", impl->format_info->media_type);
-	pw_properties_setf(props, "rtp.mime", "%s", impl->format_info->mime);
+	pw_properties_setf(props, "rtp.media", "%s", impl->rtp_format_info->media_type);
+	pw_properties_setf(props, "rtp.mime", "%s", impl->rtp_format_info->mime);
 	pw_properties_setf(props, "rtp.payload", "%u", impl->payload);
 	pw_properties_setf(props, "rtp.ssrc", "%u", impl->ssrc);
 	pw_properties_setf(props, "rtp.rate", "%u", impl->rate);

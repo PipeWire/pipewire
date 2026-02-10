@@ -196,7 +196,7 @@ struct spa_bt_bis {
 };
 
 #define BROADCAST_CODE_LEN	16
-#define HCI_DEV_NAME_LEN	8
+#define BD_ADDR_STR_LEN		17
 
 struct spa_bt_big {
 	struct spa_list link;
@@ -205,7 +205,7 @@ struct spa_bt_big {
 	struct spa_list bis_list;
 	int big_id;
 	int sync_factor;
-	char adapter[HCI_DEV_NAME_LEN];
+	char adapter[BD_ADDR_STR_LEN + 3];
 };
 
 /*
@@ -6269,6 +6269,7 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 }
 
 static void configure_bcast_source(struct spa_bt_monitor *monitor,
+				struct spa_bt_remote_endpoint *ep,
 				const struct media_codec *codec,
 				DBusConnection *conn,
 				const char *object_path,
@@ -6277,15 +6278,19 @@ static void configure_bcast_source(struct spa_bt_monitor *monitor,
 {
 	struct spa_bt_big *big;
 	struct spa_bt_bis *bis;
-	char *pos;
+
 	/* Configure each BIS from a BIG */
 	spa_list_for_each(big, &monitor->bcast_source_config_list, link) {
 		/* Apply per adapter configuration if BIG has an adapter value stated,
 		 * otherwise apply the BIG config angnostically to each adapter
 		 */
-		if (strlen(big->adapter) > 0) {
-			pos = strstr(object_path, big->adapter);
-			if (pos == NULL)
+		if ((strlen(big->adapter) > 0) && (ep->adapter != NULL)) {
+			if (!ep->adapter->address) {
+				spa_log_warn(monitor->log, "this adapter is not associated with any BD address. BIG config will applied agnostically to any adapter!");
+				continue;
+			}
+
+			if (strcasecmp(ep->adapter->address, big->adapter))
 				continue;
 
 			spa_log_debug(monitor->log, "configuring BIG for adapter=%s", big->adapter);
@@ -6414,7 +6419,7 @@ static void interface_added(struct spa_bt_monitor *monitor,
 			}
 
 			if (local_endpoint != NULL)
-				configure_bcast_source(monitor, monitor->media_codecs[i], conn, object_path, interface_name, local_endpoint);
+				configure_bcast_source(monitor, ep, monitor->media_codecs[i], conn, object_path, interface_name, local_endpoint);
 		}
 	}
 }
@@ -7034,7 +7039,6 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 	char bis_key[256];
 	char qos_key[256];
 	char bcode[BROADCAST_CODE_LEN + 3];
-	char adapter[HCI_DEV_NAME_LEN + 3];
 	int cursor;
 	int big_id = 0;
 	struct spa_json it[3], it_array[4];
@@ -7071,11 +7075,8 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 				memcpy(big_entry->broadcast_code, bcode, strlen(bcode));
 				spa_log_debug(monitor->log, "big_entry->broadcast_code %s", big_entry->broadcast_code);
 			} else if (spa_streq(key, "adapter")) {
-				if (spa_json_get_string(&it[1], adapter, sizeof(adapter)) <= 0)
+				if (spa_json_get_string(&it[1], big_entry->adapter, sizeof(big_entry->adapter)) <= 0)
 					goto parse_failed;
-				if (strlen(adapter) > HCI_DEV_NAME_LEN)
-					goto parse_failed;
-				memcpy(big_entry->adapter, adapter, strlen(adapter));
 				spa_log_debug(monitor->log, "big_entry->adapter %s", big_entry->adapter);
 			} else if (spa_streq(key, "encryption")) {
 				if (spa_json_get_bool(&it[0], &big_entry->encryption) <= 0)

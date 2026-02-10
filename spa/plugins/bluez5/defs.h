@@ -379,6 +379,7 @@ struct spa_bt_adapter {
 	unsigned int has_media1_interface:1;
 	unsigned int le_audio_bcast_supported:1;
 	unsigned int tx_timestamping_supported:1;
+	struct spa_list remote_endpoint_list;
 };
 
 enum spa_bt_form_factor {

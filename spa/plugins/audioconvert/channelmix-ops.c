@@ -720,7 +720,7 @@ done:
 	if (src_paired == 0)
 		src_paired = ~0LU;
 
-	for (jc = 0, ic = 0, i = 0; i < CHANNEL_BITS; i++) {
+	for (jc = 0, ic = 0, i = 0; ic < dst_chan; i++) {
 		float sum = 0.0f;
 		char str1[1024], str2[1024];
 		struct spa_strbuf sb1, sb2;
@@ -728,12 +728,10 @@ done:
 		spa_strbuf_init(&sb1, str1, sizeof(str1));
 		spa_strbuf_init(&sb2, str2, sizeof(str2));
 
-		if ((dst_paired & (1UL << i)) == 0)
+		if (i < CHANNEL_BITS && (dst_paired & (1UL << i)) == 0)
 			continue;
-		for (jc = 0, j = 0; j < CHANNEL_BITS; j++) {
-			if ((src_paired & (1UL << j)) == 0)
-				continue;
-			if (ic >= dst_chan || jc >= src_chan)
+		for (jc = 0, j = 0; jc < src_chan; j++) {
+			if (j < CHANNEL_BITS && (src_paired & (1UL << j)) == 0)
 				continue;
 
 			if (ic == 0)
@@ -752,7 +750,7 @@ done:
 		if (sb2.pos > 0)
 			spa_log_info(mix->log, "     %s", str2);
 		if (sb1.pos > 0) {
-			spa_log_info(mix->log, "%-4.4s %s   %f",
+			spa_log_info(mix->log, "%03d %-4.4s %s   %f", ic,
 					dst_mask == 0 ? "UNK" :
 					spa_debug_type_find_short_name(spa_type_audio_channel, i + _SH),
 					str1, sum);

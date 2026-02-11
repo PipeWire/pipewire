@@ -1485,7 +1485,7 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 			profiles = this->bt_dev->profiles & SPA_BT_PROFILE_BAP_DUPLEX;
 			break;
 		case DEVICE_PROFILE_A2DP:
-			profiles = this->bt_dev->profiles & SPA_BT_PROFILE_A2DP_DUPLEX;
+			profiles = this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_DUPLEX;
 			break;
 		default:
 			profiles = 0;

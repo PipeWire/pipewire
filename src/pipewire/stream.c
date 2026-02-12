@@ -2504,7 +2504,8 @@ int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t 
 			impl->dequeued.outcount, impl->dequeued.incount,
 			impl->queued.outcount, impl->queued.incount,
 			avail_buffers, impl->n_buffers);
-	return 0;
+
+	return stream->state == PW_STREAM_STATE_STREAMING ? 0 : -EIO;
 }
 
 SPA_EXPORT

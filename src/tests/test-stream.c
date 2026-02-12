@@ -151,7 +151,7 @@ static void test_create(void)
 	/* check id, only when connected */
 	spa_assert_se(pw_stream_get_node_id(stream) == SPA_ID_INVALID);
 
-	spa_assert_se(pw_stream_get_time_n(stream, &tm, sizeof(tm)) == 0);
+	spa_assert_se(pw_stream_get_time_n(stream, &tm, sizeof(tm)) == -EIO);
 	spa_assert_se(tm.now == 0);
 	spa_assert_se(tm.rate.num == 0);
 	spa_assert_se(tm.rate.denom == 0);

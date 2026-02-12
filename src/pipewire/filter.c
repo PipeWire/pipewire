@@ -1986,7 +1986,8 @@ int pw_filter_get_time(struct pw_filter *filter, struct pw_time *time)
 	pw_log_trace("%p: %"PRIi64" %"PRIi64" %"PRIu64" %d/%d ", filter,
 			time->now, time->delay, time->ticks,
 			time->rate.num, time->rate.denom);
-	return 0;
+
+	return filter->state == PW_FILTER_STATE_STREAMING ? 0 : -EIO;
 }
 
 SPA_EXPORT

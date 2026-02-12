@@ -293,7 +293,8 @@ struct pw_stream_control {
  * Use pw_stream_get_time_n() to get an updated time snapshot of the stream.
  * The time snapshot can give information about the time in the driver of the
  * graph, the delay to the edge of the graph and the internal queuing in the
- * stream.
+ * stream. This function should only be called in the STREAMING state and will
+ * return an error when called in any other state.
  *
  * pw_time.ticks gives a monotonic increasing counter of the time in the graph
  * driver. I can be used to generate a timeline to schedule samples as well
@@ -594,7 +595,7 @@ const struct pw_stream_control *pw_stream_get_control(struct pw_stream *stream, 
 /** Set control values */
 int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_values, float *values, ...);
 
-/** Query the time on the stream, RT safe */
+/** Query the time on the stream. Returns an error when the stream is not running. RT safe */
 int pw_stream_get_time_n(struct pw_stream *stream, struct pw_time *time, size_t size);
 
 /** Get the current time in nanoseconds. This value can be compared with

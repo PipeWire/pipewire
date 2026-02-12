@@ -3040,6 +3040,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 
 				device = spa_bt_device_find(monitor, value);
 				adapter = adapter_find(monitor, value);
+
 				if (device != NULL) {
 					spa_log_debug(monitor->log, "remote_endpoint %p: device -> %p", remote_endpoint, device);
 
@@ -3047,8 +3048,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 						if (remote_endpoint->device != NULL)
 							spa_list_remove(&remote_endpoint->device_link);
 						remote_endpoint->device = device;
-						if (device != NULL)
-							spa_list_append(&device->remote_endpoint_list, &remote_endpoint->device_link);
+						spa_list_append(&device->remote_endpoint_list, &remote_endpoint->device_link);
 					}
 				}
 				if (adapter != NULL) {
@@ -3058,8 +3058,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 						if (remote_endpoint->adapter != NULL)
 							spa_list_remove(&remote_endpoint->adapter_link);
 						remote_endpoint->adapter = adapter;
-						if (adapter != NULL)
-							spa_list_append(&adapter->remote_endpoint_list, &remote_endpoint->adapter_link);
+						spa_list_append(&adapter->remote_endpoint_list, &remote_endpoint->adapter_link);
 					}
 				}
 			} else if (spa_streq(key, "Transport")) {
@@ -3196,6 +3195,9 @@ static void remote_endpoint_free(struct spa_bt_remote_endpoint *remote_endpoint)
 
 	if (remote_endpoint->device)
 		spa_list_remove(&remote_endpoint->device_link);
+
+	if (remote_endpoint->adapter)
+		spa_list_remove(&remote_endpoint->adapter_link);
 
 	bap_features_clear(&remote_endpoint->bap_features);
 

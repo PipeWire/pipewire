@@ -1800,6 +1800,9 @@ again:
 			n->target_rate = n->rt.position->clock.target_rate;
 		}
 
+		if (n->info.state < PW_NODE_STATE_RUNNING)
+			n->rt.position->clock.nsec = get_time_ns(n->rt.target.system);
+
 		SPA_FLAG_UPDATE(n->rt.position->clock.flags,
 				SPA_IO_CLOCK_FLAG_LAZY, have_request && n->supports_lazy > 0);
 

@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <limits.h>
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -335,6 +336,21 @@ struct spa_fraction {
 	_n |= _n >> 32;						\
 	_n + 1;							\
 })
+
+/* The vast majority of real world machines use a two's complement method.
+ * However, it is still prudent to check for that instead of just assuming.
+ * Fortunately, it is simple to check for this by negating INT_MAX and
+ * subtracting 1 from that. In two's complement, there is one more negative
+ * integer than there are positive integers (due to two's complement having
+ * only one zero representation), and this check exploits that particular
+ * asymmetry.
+ * It is very important to make sure limits.h is included for this to work,
+ * since otherwise, INT_MIN and INT_MAX will be missing, and this will _not_
+ * cause a preprocessor error - instead, the #if check here silently fails,
+ * as if the machine used something other than a two's complement method. */
+#if INT_MIN == (-(INT_MAX) - 1)
+#define SPA_MACHINE_USES_TWOS_COMPLEMENT
+#endif
 
 
 #define SPA_PTR_ALIGNMENT(p,align)	((uintptr_t)(p) & ((align)-1))

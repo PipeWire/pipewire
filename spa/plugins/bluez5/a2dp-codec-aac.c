@@ -106,8 +106,8 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 
 static const struct media_codec_config
 aac_frequencies[] = {
-	{ AAC_SAMPLING_FREQ_48000, 48000, 11 },
 	{ AAC_SAMPLING_FREQ_44100, 44100, 10 },
+	{ AAC_SAMPLING_FREQ_48000, 48000, 11 },
 	{ AAC_SAMPLING_FREQ_96000, 96000, 9 },
 	{ AAC_SAMPLING_FREQ_88200, 88200, 8 },
 	{ AAC_SAMPLING_FREQ_64000, 64000, 7 },
@@ -194,75 +194,6 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
-static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
-		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
-		struct spa_pod_builder *b, struct spa_pod **param)
-{
-	a2dp_aac_t conf;
-	struct spa_pod_frame f[2];
-	struct spa_pod_choice *choice;
-	uint32_t position[2];
-	uint32_t i = 0;
-
-	if (caps_size < sizeof(conf))
-		return -EINVAL;
-
-	memcpy(&conf, caps, sizeof(conf));
-
-	if (idx > 0)
-		return 0;
-
-	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, id);
-	spa_pod_builder_add(b,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_S16),
-			0);
-	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
-
-	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
-	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
-	i = 0;
-	SPA_FOR_EACH_ELEMENT_VAR(aac_frequencies, f) {
-		if (AAC_GET_FREQUENCY(conf) & f->config) {
-			if (i++ == 0)
-				spa_pod_builder_int(b, f->value);
-			spa_pod_builder_int(b, f->value);
-		}
-	}
-	if (i > 1)
-		choice->body.type = SPA_CHOICE_Enum;
-	spa_pod_builder_pop(b, &f[1]);
-
-	if (i == 0)
-		return -EINVAL;
-
-	if (SPA_FLAG_IS_SET(conf.channels, AAC_CHANNELS_1 | AAC_CHANNELS_2)) {
-		spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, 2),
-				0);
-	} else if (conf.channels & AAC_CHANNELS_1) {
-		position[0] = SPA_AUDIO_CHANNEL_MONO;
-		spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1),
-				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
-					SPA_TYPE_Id, 1, position),
-				0);
-	} else if (conf.channels & AAC_CHANNELS_2) {
-		position[0] = SPA_AUDIO_CHANNEL_FL;
-		position[1] = SPA_AUDIO_CHANNEL_FR;
-		spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(2),
-				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
-					SPA_TYPE_Id, 2, position),
-				0);
-	} else
-		return -EINVAL;
-
-	*param = spa_pod_builder_pop(b, &f[0]);
-	return *param == NULL ? -EIO : 1;
-}
-
 static int codec_validate_config(const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,
 			struct spa_audio_info *info)
@@ -283,8 +214,10 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	/*
 	 * A2DP v1.3.2, 4.5.2: only one bit shall be set in bitfields.
 	 * However, there is a report (#1342) of device setting multiple
-	 * bits for AAC object type. It's not clear if this was due to
-	 * a BlueZ bug, but we can be lax here and below in codec_init.
+	 * bits for AAC object type. In addition AirPods set multiple bits.
+	 *
+	 * Some devices also set multiple bits in frequencies & channels.
+	 * For these, pick a "preferred" choice.
 	 */
 	if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
 					AAC_OBJECT_TYPE_MPEG4_AAC_LC |
@@ -313,6 +246,35 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	}
 
 	return 0;
+}
+
+static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
+		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
+		struct spa_pod_builder *b, struct spa_pod **param)
+{
+	struct spa_audio_info info;
+	struct spa_pod_frame f[1];
+	int res;
+
+	if ((res = codec_validate_config(codec, flags, caps, caps_size, &info)) < 0)
+		return res;
+
+	if (idx > 0)
+		return 0;
+
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, id);
+	spa_pod_builder_add(b,
+			SPA_FORMAT_mediaType,      SPA_POD_Id(info.media_type),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(info.media_subtype),
+			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(info.info.raw.format),
+			SPA_FORMAT_AUDIO_rate,     SPA_POD_Int(info.info.raw.rate),
+			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(info.info.raw.channels),
+			SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
+					SPA_TYPE_Id, info.info.raw.channels, info.info.raw.position),
+			0);
+
+	*param = spa_pod_builder_pop(b, &f[0]);
+	return *param == NULL ? -EIO : 1;
 }
 
 static void *codec_init_props(const struct media_codec *codec, uint32_t flags, const struct spa_dict *settings)

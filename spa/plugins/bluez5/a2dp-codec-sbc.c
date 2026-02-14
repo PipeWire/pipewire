@@ -343,77 +343,27 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
-	a2dp_sbc_t conf;
-        struct spa_pod_frame f[2];
-	struct spa_pod_choice *choice;
-	uint32_t i = 0;
-	uint32_t position[2];
+	struct spa_audio_info info;
+	struct spa_pod_frame f[1];
+	int res;
 
-	if (caps_size < sizeof(conf))
-		return -EINVAL;
-
-	memcpy(&conf, caps, sizeof(conf));
+	if ((res = codec_validate_config(codec, flags, caps, caps_size, &info)) < 0)
+		return res;
 
 	if (idx > 0)
 		return 0;
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, id);
 	spa_pod_builder_add(b,
-			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(SPA_AUDIO_FORMAT_S16),
+			SPA_FORMAT_mediaType,      SPA_POD_Id(info.media_type),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(info.media_subtype),
+			SPA_FORMAT_AUDIO_format,   SPA_POD_Id(info.info.raw.format),
+			SPA_FORMAT_AUDIO_rate,     SPA_POD_Int(info.info.raw.rate),
+			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(info.info.raw.channels),
+			SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
+					SPA_TYPE_Id, info.info.raw.channels, info.info.raw.position),
 			0);
-	spa_pod_builder_prop(b, SPA_FORMAT_AUDIO_rate, 0);
 
-	spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_None, 0);
-	choice = (struct spa_pod_choice*)spa_pod_builder_frame(b, &f[1]);
-	i = 0;
-	if (conf.frequency & SBC_SAMPLING_FREQ_48000) {
-		if (i++ == 0)
-			spa_pod_builder_int(b, 48000);
-		spa_pod_builder_int(b, 48000);
-	}
-	if (conf.frequency & SBC_SAMPLING_FREQ_44100) {
-		if (i++ == 0)
-			spa_pod_builder_int(b, 44100);
-		spa_pod_builder_int(b, 44100);
-	}
-	if (conf.frequency & SBC_SAMPLING_FREQ_32000) {
-		if (i++ == 0)
-			spa_pod_builder_int(b, 32000);
-		spa_pod_builder_int(b, 32000);
-	}
-	if (conf.frequency & SBC_SAMPLING_FREQ_16000) {
-		if (i++ == 0)
-			spa_pod_builder_int(b, 16000);
-		spa_pod_builder_int(b, 16000);
-	}
-	if (i > 1)
-		choice->body.type = SPA_CHOICE_Enum;
-	spa_pod_builder_pop(b, &f[1]);
-
-	if (conf.channel_mode & SBC_CHANNEL_MODE_MONO &&
-	    conf.channel_mode & (SBC_CHANNEL_MODE_JOINT_STEREO |
-		    SBC_CHANNEL_MODE_STEREO | SBC_CHANNEL_MODE_DUAL_CHANNEL)) {
-		spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(2, 1, 2),
-				0);
-	} else if (conf.channel_mode & SBC_CHANNEL_MODE_MONO) {
-		position[0] = SPA_AUDIO_CHANNEL_MONO;
-		spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(1),
-				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
-					SPA_TYPE_Id, 1, position),
-				0);
-	} else {
-		position[0] = SPA_AUDIO_CHANNEL_FL;
-		position[1] = SPA_AUDIO_CHANNEL_FR;
-		spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(2),
-				SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
-					SPA_TYPE_Id, 2, position),
-				0);
-	}
 	*param = spa_pod_builder_pop(b, &f[0]);
 	return *param == NULL ? -EIO : 1;
 }

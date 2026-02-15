@@ -780,7 +780,7 @@ static void show_help(const char *name, bool error)
 		"  -N, --no-colors                       disable color output\n"
 		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n"
 		"  -o, --hide-props                      hide node properties\n"
-		"  -a, --hide-params                     hide node properties\n"
+		"  -a, --hide-params                     hide node parameters\n"
 		"  -p, --print-separator                 print empty line after every event to help streaming parser\n",
 		name);
 }

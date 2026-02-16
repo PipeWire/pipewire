@@ -56,6 +56,9 @@
  * - `fec.code = <str>`: Possible values: `default`, `disable`, `rs8m`, `ldpc`
  *
  * - `resampler.profile = <str>`: Deprecated, use roc.resampler.profile
+ * - `log.level = <str>`: log level for roc-toolkit. Possible values: `DEFAULT`,
+ *       `NONE`, `ERROR`, `INFO`, `DEBUG`, `TRACE`; `DEFAULT` follows the log
+ * level of the PipeWire context.
  *
  * ## General options
  *
@@ -89,6 +92,7 @@
  *             node.name = "roc-source"
  *          }
  *          audio.position = [ FL FR ]
+ *          log.level = DEFAULT
  *      }
  *  }
  *]
@@ -98,8 +102,9 @@
 
 #define NAME "roc-source"
 
-PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
+PW_LOG_TOPIC_EXTERN(roc_log_topic);
 
 struct module_roc_source_data {
 	struct pw_impl_module *module;
@@ -135,6 +140,8 @@ struct module_roc_source_data {
 
 	roc_endpoint *local_control_addr;
 	int local_control_port;
+
+	roc_log_level loglevel;
 };
 
 static void stream_destroy(void *d)
@@ -333,6 +340,8 @@ static int roc_source_setup(struct module_roc_source_data *data)
 	 */
 	receiver_config.target_latency = (unsigned long long)data->sess_latency_msec * SPA_NSEC_PER_MSEC;
 
+	pw_roc_log_init();
+
 	res = roc_receiver_open(data->context, &receiver_config, &data->receiver);
 	if (res) {
 		pw_log_error("failed to create roc receiver: %d", res);
@@ -421,7 +430,8 @@ static const struct spa_dict_item module_roc_source_info[] = {
 				"( local.repair.port=<local receiver port for repair packets> ) "
 				"( local.control.port=<local receiver port for control packets> ) "
 				"( audio.position=<channel map, default:"PW_ROC_STEREO_POSITIONS"> ) "
-				"( source.props= { key=value ... } ) " },
+				"( source.props= { key=value ... } ) "
+				"( log.level=<empty>|DEFAULT|NONE|RROR|INFO|DEBUG|TRACE ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -556,6 +566,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 	} else {
 		data->fec_code = ROC_FEC_ENCODING_DEFAULT;
+	}
+	if ((str = pw_properties_get(props, "log.level")) != NULL) {
+		const struct spa_log *log_conf = pw_log_get();
+		const roc_log_level default_level = pw_roc_log_level_pw_2_roc(log_conf->level);
+		if (pw_roc_parse_log_level(&data->loglevel, str, default_level)) {
+			pw_log_error("Invalid log level %s, using default", str);
+			data->loglevel = default_level;
+		}
 	}
 
 	data->core = pw_context_get_object(data->module_context, PW_TYPE_INTERFACE_Core);

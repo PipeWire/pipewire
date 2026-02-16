@@ -46,6 +46,9 @@
  * - `remote.repair.port = <str>`: remote receiver TCP/UDP port for receiver packets
  * - `remote.control.port = <str>`: remote receiver TCP/UDP port for control packets
  * - `fec.code = <str>`: Possible values: `disable`, `rs8m`, `ldpc`
+ * - `log.level = <str>`: log level for roc-toolkit. Possible values: `DEFAULT`,
+ *       `NONE`, `ERROR`, `INFO`, `DEBUG`, `TRACE`; `DEFAULT` follows the log
+ * level of the PipeWire context.
  *
  * ## General options
  *
@@ -75,6 +78,7 @@
  *             node.name = "roc-sink"
  *          }
  *          audio.position = [ FL FR ]
+ *          log.level = DEFAULT
  *      }
  *  }
  *]
@@ -84,8 +88,9 @@
 
 #define NAME "roc-sink"
 
-PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
+PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
+PW_LOG_TOPIC_EXTERN(roc_log_topic);
 
 struct module_roc_sink_data {
 	struct pw_impl_module *module;
@@ -115,6 +120,8 @@ struct module_roc_sink_data {
 
 	roc_endpoint *remote_control_addr;
 	int remote_control_port;
+
+	roc_log_level loglevel;
 };
 
 static void stream_destroy(void *d)
@@ -300,6 +307,8 @@ static int roc_sink_setup(struct module_roc_sink_data *data)
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_RATE, "1/%d", info.rate);
 
+	pw_roc_log_init();
+
 	res = roc_sender_open(data->context, &sender_config, &data->sender);
 	if (res) {
 		pw_log_error("failed to create roc sender: %d", res);
@@ -382,7 +391,8 @@ static const struct spa_dict_item module_roc_sink_info[] = {
 				"( remote.repair.port=<remote receiver port for repair packets> ) "
 				"( remote.control.port=<remote receiver port for control packets> ) "
 				"( audio.position=<channel map, default:"PW_ROC_STEREO_POSITIONS"> ) "
-				"( sink.props= { key=val ... } ) " },
+				"( sink.props= { key=val ... } ) "
+				"( log.level=<empty>|DEFAULT|NONE|RROR|INFO|DEBUG|TRACE ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -396,6 +406,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	int res = 0;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
+	PW_LOG_TOPIC_INIT(roc_log_topic);
 
 	data = calloc(1, sizeof(struct module_roc_sink_data));
 	if (data == NULL)
@@ -501,6 +512,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		res = -errno;
 		pw_log_error("can't connect: %m");
 		goto out;
+	}
+	if ((str = pw_properties_get(props, "log.level")) != NULL) {
+		const struct spa_log *log_conf = pw_log_get();
+		const roc_log_level default_level = pw_roc_log_level_pw_2_roc(log_conf->level);
+		if (pw_roc_parse_log_level(&data->loglevel, str, default_level)) {
+			pw_log_error("Invalid log level %s, using default", str);
+			data->loglevel = default_level;
+		}
 	}
 
 	pw_proxy_add_listener((struct pw_proxy*)data->core,

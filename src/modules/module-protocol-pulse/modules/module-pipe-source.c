@@ -172,6 +172,8 @@ static int module_pipe_source_prepare(struct module * const module)
 		pw_properties_set(stream_props, PW_KEY_NODE_DRIVER, "true");
 	if ((str = pw_properties_get(stream_props, PW_KEY_PRIORITY_DRIVER)) == NULL)
 		pw_properties_set(stream_props, PW_KEY_PRIORITY_DRIVER, "50000");
+	if ((str = pw_properties_get(stream_props, PW_KEY_PRIORITY_SESSION)) == NULL)
+		pw_properties_set(stream_props, PW_KEY_PRIORITY_SESSION, "2000");
 
 	d->module = module;
 	d->stream_props = stream_props;

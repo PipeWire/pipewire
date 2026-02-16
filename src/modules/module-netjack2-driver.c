@@ -1319,9 +1319,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_ALWAYS_PROCESS, "true");
 
 	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_DRIVER, "40000");
+	pw_properties_set(impl->sink.props, PW_KEY_PRIORITY_SESSION, "2000");
 	pw_properties_set(impl->sink.props, PW_KEY_NODE_NAME, "netjack2_driver_send");
 
 	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_DRIVER, "40001");
+	pw_properties_set(impl->source.props, PW_KEY_PRIORITY_SESSION, "2001");
 	pw_properties_set(impl->source.props, PW_KEY_NODE_NAME, "netjack2_driver_receive");
 
 	if ((str = pw_properties_get(props, "sink.props")) != NULL)

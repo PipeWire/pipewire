@@ -725,11 +725,11 @@ static bool check_access(struct impl *this, struct card *card)
 
 static void process_card(struct impl *this, enum action action, struct card *card)
 {
-	if (card->ignored)
-		return;
-
 	switch (action) {
 	case ACTION_CHANGE: {
+		if (card->ignored)
+			return;
+
 		check_access(this, card);
 		if (card->accessible && !card->emitted) {
 			int res = emit_added_object_info(this, card);

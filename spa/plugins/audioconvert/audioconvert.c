@@ -268,6 +268,7 @@ struct impl {
 	struct spa_list active_graphs;
 	struct filter_graph graphs[MAX_GRAPH];
 	struct spa_process_latency_info latency;
+	char *graph_descs[MAX_GRAPH];
 
 	int in_filter_props;
 	int filter_props_count;
@@ -846,6 +847,7 @@ static int node_param_props(struct impl *this, uint32_t id, uint32_t index,
 {
 	struct props *p = &this->props;
 	struct spa_pod_frame f[2];
+	struct filter_graph *g;
 
 	switch (index) {
 	case 0:
@@ -918,8 +920,12 @@ static int node_param_props(struct impl *this, uint32_t id, uint32_t index,
 		spa_pod_builder_bool(b, p->lock_volumes);
 		spa_pod_builder_string(b, "audioconvert.filter-graph.disable");
 		spa_pod_builder_bool(b, p->filter_graph_disabled);
-		spa_pod_builder_string(b, "audioconvert.filter-graph");
-		spa_pod_builder_string(b, "");
+		spa_list_for_each(g, &this->active_graphs, link) {
+		        char key[64];
+		        snprintf(key, sizeof(key), "audioconvert.filter-graph.%d", g->order);
+		        spa_pod_builder_string(b, key);
+		        spa_pod_builder_string(b, this->graph_descs[g->order]);
+		}
 		spa_pod_builder_pop(b, &f[1]);
 		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
@@ -953,7 +959,7 @@ static int impl_node_enum_params(void *object, int seq,
 	struct impl *this = object;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[4096];
+	uint8_t buffer[16384];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res = 0;
@@ -1409,6 +1415,7 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 			g->removing = true;
 			spa_log_info(impl->log, "removing filter-graph order:%d", order);
 		}
+		free(impl->graph_descs[order]);
 	}
 
 	if (graph != NULL && graph[0] != '\0') {
@@ -1433,6 +1440,9 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 				&pending->listener, &graph_events, pending);
 		spa_list_remove(&pending->link);
 		insert_graph(&impl->active_graphs, pending);
+
+		impl->graph_descs[order] = strdup(graph);
+		spa_json_str_object_reduce_inplace(impl->graph_descs[order]);
 
 		spa_log_info(impl->log, "loading filter-graph order:%d", order);
 	}
@@ -4234,6 +4244,7 @@ static void free_dir(struct dir *dir)
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this;
+	int i;
 
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
 
@@ -4245,6 +4256,10 @@ static int impl_clear(struct spa_handle *handle)
 	free_tmp(this);
 
 	clean_filter_handles(this, true);
+	for (i = 0; i < MAX_GRAPH; i++) {
+	        if (this->graph_descs[i])
+	                free(this->graph_descs[i]);
+	}
 
 	if (this->resample.free)
 		resample_free(&this->resample);
@@ -4299,6 +4314,7 @@ impl_init(const struct spa_handle_factory *factory,
 		struct filter_graph *g = &this->graphs[i];
 		g->impl = this;
 		spa_list_append(&this->free_graphs, &g->link);
+		this->graph_descs[i] = NULL;
 	}
 
 	this->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;

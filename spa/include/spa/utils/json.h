@@ -212,6 +212,111 @@ SPA_API_JSON_UTILS int spa_json_str_array_uint32(const char *arr, size_t arr_len
 	spa_json_make_str_array_unpack(32,uint32_t, atoi);
 }
 
+/* convenience */
+
+#define _SPA_STR_APPEND(str, len, idx, value )		\
+{							\
+	if ((idx) >= (len))				\
+		return -1;				\
+	(str)[(idx)++] = (value);			\
+}
+
+static int _spa_json_str_object_reduce(struct spa_json *json, char *out, size_t out_size, const char *value, size_t len)
+{
+	struct spa_json sub;
+	size_t idx = 0;
+	int count = 0, res;
+
+	if (spa_json_is_object(value, len)) {
+		char key[1024];
+
+		_SPA_STR_APPEND(out, out_size, idx, '{');
+
+		spa_json_enter(json, &sub);
+		while ((len = spa_json_object_next(&sub, key, sizeof(key), &value)) > 0) {
+			_SPA_STR_APPEND(out, out_size, idx, '"');
+			if (idx + strlen(key) >= out_size)
+				return -1;
+			strcpy(&out[idx], key);
+			idx += strlen(key);
+			_SPA_STR_APPEND(out, out_size, idx, '"');
+			_SPA_STR_APPEND(out, out_size, idx, ':');
+
+			res = _spa_json_str_object_reduce(&sub, &out[idx], out_size - idx, value, len);
+			if (res < 0)
+				return res;
+
+			idx += res;
+			_SPA_STR_APPEND(out, out_size, idx, ',');
+			count++;
+		}
+
+		/* Remove trailing comma */
+		if (count)
+			idx--;
+		_SPA_STR_APPEND(out, out_size, idx, '}');
+	} else if (spa_json_is_array(value, len)) {
+		_SPA_STR_APPEND(out, out_size, idx, '[');
+
+		spa_json_enter(json, &sub);
+		while ((len = spa_json_next(&sub, &value)) > 0) {
+			res = _spa_json_str_object_reduce(&sub, &out[idx], out_size - idx, value, len);
+			if (res < 0)
+				return res;
+
+			idx += res;
+			_SPA_STR_APPEND(out, out_size, idx, ',');
+			count++;
+		}
+
+		/* Remove trailing comma */
+		if (count)
+			idx--;
+		_SPA_STR_APPEND(out, out_size, idx, ']');
+	} else if (spa_json_is_string(value, len) ||
+	    spa_json_is_null(value, len) ||
+	    spa_json_is_bool(value, len) ||
+	    spa_json_is_int(value, len) ||
+	    spa_json_is_float(value, len)) {
+		/* Object type we understand */
+		if (len >= out_size)
+			return -1;
+		strcpy(out, value);
+		idx += len;
+	} else {
+		/* Naked value, treat as string */
+		_SPA_STR_APPEND(out, out_size, idx, '"');
+		if (idx + len >= out_size)
+			return -1;
+		strncpy(&out[idx], value, len);
+		idx += len;
+		_SPA_STR_APPEND(out, out_size, idx, '"');
+	}
+
+	return idx;
+}
+
+/* Parse a JSON object string and strip all whitespaces */
+SPA_API_JSON_UTILS int spa_json_str_object_reduce_inplace(char *str)
+{
+	struct spa_json json;
+	size_t size = strlen(str) + 1, len;
+	char temp[size];
+	const char *value;
+	int res;
+
+	len = spa_json_begin(&json, str, size, &value);
+
+	res = _spa_json_str_object_reduce(&json, temp, size, value, len);
+	if (res < 0)
+		return res;
+	temp[res] = '\0';
+
+	strncpy(str, temp, size);
+
+	return res;
+}
+
 /**
  * \}
  */

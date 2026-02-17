@@ -640,10 +640,9 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	}
 
 	avahi_address_snprint(at, sizeof(at), a);
-	if (spa_strstartswith(at, link_local_range)) {
-		pw_log_info("found link-local ip address %s - skipping tunnel creation", at);
-		goto done;
-	}
+	if (spa_strstartswith(at, link_local_range))
+		pw_log_info("found link-local ip address %s for '%s'", at, name);
+
 	pw_log_info("%s %s", name, at);
 
 	tinfo = TUNNEL_INFO(.name = name, .port = port);
@@ -669,6 +668,11 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	if (a->proto == AVAHI_PROTO_INET6 &&
 	    a->data.ipv6.address[0] == 0xfe &&
 	    (a->data.ipv6.address[1] & 0xc0) == 0x80)
+		snprintf(if_suffix, sizeof(if_suffix), "%%%d", interface);
+
+	/* For IPv4 link-local, bind to the discovery interface */
+	if (a->proto == AVAHI_PROTO_INET &&
+	    spa_strstartswith(at, link_local_range))
 		snprintf(if_suffix, sizeof(if_suffix), "%%%d", interface);
 
 	pw_properties_setf(props, "snapcast.ip", "%s%s", at, if_suffix);

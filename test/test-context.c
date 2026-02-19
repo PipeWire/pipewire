@@ -29,6 +29,7 @@ PWTEST(context_abi)
 		void (*global_removed) (void *data, struct pw_global *global);
 		void (*driver_added) (void *data, struct pw_impl_node *node);
 		void (*driver_removed) (void *data, struct pw_impl_node *node);
+		void (*recalc_graph) (void *data);
 	} test = { PW_VERSION_CONTEXT_EVENTS, NULL };
 
 	pw_init(0, NULL);
@@ -41,7 +42,7 @@ PWTEST(context_abi)
 	TEST_FUNC(ev, test, driver_added);
 	TEST_FUNC(ev, test, driver_removed);
 
-	pwtest_int_eq(PW_VERSION_CONTEXT_EVENTS, 1);
+	pwtest_int_eq(PW_VERSION_CONTEXT_EVENTS, 2);
 	pwtest_int_eq(sizeof(ev), sizeof(test));
 
 	pw_deinit();

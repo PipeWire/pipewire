@@ -81,6 +81,7 @@ List of known modules:
 - \subpage page_module_raop_discover
 - \subpage page_module_roc_sink
 - \subpage page_module_roc_source
+- \subpage page_module_scheduler_v1
 - \subpage page_module_rtp_sap
 - \subpage page_module_rtp_sink
 - \subpage page_module_rtp_source

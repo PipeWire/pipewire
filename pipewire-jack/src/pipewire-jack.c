@@ -5318,7 +5318,7 @@ int jack_set_freewheel(jack_client_t* client, int onoff)
 	pw_thread_loop_lock(c->context.loop);
 	str = pw_properties_get(c->props, PW_KEY_NODE_GROUP);
 	if (str != NULL) {
-		char *p = strstr(str, ",pipewire.freewheel");
+		const char *p = strstr(str, ",pipewire.freewheel");
 		if (p == NULL)
 			p = strstr(str, "pipewire.freewheel");
 		if (p == NULL && onoff)

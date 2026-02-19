@@ -720,14 +720,12 @@ static const char *bap_features_get_uuid(struct bap_features *feat, size_t i)
 /** Get feature name at \a i, or NULL if uuid doesn't match */
 static const char *bap_features_get_name(struct bap_features *feat, size_t i, const char *uuid)
 {
-	char *pos;
-
 	if (i >= feat->dict.n_items)
 		return NULL;
 	if (!spa_streq(feat->dict.items[i].value, uuid))
 		return NULL;
 
-	pos = strchr(feat->dict.items[i].key, ':');
+	const char *pos = strchr(feat->dict.items[i].key, ':');
 	if (!pos)
 		return NULL;
 	return pos + 1;
@@ -1336,7 +1334,6 @@ static struct spa_bt_adapter *adapter_find(struct spa_bt_monitor *monitor, const
 static int parse_modalias(const char *modalias, uint16_t *source, uint16_t *vendor,
 		uint16_t *product, uint16_t *version)
 {
-	char *pos;
 	unsigned int src, i, j, k;
 
 	if (spa_strstartswith(modalias, "bluetooth:"))
@@ -1346,7 +1343,7 @@ static int parse_modalias(const char *modalias, uint16_t *source, uint16_t *vend
 	else
 		return -EINVAL;
 
-	pos = strchr(modalias, ':');
+	const char *pos = strchr(modalias, ':');
 	if (pos == NULL)
 		return -EINVAL;
 

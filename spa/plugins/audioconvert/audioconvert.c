@@ -1442,7 +1442,6 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 		insert_graph(&impl->active_graphs, pending);
 
 		impl->graph_descs[order] = strdup(graph);
-		spa_json_str_object_reduce_inplace(impl->graph_descs[order]);
 
 		spa_log_info(impl->log, "loading filter-graph order:%d", order);
 	}

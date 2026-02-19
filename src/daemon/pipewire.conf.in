@@ -121,6 +121,10 @@ context.modules = [
         flags = [ ifexists nofail ]
         condition = [ { module.rt = !false } ]
     }
+    # the graph scheduler
+    { name = libpipewire-module-scheduler-v1
+        condition = [ { module.scheduler-v1 = !false } ]
+    }
 
     # The native communication protocol.
     { name = libpipewire-module-protocol-native

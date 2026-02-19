@@ -51,7 +51,7 @@ struct pw_impl_node;
 
 /** context events emitted by the context object added with \ref pw_context_add_listener */
 struct pw_context_events {
-#define PW_VERSION_CONTEXT_EVENTS	1
+#define PW_VERSION_CONTEXT_EVENTS	2
 	uint32_t version;
 
 	/** The context is being destroyed */
@@ -69,6 +69,9 @@ struct pw_context_events {
 	void (*driver_added) (void *data, struct pw_impl_node *node);
 	/** a driver was removed, since 0.3.75 version:1 */
 	void (*driver_removed) (void *data, struct pw_impl_node *node);
+
+	/** recalculate the graph state, since 1.7.0 version:2 */
+	void (*recalc_graph) (void *data);
 };
 
 /** Make a new context object for a given main_loop. Ownership of the properties is taken, even

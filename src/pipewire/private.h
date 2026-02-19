@@ -364,6 +364,7 @@ pw_core_resource_errorf(struct pw_resource *resource, uint32_t id, int seq,
 #define pw_context_emit_global_removed(c,g)	pw_context_emit(c, global_removed, 0, g)
 #define pw_context_emit_driver_added(c,n)	pw_context_emit(c, driver_added, 1, n)
 #define pw_context_emit_driver_removed(c,n)	pw_context_emit(c, driver_removed, 1, n)
+#define pw_context_emit_recalc_graph(c)		pw_context_emit(c, recalc_graph, 2)
 
 struct pw_context {
 	struct pw_impl_core *core;		/**< core object */
@@ -1268,6 +1269,8 @@ struct pw_control {
 int pw_context_debug_port_params(struct pw_context *context,
 		struct spa_node *node, enum spa_direction direction,
 		uint32_t port_id, uint32_t id, int err, const char *debug, ...);
+
+int pw_context_set_freewheel(struct pw_context *context, bool freewheel);
 
 int pw_proxy_init(struct pw_proxy *proxy, struct pw_core *core, const char *type, uint32_t version);
 

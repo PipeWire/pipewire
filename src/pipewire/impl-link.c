@@ -969,6 +969,7 @@ static void output_remove(struct pw_impl_link *this)
 	this->output = NULL;
 }
 
+SPA_EXPORT
 int pw_impl_link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);

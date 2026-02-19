@@ -3,7 +3,6 @@
 
 #include <roc/config.h>
 #include <roc/endpoint.h>
-#include <roc/log.h>
 
 #include <spa/utils/string.h>
 #include <spa/support/log.h>
@@ -21,7 +20,6 @@
 #define PW_ROC_STEREO_POSITIONS "[ FL FR ]"
 
 void pw_roc_log_init(void);
-void pw_roc_log_handler(const roc_log_message *message, void *argument);
 
 static inline int pw_roc_parse_fec_encoding(roc_fec_encoding *out, const char *str)
 {
@@ -135,64 +133,6 @@ static inline void pw_roc_fec_encoding_to_proto(roc_fec_encoding fec_code, roc_p
 		*repair = 0;
 		break;
 	}
-}
-
-static inline roc_log_level pw_roc_log_level_pw_2_roc(const enum spa_log_level pw_log_level)
-{
-	switch (pw_log_level) {
-	case SPA_LOG_LEVEL_NONE:
-		return ROC_LOG_NONE;
-	case SPA_LOG_LEVEL_ERROR:
-		return ROC_LOG_ERROR;
-	case SPA_LOG_LEVEL_WARN:
-		return ROC_LOG_ERROR;
-	case SPA_LOG_LEVEL_INFO:
-		return ROC_LOG_INFO;
-	case SPA_LOG_LEVEL_DEBUG:
-		return ROC_LOG_DEBUG;
-	case SPA_LOG_LEVEL_TRACE:
-		return ROC_LOG_TRACE;
-	default:
-		return ROC_LOG_NONE;
-	}
-}
-
-static inline enum spa_log_level pw_roc_log_level_roc_2_pw(const roc_log_level roc_log_level)
-{
-	switch (roc_log_level) {
-	case ROC_LOG_NONE:
-		return SPA_LOG_LEVEL_NONE;
-	case ROC_LOG_ERROR:
-		return SPA_LOG_LEVEL_ERROR;
-	case ROC_LOG_INFO:
-		return SPA_LOG_LEVEL_INFO;
-	case ROC_LOG_DEBUG:
-		return SPA_LOG_LEVEL_DEBUG;
-	case ROC_LOG_TRACE:
-		return SPA_LOG_LEVEL_TRACE;
-	default:
-		return SPA_LOG_LEVEL_NONE;
-	}
-}
-
-static inline int pw_roc_parse_log_level(roc_log_level *loglevel, const char *str,
-																				 roc_log_level default_level)
-{
-	if (spa_streq(str, "DEFAULT"))
-		*loglevel = default_level;
-	else if (spa_streq(str, "NONE"))
-		*loglevel = ROC_LOG_NONE;
-	else if (spa_streq(str, "ERROR"))
-		*loglevel = ROC_LOG_ERROR;
-	else if (spa_streq(str, "INFO"))
-		*loglevel = ROC_LOG_INFO;
-	else if (spa_streq(str, "DEBUG"))
-		*loglevel = ROC_LOG_DEBUG;
-	else if (spa_streq(str, "TRACE"))
-		*loglevel = ROC_LOG_TRACE;
-	else
-		return -EINVAL;
-	return 0;
 }
 
 #endif /* MODULE_ROC_COMMON_H */

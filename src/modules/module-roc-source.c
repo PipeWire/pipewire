@@ -140,8 +140,6 @@ struct module_roc_source_data {
 
 	roc_endpoint *local_control_addr;
 	int local_control_port;
-
-	roc_log_level loglevel;
 };
 
 static void stream_destroy(void *d)
@@ -430,8 +428,7 @@ static const struct spa_dict_item module_roc_source_info[] = {
 				"( local.repair.port=<local receiver port for repair packets> ) "
 				"( local.control.port=<local receiver port for control packets> ) "
 				"( audio.position=<channel map, default:"PW_ROC_STEREO_POSITIONS"> ) "
-				"( source.props= { key=value ... } ) "
-				"( log.level=<empty>|DEFAULT|NONE|RROR|INFO|DEBUG|TRACE ) " },
+				"( source.props= { key=value ... } ) " },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
@@ -566,14 +563,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		}
 	} else {
 		data->fec_code = ROC_FEC_ENCODING_DEFAULT;
-	}
-	if ((str = pw_properties_get(props, "log.level")) != NULL) {
-		const struct spa_log *log_conf = pw_log_get();
-		const roc_log_level default_level = pw_roc_log_level_pw_2_roc(log_conf->level);
-		if (pw_roc_parse_log_level(&data->loglevel, str, default_level)) {
-			pw_log_error("Invalid log level %s, using default", str);
-			data->loglevel = default_level;
-		}
 	}
 
 	data->core = pw_context_get_object(data->module_context, PW_TYPE_INTERFACE_Core);

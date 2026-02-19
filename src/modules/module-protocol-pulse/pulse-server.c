@@ -4072,18 +4072,38 @@ static int fill_node_info_proplist(struct message *m, const struct spa_dict *nod
 		const struct pw_manager_object *client)
 {
 	struct pw_client_info *client_info = client ? client->info : NULL;
-	spa_autoptr(pw_properties) props = NULL;
+	uint32_t n_items, n;
+	struct spa_dict dict, *client_props = NULL;
+	const struct spa_dict_item *it;
+	struct spa_dict_item *items, *it2;
 
+	n_items = node_props->n_items;
 	if (client_info && client_info->props) {
-		props = pw_properties_new_dict(node_props);
-		if (props == NULL)
-			return -ENOMEM;
-
-		pw_properties_add(props, client_info->props);
-
-		node_props = &props->dict;
+		client_props = client_info->props;
+		n_items += client_props->n_items;
 	}
-	message_put(m, TAG_PROPLIST, node_props, TAG_INVALID);
+
+	dict.n_items = n = 0;
+	dict.items = items = alloca(n_items * sizeof(struct spa_dict_item));
+
+	spa_dict_for_each(it, node_props)
+		items[n++] = *it;
+	dict.n_items = n;
+
+	if (client_props) {
+		spa_dict_for_each(it, client_props) {
+			if (spa_streq(it->key, PW_KEY_OBJECT_ID) ||
+			    spa_streq(it->key, PW_KEY_OBJECT_SERIAL))
+				continue;
+
+			if ((it2 = (struct spa_dict_item*)spa_dict_lookup_item(&dict, it->key)))
+				it2->value = it->value;
+			else
+				items[n++] = *it;
+		}
+		dict.n_items = n;
+	}
+	message_put(m, TAG_PROPLIST, &dict, TAG_INVALID);
 	return 0;
 }
 

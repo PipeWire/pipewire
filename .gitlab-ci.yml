@@ -658,7 +658,7 @@ doccheck:
     - cat pipewire_module_pages
     - |
       for page in $(cat pipewire_module_pages); do
-          git grep -q -e "\\\subpage $page" || (echo "\\page $page is missing \\subpage entry in doc/pipewire-modules.dox" && false)
+          git grep -q -e "\\\subpage $page" || (echo "\\page $page is missing \\subpage entry in doc/dox/modules.dox" && false)
       done
 
 check_missing_headers:

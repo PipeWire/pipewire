@@ -41,6 +41,7 @@ PWTEST(context_abi)
 	TEST_FUNC(ev, test, global_removed);
 	TEST_FUNC(ev, test, driver_added);
 	TEST_FUNC(ev, test, driver_removed);
+	TEST_FUNC(ev, test, recalc_graph);
 
 	pwtest_int_eq(PW_VERSION_CONTEXT_EVENTS, 2);
 	pwtest_int_eq(sizeof(ev), sizeof(test));

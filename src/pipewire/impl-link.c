@@ -969,17 +969,13 @@ static void output_remove(struct pw_impl_link *this)
 	this->output = NULL;
 }
 
-SPA_EXPORT
-int pw_impl_link_prepare(struct pw_impl_link *this)
+static int link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
 	pw_log_debug("%p: prepared:%d preparing:%d in_active:%d out_active:%d passive:%u",
 			this, this->prepared, this->preparing,
 			impl->input.node->active, impl->output.node->active, this->passive);
-
-	if (!impl->input.node->active || !impl->output.node->active)
-		return 0;
 
 	if (this->destroyed || this->preparing || this->prepared)
 		return 0;
@@ -1092,7 +1088,7 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 	pw_log_info("%p: format changed", this);
 	this->preparing = this->prepared = false;
 	link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
-	pw_impl_link_prepare(this);
+	link_prepare(this);
 }
 
 static void input_port_param_changed(void *data, uint32_t id)
@@ -1220,12 +1216,6 @@ static void output_node_result(void *data, int seq, int res, uint32_t type, cons
 	node_result(impl, &impl->output, seq, res, type, result);
 }
 
-static void node_active_changed(void *data, bool active)
-{
-	struct impl *impl = data;
-	pw_impl_link_prepare(&impl->this);
-}
-
 static void node_driver_changed(void *data, struct pw_impl_node *old, struct pw_impl_node *driver)
 {
 	struct impl *impl = data;
@@ -1240,14 +1230,12 @@ static void node_driver_changed(void *data, struct pw_impl_node *old, struct pw_
 static const struct pw_impl_node_events input_node_events = {
 	PW_VERSION_IMPL_NODE_EVENTS,
 	.result = input_node_result,
-	.active_changed = node_active_changed,
 	.driver_changed = node_driver_changed,
 };
 
 static const struct pw_impl_node_events output_node_events = {
 	PW_VERSION_IMPL_NODE_EVENTS,
 	.result = output_node_result,
-	.active_changed = node_active_changed,
 	.driver_changed = node_driver_changed,
 };
 
@@ -1720,7 +1708,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 	pw_global_register(link->global);
 
-	pw_impl_link_prepare(link);
+	link_prepare(link);
 
 	return 0;
 

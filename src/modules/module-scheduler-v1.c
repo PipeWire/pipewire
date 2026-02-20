@@ -241,8 +241,6 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 				if (!t->active)
 					continue;
 
-				pw_impl_link_prepare(l);
-
 				if (!l->prepared)
 					continue;
 
@@ -261,8 +259,6 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 
 				if (!t->active)
 					continue;
-
-				pw_impl_link_prepare(l);
 
 				if (!l->prepared)
 					continue;

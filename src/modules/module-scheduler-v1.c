@@ -106,91 +106,134 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 	return pw_impl_node_set_state(node, state);
 }
 
-/* From a node (that is runnable) follow all prepared links in the given direction
- * and groups to active nodes and make them recursively runnable as well.
+/* make a node runnable. This will automatically also make all non-passive peer nodes
+ * runnable and the nodes that belong to the same groups, link_groups or sync groups
+ *
+ * We have 4 cases for the links:
+ * (p) marks a passive port. we don't follow the peer from this port.
+ *
+ *  A   ->   B   ==> B can also be runnable
+ *  A  p->   B   ==> B can also be runnable
+ *  A   ->p  B   ==> B can not be runnable
+ *  A  p->p  B   ==> B can not be runnable
  */
-static inline int run_nodes(struct pw_context *context, struct pw_impl_node *node,
-		struct spa_list *nodes, enum pw_direction direction, int hop)
+static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 {
-	struct pw_impl_node *t;
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
+	struct pw_impl_node *n;
+	uint32_t n_sync = 0;
+	char *sync[MAX_SYNC+1] = { NULL };
 
-	if (hop == MAX_HOPS) {
-		pw_log_warn("exceeded hops (%d)", hop);
-		return -EIO;
+	if (!node->runnable) {
+		pw_log_warn("%s is runnable", node->name);
+		node->runnable = true;
 	}
 
-	pw_log_debug("node %p: '%s' direction:%s", node, node->name,
-			pw_direction_as_string(direction));
-
-	SPA_FLAG_SET(node->checked, 1u<<direction);
-
-	if (direction == PW_DIRECTION_INPUT) {
-		spa_list_for_each(p, &node->input_ports, link) {
-			spa_list_for_each(l, &p->links, input_link) {
-				t = l->output->node;
-
-				if (!t->active || !l->prepared ||
-				    (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
-					continue;
-				if (t->driving && p->node == t)
-					continue;
-
-				pw_log_debug("  peer %p: '%s'", t, t->name);
-				t->runnable = true;
-				run_nodes(context, t, nodes, direction, hop + 1);
-			}
-		}
-	} else {
-		spa_list_for_each(p, &node->output_ports, link) {
-			spa_list_for_each(l, &p->links, output_link) {
-				t = l->input->node;
-
-				if (!t->active || !l->prepared ||
-				    (!t->driving && SPA_FLAG_IS_SET(t->checked, 1u<<direction)))
-					continue;
-				if (t->driving && p->node == t)
-					continue;
-
-				pw_log_debug("  peer %p: '%s'", t, t->name);
-				t->runnable = true;
-				run_nodes(context, t, nodes, direction, hop + 1);
-			}
-		}
-	}
-	/* now go through all the nodes that have the same link group and
-	 * that are not yet visited. Note how nodes with the same group
-	 * don't get included here. They were added to the same driver but
-	 * need to otherwise stay idle unless some non-passive link activates
-	 * them. */
-	if (node->link_groups != NULL) {
-		spa_list_for_each(t, nodes, sort_link) {
-			if (t->exported || !t->active ||
-			    SPA_FLAG_IS_SET(t->checked, 1u<<direction))
+	if (node->sync) {
+		for (uint32_t i = 0; node->sync_groups[i]; i++) {
+			if (n_sync >= MAX_SYNC)
+				break;
+			if (pw_strv_find(sync, node->sync_groups[i]) >= 0)
 				continue;
-			if (pw_strv_find_common(t->link_groups, node->link_groups) < 0)
+			sync[n_sync++] = node->sync_groups[i];
+			sync[n_sync] = NULL;
+		}
+	}
+	spa_list_for_each(p, &node->output_ports, link) {
+		spa_list_for_each(l, &p->links, output_link) {
+			n = l->input->node;
+			if (!l->prepared || !n->active || l->input->passive)
+				continue;
+			if (!n->runnable)
+				make_runnable(context, n);
+		}
+	}
+	spa_list_for_each(p, &node->input_ports, link) {
+		spa_list_for_each(l, &p->links, input_link) {
+			n = l->output->node;
+			if (!l->prepared || !n->active || l->output->passive)
+				continue;
+			if (!n->runnable)
+				make_runnable(context, n);
+		}
+	}
+	/* now go through all the nodes that share groups, link_groups or
+	 * sync groups that are not yet runnable */
+	if (node->groups != NULL || node->link_groups != NULL || sync[0] != NULL) {
+		spa_list_for_each(n, &context->node_list, link) {
+			if (n->exported || !n->active || n->runnable)
+				continue;
+			/* the other node will be scheduled with this one if it's in
+			 * the same group or link group */
+			if (pw_strv_find_common(n->groups, node->groups) < 0 &&
+			    pw_strv_find_common(n->link_groups, node->link_groups) < 0 &&
+			    pw_strv_find_common(n->sync_groups, sync) < 0)
 				continue;
 
-			pw_log_debug("  group %p: '%s'", t, t->name);
-			t->runnable = true;
-			if (!t->driving)
-				run_nodes(context, t, nodes, direction, hop + 1);
+			make_runnable(context, n);
 		}
 	}
-	return 0;
 }
 
-/* Follow all prepared links and groups from node, activate the links.
- * If a non-passive link is found, we set the peer runnable flag.
+/* check if a node and its peer can run. They can both run if there is a non-passive
+ * link between them.
+ *
+ * There are 4 cases:
+ *
+ * (p) marks a passive port. we don't follow the peer from this port.
+ * A can not be a driver
+ *
+ *  A   ->   B   ==> both nodes can run
+ *  A   ->p  B   ==> both nodes can run
+ *  A  p->   B   ==> nodes don't run, port A is passive and doesn't activate B
+ *  A  p->p  B   ==> nodes don't run
+ *
+ *  Once we decide the two nodes should be made runnable we cann make_runnable()
+ *
+ * */
+static void check_runnable(struct pw_context *context, struct pw_impl_node *node)
+{
+	struct pw_impl_port *p;
+	struct pw_impl_link *l;
+	struct pw_impl_node *n;
+
+	spa_list_for_each(p, &node->output_ports, link) {
+		spa_list_for_each(l, &p->links, output_link) {
+			n = l->input->node;
+			/* we can only check the peer when the link is ready and
+			 * the peer is active */
+			if (!l->prepared || !n->active)
+				continue;
+
+			if (!p->passive) {
+				make_runnable(context, node);
+				make_runnable(context, n);
+			}
+		}
+	}
+	spa_list_for_each(p, &node->input_ports, link) {
+		spa_list_for_each(l, &p->links, input_link) {
+			n = l->output->node;
+			if (!l->prepared || !n->active)
+				continue;
+
+			if (!p->passive) {
+				make_runnable(context, node);
+				make_runnable(context, n);
+			}
+		}
+	}
+}
+
+/* Follow all links and groups from node.
  *
  * After this is done, we end up with a list of nodes in collect that are all
  * linked to node.
- * Some of the nodes have the runnable flag set. We then start from those nodes
- * and make all linked nodes and groups runnable as well. (see run_nodes).
  *
- * This ensures that we only activate the paths from the runnable nodes to the
- * driver nodes and leave the other nodes idle.
+ * We don't need to care about active nodes or links, we just follow and group everything.
+ * The inactive nodes or links will simply not be runnable but will already be grouped
+ * correctly when they do become active and prepared.
  */
 static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, struct spa_list *collect)
 {
@@ -237,16 +280,6 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		spa_list_for_each(p, &n->input_ports, link) {
 			spa_list_for_each(l, &p->links, input_link) {
 				t = l->output->node;
-
-				if (!t->active)
-					continue;
-
-				if (!l->prepared)
-					continue;
-
-				if (!l->passive)
-					t->runnable = true;
-
 				if (!t->visited) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
@@ -256,16 +289,6 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		spa_list_for_each(p, &n->output_ports, link) {
 			spa_list_for_each(l, &p->links, output_link) {
 				t = l->input->node;
-
-				if (!t->active)
-					continue;
-
-				if (!l->prepared)
-					continue;
-
-				if (!l->passive)
-					t->runnable = true;
-
 				if (!t->visited) {
 					t->visited = true;
 					spa_list_append(&queue, &t->sort_link);
@@ -276,7 +299,7 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		 * that are not yet visited */
 		if (n->groups != NULL || n->link_groups != NULL || sync[0] != NULL) {
 			spa_list_for_each(t, &context->node_list, link) {
-				if (t->exported || !t->active || t->visited)
+				if (t->exported || t->visited)
 					continue;
 				/* the other node will be scheduled with this one if it's in
 				 * the same group or link group */
@@ -294,26 +317,6 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		pw_log_debug(" next node %p: '%s' runnable:%u %p %p %p", n, n->name, n->runnable,
 				n->groups, n->link_groups, sync);
 	}
-	/* All non-driver runnable nodes (ie. reachable with a non-passive link) now make
-	 * all linked nodes up and downstream runnable as well */
-	spa_list_for_each(n, collect, sort_link) {
-		if (!n->driver && n->runnable) {
-			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT, 0);
-			run_nodes(context, n, collect, PW_DIRECTION_INPUT, 0);
-		}
-	}
-	/* now we might have made a driver runnable, if the node is not runnable at this point
-	 * it means it was linked to the driver with passives links and some other node
-	 * made the driver active. If the node is a leaf it can not be activated in any other
-	 * way and we will also make it, and all its peers, runnable */
-	spa_list_for_each(n, collect, sort_link) {
-		if (!n->driver && n->driver_node->runnable && !n->runnable && n->leaf && n->active) {
-			n->runnable = true;
-			run_nodes(context, n, collect, PW_DIRECTION_OUTPUT, 0);
-			run_nodes(context, n, collect, PW_DIRECTION_INPUT, 0);
-		}
-	}
-
 	return 0;
 }
 
@@ -527,16 +530,18 @@ static uint32_t find_best_rate(const uint32_t *rates, uint32_t n_rates, uint32_t
 
 /* here we evaluate the complete state of the graph.
  *
- * It roughly operates in 3 stages:
+ * It roughly operates in 4 stages:
  *
- * 1. go over all drivers and collect the nodes that need to be scheduled with the
+ * 1. go over all nodes and check if they should be scheduled (runnable) or not.
+ *
+ * 2. go over all drivers and collect the nodes that need to be scheduled with the
  *    driver. This include all nodes that have an active link with the driver or
  *    with a node already scheduled with the driver.
  *
- * 2. go over all nodes that are not assigned to a driver. The ones that require
- *    a driver are moved to some random active driver found in step 1.
+ * 3. go over all nodes that are not assigned to a driver. The ones that require
+ *    a driver are moved to some random active driver found in step 2.
  *
- * 3. go over all drivers again, collect the quantum/rate of all followers, select
+ * 4. go over all drivers again, collect the quantum/rate of all followers, select
  *    the desired final value and activate the followers and then the driver.
  *
  * A complete graph evaluation is performed for each change that is made to the
@@ -570,6 +575,16 @@ again:
 	rates = get_rates(context, &def_rate, &n_rates, &global_force_rate);
 
 	global_force_quantum = rate_quantum == 0;
+
+	/* first look at all nodes and decide which one should be runnable */
+	spa_list_for_each(n, &context->node_list, link) {
+		/* we don't check drivers, they need to be made runnable
+		 * from other nodes */
+		if (n->exported || !n->active || n->driver)
+			continue;
+
+		check_runnable(context, n);
+	}
 
 	/* start from all drivers and group all nodes that are linked
 	 * to it. Some nodes are not (yet) linked to anything and they

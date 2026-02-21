@@ -1358,6 +1358,9 @@ int pw_impl_node_set_io(struct pw_impl_node *node, uint32_t id, void *data, size
 int pw_impl_node_add_target(struct pw_impl_node *node, struct pw_node_target *t);
 int pw_impl_node_remove_target(struct pw_impl_node *node, struct pw_node_target *t);
 
+/** Prepare a link
+  * Starts the negotiation of formats and buffers on \a link */
+int pw_impl_link_prepare(struct pw_impl_link *link);
 /** starts streaming on a link */
 int pw_impl_link_activate(struct pw_impl_link *link);
 

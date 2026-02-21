@@ -969,7 +969,8 @@ static void output_remove(struct pw_impl_link *this)
 	this->output = NULL;
 }
 
-static int link_prepare(struct pw_impl_link *this)
+SPA_EXPORT
+int pw_impl_link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
@@ -1088,7 +1089,7 @@ static void port_param_changed(struct pw_impl_link *this, uint32_t id,
 	pw_log_info("%p: format changed", this);
 	this->preparing = this->prepared = false;
 	link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
-	link_prepare(this);
+	pw_impl_link_prepare(this);
 }
 
 static void input_port_param_changed(void *data, uint32_t id)
@@ -1708,7 +1709,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	pw_global_add_listener(link->global, &link->global_listener, &global_events, link);
 	pw_global_register(link->global);
 
-	link_prepare(link);
+	pw_impl_link_prepare(link);
 
 	return 0;
 

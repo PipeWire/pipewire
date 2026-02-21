@@ -204,27 +204,28 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 	spa_list_for_each(p, &node->output_ports, link) {
 		spa_list_for_each(l, &p->links, output_link) {
 			n = l->input->node;
-			/* we can only check the peer when the link is ready and
-			 * the peer is active */
-			if (!l->prepared || !n->active)
+			/* the peer needs to be active and we are linked to it
+			 * with a non-passive link */
+			if (!n->active || p->passive)
 				continue;
-
-			if (!p->passive) {
-				make_runnable(context, node);
-				make_runnable(context, n);
-			}
+			/* explicitly prepare the link in case it was suspended */
+			pw_impl_link_prepare(l);
+			if (!l->prepared)
+				continue;
+			make_runnable(context, node);
+			make_runnable(context, n);
 		}
 	}
 	spa_list_for_each(p, &node->input_ports, link) {
 		spa_list_for_each(l, &p->links, input_link) {
 			n = l->output->node;
-			if (!l->prepared || !n->active)
+			if (!n->active || p->passive)
 				continue;
-
-			if (!p->passive) {
-				make_runnable(context, node);
-				make_runnable(context, n);
-			}
+			pw_impl_link_prepare(l);
+			if (!l->prepared)
+				continue;
+			make_runnable(context, node);
+			make_runnable(context, n);
 		}
 	}
 }

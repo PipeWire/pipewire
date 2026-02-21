@@ -126,7 +126,7 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 	char *sync[MAX_SYNC+1] = { NULL };
 
 	if (!node->runnable) {
-		pw_log_warn("%s is runnable", node->name);
+		pw_log_debug("%s is runnable", node->name);
 		node->runnable = true;
 	}
 
@@ -197,6 +197,9 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 	struct pw_impl_node *n;
+
+	if (node->always_process && !node->runnable)
+		make_runnable(context, node);
 
 	spa_list_for_each(p, &node->output_ports, link) {
 		spa_list_for_each(l, &p->links, output_link) {
@@ -567,7 +570,7 @@ again:
 	spa_list_for_each(n, &context->node_list, link) {
 		n->visited = false;
 		n->checked = 0;
-		n->runnable = n->always_process && n->active;
+		n->runnable = false;
 	}
 
 	get_quantums(context, &def_quantum, &min_quantum, &max_quantum, &rate_quantum,

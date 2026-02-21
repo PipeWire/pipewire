@@ -116,6 +116,7 @@ cc_flags = common_flags + [
   '-Werror=old-style-definition',
   '-Werror=missing-parameter-type',
   '-Werror=strict-prototypes',
+  '-Werror=discarded-qualifiers',
 ]
 add_project_arguments(cc.get_supported_arguments(cc_flags), language: 'c')
 add_project_arguments(cc_native.get_supported_arguments(cc_flags),

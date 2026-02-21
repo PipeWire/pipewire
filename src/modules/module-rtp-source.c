@@ -231,7 +231,7 @@ struct impl {
 	/* Monotonic timestamp of the last time a packet was
 	 * received. This is accessed with atomic accessors
 	 * to avoid race conditions. */
-	uint64_t last_packet_time;
+	SPA_ALIGNED(8) uint64_t last_packet_time;
 
 	struct pw_timer standby_timer;
 	/* This timer is used when the first stream_start() call fails because

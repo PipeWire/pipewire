@@ -266,9 +266,6 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 		pw_log_debug(" next node %p: '%s' runnable:%u active:%d",
 				n, n->name, n->runnable, n->active);
 
-		if (!n->active)
-			continue;
-
 		if (n->sync) {
 			for (uint32_t i = 0; n->sync_groups[i]; i++) {
 				if (n_sync >= MAX_SYNC)
@@ -585,7 +582,6 @@ again:
 		 * from other nodes */
 		if (n->exported || !n->active || n->driver)
 			continue;
-
 		check_runnable(context, n);
 	}
 

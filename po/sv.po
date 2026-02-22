@@ -1,9 +1,9 @@
 # Swedish translation for pipewire.
-# Copyright © 2008-2025 Free Software Foundation, Inc.
+# Copyright © 2008-2026 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
 # Daniel Nylander <po@danielnylander.se>, 2008, 2012.
 # Josef Andersson <josef.andersson@fripost.org>, 2014, 2017.
-# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021, 2022, 2023, 2024, 2025.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021, 2022, 2023, 2024, 2025, 2026.
 #
 # Termer:
 # input/output: ingång/utgång (det handlar om ljud)
@@ -19,8 +19,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2025-04-16 15:31+0000\n"
-"PO-Revision-Date: 2025-04-22 10:43+0200\n"
+"POT-Creation-Date: 2026-02-09 12:55+0000\n"
+"PO-Revision-Date: 2026-02-22 21:48+0100\n"
 "Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
 "Language: sv\n"
@@ -28,7 +28,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 3.5\n"
+"X-Generator: Poedit 3.8\n"
 
 #: src/daemon/pipewire.c:29
 #, c-format
@@ -47,11 +47,11 @@ msgstr ""
 "  -c, --config                          Läs in konfig (standard %s)\n"
 "  -P  --properties                      Ställ in kontextegenskaper\n"
 
-#: src/daemon/pipewire.desktop.in:4
+#: src/daemon/pipewire.desktop.in:3
 msgid "PipeWire Media System"
 msgstr "PipeWire mediasystem"
 
-#: src/daemon/pipewire.desktop.in:5
+#: src/daemon/pipewire.desktop.in:4
 msgid "Start the PipeWire Media System"
 msgstr "Starta mediasystemet PipeWire"
 
@@ -65,26 +65,51 @@ msgstr "Tunnel till %s%s%s"
 msgid "Dummy Output"
 msgstr "Attrapputgång"
 
-#: src/modules/module-pulse-tunnel.c:760
+#: src/modules/module-pulse-tunnel.c:761
 #, c-format
 msgid "Tunnel for %s@%s"
 msgstr "Tunnel för %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:320
+#: src/modules/module-zeroconf-discover.c:326
 msgid "Unknown device"
 msgstr "Okänd enhet"
 
-#: src/modules/module-zeroconf-discover.c:332
+#: src/modules/module-zeroconf-discover.c:338
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%s på %s@%s"
 
-#: src/modules/module-zeroconf-discover.c:336
+#: src/modules/module-zeroconf-discover.c:342
 #, c-format
 msgid "%s on %s"
 msgstr "%s på %s"
 
-#: src/tools/pw-cat.c:973
+#: src/tools/pw-cat.c:264
+#, c-format
+msgid "Supported formats:\n"
+msgstr "Format som stöds:\n"
+
+#: src/tools/pw-cat.c:749
+#, c-format
+msgid "Supported channel layouts:\n"
+msgstr "Kanallayouter som stöds:\n"
+
+#: src/tools/pw-cat.c:759
+#, c-format
+msgid "Supported channel layout aliases:\n"
+msgstr "Kanallayoutalias som stöds:\n"
+
+#: src/tools/pw-cat.c:761
+#, c-format
+msgid "    %s -> %s\n"
+msgstr "    %s -> %s\n"
+
+#: src/tools/pw-cat.c:766
+#, c-format
+msgid "Supported channel names:\n"
+msgstr "Kanalnamn som stöds:\n"
+
+#: src/tools/pw-cat.c:1177
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -99,7 +124,7 @@ msgstr ""
 "  -v, --verbose                         Aktivera utförliga operationer\n"
 "\n"
 
-#: src/tools/pw-cat.c:980
+#: src/tools/pw-cat.c:1184
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -131,50 +156,64 @@ msgstr ""
 "  -P  --properties                      Sätt nodegenskaper\n"
 "\n"
 
-#: src/tools/pw-cat.c:998
+#: src/tools/pw-cat.c:1202
 #, c-format
 msgid ""
-"      --rate                            Sample rate (req. for rec) (default "
-"%u)\n"
-"      --channels                        Number of channels (req. for rec) "
-"(default %u)\n"
+"      --rate                            Sample rate (default %u)\n"
+"      --channels                        Number of channels (default %u)\n"
 "      --channel-map                     Channel map\n"
-"                                            one of: \"stereo\", "
-"\"surround-51\",... or\n"
+"                                            a channel layout: \"Stereo\", "
+"\"5.1\",... or\n"
 "                                            comma separated list of channel "
 "names: eg. \"FL,FR\"\n"
-"      --format                          Sample format %s (req. for rec) "
-"(default %s)\n"
+"      --list-layouts                    List supported channel layouts\n"
+"      --list-channel-names              List supported channel maps\n"
+"      --format                          Sample format (default %s)\n"
+"      --list-formats                    List supported sample formats\n"
+"      --container                       Container format\n"
+"      --list-containers                 List supported containers and "
+"extensions\n"
 "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 "  -q  --quality                         Resampler quality (0 - 15) (default "
 "%d)\n"
 "  -a, --raw                             RAW mode\n"
+"  -M, --force-midi                      Force midi format, one of \"midi\" "
+"or \"ump\", (default ump)\n"
+"  -n, --sample-count COUNT              Stop after COUNT samples\n"
 "\n"
 msgstr ""
-"      --rate                            Samplingsfrekvens (krävs för insp.) "
-"(standard %u)\n"
-"      --channels                        Antal kanaler (krävs för insp.) "
-"(standard %u)\n"
+"      --rate                            Samplingsfrekvens (standard %u)\n"
+"      --channels                        Antal kanaler (standard %u)\n"
 "      --channel-map                     Kanalmappning\n"
-"                                            en av: \"stereo\", "
-"\"surround-51\",... eller\n"
+"                                            en kanallayout: \"Stereo\", "
+"\"5.1\",... eller\n"
 "                                            kommaseparerad lista av "
 "kanalnamn: t.ex. \"FL,FR\"\n"
-"      --format                          Samplingsformat %s (krävs för insp.) "
-"(standard %s)\n"
+"      --list-layouts                    Lista kanallayouter som stöds\n"
+"      --list-channel-names              Lista kanalmappningar som stöds\n"
+"      --format                          Samplingsformat (standard %s)\n"
+"      --list-formats                    Lista samplingsformat som stöds\n"
+"      --container                       Behållarformat\n"
+"      --list-containers                 Lista behållare och tillägg som "
+"stöds\n"
 "      --volume                          Strömvolym 0-1.0 (standard %.3f)\n"
 "  -q  --quality                         Omsamplarkvalitet (0 - 15) (standard "
 "%d)\n"
 "  -a, --raw                             RAW-läge\n"
+"  -M, --force-midi                      Tvinga midi-format, en av \"midi\" "
+"eller \"ump\", (standard ump)\n"
+"  -n, --sample-count ANTAL              Stoppa efter ANTAL samplar\n"
 "\n"
 
-#: src/tools/pw-cat.c:1016
+#: src/tools/pw-cat.c:1227
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
 "  -m, --midi                            Midi mode\n"
 "  -d, --dsd                             DSD mode\n"
 "  -o, --encoded                         Encoded mode\n"
+"  -s, --sysex                           SysEx mode\n"
+"  -c, --midi-clip                       MIDI clip mode\n"
 "\n"
 msgstr ""
 "  -p, --playback                        Uppspelningsläge\n"
@@ -182,9 +221,16 @@ msgstr ""
 "  -m, --midi                            Midiläge\n"
 "  -d, --dsd                             DSD-läge\n"
 "  -o, --encoded                         Kodat läge\n"
+"  -s, --sysex                           SysEx-läge\n"
+"  -c, --midi-clip                       MIDI-klippläge\n"
 "\n"
 
-#: src/tools/pw-cli.c:2306
+#: src/tools/pw-cat.c:1827
+#, c-format
+msgid "Supported containers and extensions:\n"
+msgstr "Behållare och tillägg som stöds:\n"
+
+#: src/tools/pw-cli.c:2386
 #, c-format
 msgid ""
 "%s [options] [command]\n"
@@ -203,200 +249,203 @@ msgstr ""
 "  -m, --monitor                         Övervaka aktivitet\n"
 "\n"
 
-#: spa/plugins/alsa/acp/acp.c:350
+#: spa/plugins/alsa/acp/acp.c:361
 msgid "Pro Audio"
 msgstr "Professionellt ljud"
 
-#: spa/plugins/alsa/acp/acp.c:511 spa/plugins/alsa/acp/alsa-mixer.c:4635
-#: spa/plugins/bluez5/bluez5-device.c:1802
+#: spa/plugins/alsa/acp/acp.c:537 spa/plugins/alsa/acp/alsa-mixer.c:4699
+#: spa/plugins/bluez5/bluez5-device.c:2021
 msgid "Off"
 msgstr "Av"
 
-#: spa/plugins/alsa/acp/acp.c:593
+#: spa/plugins/alsa/acp/acp.c:620
 #, c-format
 msgid "%s [ALSA UCM error]"
 msgstr "%s [ALSA UCM-fel]"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2652
+#: spa/plugins/alsa/acp/alsa-mixer.c:2721
 msgid "Input"
 msgstr "Ingång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2653
+#: spa/plugins/alsa/acp/alsa-mixer.c:2722
 msgid "Docking Station Input"
 msgstr "Ingång för dockningsstation"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2654
+#: spa/plugins/alsa/acp/alsa-mixer.c:2723
 msgid "Docking Station Microphone"
 msgstr "Mikrofon för dockningsstation"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2655
+#: spa/plugins/alsa/acp/alsa-mixer.c:2724
 msgid "Docking Station Line In"
 msgstr "Linje in för dockningsstation"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2656
-#: spa/plugins/alsa/acp/alsa-mixer.c:2747
+#: spa/plugins/alsa/acp/alsa-mixer.c:2725
+#: spa/plugins/alsa/acp/alsa-mixer.c:2816
 msgid "Line In"
 msgstr "Linje in"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2657
-#: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:2146
+#: spa/plugins/alsa/acp/alsa-mixer.c:2726
+#: spa/plugins/alsa/acp/alsa-mixer.c:2810
+#: spa/plugins/bluez5/bluez5-device.c:2422
 msgid "Microphone"
 msgstr "Mikrofon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2658
-#: spa/plugins/alsa/acp/alsa-mixer.c:2742
+#: spa/plugins/alsa/acp/alsa-mixer.c:2727
+#: spa/plugins/alsa/acp/alsa-mixer.c:2811
 msgid "Front Microphone"
 msgstr "Frontmikrofon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2659
-#: spa/plugins/alsa/acp/alsa-mixer.c:2743
+#: spa/plugins/alsa/acp/alsa-mixer.c:2728
+#: spa/plugins/alsa/acp/alsa-mixer.c:2812
 msgid "Rear Microphone"
 msgstr "Bakre mikrofon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2660
+#: spa/plugins/alsa/acp/alsa-mixer.c:2729
 msgid "External Microphone"
 msgstr "Extern mikrofon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2661
-#: spa/plugins/alsa/acp/alsa-mixer.c:2745
+#: spa/plugins/alsa/acp/alsa-mixer.c:2730
+#: spa/plugins/alsa/acp/alsa-mixer.c:2814
 msgid "Internal Microphone"
 msgstr "Intern mikrofon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2662
-#: spa/plugins/alsa/acp/alsa-mixer.c:2748
+#: spa/plugins/alsa/acp/alsa-mixer.c:2731
+#: spa/plugins/alsa/acp/alsa-mixer.c:2817
 msgid "Radio"
 msgstr "Radio"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2663
-#: spa/plugins/alsa/acp/alsa-mixer.c:2749
+#: spa/plugins/alsa/acp/alsa-mixer.c:2732
+#: spa/plugins/alsa/acp/alsa-mixer.c:2818
 msgid "Video"
 msgstr "Video"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2664
+#: spa/plugins/alsa/acp/alsa-mixer.c:2733
 msgid "Automatic Gain Control"
 msgstr "Automatisk förstärkningskontroll"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2665
+#: spa/plugins/alsa/acp/alsa-mixer.c:2734
 msgid "No Automatic Gain Control"
 msgstr "Ingen automatisk förstärkningskontroll"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2666
+#: spa/plugins/alsa/acp/alsa-mixer.c:2735
 msgid "Boost"
 msgstr "Ökning"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2667
+#: spa/plugins/alsa/acp/alsa-mixer.c:2736
 msgid "No Boost"
 msgstr "Ingen ökning"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2668
+#: spa/plugins/alsa/acp/alsa-mixer.c:2737
 msgid "Amplifier"
 msgstr "Förstärkare"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2669
+#: spa/plugins/alsa/acp/alsa-mixer.c:2738
 msgid "No Amplifier"
 msgstr "Ingen förstärkare"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2670
+#: spa/plugins/alsa/acp/alsa-mixer.c:2739
 msgid "Bass Boost"
 msgstr "Basökning"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2671
+#: spa/plugins/alsa/acp/alsa-mixer.c:2740
 msgid "No Bass Boost"
 msgstr "Ingen basökning"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2672
-#: spa/plugins/bluez5/bluez5-device.c:2152
+#: spa/plugins/alsa/acp/alsa-mixer.c:2741
+#: spa/plugins/bluez5/bluez5-device.c:2428
 msgid "Speaker"
 msgstr "Högtalare"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2673
-#: spa/plugins/alsa/acp/alsa-mixer.c:2751
+#. Don't call it "headset", the HF one has the mic
+#: spa/plugins/alsa/acp/alsa-mixer.c:2742
+#: spa/plugins/alsa/acp/alsa-mixer.c:2820
+#: spa/plugins/bluez5/bluez5-device.c:2434
+#: spa/plugins/bluez5/bluez5-device.c:2501
 msgid "Headphones"
 msgstr "Hörlurar"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2740
+#: spa/plugins/alsa/acp/alsa-mixer.c:2809
 msgid "Analog Input"
 msgstr "Analog ingång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2744
+#: spa/plugins/alsa/acp/alsa-mixer.c:2813
 msgid "Dock Microphone"
 msgstr "Dockmikrofon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2746
+#: spa/plugins/alsa/acp/alsa-mixer.c:2815
 msgid "Headset Microphone"
 msgstr "Headset-mikrofon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2750
+#: spa/plugins/alsa/acp/alsa-mixer.c:2819
 msgid "Analog Output"
 msgstr "Analog utgång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2752
+#: spa/plugins/alsa/acp/alsa-mixer.c:2821
 msgid "Headphones 2"
 msgstr "Hörlurar 2"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2753
+#: spa/plugins/alsa/acp/alsa-mixer.c:2822
 msgid "Headphones Mono Output"
 msgstr "Monoutgång för hörlurar"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2754
+#: spa/plugins/alsa/acp/alsa-mixer.c:2823
 msgid "Line Out"
 msgstr "Linje ut"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2755
+#: spa/plugins/alsa/acp/alsa-mixer.c:2824
 msgid "Analog Mono Output"
 msgstr "Analog monoutgång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2756
+#: spa/plugins/alsa/acp/alsa-mixer.c:2825
 msgid "Speakers"
 msgstr "Högtalare"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2757
+#: spa/plugins/alsa/acp/alsa-mixer.c:2826
 msgid "HDMI / DisplayPort"
 msgstr "HDMI / DisplayPort"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2758
+#: spa/plugins/alsa/acp/alsa-mixer.c:2827
 msgid "Digital Output (S/PDIF)"
 msgstr "Digital utgång (S/PDIF)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2759
+#: spa/plugins/alsa/acp/alsa-mixer.c:2828
 msgid "Digital Input (S/PDIF)"
 msgstr "Digital ingång (S/PDIF)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2760
+#: spa/plugins/alsa/acp/alsa-mixer.c:2829
 msgid "Multichannel Input"
 msgstr "Multikanalingång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2761
+#: spa/plugins/alsa/acp/alsa-mixer.c:2830
 msgid "Multichannel Output"
 msgstr "Multikanalutgång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2762
+#: spa/plugins/alsa/acp/alsa-mixer.c:2831
 msgid "Game Output"
 msgstr "Spelutgång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2763
-#: spa/plugins/alsa/acp/alsa-mixer.c:2764
+#: spa/plugins/alsa/acp/alsa-mixer.c:2832
+#: spa/plugins/alsa/acp/alsa-mixer.c:2833
 msgid "Chat Output"
 msgstr "Chatt-utgång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2765
+#: spa/plugins/alsa/acp/alsa-mixer.c:2834
 msgid "Chat Input"
 msgstr "Chatt-ingång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:2766
+#: spa/plugins/alsa/acp/alsa-mixer.c:2835
 msgid "Virtual Surround 7.1"
 msgstr "Virtual surround 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4458
+#: spa/plugins/alsa/acp/alsa-mixer.c:4522
 msgid "Analog Mono"
 msgstr "Analog mono"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4459
+#: spa/plugins/alsa/acp/alsa-mixer.c:4523
 msgid "Analog Mono (Left)"
 msgstr "Analog mono (vänster)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4460
+#: spa/plugins/alsa/acp/alsa-mixer.c:4524
 msgid "Analog Mono (Right)"
 msgstr "Analog mono (höger)"
 
@@ -405,142 +454,142 @@ msgstr "Analog mono (höger)"
 #. * here would lead to the source name to become "Analog Stereo Input
 #. * Input". The same logic applies to analog-stereo-output,
 #. * multichannel-input and multichannel-output.
-#: spa/plugins/alsa/acp/alsa-mixer.c:4461
-#: spa/plugins/alsa/acp/alsa-mixer.c:4469
-#: spa/plugins/alsa/acp/alsa-mixer.c:4470
+#: spa/plugins/alsa/acp/alsa-mixer.c:4525
+#: spa/plugins/alsa/acp/alsa-mixer.c:4533
+#: spa/plugins/alsa/acp/alsa-mixer.c:4534
 msgid "Analog Stereo"
 msgstr "Analog stereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4462
+#: spa/plugins/alsa/acp/alsa-mixer.c:4526
 msgid "Mono"
 msgstr "Mono"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4463
+#: spa/plugins/alsa/acp/alsa-mixer.c:4527
 msgid "Stereo"
 msgstr "Stereo"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4471
-#: spa/plugins/alsa/acp/alsa-mixer.c:4629
-#: spa/plugins/bluez5/bluez5-device.c:2134
+#: spa/plugins/alsa/acp/alsa-mixer.c:4535
+#: spa/plugins/alsa/acp/alsa-mixer.c:4693
+#: spa/plugins/bluez5/bluez5-device.c:2410
 msgid "Headset"
 msgstr "Headset"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4472
-#: spa/plugins/alsa/acp/alsa-mixer.c:4630
+#: spa/plugins/alsa/acp/alsa-mixer.c:4536
+#: spa/plugins/alsa/acp/alsa-mixer.c:4694
 msgid "Speakerphone"
 msgstr "Högtalartelefon"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4473
-#: spa/plugins/alsa/acp/alsa-mixer.c:4474
+#: spa/plugins/alsa/acp/alsa-mixer.c:4537
+#: spa/plugins/alsa/acp/alsa-mixer.c:4538
 msgid "Multichannel"
 msgstr "Multikanal"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4475
+#: spa/plugins/alsa/acp/alsa-mixer.c:4539
 msgid "Analog Surround 2.1"
 msgstr "Analog surround 2.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4476
+#: spa/plugins/alsa/acp/alsa-mixer.c:4540
 msgid "Analog Surround 3.0"
 msgstr "Analog surround 3.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4477
+#: spa/plugins/alsa/acp/alsa-mixer.c:4541
 msgid "Analog Surround 3.1"
 msgstr "Analog surround 3.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4478
+#: spa/plugins/alsa/acp/alsa-mixer.c:4542
 msgid "Analog Surround 4.0"
 msgstr "Analog surround 4.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4479
+#: spa/plugins/alsa/acp/alsa-mixer.c:4543
 msgid "Analog Surround 4.1"
 msgstr "Analog surround 4.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4480
+#: spa/plugins/alsa/acp/alsa-mixer.c:4544
 msgid "Analog Surround 5.0"
 msgstr "Analog surround 5.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4481
+#: spa/plugins/alsa/acp/alsa-mixer.c:4545
 msgid "Analog Surround 5.1"
 msgstr "Analog surround 5.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4482
+#: spa/plugins/alsa/acp/alsa-mixer.c:4546
 msgid "Analog Surround 6.0"
 msgstr "Analog surround 6.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4483
+#: spa/plugins/alsa/acp/alsa-mixer.c:4547
 msgid "Analog Surround 6.1"
 msgstr "Analog surround 6.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4484
+#: spa/plugins/alsa/acp/alsa-mixer.c:4548
 msgid "Analog Surround 7.0"
 msgstr "Analog surround 7.0"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4485
+#: spa/plugins/alsa/acp/alsa-mixer.c:4549
 msgid "Analog Surround 7.1"
 msgstr "Analog surround 7.1"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4486
+#: spa/plugins/alsa/acp/alsa-mixer.c:4550
 msgid "Digital Stereo (IEC958)"
 msgstr "Digital stereo (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4487
+#: spa/plugins/alsa/acp/alsa-mixer.c:4551
 msgid "Digital Surround 4.0 (IEC958/AC3)"
 msgstr "Digital surround 4.0 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4488
+#: spa/plugins/alsa/acp/alsa-mixer.c:4552
 msgid "Digital Surround 5.1 (IEC958/AC3)"
 msgstr "Digital surround 5.1 (IEC958/AC3)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4489
+#: spa/plugins/alsa/acp/alsa-mixer.c:4553
 msgid "Digital Surround 5.1 (IEC958/DTS)"
 msgstr "Digital surround 5.1 (IEC958/DTS)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4490
+#: spa/plugins/alsa/acp/alsa-mixer.c:4554
 msgid "Digital Stereo (HDMI)"
 msgstr "Digital stereo (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4491
+#: spa/plugins/alsa/acp/alsa-mixer.c:4555
 msgid "Digital Surround 5.1 (HDMI)"
 msgstr "Digital surround 5.1 (HDMI)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4492
+#: spa/plugins/alsa/acp/alsa-mixer.c:4556
 msgid "Chat"
 msgstr "Chatt"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4493
+#: spa/plugins/alsa/acp/alsa-mixer.c:4557
 msgid "Game"
 msgstr "Spel"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4627
+#: spa/plugins/alsa/acp/alsa-mixer.c:4691
 msgid "Analog Mono Duplex"
 msgstr "Analog mono duplex"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4628
+#: spa/plugins/alsa/acp/alsa-mixer.c:4692
 msgid "Analog Stereo Duplex"
 msgstr "Analog stereo duplex"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4631
+#: spa/plugins/alsa/acp/alsa-mixer.c:4695
 msgid "Digital Stereo Duplex (IEC958)"
 msgstr "Digital stereo duplex (IEC958)"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4632
+#: spa/plugins/alsa/acp/alsa-mixer.c:4696
 msgid "Multichannel Duplex"
 msgstr "Multikanalduplex"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4633
+#: spa/plugins/alsa/acp/alsa-mixer.c:4697
 msgid "Stereo Duplex"
 msgstr "Stereo duplex"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4634
+#: spa/plugins/alsa/acp/alsa-mixer.c:4698
 msgid "Mono Chat + 7.1 Surround"
 msgstr "Mono Chatt + 7.1 Surround"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4735
+#: spa/plugins/alsa/acp/alsa-mixer.c:4799
 #, c-format
 msgid "%s Output"
 msgstr "%s-utgång"
 
-#: spa/plugins/alsa/acp/alsa-mixer.c:4743
+#: spa/plugins/alsa/acp/alsa-mixer.c:4807
 #, c-format
 msgid "%s Input"
 msgstr "%s-ingång"
@@ -627,116 +676,115 @@ msgstr[1] ""
 "Förmodligen är detta ett fel i ALSA-drivrutinen ”%s”. Vänligen rapportera "
 "problemet till ALSA-utvecklarna."
 
-#: spa/plugins/alsa/acp/channelmap.h:457
+#: spa/plugins/alsa/acp/channelmap.h:460
 msgid "(invalid)"
 msgstr "(ogiltig)"
 
-#: spa/plugins/alsa/acp/compat.c:193
+#: spa/plugins/alsa/acp/compat.c:194
 msgid "Built-in Audio"
 msgstr "Inbyggt ljud"
 
-#: spa/plugins/alsa/acp/compat.c:198
+#: spa/plugins/alsa/acp/compat.c:199
 msgid "Modem"
 msgstr "Modem"
 
-#: spa/plugins/bluez5/bluez5-device.c:1813
+#: spa/plugins/bluez5/bluez5-device.c:2032
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "Audio gateway (A2DP-källa & HSP/HFP AG)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1841
+#: spa/plugins/bluez5/bluez5-device.c:2061
 msgid "Audio Streaming for Hearing Aids (ASHA Sink)"
 msgstr "Ljudströmning för hörhjälpmedel (ASHA-utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1881
+#: spa/plugins/bluez5/bluez5-device.c:2104
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "High fidelity-uppspelning (A2DP-utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1884
+#: spa/plugins/bluez5/bluez5-device.c:2107
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "High fidelity duplex (A2DP-källa/utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1892
+#: spa/plugins/bluez5/bluez5-device.c:2115
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "High fidelity-uppspelning (A2DP-utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1894
+#: spa/plugins/bluez5/bluez5-device.c:2117
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "High fidelity duplex (A2DP-källa/utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1944
+#: spa/plugins/bluez5/bluez5-device.c:2194
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "High fidelity-uppspelning (BAP-utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1949
+#: spa/plugins/bluez5/bluez5-device.c:2199
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "High fidelity-ingång (BAP-källa, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1953
+#: spa/plugins/bluez5/bluez5-device.c:2203
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "High fidelity duplex (BAP-källa/utgång, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1962
+#: spa/plugins/bluez5/bluez5-device.c:2212
 msgid "High Fidelity Playback (BAP Sink)"
 msgstr "High fidelity-uppspelning (BAP-utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1966
+#: spa/plugins/bluez5/bluez5-device.c:2216
 msgid "High Fidelity Input (BAP Source)"
 msgstr "High fidelity-ingång (BAP-källa)"
 
-#: spa/plugins/bluez5/bluez5-device.c:1969
+#: spa/plugins/bluez5/bluez5-device.c:2219
 msgid "High Fidelity Duplex (BAP Source/Sink)"
 msgstr "High fidelity duplex (BAP-källa/utgång)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2015
+#: spa/plugins/bluez5/bluez5-device.c:2259
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "Headset-huvudenhet (HSP/HFP, kodek %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2135
-#: spa/plugins/bluez5/bluez5-device.c:2140
-#: spa/plugins/bluez5/bluez5-device.c:2147
-#: spa/plugins/bluez5/bluez5-device.c:2153
-#: spa/plugins/bluez5/bluez5-device.c:2159
-#: spa/plugins/bluez5/bluez5-device.c:2165
-#: spa/plugins/bluez5/bluez5-device.c:2171
-#: spa/plugins/bluez5/bluez5-device.c:2177
-#: spa/plugins/bluez5/bluez5-device.c:2183
+#: spa/plugins/bluez5/bluez5-device.c:2411
+#: spa/plugins/bluez5/bluez5-device.c:2416
+#: spa/plugins/bluez5/bluez5-device.c:2423
+#: spa/plugins/bluez5/bluez5-device.c:2429
+#: spa/plugins/bluez5/bluez5-device.c:2435
+#: spa/plugins/bluez5/bluez5-device.c:2441
+#: spa/plugins/bluez5/bluez5-device.c:2447
+#: spa/plugins/bluez5/bluez5-device.c:2453
+#: spa/plugins/bluez5/bluez5-device.c:2459
 msgid "Handsfree"
 msgstr "Handsfree"
 
-#: spa/plugins/bluez5/bluez5-device.c:2141
+#: spa/plugins/bluez5/bluez5-device.c:2417
 msgid "Handsfree (HFP)"
 msgstr "Handsfree (HFP)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2158
-msgid "Headphone"
-msgstr "Hörlurar"
-
-#: spa/plugins/bluez5/bluez5-device.c:2164
+#: spa/plugins/bluez5/bluez5-device.c:2440
 msgid "Portable"
 msgstr "Bärbar"
 
-#: spa/plugins/bluez5/bluez5-device.c:2170
+#: spa/plugins/bluez5/bluez5-device.c:2446
 msgid "Car"
 msgstr "Bil"
 
-#: spa/plugins/bluez5/bluez5-device.c:2176
+#: spa/plugins/bluez5/bluez5-device.c:2452
 msgid "HiFi"
 msgstr "HiFi"
 
-#: spa/plugins/bluez5/bluez5-device.c:2182
+#: spa/plugins/bluez5/bluez5-device.c:2458
 msgid "Phone"
 msgstr "Telefon"
 
-#: spa/plugins/bluez5/bluez5-device.c:2189
+#: spa/plugins/bluez5/bluez5-device.c:2465
 msgid "Bluetooth"
 msgstr "Bluetooth"
 
-#: spa/plugins/bluez5/bluez5-device.c:2190
-msgid "Bluetooth (HFP)"
-msgstr "Bluetooth (HFP)"
+#: spa/plugins/bluez5/bluez5-device.c:2466
+msgid "Bluetooth Handsfree"
+msgstr "Bluetooth-handsfree"
+
+#~ msgid "Headphone"
+#~ msgstr "Hörlurar"

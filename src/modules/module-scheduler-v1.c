@@ -107,7 +107,8 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 }
 
 /* make a node runnable. This will automatically also make all non-passive peer nodes
- * runnable and the nodes that belong to the same groups, link_groups or sync groups
+ * runnable and the nodes that belong to the same groups or link_groups. We stop when
+ * we reach a passive port.
  *
  * We have 4 cases for the links:
  * (p) marks a passive port. we don't follow the peer from this port.
@@ -158,8 +159,10 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 				make_runnable(context, n);
 		}
 	}
-	/* now go through all the nodes that share groups, link_groups or
-	 * sync groups that are not yet runnable */
+	/* now go through all the nodes that share groups and link_groups
+	 * that are not yet runnable. We don't include sync-groups because they
+	 * are only used to group the node with a driver, not to determine the
+	 * runnable state of a node. */
 	if (node->groups != NULL || node->link_groups != NULL || sync[0] != NULL) {
 		spa_list_for_each(n, &context->node_list, link) {
 			if (n->exported || !n->active || n->runnable)
@@ -167,8 +170,7 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 			/* the other node will be scheduled with this one if it's in
 			 * the same group or link group */
 			if (pw_strv_find_common(n->groups, node->groups) < 0 &&
-			    pw_strv_find_common(n->link_groups, node->link_groups) < 0 &&
-			    pw_strv_find_common(n->sync_groups, sync) < 0)
+			    pw_strv_find_common(n->link_groups, node->link_groups) < 0)
 				continue;
 
 			make_runnable(context, n);
@@ -177,7 +179,7 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 }
 
 /* check if a node and its peer can run. They can both run if there is a non-passive
- * link between them.
+ * link between them. The passive link is between 1 or more passive ports.
  *
  * There are 4 cases:
  *
@@ -185,13 +187,14 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
  * A can not be a driver
  *
  *  A   ->   B   ==> both nodes can run
- *  A   ->p  B   ==> both nodes can run
+ *  A   ->p  B   ==> both nodes can run (B is passive so it can't activate A, but
+ *                   A can activate B)
  *  A  p->   B   ==> nodes don't run, port A is passive and doesn't activate B
  *  A  p->p  B   ==> nodes don't run
  *
- *  Once we decide the two nodes should be made runnable we cann make_runnable()
- *
- * */
+ *  Once we decide the two nodes should be made runnable we do make_runnable()
+ *  on both.
+ */
 static void check_runnable(struct pw_context *context, struct pw_impl_node *node)
 {
 	struct pw_impl_port *p;
@@ -296,14 +299,14 @@ static int collect_nodes(struct pw_context *context, struct pw_impl_node *node, 
 				}
 			}
 		}
-		/* now go through all the nodes that have the same group and
+		/* now go through all the nodes that have the same groups and
 		 * that are not yet visited */
 		if (n->groups != NULL || n->link_groups != NULL || sync[0] != NULL) {
 			spa_list_for_each(t, &context->node_list, link) {
 				if (t->exported || t->visited)
 					continue;
 				/* the other node will be scheduled with this one if it's in
-				 * the same group or link group */
+				 * the same group, link group or sync group */
 				if (pw_strv_find_common(t->groups, n->groups) < 0 &&
 				    pw_strv_find_common(t->link_groups, n->link_groups) < 0 &&
 				    pw_strv_find_common(t->sync_groups, sync) < 0)

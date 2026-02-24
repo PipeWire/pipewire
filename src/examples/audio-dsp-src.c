@@ -18,7 +18,6 @@
 
 #define M_PI_M2f (float)(M_PI+M_PI)
 
-#define DEFAULT_RATE		44100
 #define DEFAULT_FREQ		440
 #define DEFAULT_VOLUME		0.7f
 
@@ -61,7 +60,9 @@ static void on_process(void *userdata, struct spa_io_position *position)
 		return;
 
 	for (i = 0; i < n_samples; i++) {
-		out_port->accumulator += M_PI_M2f * DEFAULT_FREQ / DEFAULT_RATE;
+		out_port->accumulator += M_PI_M2f * DEFAULT_FREQ *
+			position->clock.rate.num / position->clock.rate.denom;
+
 		if (out_port->accumulator >= M_PI_M2f)
 			out_port->accumulator -= M_PI_M2f;
 

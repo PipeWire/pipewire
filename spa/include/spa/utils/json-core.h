@@ -232,7 +232,7 @@ SPA_API_JSON int spa_json_next(struct spa_json * iter, const char **value)
 			switch (cur) {
 			case '\0':
 			case '\t': case ' ': case '\r': case '\n':
-			case '"': case '#':
+			case '"': case '#': case '{': case '[':
 			case ':': case ',': case '=': case ']': case '}':
 				iter->state = __STRUCT | flag;
 				if (iter->depth > 0)

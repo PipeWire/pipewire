@@ -350,6 +350,12 @@ PWTEST(json_parse)
 	expect_string(&it[0], "hello");
 	expect_end(&it[0]);
 
+	json = "xy{}";
+	spa_json_init(&it[0], json, strlen(json));
+	expect_string_or_bare(&it[0], "xy");
+	expect_object(&it[0], &it[1]);
+	expect_end(&it[0]);
+
 	/* top-level context */
 	json = "x y x y";
 	spa_json_init(&it[0], json, strlen(json));
@@ -944,6 +950,7 @@ PWTEST(json_data)
 		"n_array_missing_value.json",
 		"n_array_number_and_comma.json",
 		"n_array_number_and_several_commas.json",
+		"n_array_inner_array_no_comma.json",
 		"n_object_comma_instead_of_colon.json",
 		"n_object_double_colon.json",
 		"n_object_missing_semicolon.json",

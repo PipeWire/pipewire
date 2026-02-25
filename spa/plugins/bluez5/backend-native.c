@@ -1969,6 +1969,9 @@ static void hfp_hf_remove_disconnected_calls(struct rfcomm *rfcomm)
 	struct updated_call *updated_call;
 	bool found;
 
+	if (!rfcomm->telephony_ag)
+		return;
+
 	spa_list_for_each_safe(call, call_tmp, &rfcomm->telephony_ag->call_list, link) {
 		found = false;
 		spa_list_for_each(updated_call, &rfcomm->updated_call_list, link) {
@@ -2097,6 +2100,8 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 
 			if (spa_streq(rfcomm->hf_indicators[indicator], "battchg")) {
 				spa_bt_device_report_battery_level(rfcomm->device, value * 100 / 5);
+			} else if (!rfcomm->telephony_ag) {
+				/* noop */
 			} else if (spa_streq(rfcomm->hf_indicators[indicator], "callsetup")) {
 				if (rfcomm->hfp_hf_clcc) {
 					rfcomm_send_cmd(rfcomm, hfp_hf_clcc_update, NULL, "AT+CLCC");
@@ -2245,7 +2250,8 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				rfcomm->hfp_hf_in_progress = false;
 			}
 		}
-	} else if (sscanf(token, "+CLIP: \"%16[^\"]\",%u", number, &type) == 2) {
+	} else if (sscanf(token, "+CLIP: \"%16[^\"]\",%u", number, &type) == 2
+			&& rfcomm->telephony_ag) {
 		struct spa_bt_telephony_call *call;
 		spa_list_for_each(call, &rfcomm->telephony_ag->call_list, link) {
 			if (call->state == CALL_STATE_INCOMING && !spa_streq(number, call->line_identification)) {
@@ -2256,7 +2262,8 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				break;
 			}
 		}
-	} else if (sscanf(token, "+CCWA: \"%16[^\"]\",%u", number, &type) == 2) {
+	} else if (sscanf(token, "+CCWA: \"%16[^\"]\",%u", number, &type) == 2
+			&& rfcomm->telephony_ag) {
 		struct spa_bt_telephony_call *call;
 		bool found = false;
 
@@ -2273,7 +2280,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 			if (call == NULL)
 				spa_log_warn(backend->log, "failed to create waiting call");
 		}
-	} else if (spa_strstartswith(token, "+CLCC:")) {
+	} else if (spa_strstartswith(token, "+CLCC:") && rfcomm->telephony_ag) {
 		struct spa_bt_telephony_call *call;
 		size_t pos;
 		char *token_end;
@@ -2421,17 +2428,19 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 					}
 				}
 
-				rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
-				rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
-				rfcomm->telephony_ag->volume[SPA_BT_VOLUME_ID_RX] = rfcomm->volumes[SPA_BT_VOLUME_ID_RX].hw_volume = backend->hfp_default_speaker_volume;
-				rfcomm->telephony_ag->volume[SPA_BT_VOLUME_ID_TX] = rfcomm->volumes[SPA_BT_VOLUME_ID_TX].hw_volume = backend->hfp_default_mic_volume;
-				telephony_ag_set_callbacks(rfcomm->telephony_ag,
+				if (backend->telephony) {
+					rfcomm->telephony_ag = telephony_ag_new(backend->telephony, 0);
+					rfcomm->telephony_ag->address = strdup(rfcomm->device->address);
+					rfcomm->telephony_ag->volume[SPA_BT_VOLUME_ID_RX] = rfcomm->volumes[SPA_BT_VOLUME_ID_RX].hw_volume = backend->hfp_default_speaker_volume;
+					rfcomm->telephony_ag->volume[SPA_BT_VOLUME_ID_TX] = rfcomm->volumes[SPA_BT_VOLUME_ID_TX].hw_volume = backend->hfp_default_mic_volume;
+					telephony_ag_set_callbacks(rfcomm->telephony_ag,
 							&telephony_ag_callbacks, rfcomm);
-				if (rfcomm->transport) {
-					rfcomm->telephony_ag->transport.codec = rfcomm->transport->media_codec->codec_id;
-					rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
+					if (rfcomm->transport) {
+						rfcomm->telephony_ag->transport.codec = rfcomm->transport->media_codec->codec_id;
+						rfcomm->telephony_ag->transport.state = rfcomm->transport->state;
+					}
+					telephony_ag_register(rfcomm->telephony_ag);
 				}
-				telephony_ag_register(rfcomm->telephony_ag);
 
 				rfcomm_send_cmd(rfcomm, hfp_hf_clip, NULL, "AT+CLIP=1");
 				break;
@@ -2478,7 +2487,7 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 				break;
 			case hfp_hf_chld1_hangup:
 				/* For HFP/HF/TWC/BV-03-C - see 0e92ab9307e05758b3f70b4c0648e29c1d1e50be */
-				if (!rfcomm->hfp_hf_clcc) {
+				if (!rfcomm->hfp_hf_clcc && rfcomm->telephony_ag) {
 					struct spa_bt_telephony_call *call, *tcall;
 					spa_list_for_each_safe(call, tcall, &rfcomm->telephony_ag->call_list, link) {
 						if (call->state == CALL_STATE_ACTIVE) {

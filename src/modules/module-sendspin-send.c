@@ -32,7 +32,7 @@
 
 #include "module-sendspin/sendspin.h"
 #include "module-sendspin/websocket.h"
-#include "module-sendspin/zeroconf.h"
+#include "zeroconf-utils/zeroconf.h"
 #include "network-utils.h"
 
 /** \page page_module_sendspin_send sendspin sender

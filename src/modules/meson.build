@@ -372,7 +372,7 @@ endif
 if avahi_dep.found()
   pipewire_module_protocol_pulse_sources += [
     'module-protocol-pulse/modules/module-zeroconf-publish.c',
-    'module-zeroconf-discover/avahi-poll.c',
+    'zeroconf-utils/avahi-poll.c',
   ]
   pipewire_module_protocol_pulse_deps += avahi_dep
   cdata.set('HAVE_AVAHI', true)
@@ -569,7 +569,7 @@ if build_module_zeroconf_discover
   pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-discover',
     [ 'module-zeroconf-discover.c',
       'module-protocol-pulse/format.c',
-      'module-zeroconf-discover/avahi-poll.c' ],
+      'zeroconf-utils/avahi-poll.c' ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
@@ -599,7 +599,7 @@ build_module_raop_discover = avahi_dep.found()
 if build_module_raop_discover
   pipewire_module_raop_discover = shared_library('pipewire-module-raop-discover',
     [ 'module-raop-discover.c',
-      'module-zeroconf-discover/avahi-poll.c' ],
+      'zeroconf-utils/avahi-poll.c' ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
@@ -613,7 +613,7 @@ build_module_snapcast_discover = avahi_dep.found()
 if build_module_snapcast_discover
   pipewire_module_snapcast_discover = shared_library('pipewire-module-snapcast-discover',
     [ 'module-snapcast-discover.c',
-      'module-zeroconf-discover/avahi-poll.c' ],
+      'zeroconf-utils/avahi-poll.c' ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
@@ -661,7 +661,7 @@ pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
 build_module_rtp_session = avahi_dep.found()
 if build_module_rtp_session
   pipewire_module_rtp_session = shared_library('pipewire-module-rtp-session',
-    [ 'module-zeroconf-discover/avahi-poll.c',
+    [ 'zeroconf-utils/avahi-poll.c',
       'module-rtp-session.c' ],
     include_directories : [configinc],
     install : true,
@@ -705,8 +705,8 @@ pipewire_module_vban_recv = shared_library('pipewire-module-vban-recv',
 
 if avahi_dep.found()
   pipewire_module_sendspin_sources += [
-    'module-sendspin/zeroconf.c',
-    'module-zeroconf-discover/avahi-poll.c',
+    'zeroconf-utils/zeroconf.c',
+    'zeroconf-utils/avahi-poll.c',
   ]
   pipewire_module_sendspin_deps += avahi_dep
 endif

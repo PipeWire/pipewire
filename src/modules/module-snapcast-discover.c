@@ -34,7 +34,7 @@
 #include <avahi-common/malloc.h>
 
 #include "module-protocol-pulse/format.h"
-#include "module-zeroconf-discover/avahi-poll.h"
+#include "zeroconf-utils/avahi-poll.h"
 
 #include "network-utils.h"
 

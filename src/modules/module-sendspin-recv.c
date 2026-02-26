@@ -30,8 +30,8 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 
+#include "zeroconf-utils/zeroconf.h"
 #include "module-sendspin/sendspin.h"
-#include "module-sendspin/zeroconf.h"
 #include "module-sendspin/websocket.h"
 #include "module-sendspin/regress.h"
 #include "network-utils.h"

@@ -25,7 +25,7 @@
 #include <avahi-common/malloc.h>
 
 #include "module-protocol-pulse/format.h"
-#include "module-zeroconf-discover/avahi-poll.h"
+#include "zeroconf-utils/avahi-poll.h"
 
 /** \page page_module_zeroconf_discover Zeroconf Discover
  *

@@ -20,8 +20,7 @@
 #include <avahi-common/error.h>
 #include <avahi-common/malloc.h>
 
-#include "../module-zeroconf-discover/avahi-poll.h"
-
+#include "avahi-poll.h"
 #include "zeroconf.h"
 
 #define pw_zeroconf_emit(o,m,v,...) 	spa_hook_list_call(&o->listener_list, struct pw_zeroconf_events, m, v, ##__VA_ARGS__)

@@ -15,7 +15,7 @@
 #include "../module.h"
 #include "../pulse-server.h"
 #include "../server.h"
-#include "../../module-zeroconf-discover/avahi-poll.h"
+#include "../../zeroconf-utils/avahi-poll.h"
 
 #include <avahi-client/client.h>
 #include <avahi-client/publish.h>

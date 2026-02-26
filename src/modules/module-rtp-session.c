@@ -32,7 +32,7 @@
 #include <avahi-common/error.h>
 #include <avahi-common/malloc.h>
 
-#include "module-zeroconf-discover/avahi-poll.h"
+#include "zeroconf-utils/avahi-poll.h"
 
 #include <module-rtp/rtp.h>
 #include <module-rtp/apple-midi.h>

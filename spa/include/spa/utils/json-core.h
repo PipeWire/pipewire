@@ -399,6 +399,10 @@ SPA_API_JSON int spa_json_is_container(const char *val, int len)
 {
 	return len > 0 && (*val == '{'  || *val == '[');
 }
+SPA_API_JSON int spa_json_is_container_end(const char *val, int len)
+{
+	return len > 0 && (*val == '}'  || *val == '}');
+}
 
 /* object */
 SPA_API_JSON int spa_json_is_object(const char *val, int len)
@@ -509,6 +513,46 @@ SPA_API_JSON int spa_json_parse_bool(const char *val, int len, bool *result)
 SPA_API_JSON bool spa_json_is_string(const char *val, int len)
 {
 	return len > 1 && *val == '"';
+}
+SPA_API_JSON bool spa_json_is_simple_string(const char *val, int size)
+{
+	int i;
+	static const char *REJECT = "\"\\'=:,{}[]()#";
+	for (i = 0; i < size && val[i]; i++) {
+		if (val[i] <= 0x20 || strchr(REJECT, val[i]) != NULL)
+			return false;
+	}
+	return true;
+}
+SPA_API_JSON bool spa_json_make_simple_string(const char **val, int *len)
+{
+	int i, l = *len;
+	const char *v = *val;
+	static const char *REJECT = "\"\\'=:,{}[]()#";
+	int trimmed = 0, bad = 0;
+	for (i = 0; i < l && v[i]; i++) {
+		if (i == 0 && v[0] == '\"')
+			trimmed++;
+		else if ((i+1 == l || !v[i+1]) && v[i] == '\"')
+			trimmed++;
+		else if (v[i] <= 0x20 || strchr(REJECT, v[i]) != NULL)
+			bad++;
+	}
+	if (trimmed == 0 && bad == 0 && i > 0)
+		return true;
+	else if (trimmed == 2) {
+		if (bad == 0 && i > 2 &&
+		    !spa_json_is_null(&v[1], i-2) &&
+		    !spa_json_is_bool(&v[1], i-2) &&
+		    !spa_json_is_float(&v[1], i-2) &&
+		    !spa_json_is_container(&v[1], i-2) &&
+		    !spa_json_is_container_end(&v[1], i-2)) {
+			(*len) = i-2;
+			(*val)++;
+		}
+		return true;
+	}
+	return false;
 }
 
 SPA_API_JSON int spa_json_parse_hex(const char *p, int num, uint32_t *res)

@@ -369,6 +369,7 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 	int res;
 	const struct spa_dict_item *it;
 	const char *session_name = "unnamed", *service = NULL;
+	const char *domain = NULL, *host = NULL;
 	uint16_t port = 0;
 
 	if (e->group == NULL) {
@@ -390,6 +391,10 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 			port = atoi(it->value);
 		else if (spa_streq(it->key, "zeroconf.service"))
 			service = it->value;
+		else if (spa_streq(it->key, "zeroconf.domain"))
+			domain = it->value;
+		else if (spa_streq(it->key, "zeroconf.host"))
+			host = it->value;
 		else
 			txt = avahi_string_list_add_pair(txt, it->key, it->value);
 	}
@@ -397,12 +402,13 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 		res = -EINVAL;
 		pw_log_error("no service provided");
 		pw_zeroconf_emit_error(zc, res, spa_strerror(res));
+		avahi_string_list_free(txt);
 		return res;
 	}
 	res = avahi_entry_group_add_service_strlst(e->group,
 			AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
 			(AvahiPublishFlags)0, session_name,
-			service, NULL, NULL, port, txt);
+			service, domain, host, port, txt);
 	avahi_string_list_free(txt);
 
 	if (res < 0) {
@@ -482,22 +488,24 @@ static struct entry *entry_new(struct pw_zeroconf *zc, uint32_t type, void *user
 static int set_entry(struct pw_zeroconf *zc, uint32_t type, void *user, const struct spa_dict *info)
 {
 	struct entry *e;
+	int res = 0;
 
 	e = entry_find(zc, type, user);
 	if (e == NULL) {
 		if (info == NULL)
 			return 0;
-		e = entry_new(zc, type, user, info);
-		entry_start(zc, e);
+		if ((e = entry_new(zc, type, user, info)) == NULL)
+			return -errno;
+		res = entry_start(zc, e);
 	} else {
 		if (info == NULL)
 			entry_free(e);
 		else {
 			pw_properties_update(e->props, info);
-			entry_start(zc, e);
+			res = entry_start(zc, e);
 		}
 	}
-	return 0;
+	return res;
 }
 int pw_zeroconf_set_announce(struct pw_zeroconf *zc, void *user, const struct spa_dict *info)
 {

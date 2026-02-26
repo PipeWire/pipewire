@@ -49,6 +49,7 @@ struct spa_json_builder {
 #define SPA_JSON_BUILDER_FLAG_PRETTY	(SPA_JSON_BUILDER_FLAG_INDENT|SPA_JSON_BUILDER_FLAG_SPACE)
 #define SPA_JSON_BUILDER_FLAG_COLOR	(1<<3)
 #define SPA_JSON_BUILDER_FLAG_SIMPLE	(1<<4)
+#define SPA_JSON_BUILDER_FLAG_RAW	(1<<5)
 	uint32_t flags;
 	uint32_t indent_off;
 	uint32_t level;
@@ -151,6 +152,7 @@ void spa_json_builder_add_simple(struct spa_json_builder *b, const char *key, in
 {
 	bool indent = b->indent_off == 0 && (b->flags & SPA_JSON_BUILDER_FLAG_INDENT);
 	bool space = b->flags & SPA_JSON_BUILDER_FLAG_SPACE;
+	bool force_raw = b->flags & SPA_JSON_BUILDER_FLAG_RAW;
 	bool raw = true, simple = b->flags & SPA_JSON_BUILDER_FLAG_SIMPLE;
 	int color;
 
@@ -185,8 +187,8 @@ void spa_json_builder_add_simple(struct spa_json_builder *b, const char *key, in
 	fprintf(b->f, "%s%s%*s", b->delim, indent ? b->count == 0 ? "" : "\n" : space ? " " : "",
 			indent ? b->level : 0, "");
 	if (key) {
-		bool key_raw = (simple && spa_json_make_simple_string(&key, &key_len)) ||
-					spa_json_is_string(key, key_len);
+		bool key_raw = force_raw || (simple && spa_json_make_simple_string(&key, &key_len)) ||
+			spa_json_is_string(key, key_len);
 		spa_json_builder_encode_string(b, key_raw,
 				b->color[1], key, key_len, b->color[0]);
 		fprintf(b->f, "%s%s", b->key_sep, space ? " " : "");
@@ -219,7 +221,7 @@ void spa_json_builder_add_simple(struct spa_json_builder *b, const char *key, in
 		break;
 	default:
 		color = SPA_JSON_BUILDER_COLOR_STRING;
-		raw = simple && spa_json_make_simple_string(&val, &val_len);
+		raw = force_raw || (simple && spa_json_make_simple_string(&val, &val_len));
 		break;
 	}
 	spa_json_builder_encode_string(b, raw, b->color[color], val, val_len, b->color[0]);

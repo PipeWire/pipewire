@@ -19,11 +19,7 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-#include <avahi-client/lookup.h>
-#include <avahi-common/error.h>
-#include <avahi-common/malloc.h>
-
-#include "zeroconf-utils/avahi-poll.h"
+#include "zeroconf-utils/zeroconf.h"
 #include "module-protocol-pulse/format.h"
 
 /** \page page_module_raop_discover RAOP Discover
@@ -129,29 +125,20 @@ struct impl {
 
 	struct pw_properties *properties;
 
-	AvahiPoll *avahi_poll;
-	AvahiClient *client;
-	AvahiServiceBrowser *sink_browser;
+	struct pw_zeroconf *zeroconf;
+	struct spa_hook zeroconf_listener;
 
 	struct spa_list tunnel_list;
 };
 
-struct tunnel_info {
-	const char *name;
-};
-
-#define TUNNEL_INFO(...) ((struct tunnel_info){ __VA_ARGS__ })
-
 struct tunnel {
 	struct spa_list link;
-	struct tunnel_info info;
+	char *name;
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 };
 
-static int start_client(struct impl *impl);
-
-static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *info)
+static struct tunnel *tunnel_new(struct impl *impl, const char *name)
 {
 	struct tunnel *t;
 
@@ -159,28 +146,28 @@ static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *i
 	if (t == NULL)
 		return NULL;
 
-	t->info.name = strdup(info->name);
+	t->name = strdup(name);
 	spa_list_append(&impl->tunnel_list, &t->link);
 
 	return t;
 }
 
-static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *info)
+static struct tunnel *find_tunnel(struct impl *impl, const char *name)
 {
 	struct tunnel *t;
 	spa_list_for_each(t, &impl->tunnel_list, link) {
-		if (spa_streq(t->info.name, info->name))
+		if (spa_streq(t->name, name))
 			return t;
 	}
 	return NULL;
 }
 
-static void free_tunnel(struct tunnel *t)
+static void tunnel_free(struct tunnel *t)
 {
 	spa_list_remove(&t->link);
 	if (t->module)
 		pw_impl_module_destroy(t->module);
-	free((char *) t->info.name);
+	free(t->name);
 	free(t);
 }
 
@@ -189,14 +176,9 @@ static void impl_free(struct impl *impl)
 	struct tunnel *t;
 
 	spa_list_consume(t, &impl->tunnel_list, link)
-		free_tunnel(t);
-
-	if (impl->sink_browser)
-		avahi_service_browser_free(impl->sink_browser);
-	if (impl->client)
-		avahi_client_free(impl->client);
-	if (impl->avahi_poll)
-		pw_avahi_poll_free(impl->avahi_poll);
+		tunnel_free(t);
+	if (impl->zeroconf)
+		pw_zeroconf_destroy(impl->zeroconf);
 	pw_properties_free(impl->properties);
 	free(impl);
 }
@@ -222,75 +204,6 @@ static bool str_in_list(const char *haystack, const char *delimiters, const char
 	            return true;
 	}
 	return false;
-}
-
-static void pw_properties_from_avahi_string(const char *key, const char *value,
-		struct pw_properties *props)
-{
-	if (spa_streq(key, "device")) {
-		pw_properties_set(props, "raop.device", value);
-	}
-	else if (spa_streq(key, "tp")) {
-		/* transport protocol, "UDP", "TCP", "UDP,TCP" */
-		if (str_in_list(value, ",", "UDP"))
-			value = "udp";
-		else if (str_in_list(value, ",", "TCP"))
-			value = "tcp";
-		pw_properties_set(props, "raop.transport", value);
-	} else if (spa_streq(key, "et")) {
-		/* RAOP encryption types:
-		 *  0 = none,
-		 *  1 = RSA,
-		 *  3 = FairPlay,
-		 *  4 = MFiSAP (/auth-setup),
-		 *  5 = FairPlay SAPv2.5 */
-		if (str_in_list(value, ",", "5"))
-			value = "fp_sap25";
-		else if (str_in_list(value, ",", "4"))
-			value = "auth_setup";
-		else if (str_in_list(value, ",", "1"))
-			value = "RSA";
-		else
-			value = "none";
-		pw_properties_set(props, "raop.encryption.type", value);
-	} else if (spa_streq(key, "cn")) {
-		/* Supported audio codecs:
-		 *  0 = PCM,
-		 *  1 = ALAC,
-		 *  2 = AAC,
-		 *  3 = AAC ELD. */
-		if (str_in_list(value, ",", "0"))
-			value = "PCM";
-		else if (str_in_list(value, ",", "1"))
-			value = "ALAC";
-		else if (str_in_list(value, ",", "2"))
-			value = "AAC";
-		else if (str_in_list(value, ",", "3"))
-			value = "AAC-ELD";
-		else
-			value = "unknown";
-		pw_properties_set(props, "raop.audio.codec", value);
-	} else if (spa_streq(key, "ch")) {
-		/* Number of channels */
-		pw_properties_set(props, PW_KEY_AUDIO_CHANNELS, value);
-	} else if (spa_streq(key, "ss")) {
-		/* Sample size */
-		if (spa_streq(value, "16"))
-			value = "S16";
-		else if (spa_streq(value, "24"))
-			value = "S24";
-		else if (spa_streq(value, "32"))
-			value = "S32";
-		else
-			value = "UNKNOWN";
-		pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);
-	} else if (spa_streq(key, "sr")) {
-		/* Sample rate */
-		pw_properties_set(props, PW_KEY_AUDIO_RATE, value);
-	} else if (spa_streq(key, "am")) {
-		/* Device model */
-		pw_properties_set(props, "device.model", value);
-        }
 }
 
 static void submodule_destroy(void *data)
@@ -364,76 +277,124 @@ static int rule_matched(void *data, const char *location, const char *action,
 	return res;
 }
 
-static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
-	AvahiResolverEvent event, const char *name, const char *type, const char *domain,
-	const char *host_name, const AvahiAddress *a, uint16_t port, AvahiStringList *txt,
-	AvahiLookupResultFlags flags, void *userdata)
+static void pw_properties_from_zeroconf(const char *key, const char *value,
+		struct pw_properties *props)
 {
-	struct impl *impl = userdata;
-	struct tunnel_info tinfo;
-	struct tunnel *t;
-	const char *str, *link_local_range = "169.254.";
-	AvahiStringList *l;
-	struct pw_properties *props = NULL;
-	char at[AVAHI_ADDRESS_STR_MAX], if_suffix[16] = "";
-
-	if (event != AVAHI_RESOLVER_FOUND) {
-		pw_log_error("Resolving of '%s' failed: %s", name,
-				avahi_strerror(avahi_client_errno(impl->client)));
-		goto done;
+	if (spa_streq(key, "zeroconf.ifindex")) {
+		pw_properties_set(props, "raop.ifindex", value);
 	}
+	else if (spa_streq(key, "zeroconf.address")) {
+		pw_properties_set(props, "raop.ip", value);
+	}
+	else if (spa_streq(key, "zeroconf.port")) {
+		pw_properties_set(props, "raop.port", value);
+	}
+	else if (spa_streq(key, "zeroconf.name")) {
+		pw_properties_set(props, "raop.name", value);
+	}
+	else if (spa_streq(key, "zeroconf.hostname")) {
+		pw_properties_set(props, "raop.hostname", value);
+	}
+	else if (spa_streq(key, "zeroconf.domain")) {
+		pw_properties_set(props, "raop.domain", value);
+	}
+	else if (spa_streq(key, "device")) {
+		pw_properties_set(props, "raop.device", value);
+	}
+	else if (spa_streq(key, "tp")) {
+		/* transport protocol, "UDP", "TCP", "UDP,TCP" */
+		if (str_in_list(value, ",", "UDP"))
+			value = "udp";
+		else if (str_in_list(value, ",", "TCP"))
+			value = "tcp";
+		pw_properties_set(props, "raop.transport", value);
+	} else if (spa_streq(key, "et")) {
+		/* RAOP encryption types:
+		 *  0 = none,
+		 *  1 = RSA,
+		 *  3 = FairPlay,
+		 *  4 = MFiSAP (/auth-setup),
+		 *  5 = FairPlay SAPv2.5 */
+		if (str_in_list(value, ",", "5"))
+			value = "fp_sap25";
+		else if (str_in_list(value, ",", "4"))
+			value = "auth_setup";
+		else if (str_in_list(value, ",", "1"))
+			value = "RSA";
+		else
+			value = "none";
+		pw_properties_set(props, "raop.encryption.type", value);
+	} else if (spa_streq(key, "cn")) {
+		/* Supported audio codecs:
+		 *  0 = PCM,
+		 *  1 = ALAC,
+		 *  2 = AAC,
+		 *  3 = AAC ELD. */
+		if (str_in_list(value, ",", "0"))
+			value = "PCM";
+		else if (str_in_list(value, ",", "1"))
+			value = "ALAC";
+		else if (str_in_list(value, ",", "2"))
+			value = "AAC";
+		else if (str_in_list(value, ",", "3"))
+			value = "AAC-ELD";
+		else
+			value = "unknown";
+		pw_properties_set(props, "raop.audio.codec", value);
+	} else if (spa_streq(key, "ch")) {
+		/* Number of channels */
+		pw_properties_set(props, PW_KEY_AUDIO_CHANNELS, value);
+	} else if (spa_streq(key, "ss")) {
+		/* Sample size */
+		if (spa_streq(value, "16"))
+			value = "S16";
+		else if (spa_streq(value, "24"))
+			value = "S24";
+		else if (spa_streq(value, "32"))
+			value = "S32";
+		else
+			value = "UNKNOWN";
+		pw_properties_set(props, PW_KEY_AUDIO_FORMAT, value);
+	} else if (spa_streq(key, "sr")) {
+		/* Sample rate */
+		pw_properties_set(props, PW_KEY_AUDIO_RATE, value);
+	} else if (spa_streq(key, "am")) {
+		/* Device model */
+		pw_properties_set(props, "device.model", value);
+        }
+}
 
-	avahi_address_snprint(at, sizeof(at), a);
-	if (spa_strstartswith(at, link_local_range))
-		pw_log_info("found link-local ip address %s for '%s'", at, name);
+static void on_zeroconf_added(void *data, void *user, const struct spa_dict *info)
+{
+	struct impl *impl = data;
+	const char *name, *str;
+	struct tunnel *t;
+	const struct spa_dict_item *it;
+	struct pw_properties *props = NULL;
 
-	tinfo = TUNNEL_INFO(.name = name);
+	name = spa_dict_lookup(info, "zeroconf.name");
 
-	t = find_tunnel(impl, &tinfo);
-	if (t == NULL)
-		t = make_tunnel(impl, &tinfo);
+	t = find_tunnel(impl, name);
 	if (t == NULL) {
-		pw_log_error("Can't make tunnel: %m");
-		goto done;
+		if ((t = tunnel_new(impl, name)) == NULL) {
+			pw_log_error("Can't make tunnel: %m");
+			goto done;
+		}
 	}
 	if (t->module != NULL) {
-		pw_log_info("found duplicate mdns entry for %s on IP %s - skipping tunnel creation", name, at);
+		pw_log_info("found duplicate mdns entry for %s on IP %s - "
+				"skipping tunnel creation", name,
+				spa_dict_lookup(info, "zeroconf.address"));
 		goto done;
 	}
 
-	props = pw_properties_new(NULL, NULL);
-	if (props == NULL) {
+	if ((props = pw_properties_new(NULL, NULL)) == NULL) {
 		pw_log_error("Can't allocate properties: %m");
 		goto done;
 	}
 
-	if (a->proto == AVAHI_PROTO_INET6 &&
-	    a->data.ipv6.address[0] == 0xfe &&
-	    (a->data.ipv6.address[1] & 0xc0) == 0x80)
-		snprintf(if_suffix, sizeof(if_suffix), "%%%d", interface);
-
-	/* For IPv4 link-local, bind to the discovery interface */
-	if (a->proto == AVAHI_PROTO_INET &&
-	    spa_strstartswith(at, link_local_range))
-		snprintf(if_suffix, sizeof(if_suffix), "%%%d", interface);
-
-	pw_properties_setf(props, "raop.ip", "%s%s", at, if_suffix);
-	pw_properties_setf(props, "raop.ifindex", "%d", interface);
-	pw_properties_setf(props, "raop.port", "%u", port);
-	pw_properties_setf(props, "raop.name", "%s", name);
-	pw_properties_setf(props, "raop.hostname", "%s", host_name);
-	pw_properties_setf(props, "raop.domain", "%s", domain);
-
-	for (l = txt; l; l = l->next) {
-		char *key, *value;
-
-		if (avahi_string_list_get_pair(l, &key, &value, NULL) != 0)
-			break;
-
-		pw_properties_from_avahi_string(key, value, props);
-		avahi_free(key);
-		avahi_free(value);
-	}
+	spa_dict_for_each(it, info)
+		pw_properties_from_zeroconf(it->key, it->value, props);
 
 	if ((str = pw_properties_get(impl->properties, "raop.latency.ms")) != NULL)
 		pw_properties_set(props, "raop.latency.ms", str);
@@ -452,123 +413,28 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		if (!minfo.matched)
 			pw_log_info("unmatched service found %s", str);
 	}
-
 done:
-	avahi_service_resolver_free(r);
 	pw_properties_free(props);
 }
 
-
-static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
-	AvahiBrowserEvent event, const char *name, const char *type, const char *domain,
-	AvahiLookupResultFlags flags, void *userdata)
+static void on_zeroconf_removed(void *data, void *user, const struct spa_dict *info)
 {
-	struct impl *impl = userdata;
-	struct tunnel_info info;
+	struct impl *impl = data;
+	const char *name;
 	struct tunnel *t;
 
-	if ((flags & AVAHI_LOOKUP_RESULT_LOCAL) && !impl->discover_local)
+	name = spa_dict_lookup(info, "zeroconf.name");
+
+	if ((t = find_tunnel(impl, name)) == NULL)
 		return;
 
-	info = TUNNEL_INFO(.name = name);
-
-	t = find_tunnel(impl, &info);
-
-	switch (event) {
-	case AVAHI_BROWSER_NEW:
-		if (t != NULL) {
-			pw_log_info("found duplicate mdns entry - skipping tunnel creation");
-			return;
-		}
-		if (!(avahi_service_resolver_new(impl->client,
-						interface, protocol,
-						name, type, domain,
-						AVAHI_PROTO_UNSPEC, 0,
-						resolver_cb, impl)))
-			pw_log_error("can't make service resolver: %s",
-					avahi_strerror(avahi_client_errno(impl->client)));
-		break;
-	case AVAHI_BROWSER_REMOVE:
-		if (t == NULL)
-			return;
-		free_tunnel(t);
-		break;
-	default:
-		break;
-	}
+	tunnel_free(t);
 }
-
-
-static struct AvahiServiceBrowser *make_browser(struct impl *impl, const char *service_type)
-{
-	struct AvahiServiceBrowser *s;
-
-	s = avahi_service_browser_new(impl->client,
-                              AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-                              service_type, NULL, 0,
-                              browser_cb, impl);
-	if (s == NULL) {
-		pw_log_error("can't make browser for %s: %s", service_type,
-				avahi_strerror(avahi_client_errno(impl->client)));
-	}
-	return s;
-}
-
-static void client_callback(AvahiClient *c, AvahiClientState state, void *userdata)
-{
-	struct impl *impl = userdata;
-
-	impl->client = c;
-
-	switch (state) {
-	case AVAHI_CLIENT_S_REGISTERING:
-	case AVAHI_CLIENT_S_RUNNING:
-	case AVAHI_CLIENT_S_COLLISION:
-		if (impl->sink_browser == NULL)
-			impl->sink_browser = make_browser(impl, SERVICE_TYPE_SINK);
-		if (impl->sink_browser == NULL)
-			goto error;
-		break;
-	case AVAHI_CLIENT_FAILURE:
-		if (avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED)
-			start_client(impl);
-
-		SPA_FALLTHROUGH;
-	case AVAHI_CLIENT_CONNECTING:
-		if (impl->sink_browser) {
-			avahi_service_browser_free(impl->sink_browser);
-			impl->sink_browser = NULL;
-		}
-		break;
-	default:
-		break;
-	}
-	return;
-error:
-	pw_impl_module_schedule_destroy(impl->module);
-}
-
-static int start_client(struct impl *impl)
-{
-	int res;
-	if ((impl->client = avahi_client_new(impl->avahi_poll,
-					AVAHI_CLIENT_NO_FAIL,
-					client_callback, impl,
-					&res)) == NULL) {
-		pw_log_error("can't create client: %s", avahi_strerror(res));
-		pw_impl_module_schedule_destroy(impl->module);
-		return -EIO;
-	}
-	return 0;
-}
-
-static int start_avahi(struct impl *impl)
-{
-
-	impl->avahi_poll = pw_avahi_poll_new(impl->context);
-
-	return start_client(impl);
-}
+static const struct pw_zeroconf_events zeroconf_events = {
+	PW_VERSION_ZEROCONF_EVENTS,
+	.added = on_zeroconf_added,
+	.removed = on_zeroconf_removed,
+};
 
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
@@ -576,6 +442,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props;
 	struct impl *impl;
+	const char *local;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -599,15 +466,24 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->properties = props;
 
-	impl->discover_local =  pw_properties_get_bool(impl->properties,
-			"raop.discover-local", false);
+	if ((local = pw_properties_get(impl->properties, "raop.discover-local")) == NULL)
+		local = "false";
+	pw_properties_set(impl->properties, "zeroconf.discover-local", local);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	start_avahi(impl);
+	if ((impl->zeroconf = pw_zeroconf_new(context, &props->dict)) == NULL) {
+		pw_log_error("can't create zeroconf: %m");
+		goto error_errno;
+	}
+	pw_zeroconf_add_listener(impl->zeroconf, &impl->zeroconf_listener,
+			&zeroconf_events, impl);
 
+	pw_zeroconf_set_browse(impl->zeroconf, NULL,
+		&SPA_DICT_ITEMS(
+			SPA_DICT_ITEM("zeroconf.service", SERVICE_TYPE_SINK)));
 	return 0;
 
 error_errno:

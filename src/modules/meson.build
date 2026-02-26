@@ -296,6 +296,17 @@ pipewire_module_protocol_native = shared_library('pipewire-module-protocol-nativ
   dependencies : pipewire_module_protocol_deps,
 )
 
+zeroconf_sources = []
+zeroconf_deps = []
+if avahi_dep.found()
+  zeroconf_sources += [
+    'zeroconf-utils/zeroconf.c',
+    'zeroconf-utils/avahi-poll.c',
+  ]
+  zeroconf_deps += avahi_dep
+  cdata.set('HAVE_AVAHI', true)
+endif
+
 pipewire_module_protocol_pulse_deps = pipewire_module_protocol_deps
 
 pipewire_module_protocol_pulse_sources = [
@@ -372,10 +383,9 @@ endif
 if avahi_dep.found()
   pipewire_module_protocol_pulse_sources += [
     'module-protocol-pulse/modules/module-zeroconf-publish.c',
-    'zeroconf-utils/avahi-poll.c',
+    zeroconf_sources,
   ]
-  pipewire_module_protocol_pulse_deps += avahi_dep
-  cdata.set('HAVE_AVAHI', true)
+  pipewire_module_protocol_pulse_deps += zeroconf_deps
 endif
 
 if gsettings_gio_dep.found()
@@ -569,12 +579,12 @@ if build_module_zeroconf_discover
   pipewire_module_zeroconf_discover = shared_library('pipewire-module-zeroconf-discover',
     [ 'module-zeroconf-discover.c',
       'module-protocol-pulse/format.c',
-      'zeroconf-utils/avahi-poll.c' ],
+      zeroconf_sources ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, zeroconf_deps],
   )
 endif
 summary({'zeroconf-discover': build_module_zeroconf_discover}, bool_yn: true, section: 'Optional Modules')
@@ -599,12 +609,12 @@ build_module_raop_discover = avahi_dep.found()
 if build_module_raop_discover
   pipewire_module_raop_discover = shared_library('pipewire-module-raop-discover',
     [ 'module-raop-discover.c',
-      'zeroconf-utils/avahi-poll.c' ],
+      zeroconf_sources ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, zeroconf_deps],
   )
 endif
 summary({'raop-discover (needs Avahi)': build_module_raop_discover}, bool_yn: true, section: 'Optional Modules')
@@ -613,12 +623,12 @@ build_module_snapcast_discover = avahi_dep.found()
 if build_module_snapcast_discover
   pipewire_module_snapcast_discover = shared_library('pipewire-module-snapcast-discover',
     [ 'module-snapcast-discover.c',
-      'zeroconf-utils/avahi-poll.c' ],
+      zeroconf_sources ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, avahi_dep],
+    dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep, zeroconf_deps],
   )
 endif
 summary({'snapcast-discover (needs Avahi)': build_module_snapcast_discover}, bool_yn: true, section: 'Optional Modules')
@@ -661,13 +671,13 @@ pipewire_module_rtp_sink = shared_library('pipewire-module-rtp-sink',
 build_module_rtp_session = avahi_dep.found()
 if build_module_rtp_session
   pipewire_module_rtp_session = shared_library('pipewire-module-rtp-session',
-    [ 'zeroconf-utils/avahi-poll.c',
-      'module-rtp-session.c' ],
+    [ 'module-rtp-session.c',
+      zeroconf_sources ],
     include_directories : [configinc],
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [pipewire_module_rtp_common_dep, avahi_dep],
+    dependencies : [pipewire_module_rtp_common_dep, zeroconf_deps],
   )
 endif
 
@@ -700,15 +710,12 @@ pipewire_module_vban_recv = shared_library('pipewire-module-vban-recv',
   dependencies : [mathlib, dl_lib, rt_lib, pipewire_dep],
 )
 
- pipewire_module_sendspin_sources = []
- pipewire_module_sendspin_deps = [ mathlib, dl_lib, rt_lib, pipewire_dep ]
+pipewire_module_sendspin_sources = []
+pipewire_module_sendspin_deps = [ mathlib, dl_lib, rt_lib, pipewire_dep ]
 
 if avahi_dep.found()
-  pipewire_module_sendspin_sources += [
-    'zeroconf-utils/zeroconf.c',
-    'zeroconf-utils/avahi-poll.c',
-  ]
-  pipewire_module_sendspin_deps += avahi_dep
+  pipewire_module_sendspin_sources += zeroconf_sources
+  pipewire_module_sendspin_deps += zeroconf_deps
 endif
 
 pipewire_module_sendspin_recv = shared_library('pipewire-module-sendspin-recv',

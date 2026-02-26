@@ -529,7 +529,7 @@ struct pw_zeroconf * pw_zeroconf_new(struct pw_context *context,
 		const char *k = props->items[i].key;
 		const char *v = props->items[i].value;
 
-		if (spa_streq(k, "zeroconf.discover-local"))
+		if (spa_streq(k, "zeroconf.discover-local") && v)
 			zc->discover_local = spa_atob(v);
 	}
 

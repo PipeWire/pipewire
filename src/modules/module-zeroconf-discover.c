@@ -25,7 +25,7 @@
 #include <avahi-common/malloc.h>
 
 #include "module-protocol-pulse/format.h"
-#include "zeroconf-utils/avahi-poll.h"
+#include "zeroconf-utils/zeroconf.h"
 
 /** \page page_module_zeroconf_discover Zeroconf Discover
  *
@@ -84,11 +84,8 @@ struct impl {
 
 	struct pw_properties *properties;
 
-	bool discover_local;
-	AvahiPoll *avahi_poll;
-	AvahiClient *client;
-	AvahiServiceBrowser *sink_browser;
-	AvahiServiceBrowser *source_browser;
+	struct pw_zeroconf *zeroconf;
+	struct spa_hook zeroconf_listener;
 
 	struct spa_list tunnel_list;
 };
@@ -107,9 +104,7 @@ struct tunnel {
 	struct spa_hook module_listener;
 };
 
-static int start_client(struct impl *impl);
-
-static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *info)
+static struct tunnel *tunnel_new(struct impl *impl, const struct tunnel_info *info)
 {
 	struct tunnel *t;
 
@@ -135,7 +130,7 @@ static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *i
 	return NULL;
 }
 
-static void free_tunnel(struct tunnel *t)
+static void tunnel_free(struct tunnel *t)
 {
 	spa_list_remove(&t->link);
 	if (t->module)
@@ -151,16 +146,10 @@ static void impl_free(struct impl *impl)
 	struct tunnel *t;
 
 	spa_list_consume(t, &impl->tunnel_list, link)
-		free_tunnel(t);
+		tunnel_free(t);
 
-	if (impl->sink_browser)
-		avahi_service_browser_free(impl->sink_browser);
-	if (impl->source_browser)
-		avahi_service_browser_free(impl->source_browser);
-	if (impl->client)
-		avahi_client_free(impl->client);
-	if (impl->avahi_poll)
-		pw_avahi_poll_free(impl->avahi_poll);
+	if (impl->zeroconf)
+		pw_zeroconf_destroy(impl->zeroconf);
 	pw_properties_free(impl->properties);
 	free(impl);
 }
@@ -177,7 +166,7 @@ static const struct pw_impl_module_events module_events = {
 	.destroy = module_destroy,
 };
 
-static void pw_properties_from_avahi_string(const char *key, const char *value,
+static void pw_properties_from_zeroconf(const char *key, const char *value,
 		struct pw_properties *props)
 {
 	if (spa_streq(key, "device")) {
@@ -241,38 +230,28 @@ static const struct pw_impl_module_events submodule_events = {
 	.destroy = submodule_destroy,
 };
 
-static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiProtocol protocol,
-	AvahiResolverEvent event, const char *name, const char *type, const char *domain,
-	const char *host_name, const AvahiAddress *a, uint16_t port, AvahiStringList *txt,
-	AvahiLookupResultFlags flags, void *userdata)
+static void on_zeroconf_added(void *data, void *user_data, const struct spa_dict *info)
 {
-	struct impl *impl = userdata;
+	struct impl *impl = data;
+	const char *name, *type, *mode, *device, *host_name, *desc, *fqdn, *user, *str;
 	struct tunnel *t;
 	struct tunnel_info tinfo;
-	const char *str, *device, *desc, *fqdn, *user, *mode;
-	char if_suffix[16] = "";
-	char at[AVAHI_ADDRESS_STR_MAX];
-	AvahiStringList *l;
+	const struct spa_dict_item *it;
 	FILE *f;
 	char *args;
 	size_t size;
 	struct pw_impl_module *mod;
 	struct pw_properties *props = NULL;
 
-
-	if (event != AVAHI_RESOLVER_FOUND) {
-		pw_log_error("Resolving of '%s' failed: %s", name,
-				avahi_strerror(avahi_client_errno(impl->client)));
-		goto done;
-	}
-
+	name = spa_dict_lookup(info, "zeroconf.name");
+	type = spa_dict_lookup(info, "zeroconf.type");
 	mode = strstr(type, "sink") ? "sink" : "source";
 
 	tinfo = TUNNEL_INFO(.name = name, .mode = mode);
 
 	t = find_tunnel(impl, &tinfo);
 	if (t == NULL)
-		t = make_tunnel(impl, &tinfo);
+		t = tunnel_new(impl, &tinfo);
 	if (t == NULL) {
 		pw_log_error("Can't make tunnel: %m");
 		goto done;
@@ -288,16 +267,10 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 		goto done;
 	}
 
-	for (l = txt; l; l = l->next) {
-		char *key, *value;
+	spa_dict_for_each(it, info)
+		pw_properties_from_zeroconf(it->key, it->value, props);
 
-		if (avahi_string_list_get_pair(l, &key, &value, NULL) != 0)
-			break;
-
-		pw_properties_from_avahi_string(key, value, props);
-		avahi_free(key);
-		avahi_free(value);
-	}
+	host_name = spa_dict_lookup(info, "zeroconf.hostname");
 
 	if ((device = pw_properties_get(props, PW_KEY_TARGET_OBJECT)) != NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME,
@@ -308,14 +281,9 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 
 	pw_properties_set(props, "tunnel.mode", mode);
 
-	if (a->proto == AVAHI_PROTO_INET6 &&
-	    a->data.ipv6.address[0] == 0xfe &&
-	    (a->data.ipv6.address[1] & 0xc0) == 0x80)
-		snprintf(if_suffix, sizeof(if_suffix), "%%%d", interface);
-
-	pw_properties_setf(props, "pulse.server.address", " [%s%s]:%u",
-			avahi_address_snprint(at, sizeof(at), a),
-			if_suffix, port);
+	pw_properties_setf(props, "pulse.server.address", " [%s]:%s",
+			spa_dict_lookup(info, "zeroconf.address"),
+			spa_dict_lookup(info, "zeroconf.port"));
 
 	desc = pw_properties_get(props, "tunnel.remote.description");
 	if (desc == NULL)
@@ -373,130 +341,33 @@ static void resolver_cb(AvahiServiceResolver *r, AvahiIfIndex interface, AvahiPr
 	t->module = mod;
 
 done:
-	avahi_service_resolver_free(r);
 	pw_properties_free(props);
 }
 
-
-static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProtocol protocol,
-	AvahiBrowserEvent event, const char *name, const char *type, const char *domain,
-	AvahiLookupResultFlags flags, void *userdata)
+static void on_zeroconf_removed(void *data, void *user, const struct spa_dict *info)
 {
-	struct impl *impl = userdata;
-	struct tunnel_info info;
+	struct impl *impl = data;
+	const char *name, *type, *mode;
 	struct tunnel *t;
+	struct tunnel_info tinfo;
 
-	if ((flags & AVAHI_LOOKUP_RESULT_LOCAL) && !impl->discover_local)
+	name = spa_dict_lookup(info, "zeroconf.name");
+	type = spa_dict_lookup(info, "zeroconf.type");
+	mode = strstr(type, "sink") ? "sink" : "source";
+
+	tinfo = TUNNEL_INFO(.name = name, .mode = mode);
+
+	if ((t = find_tunnel(impl, &tinfo)) == NULL)
 		return;
 
-	info = TUNNEL_INFO(.name = name);
-
-	t = find_tunnel(impl, &info);
-
-	switch (event) {
-	case AVAHI_BROWSER_NEW:
-		if (t != NULL) {
-			pw_log_info("found duplicate mdns entry - skipping tunnel creation");
-			return;
-		}
-		if (!(avahi_service_resolver_new(impl->client,
-						interface, protocol,
-						name, type, domain,
-						AVAHI_PROTO_UNSPEC, 0,
-						resolver_cb, impl)))
-			pw_log_error("can't make service resolver: %s",
-					avahi_strerror(avahi_client_errno(impl->client)));
-		break;
-	case AVAHI_BROWSER_REMOVE:
-		if (t == NULL)
-			return;
-		free_tunnel(t);
-		break;
-	default:
-		break;
-	}
+	tunnel_free(t);
 }
 
-
-static struct AvahiServiceBrowser *make_browser(struct impl *impl, const char *service_type)
-{
-	struct AvahiServiceBrowser *s;
-
-	s = avahi_service_browser_new(impl->client,
-                              AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-                              service_type, NULL, 0,
-                              browser_cb, impl);
-	if (s == NULL) {
-		pw_log_error("can't make browser for %s: %s", service_type,
-				avahi_strerror(avahi_client_errno(impl->client)));
-	}
-	return s;
-}
-
-static void client_callback(AvahiClient *c, AvahiClientState state, void *userdata)
-{
-	struct impl *impl = userdata;
-
-	impl->client = c;
-
-	switch (state) {
-	case AVAHI_CLIENT_S_REGISTERING:
-	case AVAHI_CLIENT_S_RUNNING:
-	case AVAHI_CLIENT_S_COLLISION:
-		if (impl->sink_browser == NULL)
-			impl->sink_browser = make_browser(impl, SERVICE_TYPE_SINK);
-		if (impl->sink_browser == NULL)
-			goto error;
-
-		if (impl->source_browser == NULL)
-			impl->source_browser = make_browser(impl, SERVICE_TYPE_SOURCE);
-		if (impl->source_browser == NULL)
-			goto error;
-
-		break;
-	case AVAHI_CLIENT_FAILURE:
-		if (avahi_client_errno(c) == AVAHI_ERR_DISCONNECTED)
-			start_client(impl);
-
-		SPA_FALLTHROUGH;
-	case AVAHI_CLIENT_CONNECTING:
-		if (impl->sink_browser) {
-			avahi_service_browser_free(impl->sink_browser);
-			impl->sink_browser = NULL;
-		}
-		if (impl->source_browser) {
-			avahi_service_browser_free(impl->source_browser);
-			impl->source_browser = NULL;
-		}
-		break;
-	default:
-		break;
-	}
-	return;
-error:
-	pw_impl_module_schedule_destroy(impl->module);
-}
-
-static int start_client(struct impl *impl)
-{
-	int res;
-	if ((impl->client = avahi_client_new(impl->avahi_poll,
-					AVAHI_CLIENT_NO_FAIL,
-					client_callback, impl,
-					&res)) == NULL) {
-		pw_log_error("can't create client: %s", avahi_strerror(res));
-		pw_impl_module_schedule_destroy(impl->module);
-		return -EIO;
-	}
-	return 0;
-}
-
-static int start_avahi(struct impl *impl)
-{
-	impl->avahi_poll = pw_avahi_poll_new(impl->context);
-
-	return start_client(impl);
-}
+static const struct pw_zeroconf_events zeroconf_events = {
+	PW_VERSION_ZEROCONF_EVENTS,
+	.added = on_zeroconf_added,
+	.removed = on_zeroconf_removed,
+};
 
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
@@ -504,6 +375,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props;
 	struct impl *impl;
+	bool discover_local;
 	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
@@ -527,14 +399,29 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->properties = props;
 
-	impl->discover_local =  pw_properties_get_bool(impl->properties,
+	discover_local = pw_properties_get_bool(impl->properties,
 			"pulse.discover-local", false);
+	pw_properties_setf(impl->properties, "zeroconf.discover-local",
+			discover_local ? "true" : "false");
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
-	start_avahi(impl);
+	if ((impl->zeroconf = pw_zeroconf_new(context, &props->dict)) == NULL) {
+		pw_log_error("can't create zeroconf: %m");
+		goto error_errno;
+	}
+	pw_zeroconf_add_listener(impl->zeroconf, &impl->zeroconf_listener,
+			&zeroconf_events, impl);
+
+	pw_zeroconf_set_browse(impl->zeroconf, SERVICE_TYPE_SINK,
+		&SPA_DICT_ITEMS(
+			SPA_DICT_ITEM("zeroconf.service", SERVICE_TYPE_SINK)));
+
+	pw_zeroconf_set_browse(impl->zeroconf, SERVICE_TYPE_SOURCE,
+		&SPA_DICT_ITEMS(
+			SPA_DICT_ITEM("zeroconf.service", SERVICE_TYPE_SOURCE)));
 
 	return 0;
 

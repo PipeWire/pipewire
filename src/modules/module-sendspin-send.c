@@ -925,6 +925,8 @@ static void client_free(struct client *c)
 {
 	struct impl *impl = c->impl;
 
+	spa_list_remove(&c->link);
+
 	handle_client_goodbye(c, NULL);
 	if (c->conn) {
 		spa_hook_remove(&c->conn_listener);
@@ -933,7 +935,8 @@ static void client_free(struct client *c)
 		pw_websocket_cancel(impl->websocket, c);
 	}
 	pw_timer_queue_cancel(&c->timer);
-	spa_list_remove(&c->link);
+	pw_properties_free(c->props);
+	free(c->name);
 	free(c);
 }
 

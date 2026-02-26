@@ -22,6 +22,7 @@
 #include <spa/pod/iter.h>
 #include <spa/debug/types.h>
 #include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/utils/ansi.h>
 #include <spa/utils/string.h>
 
@@ -29,15 +30,6 @@
 #include <pipewire/extensions/metadata.h>
 
 #define INDENT 2
-
-static bool colors = false;
-static bool raw = false;
-
-#define NORMAL	(colors ? SPA_ANSI_RESET : "")
-#define LITERAL	(colors ? SPA_ANSI_BRIGHT_MAGENTA : "")
-#define NUMBER	(colors ? SPA_ANSI_BRIGHT_CYAN : "")
-#define STRING	(colors ? SPA_ANSI_BRIGHT_GREEN : "")
-#define KEY	(colors ? SPA_ANSI_BRIGHT_BLUE : "")
 
 struct data {
 	struct pw_main_loop *loop;
@@ -55,20 +47,13 @@ struct data {
 
 	const char *pattern;
 
+	struct spa_json_builder builder;
+
 	FILE *out;
-	int level;
-	int indent;
-#define STATE_KEY	(1<<0)
-#define STATE_COMMA	(1<<1)
-#define STATE_FIRST	(1<<2)
-#define STATE_MASK	0xffff0000
-#define STATE_SIMPLE	(1<<16)
 	uint32_t state;
-	const char *comma_char;
-	const char *keysep_char;
-	bool simple_string;
 
 	unsigned int monitor:1;
+	unsigned int recurse:1;
 };
 
 struct param {
@@ -217,133 +202,25 @@ static void object_destroy(struct object *o)
 	free(o);
 }
 
-static void put_key(struct data *d, const char *key);
-
-#define REJECT	"\"\\'=:,{}[]()#"
-
-static bool is_simple_string(const char *val)
-{
-	int i;
-	for (i = 0; val[i]; i++) {
-		if (val[i] < 0x20 || strchr(REJECT, val[i]) != NULL)
-			return false;
-	}
-	return true;
-}
-
-static SPA_PRINTF_FUNC(3,4) void put_fmt(struct data *d, const char *key, const char *fmt, ...)
-{
-	va_list va;
-	if (key)
-		put_key(d, key);
-	fprintf(d->out, "%s%s%*s",
-			d->state & STATE_COMMA ? d->comma_char : "",
-			d->state & (STATE_MASK | STATE_KEY) ? " " : (d->state & STATE_FIRST) || raw ? "" : "\n",
-			d->state & (STATE_MASK | STATE_KEY) ? 0 : d->level, "");
-	va_start(va, fmt);
-	vfprintf(d->out, fmt, va);
-	va_end(va);
-	d->state = (d->state & STATE_MASK) + STATE_COMMA;
-}
-
-static void put_key(struct data *d, const char *key)
-{
-	int size = (strlen(key) + 1) * 4;
-	if (d->simple_string && is_simple_string(key)) {
-		put_fmt(d, NULL, "%s%s%s%s", KEY, key, NORMAL, d->keysep_char);
-	} else {
-		char *str = alloca(size);
-		spa_json_encode_string(str, size, key);
-		put_fmt(d, NULL, "%s%s%s%s", KEY, str, NORMAL, d->keysep_char);
-	}
-	d->state = (d->state & STATE_MASK) + STATE_KEY;
-}
-
-static void put_begin(struct data *d, const char *key, const char *type, uint32_t flags)
-{
-	put_fmt(d, key, "%s", type);
-	d->level += d->indent;
-	d->state = (d->state & STATE_MASK) + (flags & STATE_SIMPLE);
-}
-
-static void put_end(struct data *d, const char *type, uint32_t flags)
-{
-	d->level -= d->indent;
-	d->state = d->state & STATE_MASK;
-	put_fmt(d, NULL, "%s", type);
-	d->state = (d->state & STATE_MASK) + STATE_COMMA - (flags & STATE_SIMPLE);
-}
-
-static void put_encoded_string(struct data *d, const char *key, const char *val)
-{
-	put_fmt(d, key, "%s%s%s", STRING, val, NORMAL);
-}
-static void put_string(struct data *d, const char *key, const char *val)
-{
-	int size = (strlen(val) + 1) * 4;
-	if (d->simple_string && is_simple_string(val)) {
-		put_encoded_string(d, key, val);
-	} else {
-		char *str = alloca(size);
-		spa_json_encode_string(str, size, val);
-		put_encoded_string(d, key, str);
-	}
-}
-
-static void put_literal(struct data *d, const char *key, const char *val)
-{
-	put_fmt(d, key, "%s%s%s", LITERAL, val, NORMAL);
-}
-
-static void put_int(struct data *d, const char *key, int64_t val)
-{
-	put_fmt(d, key, "%s%"PRIi64"%s", NUMBER, val, NORMAL);
-}
-
-static void put_double(struct data *d, const char *key, double val)
-{
-	char buf[128];
-	put_fmt(d, key, "%s%s%s", NUMBER,
-			spa_json_format_float(buf, sizeof(buf), (float)val), NORMAL);
-}
-
-static void put_value(struct data *d, const char *key, const char *val)
-{
-	int64_t li;
-	float fv;
-
-	if (val == NULL)
-		put_literal(d, key, "null");
-	else if (spa_streq(val, "true") || spa_streq(val, "false"))
-		put_literal(d, key, val);
-	else if (spa_atoi64(val, &li, 10))
-		put_int(d, key, li);
-	else if (spa_json_parse_float(val, strlen(val), &fv))
-		put_double(d, key, fv);
-	else
-		put_string(d, key, val);
-}
 
 static void put_dict(struct data *d, const char *key, struct spa_dict *dict)
 {
 	const struct spa_dict_item *it;
 	spa_dict_qsort(dict);
-	put_begin(d, key, "{", 0);
+	spa_json_builder_object_push(&d->builder, key, "{");
 	spa_dict_for_each(it, dict)
-		put_value(d, it->key, it->value);
-	put_end(d, "}", 0);
+		spa_json_builder_object_value(&d->builder, d->recurse, it->key, it->value);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void put_pod_value(struct data *d, const char *key, const struct spa_type_info *info,
 		uint32_t type, void *body, uint32_t size)
 {
-	if (key)
-		put_key(d, key);
 	switch (type) {
 	case SPA_TYPE_Bool:
 		if (size < sizeof(int32_t))
 			break;
-		put_value(d, NULL, *(int32_t*)body ? "true" : "false");
+		spa_json_builder_object_bool(&d->builder, key, *(int32_t*)body);
 		break;
 	case SPA_TYPE_Id:
 	{
@@ -357,34 +234,34 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 			snprintf(fallback, sizeof(fallback), "id-%08x", id);
 			str = fallback;
 		}
-		put_value(d, NULL, str);
+		spa_json_builder_object_string(&d->builder, key, str);
 		break;
 	}
 	case SPA_TYPE_Int:
 		if (size < sizeof(int32_t))
 			break;
-		put_int(d, NULL, *(int32_t*)body);
+		spa_json_builder_object_int(&d->builder, key, *(int32_t*)body);
 		break;
 	case SPA_TYPE_Fd:
 	case SPA_TYPE_Long:
 		if (size < sizeof(int64_t))
 			break;
-		put_int(d, NULL, *(int64_t*)body);
+		spa_json_builder_object_int(&d->builder, key, *(int64_t*)body);
 		break;
 	case SPA_TYPE_Float:
 		if (size < sizeof(float))
 			break;
-		put_double(d, NULL, *(float*)body);
+		spa_json_builder_object_double(&d->builder, key, *(float*)body);
 		break;
 	case SPA_TYPE_Double:
 		if (size < sizeof(double))
 			break;
-		put_double(d, NULL, *(double*)body);
+		spa_json_builder_object_double(&d->builder, key, *(double*)body);
 		break;
 	case SPA_TYPE_String:
 		if (size < 1 || ((const char *)body)[size - 1])
 			break;
-		put_string(d, NULL, (const char*)body);
+		spa_json_builder_object_string(&d->builder, key, (const char*)body);
 		break;
 	case SPA_TYPE_Rectangle:
 	{
@@ -393,10 +270,10 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		if (size < sizeof(*r))
 			break;
 		r = (struct spa_rectangle *)body;
-		put_begin(d, NULL, "{", STATE_SIMPLE);
-		put_int(d, "width", r->width);
-		put_int(d, "height", r->height);
-		put_end(d, "}", STATE_SIMPLE);
+		spa_json_builder_object_push(&d->builder, key, "{-");
+		spa_json_builder_object_int(&d->builder,  "width", r->width);
+		spa_json_builder_object_int(&d->builder,  "height", r->height);
+		spa_json_builder_pop(&d->builder, "}-");
 		break;
 	}
 	case SPA_TYPE_Fraction:
@@ -406,10 +283,10 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		if (size < sizeof(*f))
 			break;
 		f = (struct spa_fraction *)body;
-		put_begin(d, NULL, "{", STATE_SIMPLE);
-		put_int(d, "num", f->num);
-		put_int(d, "denom", f->denom);
-		put_end(d, "}", STATE_SIMPLE);
+		spa_json_builder_object_push(&d->builder, key, "{-");
+		spa_json_builder_object_int(&d->builder,  "num", f->num);
+		spa_json_builder_object_int(&d->builder,  "denom", f->denom);
+		spa_json_builder_pop(&d->builder, "}-");
 		break;
 	}
 	case SPA_TYPE_Array:
@@ -421,10 +298,10 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 			break;
 		b = (struct spa_pod_array_body *)body;
 		info = info && info->values ? info->values: info;
-		put_begin(d, NULL, "[", STATE_SIMPLE);
+		spa_json_builder_object_push(&d->builder, key, "[-");
 		SPA_POD_ARRAY_BODY_FOREACH(b, size, p)
 			put_pod_value(d, NULL, info, b->child.type, p, b->child.size);
-		put_end(d, "]", STATE_SIMPLE);
+		spa_json_builder_pop(&d->builder, "]-");
 		break;
 	}
 	case SPA_TYPE_Choice:
@@ -452,12 +329,12 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 			case SPA_CHOICE_Range:
 				labels = range_labels;
 				max_labels = 3;
-				flags |= STATE_SIMPLE;
+				flags++;
 				break;
 			case SPA_CHOICE_Step:
 				labels = step_labels;
 				max_labels = 4;
-				flags |= STATE_SIMPLE;
+				flags++;
 				break;
 			case SPA_CHOICE_Enum:
 				labels = enum_labels;
@@ -474,7 +351,7 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 			if (labels == NULL)
 				break;
 
-			put_begin(d, NULL, "{", flags);
+			spa_json_builder_object_push(&d->builder, key, flags ? "{-" : "{");
 			SPA_POD_CHOICE_BODY_FOREACH(b, size, p) {
 				if ((label = labels[SPA_CLAMP(index, 0, max_labels)]) == NULL)
 					break;
@@ -482,13 +359,13 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 				put_pod_value(d, buffer, info, b->child.type, p, b->child.size);
 				index++;
 			}
-			put_end(d, "}", flags);
+			spa_json_builder_pop(&d->builder, flags ? "}-" : "}");
 		}
 		break;
 	}
 	case SPA_TYPE_Object:
 	{
-		put_begin(d, NULL, "{", 0);
+		spa_json_builder_object_push(&d->builder, key, "{");
 		struct spa_pod_object_body *b = (struct spa_pod_object_body *)body;
 		struct spa_pod_prop *p;
 		const struct spa_type_info *ti, *ii;
@@ -515,27 +392,27 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 					SPA_POD_CONTENTS(struct spa_pod_prop, p),
 					p->value.size);
 		}
-		put_end(d, "}", 0);
+		spa_json_builder_pop(&d->builder, "}");
 		break;
 	}
 	case SPA_TYPE_Struct:
 	{
 		struct spa_pod *b = (struct spa_pod *)body, *p;
-		put_begin(d, NULL, "[", 0);
+		spa_json_builder_object_push(&d->builder, key, "[");
 		SPA_POD_FOREACH(b, size, p)
 			put_pod_value(d, NULL, info, p->type, SPA_POD_BODY(p), p->size);
-		put_end(d, "]", 0);
+		spa_json_builder_pop(&d->builder, "]");
 		break;
 	}
 	case SPA_TYPE_None:
-		put_value(d, NULL, NULL);
+		spa_json_builder_object_null(&d->builder, key);
 		break;
 	}
 }
 static void put_pod(struct data *d, const char *key, const struct spa_pod *pod)
 {
 	if (pod == NULL) {
-		put_value(d, key, NULL);
+		spa_json_builder_object_null(&d->builder, key);
 	} else {
 		put_pod_value(d, key, SPA_TYPE_ROOT, pod->type,
 		              SPA_POD_BODY(pod), pod->size);
@@ -548,23 +425,24 @@ static void put_params(struct data *d, const char *key,
 {
 	uint32_t i;
 
-	put_begin(d, key, "{", 0);
+	spa_json_builder_object_push(&d->builder, key, "{");
 	for (i = 0; i < n_params; i++) {
 		struct spa_param_info *pi = &params[i];
 		struct param *p;
 		uint32_t flags;
 
-		flags = pi->flags & SPA_PARAM_INFO_READ ? 0 : STATE_SIMPLE;
+		flags = pi->flags & SPA_PARAM_INFO_READ ? 0 : 1;
 
-		put_begin(d, spa_debug_type_find_short_name(spa_type_param, pi->id),
-				"[", flags);
+		spa_json_builder_object_push(&d->builder,
+				spa_debug_type_find_short_name(spa_type_param, pi->id),
+				flags ? "[-" : "[");
 		spa_list_for_each(p, list, link) {
 			if (p->id == pi->id)
 				put_pod(d, NULL, p->param);
 		}
-		put_end(d, "]", flags);
+		spa_json_builder_pop(&d->builder, flags ? "]-" : "]");
 	}
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 struct flags_info {
@@ -576,12 +454,12 @@ static void put_flags(struct data *d, const char *key,
 		uint64_t flags, const struct flags_info *info)
 {
 	uint32_t i;
-	put_begin(d, key, "[", STATE_SIMPLE);
+	spa_json_builder_object_push(&d->builder, key, "[-");
 	for (i = 0; info[i].name != NULL; i++) {
 		if (info[i].mask & flags)
-			put_string(d, NULL, info[i].name);
+			spa_json_builder_array_string(&d->builder, info[i].name);
 	}
-	put_end(d, "]", STATE_SIMPLE);
+	spa_json_builder_pop(&d->builder, "]-");
 }
 
 /* core */
@@ -595,15 +473,15 @@ static void core_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_core_info *i = d->info;
 
-	put_begin(d, "info", "{", 0);
-	put_int(d, "cookie", i->cookie);
-	put_value(d, "user-name", i->user_name);
-	put_value(d, "host-name", i->host_name);
-	put_value(d, "version", i->version);
-	put_value(d, "name", i->name);
+	spa_json_builder_object_push(&d->builder, "info", "{");
+	spa_json_builder_object_int(&d->builder, "cookie", i->cookie);
+	spa_json_builder_object_string(&d->builder, "user-name", i->user_name);
+	spa_json_builder_object_string(&d->builder, "host-name", i->host_name);
+	spa_json_builder_object_string(&d->builder, "version", i->version);
+	spa_json_builder_object_string(&d->builder, "name", i->name);
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static const struct class core_class = {
@@ -624,10 +502,10 @@ static void client_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_client_info *i = o->info;
 
-	put_begin(d, "info", "{", 0);
+	spa_json_builder_object_push(&d->builder, "info", "{");
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void client_event_info(void *data, const struct pw_client_info *info)
@@ -683,13 +561,13 @@ static void module_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_module_info *i = o->info;
 
-	put_begin(d, "info", "{", 0);
-	put_value(d, "name", i->name);
-	put_value(d, "filename", i->filename);
-	put_value(d, "args", i->args);
+	spa_json_builder_object_push(&d->builder, "info", "{");
+	spa_json_builder_object_string(&d->builder, "name", i->name);
+	spa_json_builder_object_string(&d->builder, "filename", i->filename);
+	spa_json_builder_object_value(&d->builder, d->recurse, "args", i->args);
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void module_event_info(void *data, const struct pw_module_info *info)
@@ -745,13 +623,13 @@ static void factory_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_factory_info *i = o->info;
 
-	put_begin(d, "info", "{", 0);
-	put_value(d, "name", i->name);
-	put_value(d, "type", i->type);
-	put_int(d, "version", i->version);
+	spa_json_builder_object_push(&d->builder, "info", "{");
+	spa_json_builder_object_string(&d->builder, "name", i->name);
+	spa_json_builder_object_string(&d->builder, "type", i->type);
+	spa_json_builder_object_int(&d->builder, "version", i->version);
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void factory_event_info(void *data, const struct pw_factory_info *info)
@@ -808,11 +686,11 @@ static void device_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_device_info *i = o->info;
 
-	put_begin(d, "info", "{", 0);
+	spa_json_builder_object_push(&d->builder, "info", "{");
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_params(d, "params", i->params, i->n_params, &o->param_list);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void device_event_info(void *data, const struct pw_device_info *info)
@@ -904,17 +782,17 @@ static void node_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_node_info *i = o->info;
 
-	put_begin(d, "info", "{", 0);
-	put_int(d, "max-input-ports", i->max_input_ports);
-	put_int(d, "max-output-ports", i->max_output_ports);
+	spa_json_builder_object_push(&d->builder, "info", "{");
+	spa_json_builder_object_int(&d->builder, "max-input-ports", i->max_input_ports);
+	spa_json_builder_object_int(&d->builder, "max-output-ports", i->max_output_ports);
 	put_flags(d, "change-mask", i->change_mask, fl);
-	put_int(d, "n-input-ports", i->n_input_ports);
-	put_int(d, "n-output-ports", i->n_output_ports);
-	put_value(d, "state", pw_node_state_as_string(i->state));
-	put_value(d, "error", i->error);
+	spa_json_builder_object_int(&d->builder, "n-input-ports", i->n_input_ports);
+	spa_json_builder_object_int(&d->builder, "n-output-ports", i->n_output_ports);
+	spa_json_builder_object_string(&d->builder, "state", pw_node_state_as_string(i->state));
+	spa_json_builder_object_string(&d->builder, "error", i->error);
 	put_dict(d, "props", i->props);
 	put_params(d, "params", i->params, i->n_params, &o->param_list);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void node_event_info(void *data, const struct pw_node_info *info)
@@ -1006,12 +884,12 @@ static void port_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_port_info *i = o->info;
 
-	put_begin(d, "info", "{", 0);
-	put_value(d, "direction", pw_direction_as_string(i->direction));
+	spa_json_builder_object_push(&d->builder, "info", "{");
+	spa_json_builder_object_string(&d->builder, "direction", pw_direction_as_string(i->direction));
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
 	put_params(d, "params", i->params, i->n_params, &o->param_list);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void port_event_info(void *data, const struct pw_port_info *info)
@@ -1101,17 +979,17 @@ static void link_dump(struct object *o)
 	struct data *d = o->data;
 	struct pw_link_info *i = o->info;
 
-	put_begin(d, "info", "{", 0);
-	put_int(d, "output-node-id", i->output_node_id);
-	put_int(d, "output-port-id", i->output_port_id);
-	put_int(d, "input-node-id", i->input_node_id);
-	put_int(d, "input-port-id", i->input_port_id);
+	spa_json_builder_object_push(&d->builder, "info", "{");
+	spa_json_builder_object_int(&d->builder, "output-node-id", i->output_node_id);
+	spa_json_builder_object_int(&d->builder, "output-port-id", i->output_port_id);
+	spa_json_builder_object_int(&d->builder, "input-node-id", i->input_node_id);
+	spa_json_builder_object_int(&d->builder, "input-port-id", i->input_port_id);
 	put_flags(d, "change-mask", i->change_mask, fl);
-	put_value(d, "state", pw_link_state_as_string(i->state));
-	put_value(d, "error", i->error);
+	spa_json_builder_object_string(&d->builder, "state", pw_link_state_as_string(i->state));
+	spa_json_builder_object_string(&d->builder, "error", i->error);
 	put_pod(d, "format", i->format);
 	put_dict(d, "props", i->props);
-	put_end(d, "}", 0);
+	spa_json_builder_pop(&d->builder, "}");
 }
 
 static void link_event_info(void *data, const struct pw_link_info *info)
@@ -1161,39 +1039,6 @@ static const struct class link_class = {
 	.dump = link_dump,
 };
 
-static void json_dump_val(struct data *d, const char *key, struct spa_json *it, const char *value, int len)
-{
-	struct spa_json sub;
-	if (spa_json_is_array(value, len)) {
-		put_begin(d, key, "[", STATE_SIMPLE);
-		spa_json_enter(it, &sub);
-		while ((len = spa_json_next(&sub, &value)) > 0) {
-			json_dump_val(d, NULL, &sub, value, len);
-		}
-		put_end(d, "]", STATE_SIMPLE);
-	} else if (spa_json_is_object(value, len)) {
-		char val[1024];
-		put_begin(d, key, "{", STATE_SIMPLE);
-		spa_json_enter(it, &sub);
-		while ((len = spa_json_object_next(&sub, val, sizeof(val), &value)) > 0)
-			json_dump_val(d, val, &sub, value, len);
-		put_end(d, "}", STATE_SIMPLE);
-	} else if (spa_json_is_string(value, len)) {
-		put_encoded_string(d, key, strndupa(value, len));
-	} else {
-		put_value(d, key, strndupa(value, len));
-	}
-}
-
-static void json_dump(struct data *d, const char *key, const char *value)
-{
-	struct spa_json it[1];
-	int len;
-	const char *val;
-	if ((len = spa_json_begin(&it[0], value, strlen(value), &val)) >= 0)
-		json_dump_val(d, key, &it[0], val, len);
-}
-
 /* metadata */
 
 struct metadata_entry {
@@ -1210,22 +1055,21 @@ static void metadata_dump(struct object *o)
 	struct data *d = o->data;
 	struct metadata_entry *e;
 	put_dict(d, "props", &o->props->dict);
-	put_begin(d, "metadata", "[", 0);
+	spa_json_builder_object_push(&d->builder, "metadata", "[");
 	spa_list_for_each(e, &o->data_list, link) {
+		bool recurse = false;
 		if (e->changed == 0)
 			continue;
-		put_begin(d, NULL, "{", STATE_SIMPLE);
-		put_int(d, "subject", e->subject);
-		put_value(d, "key", e->key);
-		put_value(d, "type", e->type);
-		if (e->type != NULL && spa_streq(e->type, "Spa:String:JSON"))
-			json_dump(d, "value", e->value);
-		else
-			put_value(d, "value", e->value);
-		put_end(d, "}", STATE_SIMPLE);
+		spa_json_builder_array_push(&d->builder, "{-");
+		spa_json_builder_object_int(&d->builder, "subject", e->subject);
+		spa_json_builder_object_string(&d->builder, "key", e->key);
+		spa_json_builder_object_string(&d->builder, "type", e->type);
+		recurse =  (e->type != NULL && spa_streq(e->type, "Spa:String:JSON"));
+		spa_json_builder_object_value(&d->builder, recurse, "value", e->value);
+		spa_json_builder_pop(&d->builder, "}-");
 		e->changed = 0;
 	}
-	put_end(d, "]", 0);
+	spa_json_builder_pop(&d->builder, "]");
 }
 
 static struct metadata_entry *metadata_find(struct object *o, uint32_t subject, const char *key)
@@ -1442,18 +1286,20 @@ static void registry_event_global_remove(void *data, uint32_t id)
 		return;
 
 	if (d->monitor && (!d->pattern || object_matches(o, d->pattern))) {
-		d->state = STATE_FIRST;
-		if (d->state == STATE_FIRST)
-			put_begin(d, NULL, "[", 0);
-		put_begin(d, NULL, "{", 0);
-		put_int(d, "id", o->id);
+		d->state = 0;
+		if (d->state++ == 0)
+			spa_json_builder_array_push(&d->builder, "[");
+		spa_json_builder_array_push(&d->builder, "{");
+		spa_json_builder_object_int(&d->builder, "id", o->id);
 		if (o->class && o->class->dump)
-			put_value(d, "info", NULL);
+			spa_json_builder_object_null(&d->builder, "info");
 		else if (o->props)
-			put_value(d, "props", NULL);
-		put_end(d, "}", 0);
-		if (d->state != STATE_FIRST)
-			put_end(d, "]\n", 0);
+			spa_json_builder_object_null(&d->builder, "props");
+		spa_json_builder_pop(&d->builder, "}");
+		if (d->state != 0) {
+			spa_json_builder_pop(&d->builder, "]");
+			fputs("\n", d->builder.f);
+		}
 	}
 
 	object_destroy(o);
@@ -1478,28 +1324,30 @@ static void dump_objects(struct data *d)
 
 	struct object *o;
 
-	d->state = STATE_FIRST;
+	d->state = 0;
 	spa_list_for_each(o, &d->object_list, link) {
 		if (d->pattern != NULL && !object_matches(o, d->pattern))
 			continue;
 		if (o->changed == 0)
 			continue;
-		if (d->state == STATE_FIRST)
-			put_begin(d, NULL, "[", 0);
-		put_begin(d, NULL, "{", 0);
-		put_int(d, "id", o->id);
-		put_value(d, "type", o->type);
-		put_int(d, "version", o->version);
+		if (d->state++ == 0)
+			spa_json_builder_array_push(&d->builder, "[");
+		spa_json_builder_array_push(&d->builder, "{");
+		spa_json_builder_object_int(&d->builder, "id", o->id);
+		spa_json_builder_object_string(&d->builder, "type", o->type);
+		spa_json_builder_object_int(&d->builder, "version", o->version);
 		put_flags(d, "permissions", o->permissions, fl);
 		if (o->class && o->class->dump)
 			o->class->dump(o);
 		else if (o->props)
 			put_dict(d, "props", &o->props->dict);
-		put_end(d, "}", 0);
+		spa_json_builder_pop(&d->builder, "}");
 		o->changed = 0;
 	}
-	if (d->state != STATE_FIRST)
-		put_end(d, "]\n", 0);
+	if (d->state != 0) {
+		spa_json_builder_pop(&d->builder, "]");
+		fputs("\n", d->builder.f);
+	}
 }
 
 static void on_core_error(void *data, uint32_t id, int seq, int res, const char *message)
@@ -1564,7 +1412,8 @@ static void show_help(struct data *data, const char *name, bool error)
 		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n"
 		"  -R, --raw                             force raw output\n"
 		"  -i, --indent                          indentation amount (default 2)\n"
-		"  -s, --spa                             SPA JSON output\n",
+		"  -s, --spa                             SPA JSON output\n"
+		"  -c, --recurse                         Reformat values recursively\n",
 		name);
 }
 
@@ -1584,9 +1433,11 @@ int main(int argc, char *argv[])
 		{ "raw",	no_argument,		NULL, 'R' },
 		{ "indent",	required_argument,	NULL, 'i' },
 		{ "spa",	no_argument,		NULL, 's' },
+		{ "recurse",	no_argument,		NULL, 'c' },
 		{ NULL, 0, NULL, 0}
 	};
-	int c;
+	int c, flags = 0, indent = -1;
+	bool colors = false, raw = false;
 
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
@@ -1596,11 +1447,7 @@ int main(int argc, char *argv[])
 		colors = true;
 	setlinebuf(data.out);
 
-	data.comma_char = ",";
-	data.keysep_char = ":";
-	data.indent = INDENT;
-
-	while ((c = getopt_long(argc, argv, "hVr:mNC::Ri:s", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:mNC::Ri:sc", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_help(&data, argv[0], false);
@@ -1640,20 +1487,27 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'i' :
-			data.indent = atoi(optarg);
+			indent = atoi(optarg);
 			break;
 		case 's' :
-			data.comma_char = "";
-			data.keysep_char = " =";
-			data.simple_string = true;
+			flags |= SPA_JSON_BUILDER_FLAG_SIMPLE;
+			break;
+		case 'c' :
+			data.recurse = true;
 			break;
 		default:
 			show_help(&data, argv[0], true);
 			return -1;
 		}
 	}
-	if (raw)
-		data.indent = 0;
+	if (!raw)
+		flags |= SPA_JSON_BUILDER_FLAG_PRETTY;
+	if (colors)
+		flags |= SPA_JSON_BUILDER_FLAG_COLOR;
+
+	spa_json_builder_file(&data.builder, data.out, flags);
+	if (indent >= 0)
+		data.builder.indent = indent;
 
 	if (optind < argc)
 		data.pattern = argv[optind++];

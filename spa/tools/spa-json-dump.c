@@ -15,27 +15,28 @@
 
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/debug/file.h>
 
 #define DEFAULT_INDENT	2
 
 struct data {
 	const char *filename;
-	FILE *file;
+
+	FILE *out;
+	struct spa_json_builder builder;
 
 	void *data;
 	size_t size;
-
-	int indent;
-	bool simple_string;
-	const char *comma;
-	const char *key_sep;
 };
 
-#define OPTIONS		"hi:s"
+#define OPTIONS		"hNC:Ri:s"
 static const struct option long_options[] = {
 	{ "help",	no_argument,		NULL, 'h'},
 
+	{ "no-colors",	no_argument,		NULL, 'N' },
+	{ "color",	optional_argument,	NULL, 'C' },
+	{ "raw",	no_argument,		NULL, 'R' },
 	{ "indent",	required_argument,	NULL, 'i' },
 	{ "spa",	no_argument,		NULL, 's' },
 
@@ -53,72 +54,21 @@ static void show_usage(struct data *d, const char *name, bool is_error)
 		"  -h, --help                            Show this help\n"
 		"\n");
 	fprintf(fp,
+		"  -N, --no-colors                       disable color output\n"
+		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n"
+		"  -R, --raw                             force raw output\n"
 		"  -i  --indent                          set indent (default %d)\n"
 		"  -s  --spa                             use simplified SPA JSON\n"
 		"\n",
 		DEFAULT_INDENT);
 }
 
-#define REJECT	"\"\\'=:,{}[]()#"
-
-static bool is_simple_string(const char *val, int len)
+static int dump(struct data *d, struct spa_json *it, const char *key, const char *value, int len)
 {
-	int i;
-	for (i = 0; i < len; i++) {
-		if (val[i] < 0x20 || strchr(REJECT, val[i]) != NULL)
-			return false;
-	}
-	return true;
-}
-
-static void encode_string(struct data *d, const char *val, int len)
-{
-	FILE *f = d->file;
-	int i;
-	if (d->simple_string && is_simple_string(val, len)) {
-		fprintf(f, "%.*s", len, val);
-		return;
-	}
-	fprintf(f, "\"");
-	for (i = 0; i < len; i++) {
-		char v = val[i];
-		switch (v) {
-		case '\n':
-			fprintf(f, "\\n");
-			break;
-		case '\r':
-			fprintf(f, "\\r");
-			break;
-		case '\b':
-			fprintf(f, "\\b");
-			break;
-		case '\t':
-			fprintf(f, "\\t");
-			break;
-		case '\f':
-			fprintf(f, "\\f");
-			break;
-		case '\\': case '"':
-			fprintf(f, "\\%c", v);
-			break;
-		default:
-			if (v > 0 && v < 0x20)
-				fprintf(f, "\\u%04x", v);
-			else
-				fprintf(f, "%c", v);
-			break;
-		}
-	}
-	fprintf(f, "\"");
-}
-
-static int dump(struct data *d, int indent, struct spa_json *it, const char *value, int len)
-{
-	FILE *file = d->file;
+	struct spa_json_builder *b = &d->builder;
 	struct spa_json sub;
 	bool toplevel = false;
-	int count = 0, res;
-	char key[1024];
+	int res;
 
 	if (!value) {
 		toplevel = true;
@@ -127,29 +77,22 @@ static int dump(struct data *d, int indent, struct spa_json *it, const char *val
 	}
 
 	if (spa_json_is_array(value, len)) {
-		fprintf(file, "[");
+		spa_json_builder_object_push(b, key, "[");
 		spa_json_enter(it, &sub);
 		while ((len = spa_json_next(&sub, &value)) > 0) {
-			fprintf(file, "%s\n%*s", count++ > 0 ? d->comma : "",
-					indent+d->indent, "");
-			if ((res = dump(d, indent+d->indent, &sub, value, len)) < 0)
+			if ((res = dump(d, &sub, NULL, value, len)) < 0)
 				return res;
 		}
-		fprintf(file, "%s%*s]", count > 0 ? "\n" : "",
-				count > 0 ? indent : 0, "");
+		spa_json_builder_pop(b, "]");
 	} else if (spa_json_is_object(value, len)) {
-		fprintf(file, "{");
+		char k[1024];
+		spa_json_builder_object_push(b, key, "{");
 		if (!toplevel)
 			spa_json_enter(it, &sub);
 		else
 			sub = *it;
-		while ((len = spa_json_object_next(&sub, key, sizeof(key), &value)) > 0) {
-			fprintf(file, "%s\n%*s",
-					count++ > 0 ? d->comma : "",
-					indent+d->indent, "");
-			encode_string(d, key, strlen(key));
-			fprintf(file, "%s ", d->key_sep);
-			res = dump(d, indent+d->indent, &sub, value, len);
+		while ((len = spa_json_object_next(&sub, k, sizeof(k), &value)) > 0) {
+			res = dump(d, &sub, k, value, len);
 			if (res < 0) {
 				if (toplevel)
 					*it = sub;
@@ -158,18 +101,10 @@ static int dump(struct data *d, int indent, struct spa_json *it, const char *val
 		}
 		if (toplevel)
 			*it = sub;
-		fprintf(file, "%s%*s}", count > 0 ? "\n" : "",
-				count > 0 ? indent : 0, "");
-	} else if (spa_json_is_string(value, len) ||
-	    spa_json_is_null(value, len) ||
-	    spa_json_is_bool(value, len) ||
-	    spa_json_is_int(value, len) ||
-	    spa_json_is_float(value, len)) {
-		fprintf(file, "%.*s", len, value);
+		spa_json_builder_pop(b, "}");
 	} else {
-		encode_string(d, value, len);
+		spa_json_builder_add_simple(b, key, INT_MAX, 0, value, len);
 	}
-
 	if (spa_json_get_error(it, NULL, NULL))
 		return -EINVAL;
 
@@ -192,12 +127,12 @@ static int process_json(struct data *d)
 		len = 0;
 	}
 
-	res = dump(d, 0, &it, value, len);
+	res = dump(d, &it, NULL, value, len);
 	if (spa_json_next(&it, &value) < 0)
 		res = -EINVAL;
 
-	fprintf(d->file, "\n");
-	fflush(d->file);
+	fprintf(d->builder.f, "\n");
+	fflush(d->builder.f);
 
 	if (res < 0) {
 		struct spa_error_location loc;
@@ -257,30 +192,50 @@ int main(int argc, char *argv[])
 	int c;
 	int longopt_index = 0;
 	int fd, res, exit_code = EXIT_FAILURE;
+	int flags = 0, indent = -1;
 	struct data d;
 	struct stat sbuf;
+	bool raw = false, colors = false;
 
 	spa_zero(d);
-	d.file = stdout;
 
 	d.filename = "-";
-	d.simple_string = false;
-	d.comma = ",";
-	d.key_sep = ":";
-	d.indent = DEFAULT_INDENT;
+	d.out = stdout;
+
+	if (getenv("NO_COLOR") == NULL && isatty(fileno(d.out)))
+		colors = true;
+	setlinebuf(d.out);
 
 	while ((c = getopt_long(argc, argv, OPTIONS, long_options, &longopt_index)) != -1) {
 		switch (c) {
 		case 'h' :
 			show_usage(&d, argv[0], false);
 			return 0;
+		case 'N' :
+			colors = false;
+			break;
+		case 'C' :
+			if (optarg == NULL || !strcmp(optarg, "auto"))
+				break; /* nothing to do, tty detection was done
+					  before parsing options */
+			else if (!strcmp(optarg, "never"))
+				colors = false;
+			else if (!strcmp(optarg, "always"))
+				colors = true;
+			else {
+				fprintf(stderr, "Unknown color: %s\n", optarg);
+				show_usage(&d, argv[0], true);
+				return -1;
+			}
+			break;
+		case 'R':
+			raw = true;
+			break;
 		case 'i':
-			d.indent = atoi(optarg);
+			indent = atoi(optarg);
 			break;
 		case 's':
-			d.simple_string = true;
-			d.comma = "";
-			d.key_sep = " =";
+			flags |= SPA_JSON_BUILDER_FLAG_SIMPLE;
 			break;
 		default:
 			show_usage(&d, argv[0], true);
@@ -307,6 +262,15 @@ int main(int argc, char *argv[])
 		goto error_close;
 	}
 	d.size = sbuf.st_size;
+
+	if (!raw)
+		flags |= SPA_JSON_BUILDER_FLAG_PRETTY;
+	if (colors)
+		flags |= SPA_JSON_BUILDER_FLAG_COLOR;
+
+	spa_json_builder_file(&d.builder, d.out, flags);
+	if (indent >= 0)
+		d.builder.indent = indent;
 
 	res = process_json(&d);
 	if (res < 0)

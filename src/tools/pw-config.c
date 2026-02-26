@@ -25,6 +25,7 @@ struct data {
 	bool opt_recurse;
 	bool opt_newline;
 	bool opt_colors;
+	bool opt_simple;
 	struct pw_properties *conf;
 	struct pw_properties *assemble;
 	int count;
@@ -39,6 +40,7 @@ static void print_all_properties(struct data *d, struct pw_properties *props)
 			(d->opt_recurse ? PW_PROPERTIES_FLAG_RECURSE : 0) |
 			(d->opt_colors ? PW_PROPERTIES_FLAG_COLORS : 0) |
 			(d->array ? PW_PROPERTIES_FLAG_ARRAY : 0) |
+			(d->opt_simple ? PW_PROPERTIES_FLAG_SIMPLE : 0) |
 			PW_PROPERTIES_FLAG_ENCLOSE);
 	fprintf(stdout, "\n");
 }
@@ -128,7 +130,8 @@ static void show_help(const char *name, bool error)
 		"  -L, --no-newline                      Omit newlines after values\n"
 		"  -r, --recurse                         Reformat config sections recursively\n"
 		"  -N, --no-colors                       disable color output\n"
-		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n",
+		"  -C, --color[=WHEN]                    whether to enable color support. WHEN is `never`, `always`, or `auto`\n"
+		"  -s, --spa                             SPA JSON output\n",
 		name, DEFAULT_NAME, DEFAULT_PREFIX);
 }
 
@@ -146,6 +149,7 @@ int main(int argc, char *argv[])
 		{ "recurse",	no_argument,		NULL, 'r' },
 		{ "no-colors",	no_argument,		NULL, 'N' },
 		{ "color",	optional_argument,	NULL, 'C' },
+		{ "spa",	no_argument,		NULL, 's' },
 		{ NULL, 0, NULL, 0}
 	};
 
@@ -153,13 +157,14 @@ int main(int argc, char *argv[])
 	d.opt_prefix = NULL;
 	d.opt_recurse = false;
 	d.opt_newline = true;
+	d.opt_simple = false;
 	if (getenv("NO_COLOR") == NULL && isatty(fileno(stdout)))
 		d.opt_colors = true;
 	d.opt_cmd = "paths";
 
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVn:p:LrNC", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVn:p:LrNCs", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -200,6 +205,9 @@ int main(int argc, char *argv[])
 				show_help(argv[0], true);
 				return -1;
 			}
+			break;
+		case 's' :
+			d.opt_simple = true;
 			break;
 		default:
 			show_help(argv[0], true);

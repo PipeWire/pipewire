@@ -154,6 +154,7 @@ pw_properties_iterate(const struct pw_properties *properties, void **state);
 #define PW_PROPERTIES_FLAG_ENCLOSE	(1<<2)
 #define PW_PROPERTIES_FLAG_ARRAY	(1<<3)
 #define PW_PROPERTIES_FLAG_COLORS	(1<<4)
+#define PW_PROPERTIES_FLAG_SIMPLE	(1<<5)
 int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags);
 
 PW_API_PROPERTIES bool pw_properties_parse_bool(const char *value) {

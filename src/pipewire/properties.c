@@ -6,7 +6,7 @@
 #include <stdarg.h>
 
 #include <spa/utils/ansi.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/utils/string.h>
 #include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
@@ -800,156 +800,32 @@ const char *pw_properties_iterate(const struct pw_properties *properties, void *
 	return pw_array_get_unchecked(&impl->items, index, struct spa_dict_item)->key;
 }
 
-#define NORMAL(c)	((c)->colors ? SPA_ANSI_RESET : "")
-#define LITERAL(c)	((c)->colors ? SPA_ANSI_BRIGHT_MAGENTA : "")
-#define NUMBER(c)	((c)->colors ? SPA_ANSI_BRIGHT_CYAN : "")
-#define STRING(c)	((c)->colors ? SPA_ANSI_BRIGHT_GREEN : "")
-#define KEY(c)		((c)->colors ? SPA_ANSI_BRIGHT_BLUE : "")
-#define CONTAINER(c)	((c)->colors ? SPA_ANSI_BRIGHT_YELLOW : "")
-
-struct dump_config {
-	FILE *file;
-	int indent;
-	const char *sep;
-	bool colors;
-	bool recurse;
-};
-
-static int encode_string(struct dump_config *c, const char *before,
-		const char *val, int size, const char *after)
-{
-	FILE *f = c->file;
-	int i, len = 0;
-	len += fprintf(f, "%s\"", before);
-	for (i = 0; i < size; i++) {
-		char v = val[i];
-		switch (v) {
-		case '\n':
-			len += fprintf(f, "\\n");
-			break;
-		case '\r':
-			len += fprintf(f, "\\r");
-			break;
-		case '\b':
-			len += fprintf(f, "\\b");
-			break;
-		case '\t':
-			len += fprintf(f, "\\t");
-			break;
-		case '\f':
-			len += fprintf(f, "\\f");
-			break;
-		case '\\': case '"':
-			len += fprintf(f, "\\%c", v);
-			break;
-		default:
-			if (v > 0 && v < 0x20)
-				len += fprintf(f, "\\u%04x", v);
-			else
-				len += fprintf(f, "%c", v);
-			break;
-		}
-	}
-	len += fprintf(f, "\"%s", after);
-	return len-1;
-}
-
-static int dump(struct dump_config *c, int indent, struct spa_json *it, const char *value, int len)
-{
-	FILE *file = c->file;
-	struct spa_json sub;
-	int count = 0;
-	char key[1024];
-
-	if (value == NULL || len == 0) {
-		fprintf(file, "%snull%s", LITERAL(c), NORMAL(c));
-	} else if (spa_json_is_container(value, len) && !c->recurse) {
-		spa_json_enter_container(it, &sub, value[0]);
-		if (spa_json_container_len(&sub, value, len) == len)
-			fprintf(file, "%s%.*s%s", CONTAINER(c), len, value, NORMAL(c));
-		else
-			encode_string(c, STRING(c), value, len, NORMAL(c));
-	} else if (spa_json_is_array(value, len)) {
-		fprintf(file, "[");
-		spa_json_enter(it, &sub);
-		indent += c->indent;
-		while ((len = spa_json_next(&sub, &value)) > 0) {
-			fprintf(file, "%s%s%*s", count++ > 0 ? "," : "",
-					c->sep, indent, "");
-			dump(c, indent, &sub, value, len);
-		}
-		indent -= c->indent;
-		fprintf(file, "%s%*s]", count > 0 ? c->sep : "",
-				count > 0 ? indent : 0, "");
-	} else if (spa_json_is_object(value, len)) {
-		fprintf(file, "{");
-		spa_json_enter(it, &sub);
-		indent += c->indent;
-		while ((len = spa_json_object_next(&sub, key, sizeof(key), &value)) > 0) {
-			fprintf(file, "%s%s%*s",
-					count++ > 0 ? "," : "",
-					c->sep, indent, "");
-			encode_string(c, KEY(c), key, strlen(key), NORMAL(c));
-			fprintf(file, ": ");
-			dump(c, indent, &sub, value, len);
-		}
-		indent -= c->indent;
-		fprintf(file, "%s%*s}", count > 0 ? c->sep : "",
-				count > 0 ? indent : 0, "");
-	} else if (spa_json_is_null(value, len) ||
-	    spa_json_is_bool(value, len)) {
-		fprintf(file, "%s%.*s%s", LITERAL(c), len, value, NORMAL(c));
-	} else if (spa_json_is_int(value, len) ||
-	    spa_json_is_float(value, len)) {
-		fprintf(file, "%s%.*s%s", NUMBER(c), len, value, NORMAL(c));
-	} else if (spa_json_is_string(value, len)) {
-		fprintf(file, "%s%.*s%s", STRING(c), len, value, NORMAL(c));
-	} else {
-		encode_string(c, STRING(c), value, len, NORMAL(c));
-	}
-	return 0;
-}
-
 SPA_EXPORT
 int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t flags)
 {
 	const struct spa_dict_item *it;
-	int count = 0;
-	struct dump_config cfg = {
-		.file = f,
-		.indent = flags & PW_PROPERTIES_FLAG_NL ? 2 : 0,
-		.sep = flags & PW_PROPERTIES_FLAG_NL ? "\n" : " ",
-		.colors = SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_COLORS),
-		.recurse = SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_RECURSE),
-	}, *c = &cfg;
-	const char *enc = flags & PW_PROPERTIES_FLAG_ARRAY ? "[]" : "{}";
+	int count = 0, fl = 0;
+	struct spa_json_builder b;
+	bool array = flags & PW_PROPERTIES_FLAG_ARRAY;
+	bool recurse = flags & PW_PROPERTIES_FLAG_RECURSE;
+
+	if (flags & PW_PROPERTIES_FLAG_NL)
+		fl |= SPA_JSON_BUILDER_FLAG_PRETTY;
+	if (flags & PW_PROPERTIES_FLAG_COLORS)
+		fl |= SPA_JSON_BUILDER_FLAG_COLOR;
+	if (flags & PW_PROPERTIES_FLAG_SIMPLE)
+		fl |= SPA_JSON_BUILDER_FLAG_SIMPLE;
+
+	spa_json_builder_file(&b, f, fl);
 
 	if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_ENCLOSE))
-		fprintf(f, "%c", enc[0]);
+		spa_json_builder_array_push(&b, array ? "[" : "{");
 
 	spa_dict_for_each(it, dict) {
-		char key[1024];
-		int len;
-		const char *value;
-		struct spa_json sub;
-
-		fprintf(f, "%s%s%*s", count == 0 ? "" : ",", c->sep, c->indent, "");
-
-		if (!(flags & PW_PROPERTIES_FLAG_ARRAY)) {
-			if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
-				continue;
-			fprintf(f, "%s%s%s: ", KEY(c), key, NORMAL(c));
-		}
-		value = it->value;
-		len = value ? strlen(value) : 0;
-		spa_json_init(&sub, value, len);
-		if (c->recurse && spa_json_next(&sub, &value) < 0)
-			break;
-
-		dump(c, c->indent, &sub, value, len);
+		spa_json_builder_object_value(&b, recurse, array ? NULL : it->key, it->value);
 		count++;
 	}
 	if (SPA_FLAG_IS_SET(flags, PW_PROPERTIES_FLAG_ENCLOSE))
-		fprintf(f, "%s%c", c->sep, enc[1]);
+		spa_json_builder_pop(&b, array ? "]" : "}");
 	return count;
 }

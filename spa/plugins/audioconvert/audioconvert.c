@@ -16,6 +16,7 @@
 #include <spa/utils/result.h>
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
 #include <spa/utils/ratelimit.h>
@@ -1441,7 +1442,7 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 		spa_list_remove(&pending->link);
 		insert_graph(&impl->active_graphs, pending);
 
-		impl->graph_descs[order] = strdup(graph);
+		impl->graph_descs[order] = spa_json_builder_reformat(graph, 0);
 
 		spa_log_info(impl->log, "loading filter-graph order:%d", order);
 	}

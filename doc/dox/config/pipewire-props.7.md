@@ -1375,9 +1375,9 @@ Default: as per QoS preset.
 
 @PAR@ device-prop  bluez5.bap.force-target-latency = "balanced" # string
 BAP QoS target latency profile forced for QoS configuration selection.
-If not set or set to "balanced", both low-latency and high-reliabilty QoS configuration table are used.
+If not set or set to "balanced", both low-latency and high-reliability QoS configuration table are used.
 This property is experimental.
-Available: low-latency, high-reliabilty, balanced
+Available: low-latency, high-reliability, balanced
 
 ## Node properties
 

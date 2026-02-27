@@ -1116,7 +1116,7 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	struct client *c;
 	struct pw_properties *props;
 
-	name = spa_dict_lookup(info, "zeroconf.hostname");
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 
 	if (impl->single_server && !spa_list_is_empty(&impl->clients))
 		return;
@@ -1127,8 +1127,8 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	props = pw_properties_copy(impl->stream_props);
 	pw_properties_update(props, info);
 
-	addr = spa_dict_lookup(info, "zeroconf.address");
-	port = spa_dict_lookup(info, "zeroconf.port");
+	addr = spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS);
+	port = spa_dict_lookup(info, PW_KEY_ZEROCONF_PORT);
 	path = spa_dict_lookup(info, "path");
 
 	pw_properties_set(props, "sendspin.ip", addr);
@@ -1144,7 +1144,7 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 	const char *name;
 	struct client *c;
 
-	name = spa_dict_lookup(info, "zeroconf.hostname");
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 
 	if ((c = client_find(impl, name)) == NULL)
 		return;
@@ -1341,9 +1341,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			str = pw_properties_get(props, "sendspin.client-id");
 			pw_zeroconf_set_announce(impl->zeroconf, NULL,
 				&SPA_DICT_ITEMS(
-					SPA_DICT_ITEM("zeroconf.service", PW_SENDSPIN_CLIENT_SERVICE),
-					SPA_DICT_ITEM("zeroconf.session", str),
-					SPA_DICT_ITEM("zeroconf.port", port),
+					SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, PW_SENDSPIN_CLIENT_SERVICE_TYPE),
+					SPA_DICT_ITEM(PW_KEY_ZEROCONF_NAME, str),
+					SPA_DICT_ITEM(PW_KEY_ZEROCONF_PORT, port),
 					SPA_DICT_ITEM("path", path)));
 		}
 	}
@@ -1371,7 +1371,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		if (impl->zeroconf) {
 			pw_zeroconf_set_browse(impl->zeroconf, NULL,
 				&SPA_DICT_ITEMS(
-					SPA_DICT_ITEM("zeroconf.service", PW_SENDSPIN_SERVER_SERVICE)));
+					SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, PW_SENDSPIN_SERVER_SERVICE_TYPE)));
 		}
 	}
 

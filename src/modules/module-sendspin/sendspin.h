@@ -13,8 +13,8 @@
 extern "C" {
 #endif
 
-#define PW_SENDSPIN_SERVER_SERVICE	"_sendspin-server._tcp"
-#define PW_SENDSPIN_CLIENT_SERVICE	"_sendspin._tcp"
+#define PW_SENDSPIN_SERVER_SERVICE_TYPE	"_sendspin-server._tcp"
+#define PW_SENDSPIN_CLIENT_SERVICE_TYPE	"_sendspin._tcp"
 
 #define PW_SENDSPIN_DEFAULT_SERVER_PORT	8927
 #define PW_SENDSPIN_DEFAULT_CLIENT_PORT	8928

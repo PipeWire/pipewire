@@ -280,22 +280,22 @@ static int rule_matched(void *data, const char *location, const char *action,
 static void pw_properties_from_zeroconf(const char *key, const char *value,
 		struct pw_properties *props)
 {
-	if (spa_streq(key, "zeroconf.ifindex")) {
+	if (spa_streq(key, PW_KEY_ZEROCONF_IFINDEX)) {
 		pw_properties_set(props, "raop.ifindex", value);
 	}
-	else if (spa_streq(key, "zeroconf.address")) {
+	else if (spa_streq(key, PW_KEY_ZEROCONF_ADDRESS)) {
 		pw_properties_set(props, "raop.ip", value);
 	}
-	else if (spa_streq(key, "zeroconf.port")) {
+	else if (spa_streq(key, PW_KEY_ZEROCONF_PORT)) {
 		pw_properties_set(props, "raop.port", value);
 	}
-	else if (spa_streq(key, "zeroconf.name")) {
+	else if (spa_streq(key, PW_KEY_ZEROCONF_NAME)) {
 		pw_properties_set(props, "raop.name", value);
 	}
-	else if (spa_streq(key, "zeroconf.hostname")) {
+	else if (spa_streq(key, PW_KEY_ZEROCONF_HOSTNAME)) {
 		pw_properties_set(props, "raop.hostname", value);
 	}
-	else if (spa_streq(key, "zeroconf.domain")) {
+	else if (spa_streq(key, PW_KEY_ZEROCONF_DOMAIN)) {
 		pw_properties_set(props, "raop.domain", value);
 	}
 	else if (spa_streq(key, "device")) {
@@ -372,7 +372,7 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	const struct spa_dict_item *it;
 	struct pw_properties *props = NULL;
 
-	name = spa_dict_lookup(info, "zeroconf.name");
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 
 	t = find_tunnel(impl, name);
 	if (t == NULL) {
@@ -384,7 +384,7 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	if (t->module != NULL) {
 		pw_log_info("found duplicate mdns entry for %s on IP %s - "
 				"skipping tunnel creation", name,
-				spa_dict_lookup(info, "zeroconf.address"));
+				spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS));
 		goto done;
 	}
 
@@ -423,7 +423,7 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 	const char *name;
 	struct tunnel *t;
 
-	name = spa_dict_lookup(info, "zeroconf.name");
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 
 	if ((t = find_tunnel(impl, name)) == NULL)
 		return;
@@ -468,7 +468,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((local = pw_properties_get(impl->properties, "raop.discover-local")) == NULL)
 		local = "false";
-	pw_properties_set(impl->properties, "zeroconf.discover-local", local);
+	pw_properties_set(impl->properties, PW_KEY_ZEROCONF_DISCOVER_LOCAL, local);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
@@ -483,7 +483,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_zeroconf_set_browse(impl->zeroconf, NULL,
 		&SPA_DICT_ITEMS(
-			SPA_DICT_ITEM("zeroconf.service", SERVICE_TYPE_SINK)));
+			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, SERVICE_TYPE_SINK)));
 	return 0;
 
 error_errno:

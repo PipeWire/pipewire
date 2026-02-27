@@ -239,8 +239,8 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 	struct pw_impl_module *mod;
 	struct pw_properties *props = NULL;
 
-	name = spa_dict_lookup(info, "zeroconf.name");
-	type = spa_dict_lookup(info, "zeroconf.type");
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
+	type = spa_dict_lookup(info, PW_KEY_ZEROCONF_TYPE);
 	mode = strstr(type, "sink") ? "sink" : "source";
 
 	tinfo = TUNNEL_INFO(.name = name, .mode = mode);
@@ -266,7 +266,7 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 	spa_dict_for_each(it, info)
 		pw_properties_from_zeroconf(it->key, it->value, props);
 
-	host_name = spa_dict_lookup(info, "zeroconf.hostname");
+	host_name = spa_dict_lookup(info, PW_KEY_ZEROCONF_HOSTNAME);
 
 	if ((device = pw_properties_get(props, PW_KEY_TARGET_OBJECT)) != NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME,
@@ -278,8 +278,8 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 	pw_properties_set(props, "tunnel.mode", mode);
 
 	pw_properties_setf(props, "pulse.server.address", " [%s]:%s",
-			spa_dict_lookup(info, "zeroconf.address"),
-			spa_dict_lookup(info, "zeroconf.port"));
+			spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS),
+			spa_dict_lookup(info, PW_KEY_ZEROCONF_PORT));
 
 	desc = pw_properties_get(props, "tunnel.remote.description");
 	if (desc == NULL)
@@ -347,8 +347,8 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 	struct tunnel *t;
 	struct tunnel_info tinfo;
 
-	name = spa_dict_lookup(info, "zeroconf.name");
-	type = spa_dict_lookup(info, "zeroconf.type");
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
+	type = spa_dict_lookup(info, PW_KEY_ZEROCONF_TYPE);
 	mode = strstr(type, "sink") ? "sink" : "source";
 
 	tinfo = TUNNEL_INFO(.name = name, .mode = mode);
@@ -397,7 +397,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	discover_local = pw_properties_get_bool(impl->properties,
 			"pulse.discover-local", false);
-	pw_properties_setf(impl->properties, "zeroconf.discover-local",
+	pw_properties_setf(impl->properties, PW_KEY_ZEROCONF_DISCOVER_LOCAL,
 			discover_local ? "true" : "false");
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
@@ -413,11 +413,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_zeroconf_set_browse(impl->zeroconf, SERVICE_TYPE_SINK,
 		&SPA_DICT_ITEMS(
-			SPA_DICT_ITEM("zeroconf.service", SERVICE_TYPE_SINK)));
+			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, SERVICE_TYPE_SINK)));
 
 	pw_zeroconf_set_browse(impl->zeroconf, SERVICE_TYPE_SOURCE,
 		&SPA_DICT_ITEMS(
-			SPA_DICT_ITEM("zeroconf.service", SERVICE_TYPE_SOURCE)));
+			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, SERVICE_TYPE_SOURCE)));
 
 	return 0;
 

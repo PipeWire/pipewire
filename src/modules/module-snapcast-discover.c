@@ -614,14 +614,14 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	int res, family, port = 0, ifindex = 0, protocol = 4;
 	const struct spa_dict_item *it;
 
-	name = spa_dict_lookup(info, "zeroconf.name");
-	address = spa_dict_lookup(info, "zeroconf.address");
-	if ((str = spa_dict_lookup(info, "zeroconf.protocol")))
-		protocol = atoi(str);
-	if ((str = spa_dict_lookup(info, "zeroconf.port")))
-		port = atoi(str);
-	if ((str = spa_dict_lookup(info, "zeroconf.ifindex")))
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_IFINDEX)))
 		ifindex = atoi(str);
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_PROTO)))
+		protocol = atoi(str);
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
+	address = spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS);
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_PORT)))
+		port = atoi(str);
 
 	tinfo = TUNNEL_INFO(.name = name, .port = port);
 
@@ -648,8 +648,8 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	pw_properties_setf(props, "snapcast.ifindex", "%u", ifindex);
 	pw_properties_setf(props, "snapcast.port", "%u", port);
 	pw_properties_set(props, "snapcast.name", name);
-	pw_properties_set(props, "snapcast.hostname", spa_dict_lookup(info, "zeroconf.hostname"));
-	pw_properties_set(props, "snapcast.domain", spa_dict_lookup(info, "zeroconf.domain"));
+	pw_properties_set(props, "snapcast.hostname", spa_dict_lookup(info, PW_KEY_ZEROCONF_HOSTNAME));
+	pw_properties_set(props, "snapcast.domain", spa_dict_lookup(info, PW_KEY_ZEROCONF_DOMAIN));
 
 	free((char*)t->info.host);
 	t->info.host = strdup(pw_properties_get(props, "snapcast.ip"));
@@ -724,7 +724,7 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 	struct tunnel_info tinfo;
 	const char *name;
 
-	name = spa_dict_lookup(info, "zeroconf.name");
+	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 
 	tinfo = TUNNEL_INFO(.name = name);
 
@@ -740,7 +740,7 @@ static int make_browser(struct impl *impl, const char *service_type)
 	int res;
 	if ((res = pw_zeroconf_set_browse(impl->zeroconf, service_type,
 		&SPA_DICT_ITEMS(
-			SPA_DICT_ITEM("zeroconf.service", service_type)))) < 0) {
+			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, service_type)))) < 0) {
 		pw_log_error("can't make browser for %s: %s",
 				service_type, spa_strerror(res));
 		return res;
@@ -786,7 +786,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->discover_local =  pw_properties_get_bool(impl->properties,
 			"snapcast.discover-local", false);
-	pw_properties_set(props, "zeroconf.discover-local",
+	pw_properties_set(props, PW_KEY_ZEROCONF_DISCOVER_LOCAL,
 			impl->discover_local ? "true" : "false");
 
 	impl->zeroconf = pw_zeroconf_new(impl->context, &props->dict);

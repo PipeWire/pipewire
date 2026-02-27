@@ -13,6 +13,20 @@
 extern "C" {
 #endif
 
+#define PW_KEY_ZEROCONF_DISCOVER_LOCAL	"zeroconf.discover-local"	/* discover local services, true by default */
+
+#define PW_KEY_ZEROCONF_IFINDEX		"zeroconf.ifindex"		/* interface index */
+#define PW_KEY_ZEROCONF_PROTO		"zeroconf.proto"		/* protocol version, "4" ot "6" */
+#define PW_KEY_ZEROCONF_NAME		"zeroconf.name"			/* session name */
+#define PW_KEY_ZEROCONF_TYPE		"zeroconf.type"			/* service type, like "_http._tcp", not NULL */
+#define PW_KEY_ZEROCONF_DOMAIN		"zeroconf.domain"		/* domain to register in, recommended NULL */
+#define PW_KEY_ZEROCONF_HOST		"zeroconf.host"			/* host to register on, recommended NULL */
+#define PW_KEY_ZEROCONF_SUBTYPES	"zeroconf.subtypes"		/* subtypes to register, array of strings */
+#define PW_KEY_ZEROCONF_RESOLVE_PROTO	"zeroconf.resolve-proto"	/* protocol to resolve to, "4" or "6" */
+#define PW_KEY_ZEROCONF_HOSTNAME	"zeroconf.hostname"		/* hostname of resolved service */
+#define PW_KEY_ZEROCONF_PORT		"zeroconf.port"			/* port of resolved service */
+#define PW_KEY_ZEROCONF_ADDRESS		"zeroconf.address"		/* address of resolved service */
+
 struct pw_zeroconf;
 
 struct pw_zeroconf_events {

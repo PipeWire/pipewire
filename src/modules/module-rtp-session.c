@@ -1269,7 +1269,7 @@ static const struct pw_core_events core_events = {
 	.error = on_core_error,
 };
 
-static const char *get_service_name(struct impl *impl)
+static const char *get_service_type(struct impl *impl)
 {
 	const char *str;
 	str = pw_properties_get(impl->props, "sess.media");
@@ -1283,33 +1283,33 @@ static const char *get_service_name(struct impl *impl)
 static void on_zeroconf_added(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
-	const char *str, *service_name, *address, *hostname;
+	const char *str, *service_type, *address, *hostname;
 	struct service_info sinfo;
 	struct session *sess;
 	int ifindex = -1, protocol = 0, res, port = 0;
 	struct pw_properties *props = NULL;
 	bool compatible = true;
 
-	if ((str = spa_dict_lookup(info, "zeroconf.ifindex")))
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_IFINDEX)))
 		ifindex = atoi(str);
-	if ((str = spa_dict_lookup(info, "zeroconf.protocol")))
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_PROTO)))
 		protocol = atoi(str);
-	if ((str = spa_dict_lookup(info, "zeroconf.port")))
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_PORT)))
 		port = atoi(str);
 
 	sinfo = SERVICE_INFO(.ifindex = ifindex,
 			.protocol = protocol,
-			.name = spa_dict_lookup(info, "zeroconf.session"),
-			.type = spa_dict_lookup(info, "zeroconf.service"),
-			.domain = spa_dict_lookup(info, "zeroconf.domain"));
+			.name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME),
+			.type = spa_dict_lookup(info, PW_KEY_ZEROCONF_TYPE),
+			.domain = spa_dict_lookup(info, PW_KEY_ZEROCONF_DOMAIN));
 
 	sess = find_session_by_info(impl, &sinfo);
 	if (sess != NULL)
 		return;
 
 	/* check for compatible session */
-	service_name = get_service_name(impl);
-	compatible = spa_streq(service_name, sinfo.type);
+	service_type = get_service_type(impl);
+	compatible = spa_streq(service_type, sinfo.type);
 
 	props = pw_properties_copy(impl->stream_props);
 	if (props == NULL) {
@@ -1317,7 +1317,7 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 		goto error;
 	}
 
-	if (spa_streq(service_name, "_pipewire-audio._udp")) {
+	if (spa_streq(service_type, "_pipewire-audio._udp")) {
 		uint32_t mask = 0;
 		const struct spa_dict_item *it;
 		spa_dict_for_each(it, info) {
@@ -1378,8 +1378,8 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 		goto error;
 	}
 
-	address = spa_dict_lookup(info, "zeroconf.address");
-	hostname = spa_dict_lookup(info, "zeroconf.hostname");
+	address = spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS);
+	hostname = spa_dict_lookup(info, PW_KEY_ZEROCONF_HOSTNAME);
 
 	pw_log_info("create session: %s %s:%u %s", sinfo.name, address, port, sinfo.type);
 
@@ -1425,16 +1425,16 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 	const char *str;
 	int ifindex = -1, protocol = 0;
 
-	if ((str = spa_dict_lookup(info, "zeroconf.ifindex")))
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_IFINDEX)))
 		ifindex = atoi(str);
-	if ((str = spa_dict_lookup(info, "zeroconf.protocol")))
+	if ((str = spa_dict_lookup(info, PW_KEY_ZEROCONF_PROTO)))
 		protocol = atoi(str);
 
 	sinfo = SERVICE_INFO(.ifindex = ifindex,
 			.protocol = protocol,
-			.name = spa_dict_lookup(info, "zeroconf.session"),
-			.type = spa_dict_lookup(info, "zeroconf.service"),
-			.domain = spa_dict_lookup(info, "zeroconf.domain"));
+			.name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME),
+			.type = spa_dict_lookup(info, PW_KEY_ZEROCONF_TYPE),
+			.domain = spa_dict_lookup(info, PW_KEY_ZEROCONF_DOMAIN));
 
 	sess = find_session_by_info(impl, &sinfo);
 	if (sess == NULL)
@@ -1445,18 +1445,18 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 
 static int make_browser(struct impl *impl)
 {
-	const char *service_name;
+	const char *service_type;
 	int res;
 
-	service_name = get_service_name(impl);
-	if (service_name == NULL)
+	service_type = get_service_type(impl);
+	if (service_type == NULL)
 		return -EINVAL;
 
 	if ((res = pw_zeroconf_set_browse(impl->zeroconf, impl,
 		&SPA_DICT_ITEMS(
-			SPA_DICT_ITEM("zeroconf.service", service_name)))) < 0) {
+			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, service_type)))) < 0) {
 		pw_log_error("can't make browser for %s: %s",
-				service_name, spa_strerror(res));
+				service_type, spa_strerror(res));
 		return res;
 	}
 	return 0;
@@ -1465,15 +1465,15 @@ static int make_browser(struct impl *impl)
 static int make_announce(struct impl *impl)
 {
 	int res;
-	const char *service_name, *str;
+	const char *service_type, *str;
 	struct pw_properties *props;
 
 	props = pw_properties_new(NULL, NULL);
 
-	if ((service_name = get_service_name(impl)) == NULL)
+	if ((service_type = get_service_type(impl)) == NULL)
 		return -ENOTSUP;
 
-	if (spa_streq(service_name, "_pipewire-audio._udp")) {
+	if (spa_streq(service_type, "_pipewire-audio._udp")) {
 		str = pw_properties_get(impl->props, "sess.media");
 		pw_properties_set(props, "subtype", str);
 		if ((str = pw_properties_get(impl->stream_props, PW_KEY_AUDIO_FORMAT)) != NULL)
@@ -1494,9 +1494,9 @@ static int make_announce(struct impl *impl)
 		}
 	}
 
-	pw_properties_set(props, "zeroconf.session", impl->session_name);
-	pw_properties_set(props, "zeroconf.service", service_name);
-	pw_properties_setf(props, "zeroconf.port", "%u", impl->ctrl_port);
+	pw_properties_set(props, PW_KEY_ZEROCONF_NAME, impl->session_name);
+	pw_properties_set(props, PW_KEY_ZEROCONF_TYPE, service_type);
+	pw_properties_setf(props, PW_KEY_ZEROCONF_PORT, "%u", impl->ctrl_port);
 
 	res = pw_zeroconf_set_announce(impl->zeroconf, impl, &props->dict);
 
@@ -1555,7 +1555,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	impl->discover_local =  pw_properties_get_bool(impl->props,
 			"sess.discover-local", false);
-	pw_properties_set(impl->props, "zeroconf.discover-local",
+	pw_properties_set(impl->props, PW_KEY_ZEROCONF_DISCOVER_LOCAL,
 			impl->discover_local ? "true" : "false");
 
 	stream_props = pw_properties_new(NULL, NULL);

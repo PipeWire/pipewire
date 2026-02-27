@@ -273,10 +273,10 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 	pw_properties_set(s->props, "channel_map", channel_map_snprint(cm, sizeof(cm), &s->cm));
 	pw_properties_set(s->props, "subtype", subtype);
 
-	pw_properties_setf(s->props, "zeroconf.session", "%s@%s: %s",
+	pw_properties_setf(s->props, PW_KEY_ZEROCONF_NAME, "%s@%s: %s",
 			pw_get_user_name(), pw_get_host_name(), desc);
-	pw_properties_set(s->props, "zeroconf.service", service_type);
-	pw_properties_setf(s->props, "zeroconf.subtypes", "[ %s%s%s ]",
+	pw_properties_set(s->props, PW_KEY_ZEROCONF_TYPE, service_type);
+	pw_properties_setf(s->props, PW_KEY_ZEROCONF_SUBTYPES, "[ %s%s%s ]",
 			n_subtype > 0 ? subtype_service[0] : "",
 			n_subtype > 1 ? ", " : "",
 			n_subtype > 1 ? subtype_service[1] : "");
@@ -337,8 +337,8 @@ static void publish_service(struct service *s)
 
 	pw_log_debug("found server:%p proto:%d port:%d", server, proto, port);
 
-	pw_properties_setf(s->props, "zeroconf.proto", "%d", proto);
-	pw_properties_setf(s->props, "zeroconf.port", "%d", port);
+	pw_properties_setf(s->props, PW_KEY_ZEROCONF_PROTO, "%d", proto);
+	pw_properties_setf(s->props, PW_KEY_ZEROCONF_PORT, "%d", port);
 
 	if ((res = pw_zeroconf_set_announce(s->userdata->zeroconf, s, &s->props->dict)) < 0) {
 		pw_log_error("failed to announce service %s: %s", device, spa_strerror(res));

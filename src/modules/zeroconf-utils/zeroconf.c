@@ -42,6 +42,8 @@ struct service_info {
 
 #define SERVICE_INFO(...) ((struct service_info){ __VA_ARGS__ })
 
+#define STR_TO_PROTO(s)  (atoi(s) == 6 ? AVAHI_PROTO_INET6 : AVAHI_PROTO_INET)
+
 struct entry {
 	struct pw_zeroconf *zc;
 	struct spa_list link;
@@ -198,17 +200,18 @@ static struct service *service_new(struct entry *e,
 	    spa_strstartswith(at, link_local_range))
 		snprintf(if_suffix, sizeof(if_suffix), "%%%d", info->interface);
 
-	if (a->proto != AVAHI_PROTO_UNSPEC)
-		pw_properties_setf(s->props, "zeroconf.proto", "%s",
-				a->proto == AVAHI_PROTO_INET ? "4" : "6");
 	if (info->interface != AVAHI_IF_UNSPEC)
-		pw_properties_setf(s->props, "zeroconf.ifindex", "%d", info->interface);
-	pw_properties_setf(s->props, "zeroconf.name", "%s", info->name);
-	pw_properties_setf(s->props, "zeroconf.type", "%s", info->type);
-	pw_properties_setf(s->props, "zeroconf.domain", "%s", info->domain);
-	pw_properties_setf(s->props, "zeroconf.hostname", "%s", info->host_name);
-	pw_properties_setf(s->props, "zeroconf.address", "%s%s", at, if_suffix);
-	pw_properties_setf(s->props, "zeroconf.port", "%u", info->port);
+		pw_properties_setf(s->props, PW_KEY_ZEROCONF_IFINDEX, "%d", info->interface);
+	if (a->proto != AVAHI_PROTO_UNSPEC)
+		pw_properties_set(s->props, PW_KEY_ZEROCONF_PROTO,
+				a->proto == AVAHI_PROTO_INET ? "4" : "6");
+
+	pw_properties_set(s->props, PW_KEY_ZEROCONF_NAME, info->name);
+	pw_properties_set(s->props, PW_KEY_ZEROCONF_TYPE, info->type);
+	pw_properties_set(s->props, PW_KEY_ZEROCONF_DOMAIN, info->domain);
+	pw_properties_set(s->props, PW_KEY_ZEROCONF_HOSTNAME, info->host_name);
+	pw_properties_setf(s->props, PW_KEY_ZEROCONF_ADDRESS, "%s%s", at, if_suffix);
+	pw_properties_setf(s->props, PW_KEY_ZEROCONF_PORT, "%u", info->port);
 
 	for (l = txt; l; l = l->next) {
 		char *key, *value;
@@ -271,6 +274,8 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	struct pw_zeroconf *zc = e->zc;
 	struct service_info info;
 	struct service *s;
+	int aproto = AVAHI_PROTO_UNSPEC;
+	const char *str;
 
 	if ((flags & AVAHI_LOOKUP_RESULT_LOCAL) && !zc->discover_local)
 		return;
@@ -287,10 +292,14 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 	case AVAHI_BROWSER_NEW:
 		if (s != NULL)
 			return;
+
+		if ((str = pw_properties_get(e->props, PW_KEY_ZEROCONF_RESOLVE_PROTO)))
+			aproto = STR_TO_PROTO(str);
+
 		if (!(avahi_service_resolver_new(zc->client,
 						interface, protocol,
 						name, type, domain,
-						AVAHI_PROTO_UNSPEC, 0,
+						aproto, 0,
 						resolver_cb, e))) {
 			int res = avahi_client_errno(zc->client);
 			pw_log_error("can't make service resolver: %s", avahi_strerror(res));
@@ -312,23 +321,28 @@ static void browser_cb(AvahiServiceBrowser *b, AvahiIfIndex interface, AvahiProt
 static int do_browse(struct pw_zeroconf *zc, struct entry *e)
 {
 	const struct spa_dict_item *it;
-	const char *service_name = NULL;
-	int res;
+	const char *type = NULL, *domain = NULL;
+	int res, ifindex = AVAHI_IF_UNSPEC, proto = AVAHI_PROTO_UNSPEC;
 
 	if (e->browser == NULL) {
 		spa_dict_for_each(it, &e->props->dict) {
-			if (spa_streq(it->key, "zeroconf.service"))
-				service_name = it->value;
+			if (spa_streq(it->key, PW_KEY_ZEROCONF_IFINDEX))
+				ifindex = atoi(it->value);
+			else if (spa_streq(it->key, PW_KEY_ZEROCONF_PROTO))
+				proto = STR_TO_PROTO(it->value);
+			else if (spa_streq(it->key, PW_KEY_ZEROCONF_TYPE))
+				type = it->value;
+			else if (spa_streq(it->key, PW_KEY_ZEROCONF_DOMAIN))
+				domain = it->value;
 		}
-		if (service_name == NULL) {
+		if (type == NULL) {
 			res = -EINVAL;
-			pw_log_error("can't make browser: no service provided");
+			pw_log_error("can't make browser: no "PW_KEY_ZEROCONF_TYPE" provided");
 			pw_zeroconf_emit_error(zc, res, spa_strerror(res));
 			return res;
 		}
 		e->browser = avahi_service_browser_new(zc->client,
-				AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
-				service_name, NULL, 0,
+				ifindex, proto, type, domain, 0,
 				browser_cb, e);
 	        if (e->browser == NULL) {
 			res = avahi_client_errno(zc->client);
@@ -349,7 +363,7 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
 
 	zc->refcount++;
 
-	name = pw_properties_get(e->props, "zeroconf.session");
+	name = pw_properties_get(e->props, PW_KEY_ZEROCONF_NAME);
 
 	switch (state) {
 	case AVAHI_ENTRY_GROUP_ESTABLISHED:
@@ -375,7 +389,7 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 	AvahiStringList *txt = NULL;
 	int res, ifindex = AVAHI_IF_UNSPEC, proto = AVAHI_PROTO_UNSPEC;
 	const struct spa_dict_item *it;
-	const char *session_name = "unnamed", *service = NULL, *subtypes = NULL;
+	const char *name = "unnamed", *type = NULL, *subtypes = NULL;
 	const char *domain = NULL, *host = NULL;
 	uint16_t port = 0;
 
@@ -392,36 +406,36 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 	avahi_entry_group_reset(e->group);
 
 	spa_dict_for_each(it, &e->props->dict) {
-		if (spa_streq(it->key, "zeroconf.session"))
-			session_name = it->value;
-		else if (spa_streq(it->key, "zeroconf.port"))
-			port = atoi(it->value);
-		else if (spa_streq(it->key, "zeroconf.service"))
-			service = it->value;
-		else if (spa_streq(it->key, "zeroconf.domain"))
-			domain = it->value;
-		else if (spa_streq(it->key, "zeroconf.host"))
-			host = it->value;
-		else if (spa_streq(it->key, "zeroconf.ifindex"))
+		if (spa_streq(it->key, PW_KEY_ZEROCONF_IFINDEX))
 			ifindex = atoi(it->value);
-		else if (spa_streq(it->key, "zeroconf.proto"))
-			proto = atoi(it->value) == 6 ? AVAHI_PROTO_INET6 : AVAHI_PROTO_INET;
-		else if (spa_streq(it->key, "zeroconf.subtypes"))
+		else if (spa_streq(it->key, PW_KEY_ZEROCONF_PROTO))
+			proto = STR_TO_PROTO(it->value);
+		else if (spa_streq(it->key, PW_KEY_ZEROCONF_NAME))
+			name = it->value;
+		else if (spa_streq(it->key, PW_KEY_ZEROCONF_TYPE))
+			type = it->value;
+		else if (spa_streq(it->key, PW_KEY_ZEROCONF_DOMAIN))
+			domain = it->value;
+		else if (spa_streq(it->key, PW_KEY_ZEROCONF_HOST))
+			host = it->value;
+		else if (spa_streq(it->key, PW_KEY_ZEROCONF_PORT))
+			port = atoi(it->value);
+		else if (spa_streq(it->key, PW_KEY_ZEROCONF_SUBTYPES))
 			subtypes = it->value;
-		else
+		else if (!spa_strstartswith(it->key, "zeroconf."))
 			txt = avahi_string_list_add_pair(txt, it->key, it->value);
 	}
-	if (service == NULL) {
+	if (type == NULL) {
 		res = -EINVAL;
-		pw_log_error("can't announce: no service provided");
+		pw_log_error("can't announce: no "PW_KEY_ZEROCONF_TYPE" provided");
 		pw_zeroconf_emit_error(zc, res, spa_strerror(res));
 		avahi_string_list_free(txt);
 		return res;
 	}
 	res = avahi_entry_group_add_service_strlst(e->group,
 			ifindex, proto,
-			(AvahiPublishFlags)0, session_name,
-			service, domain, host, port, txt);
+			(AvahiPublishFlags)0, name,
+			type, domain, host, port, txt);
 	avahi_string_list_free(txt);
 
 	if (res < 0) {
@@ -444,11 +458,11 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 		while (spa_json_get_string(&iter, v, sizeof(v)) > 0) {
 			res = avahi_entry_group_add_service_subtype(e->group,
 					ifindex, proto,
-					(AvahiPublishFlags)0, session_name,
-					service, domain, v);
+					(AvahiPublishFlags)0, name,
+					type, domain, v);
 			if (res < 0) {
 				res = avahi_client_errno(zc->client);
-				pw_log_error("can't add subtype: %s", avahi_strerror(res));
+				pw_log_error("can't add subtype %s: %s", v, avahi_strerror(res));
 				pw_zeroconf_emit_error(zc, res, avahi_strerror(res));
 				return -EIO;
 			}
@@ -518,9 +532,13 @@ static struct entry *entry_new(struct pw_zeroconf *zc, uint32_t type, const void
 	e->props = pw_properties_new_dict(info);
 	spa_list_append(&zc->entries, &e->link);
 	spa_list_init(&e->services);
-	pw_log_debug("created %s for \"%s\"",
-			type == TYPE_ANNOUNCE ? "announce" : "browse",
-			pw_properties_get(e->props, "zeroconf.session"));
+
+	if (type == TYPE_ANNOUNCE)
+		pw_log_debug("created announce for \"%s\"",
+				pw_properties_get(e->props, PW_KEY_ZEROCONF_NAME));
+	else
+		pw_log_debug("created browse for \"%s\"",
+				pw_properties_get(e->props, PW_KEY_ZEROCONF_TYPE));
 	return e;
 }
 
@@ -576,7 +594,7 @@ struct pw_zeroconf * pw_zeroconf_new(struct pw_context *context,
 		const char *k = props->items[i].key;
 		const char *v = props->items[i].value;
 
-		if (spa_streq(k, "zeroconf.discover-local") && v)
+		if (spa_streq(k, PW_KEY_ZEROCONF_DISCOVER_LOCAL) && v)
 			zc->discover_local = spa_atob(v);
 	}
 

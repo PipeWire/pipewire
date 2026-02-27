@@ -215,12 +215,14 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 		pa_alsa_mapping *m, uint32_t index)
 {
 	char **d;
+  char description_rename[strlen(m->description)+14];
+  sprintf(description_rename, "%s%i", m->description, impl->card.index);
 
 	dev->card = impl;
 	dev->mapping = m;
 	dev->device.index = index;
 	dev->device.name = m->name;
-	dev->device.description = m->description;
+	dev->device.description = description_rename;
 	dev->device.priority = m->priority;
 	dev->device.device_strings = (const char **)m->device_strings;
 	dev->device.format.format_mask = m->sample_spec.format;
@@ -264,7 +266,7 @@ static void init_device(pa_card *impl, pa_alsa_device *dev, pa_alsa_direction_t 
 		pa_proplist_sets(dev->proplist, "api.alsa.split.hw-position", pos);
 	}
 	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_NAME, m->name);
-	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_DESCRIPTION, m->description);
+	pa_proplist_sets(dev->proplist, PA_PROP_DEVICE_PROFILE_DESCRIPTION, description_rename);
 	pa_proplist_setf(dev->proplist, "card.profile.device", "%u", index);
 	pa_proplist_as_dict(dev->proplist, &dev->device.props);
 

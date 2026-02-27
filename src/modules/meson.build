@@ -383,8 +383,8 @@ endif
 if avahi_dep.found()
   pipewire_module_protocol_pulse_sources += [
     'module-protocol-pulse/modules/module-zeroconf-publish.c',
-    zeroconf_sources,
   ]
+  pipewire_module_protocol_pulse_sources += zeroconf_sources
   pipewire_module_protocol_pulse_deps += zeroconf_deps
 endif
 

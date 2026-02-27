@@ -1110,7 +1110,7 @@ static const struct pw_websocket_events websocket_events = {
 	.connected = on_websocket_connected,
 };
 
-static void on_zeroconf_added(void *data, void *user, const struct spa_dict *info)
+static void on_zeroconf_added(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	const char *name, *addr, *port, *path;
@@ -1136,7 +1136,7 @@ static void on_zeroconf_added(void *data, void *user, const struct spa_dict *inf
 	match_client(impl, name, props, NULL);
 }
 
-static void on_zeroconf_removed(void *data, void *user, const struct spa_dict *info)
+static void on_zeroconf_removed(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	const char *name;

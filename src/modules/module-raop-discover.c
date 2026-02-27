@@ -364,7 +364,7 @@ static void pw_properties_from_zeroconf(const char *key, const char *value,
         }
 }
 
-static void on_zeroconf_added(void *data, void *user, const struct spa_dict *info)
+static void on_zeroconf_added(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	const char *name, *str;
@@ -417,7 +417,7 @@ done:
 	pw_properties_free(props);
 }
 
-static void on_zeroconf_removed(void *data, void *user, const struct spa_dict *info)
+static void on_zeroconf_removed(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	const char *name;

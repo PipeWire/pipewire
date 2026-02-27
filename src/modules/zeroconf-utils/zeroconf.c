@@ -49,7 +49,7 @@ struct entry {
 #define TYPE_ANNOUNCE	0
 #define TYPE_BROWSE	1
 	uint32_t type;
-	void *user;
+	const void *user;
 
 	struct pw_properties *props;
 
@@ -110,7 +110,7 @@ static void service_free(struct service *s)
 	free(s);
 }
 
-struct entry *entry_find(struct pw_zeroconf *zc, uint32_t type, void *user)
+struct entry *entry_find(struct pw_zeroconf *zc, uint32_t type, const void *user)
 {
 	struct entry *e;
 	spa_list_for_each(e, &zc->entries, link)
@@ -505,7 +505,7 @@ static void client_callback(AvahiClient *c, AvahiClientState state, void *d)
 	zeroconf_unref(zc);
 }
 
-static struct entry *entry_new(struct pw_zeroconf *zc, uint32_t type, void *user, const struct spa_dict *info)
+static struct entry *entry_new(struct pw_zeroconf *zc, uint32_t type, const void *user, const struct spa_dict *info)
 {
 	struct entry *e;
 
@@ -524,7 +524,7 @@ static struct entry *entry_new(struct pw_zeroconf *zc, uint32_t type, void *user
 	return e;
 }
 
-static int set_entry(struct pw_zeroconf *zc, uint32_t type, void *user, const struct spa_dict *info)
+static int set_entry(struct pw_zeroconf *zc, uint32_t type, const void *user, const struct spa_dict *info)
 {
 	struct entry *e;
 	int res = 0;
@@ -546,11 +546,11 @@ static int set_entry(struct pw_zeroconf *zc, uint32_t type, void *user, const st
 	}
 	return res;
 }
-int pw_zeroconf_set_announce(struct pw_zeroconf *zc, void *user, const struct spa_dict *info)
+int pw_zeroconf_set_announce(struct pw_zeroconf *zc, const void *user, const struct spa_dict *info)
 {
 	return set_entry(zc, TYPE_ANNOUNCE, user, info);
 }
-int pw_zeroconf_set_browse(struct pw_zeroconf *zc, void *user, const struct spa_dict *info)
+int pw_zeroconf_set_browse(struct pw_zeroconf *zc, const void *user, const struct spa_dict *info)
 {
 	return set_entry(zc, TYPE_BROWSE, user, info);
 }

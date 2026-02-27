@@ -22,8 +22,8 @@ struct pw_zeroconf_events {
 	void (*destroy) (void *data);
 	void (*error) (void *data, int err, const char *message);
 
-	void (*added) (void *data, void *user, const struct spa_dict *info);
-	void (*removed) (void *data, void *user, const struct spa_dict *info);
+	void (*added) (void *data, const void *user, const struct spa_dict *info);
+	void (*removed) (void *data, const void *user, const struct spa_dict *info);
 };
 
 struct pw_zeroconf * pw_zeroconf_new(struct pw_context *context,
@@ -31,8 +31,8 @@ struct pw_zeroconf * pw_zeroconf_new(struct pw_context *context,
 
 void pw_zeroconf_destroy(struct pw_zeroconf *zc);
 
-int pw_zeroconf_set_announce(struct pw_zeroconf *zc, void *user, const struct spa_dict *info);
-int pw_zeroconf_set_browse(struct pw_zeroconf *zc, void *user, const struct spa_dict *info);
+int pw_zeroconf_set_announce(struct pw_zeroconf *zc, const void *user, const struct spa_dict *info);
+int pw_zeroconf_set_browse(struct pw_zeroconf *zc, const void *user, const struct spa_dict *info);
 
 void pw_zeroconf_add_listener(struct pw_zeroconf *zc,
 		struct spa_hook *listener,

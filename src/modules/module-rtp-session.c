@@ -1280,7 +1280,7 @@ static const char *get_service_name(struct impl *impl)
 	return NULL;
 }
 
-static void on_zeroconf_added(void *data, void *user, const struct spa_dict *info)
+static void on_zeroconf_added(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	const char *str, *service_name, *address, *hostname;
@@ -1417,7 +1417,7 @@ error:
 	return;
 }
 
-static void on_zeroconf_removed(void *data, void *user, const struct spa_dict *info)
+static void on_zeroconf_removed(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	struct service_info sinfo;

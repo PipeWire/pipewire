@@ -20,10 +20,6 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-#include <avahi-client/lookup.h>
-#include <avahi-common/error.h>
-#include <avahi-common/malloc.h>
-
 #include "module-protocol-pulse/format.h"
 #include "zeroconf-utils/zeroconf.h"
 
@@ -230,7 +226,7 @@ static const struct pw_impl_module_events submodule_events = {
 	.destroy = submodule_destroy,
 };
 
-static void on_zeroconf_added(void *data, void *user_data, const struct spa_dict *info)
+static void on_zeroconf_added(void *data, const void *user_data, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	const char *name, *type, *mode, *device, *host_name, *desc, *fqdn, *user, *str;
@@ -344,7 +340,7 @@ done:
 	pw_properties_free(props);
 }
 
-static void on_zeroconf_removed(void *data, void *user, const struct spa_dict *info)
+static void on_zeroconf_removed(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
 	const char *name, *type, *mode;

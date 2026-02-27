@@ -91,6 +91,8 @@ List of known modules:
 - \subpage page_module_spa_node_factory
 - \subpage page_module_spa_device
 - \subpage page_module_spa_device_factory
+- \subpage page_module_sendspin_recv
+- \subpage page_module_sendspin_send
 - \subpage page_module_session_manager
 - \subpage page_module_snapcast_discover
 - \subpage page_module_vban_recv

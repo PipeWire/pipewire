@@ -30,11 +30,14 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 
-#include "zeroconf-utils/zeroconf.h"
 #include "module-sendspin/sendspin.h"
 #include "module-sendspin/websocket.h"
 #include "module-sendspin/regress.h"
 #include "network-utils.h"
+
+#ifdef HAVE_AVAHI
+#include "zeroconf-utils/zeroconf.h"
+#endif
 
 /** \page page_module_sendspin_recv sendspin receiver
  *
@@ -196,8 +199,10 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	unsigned int do_disconnect:1;
 
+#ifdef HAVE_AVAHI
 	struct pw_zeroconf *zeroconf;
 	struct spa_hook zeroconf_listener;
+#endif
 
 	bool always_process;
 	bool single_server;
@@ -1005,16 +1010,6 @@ static void client_connected(struct client *c, struct pw_websocket_connection *c
 				&websocket_connection_events, c);
 }
 
-static struct client *client_find(struct impl *impl, const char *name)
-{
-	struct client *c;
-	spa_list_for_each(c, &impl->clients, link) {
-		if (spa_streq(c->name, name))
-			return c;
-	}
-	return NULL;
-}
-
 struct match_info {
 	struct impl *impl;
 	const char *name;
@@ -1045,7 +1040,7 @@ static int rule_matched(void *data, const char *location, const char *action,
 	return res;
 }
 
-static int match_client(struct impl *impl, const char *name, struct pw_properties *props,
+static inline int match_client(struct impl *impl, const char *name, struct pw_properties *props,
 		struct pw_websocket_connection *conn)
 {
 	const char *str;
@@ -1109,6 +1104,17 @@ static const struct pw_websocket_events websocket_events = {
 	.connected = on_websocket_connected,
 };
 
+#ifdef HAVE_AVAHI
+static struct client *client_find(struct impl *impl, const char *name)
+{
+	struct client *c;
+	spa_list_for_each(c, &impl->clients, link) {
+		if (spa_streq(c->name, name))
+			return c;
+	}
+	return NULL;
+}
+
 static void on_zeroconf_added(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
@@ -1157,6 +1163,7 @@ static const struct pw_zeroconf_events zeroconf_events = {
 	.added = on_zeroconf_added,
 	.removed = on_zeroconf_removed,
 };
+#endif
 
 static void core_destroy(void *d)
 {
@@ -1234,7 +1241,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	const char *str, *hostname, *port, *path;
 	struct pw_properties *props, *stream_props;
 	int res = 0;
-	bool autoconnect, announce;
+	bool autoconnect;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -1281,7 +1288,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			PW_KEY_NODE_ALWAYS_PROCESS, true);
 
 	autoconnect = pw_properties_get_bool(props, "sendspin.autoconnect", false);
-	announce = pw_properties_get_bool(props, "sendspin.announce", true);
 	impl->single_server = pw_properties_get_bool(props,
 			"sendspin.single-server", true);
 
@@ -1317,10 +1323,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_websocket_add_listener(impl->websocket, &impl->websocket_listener,
 			&websocket_events, impl);
 
+#ifdef HAVE_AVAHI
 	if ((impl->zeroconf = pw_zeroconf_new(context, NULL)) != NULL) {
 		pw_zeroconf_add_listener(impl->zeroconf, &impl->zeroconf_listener,
 				&zeroconf_events, impl);
 	}
+#endif
 
 	hostname = pw_properties_get(props, "sendspin.ip");
 	/* a client should either connect itself or advertize itself and listen
@@ -1336,6 +1344,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 		pw_websocket_listen(impl->websocket, NULL, hostname, port, path);
 
+#ifdef HAVE_AVAHI
+		bool announce = pw_properties_get_bool(props, "sendspin.announce", true);
 		if (impl->zeroconf && announce) {
 			/* optionally announce ourselves */
 			str = pw_properties_get(props, "sendspin.client-id");
@@ -1346,6 +1356,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 					SPA_DICT_ITEM(PW_KEY_ZEROCONF_PORT, port),
 					SPA_DICT_ITEM("path", path)));
 		}
+#endif
 	}
 	else {
 		if (hostname != NULL) {
@@ -1368,11 +1379,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				client_connect(c);
 		}
 		/* connect to zeroconf server if we can */
+#ifdef HAVE_AVAHI
 		if (impl->zeroconf) {
 			pw_zeroconf_set_browse(impl->zeroconf, NULL,
 				&SPA_DICT_ITEMS(
 					SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, PW_SENDSPIN_SERVER_SERVICE_TYPE)));
 		}
+#endif
 	}
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);

@@ -32,8 +32,11 @@
 
 #include "module-sendspin/sendspin.h"
 #include "module-sendspin/websocket.h"
-#include "zeroconf-utils/zeroconf.h"
 #include "network-utils.h"
+
+#ifdef HAVE_AVAHI
+#include "zeroconf-utils/zeroconf.h"
+#endif
 
 /** \page page_module_sendspin_send sendspin sender
  *
@@ -217,8 +220,10 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	unsigned int do_disconnect:1;
 
+#ifdef HAVE_AVAHI
 	struct pw_zeroconf *zeroconf;
 	struct spa_hook zeroconf_listener;
+#endif
 
 	float delay;
 	bool always_process;
@@ -1009,16 +1014,6 @@ static void client_connected(struct client *c, struct pw_websocket_connection *c
 				&websocket_connection_events, c);
 }
 
-static struct client *client_find(struct impl *impl, const char *name)
-{
-	struct client *c;
-	spa_list_for_each(c, &impl->clients, link) {
-		if (spa_streq(c->name, name))
-			return c;
-	}
-	return NULL;
-}
-
 struct match_info {
 	struct impl *impl;
 	const char *name;
@@ -1110,6 +1105,17 @@ static const struct pw_websocket_events websocket_events = {
 	.connected = on_websocket_connected,
 };
 
+#ifdef HAVE_AVAHI
+static struct client *client_find(struct impl *impl, const char *name)
+{
+	struct client *c;
+	spa_list_for_each(c, &impl->clients, link) {
+		if (spa_streq(c->name, name))
+			return c;
+	}
+	return NULL;
+}
+
 static void on_zeroconf_added(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
@@ -1155,6 +1161,7 @@ static const struct pw_zeroconf_events zeroconf_events = {
 	.added = on_zeroconf_added,
 	.removed = on_zeroconf_removed,
 };
+#endif
 
 static void core_destroy(void *d)
 {
@@ -1180,8 +1187,10 @@ static void impl_destroy(struct impl *impl)
 	if (impl->data_loop)
 		pw_context_release_loop(impl->context, impl->data_loop);
 
+#ifdef HAVE_AVAHI
 	if (impl->zeroconf)
 		pw_zeroconf_destroy(impl->zeroconf);
+#endif
 
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
@@ -1322,10 +1331,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		str = SPA_STRINGIFY(DEFAULT_SENDSPIN_DELAY);
 	impl->delay = pw_properties_parse_float(str);
 
+#ifdef HAVE_AVAHI
 	if ((impl->zeroconf = pw_zeroconf_new(context, NULL)) != NULL) {
 		pw_zeroconf_add_listener(impl->zeroconf, &impl->zeroconf_listener,
 				&zeroconf_events, impl);
 	}
+#endif
 
 	hostname = pw_properties_get(props, "sendspin.ip");
 	if (hostname != NULL) {
@@ -1364,6 +1375,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 		pw_websocket_listen(impl->websocket, NULL, hostname, port, path);
 
+#ifdef HAVE_AVAHI
 		if (impl->zeroconf) {
 			str = pw_properties_get(props, "sendspin.group-name");
 			pw_zeroconf_set_announce(impl->zeroconf, NULL,
@@ -1373,12 +1385,15 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 					SPA_DICT_ITEM(PW_KEY_ZEROCONF_PORT, port),
 					SPA_DICT_ITEM("path", path)));
 		}
+#endif
 	}
+#ifdef HAVE_AVAHI
 	if (impl->zeroconf) {
 		pw_zeroconf_set_browse(impl->zeroconf, NULL,
 			&SPA_DICT_ITEMS(
 				SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, PW_SENDSPIN_CLIENT_SERVICE_TYPE)));
 	}
+#endif
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_info));

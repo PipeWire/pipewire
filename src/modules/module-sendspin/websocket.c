@@ -289,7 +289,7 @@ static int receive_websocket(struct pw_websocket_connection *conn,
 		/* header done */
 		conn->status = d[0] & 0xf;
 		if (d[1] & 0x80)
-			header =+ 4;
+			header += 4;
 		if ((d[1] & 0x7f) == 126)
 			header += 2;
 		else if ((d[1] & 0x7f) == 127)
@@ -309,7 +309,9 @@ static int receive_websocket(struct pw_websocket_connection *conn,
 			header = 8;
 		for (i = 0; i < header; i++)
 			payload_len = (payload_len << 8) | d[i + 2];
-		need += payload_len;
+		if (payload_len > (size_t)(INT_MAX - need))
+		        return -EMSGSIZE;
+		need += (int)payload_len;
 		conn->data_state++;
 	}
 	if (need == 0) {
@@ -492,7 +494,7 @@ static int receive_http_reply(struct pw_websocket_connection *conn,
 			if (sscanf(l, "HTTP/%d.%d %n%d", &v1, &v2, &message, &status) != 3)
 				return -EPROTO;
 			conn->status = status;
-			strcpy(conn->message, &l[message]);
+			snprintf(conn->message, sizeof(conn->message), "%s", &l[message]);
 			conn->content_length = 0;
 			conn->data_state++;
 		}
@@ -642,6 +644,8 @@ static int handle_input(struct pw_websocket_connection *conn)
 					current)) < 0)
 				return res;
 
+			if (conn->data_wanted > SIZE_MAX - res)
+				return -EOVERFLOW;
 			conn->data_wanted += res;
 		}
 	}
@@ -1012,8 +1016,13 @@ int pw_websocket_connection_send(struct pw_websocket_connection *conn, uint8_t o
 	uint8_t *d, *mask = NULL, maskbit = conn->maskbit;
 	size_t payload_length = 0;
 
-	for (i = 0; i < iov_len; i++)
+	for (i = 0; i < iov_len; i++) {
+		if (payload_length > SIZE_MAX - iov[i].iov_len)
+			return -EOVERFLOW;
 		payload_length += iov[i].iov_len;
+	}
+	if (payload_length > SIZE_MAX - sizeof(*msg) - 14)
+		return -EOVERFLOW;
 
 	if ((msg = calloc(1, sizeof(*msg) + 14 + payload_length)) == NULL)
 		return -errno;

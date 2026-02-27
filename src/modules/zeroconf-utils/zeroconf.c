@@ -188,17 +188,21 @@ static struct service *service_new(struct entry *e,
 	if ((s->props = pw_properties_new(NULL, NULL)) == NULL)
 		goto error;
 
-	if (a->proto == AVAHI_PROTO_INET6 &&
+	if (a->proto == AVAHI_PROTO_INET6 && info->interface != AVAHI_IF_UNSPEC &&
 	    a->data.ipv6.address[0] == 0xfe &&
 	    (a->data.ipv6.address[1] & 0xc0) == 0x80)
 		snprintf(if_suffix, sizeof(if_suffix), "%%%d", info->interface);
 
 	avahi_address_snprint(at, sizeof(at), a);
-	if (a->proto == AVAHI_PROTO_INET &&
+	if (a->proto == AVAHI_PROTO_INET && info->interface != AVAHI_IF_UNSPEC &&
 	    spa_strstartswith(at, link_local_range))
 		snprintf(if_suffix, sizeof(if_suffix), "%%%d", info->interface);
 
-	pw_properties_setf(s->props, "zeroconf.ifindex", "%d", info->interface);
+	if (a->proto != AVAHI_PROTO_UNSPEC)
+		pw_properties_setf(s->props, "zeroconf.proto", "%s",
+				a->proto == AVAHI_PROTO_INET ? "4" : "6");
+	if (info->interface != AVAHI_IF_UNSPEC)
+		pw_properties_setf(s->props, "zeroconf.ifindex", "%d", info->interface);
 	pw_properties_setf(s->props, "zeroconf.name", "%s", info->name);
 	pw_properties_setf(s->props, "zeroconf.type", "%s", info->type);
 	pw_properties_setf(s->props, "zeroconf.domain", "%s", info->domain);
@@ -318,7 +322,7 @@ static int do_browse(struct pw_zeroconf *zc, struct entry *e)
 		}
 		if (service_name == NULL) {
 			res = -EINVAL;
-			pw_log_error("no service provided");
+			pw_log_error("can't make browser: no service provided");
 			pw_zeroconf_emit_error(zc, res, spa_strerror(res));
 			return res;
 		}
@@ -340,20 +344,23 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
 {
 	struct entry *e = userdata;
 	struct pw_zeroconf *zc = e->zc;
+	const char *name;
 	int res;
 
 	zc->refcount++;
 
+	name = pw_properties_get(e->props, "zeroconf.session");
+
 	switch (state) {
 	case AVAHI_ENTRY_GROUP_ESTABLISHED:
-		pw_log_info("Service successfully established");
+		pw_log_debug("Entry \"%s\" added", name);
 		break;
 	case AVAHI_ENTRY_GROUP_COLLISION:
-		pw_log_error("Service name collision");
+		pw_log_error("Entry \"%s\" name collision", name);
 		break;
 	case AVAHI_ENTRY_GROUP_FAILURE:
 		res = avahi_client_errno(zc->client);
-		pw_log_error("Entry group failure: %s", avahi_strerror(res));
+		pw_log_error("Entry \"%s\" failure: %s", name, avahi_strerror(res));
 		pw_zeroconf_emit_error(zc, res, avahi_strerror(res));
 		break;
 	case AVAHI_ENTRY_GROUP_UNCOMMITED:
@@ -366,9 +373,9 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
 static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 {
 	AvahiStringList *txt = NULL;
-	int res;
+	int res, ifindex = AVAHI_IF_UNSPEC, proto = AVAHI_PROTO_UNSPEC;
 	const struct spa_dict_item *it;
-	const char *session_name = "unnamed", *service = NULL;
+	const char *session_name = "unnamed", *service = NULL, *subtypes = NULL;
 	const char *domain = NULL, *host = NULL;
 	uint16_t port = 0;
 
@@ -395,18 +402,24 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 			domain = it->value;
 		else if (spa_streq(it->key, "zeroconf.host"))
 			host = it->value;
+		else if (spa_streq(it->key, "zeroconf.ifindex"))
+			ifindex = atoi(it->value);
+		else if (spa_streq(it->key, "zeroconf.proto"))
+			proto = atoi(it->value) == 6 ? AVAHI_PROTO_INET6 : AVAHI_PROTO_INET;
+		else if (spa_streq(it->key, "zeroconf.subtypes"))
+			subtypes = it->value;
 		else
 			txt = avahi_string_list_add_pair(txt, it->key, it->value);
 	}
 	if (service == NULL) {
 		res = -EINVAL;
-		pw_log_error("no service provided");
+		pw_log_error("can't announce: no service provided");
 		pw_zeroconf_emit_error(zc, res, spa_strerror(res));
 		avahi_string_list_free(txt);
 		return res;
 	}
 	res = avahi_entry_group_add_service_strlst(e->group,
-			AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+			ifindex, proto,
 			(AvahiPublishFlags)0, session_name,
 			service, domain, host, port, txt);
 	avahi_string_list_free(txt);
@@ -416,6 +429,30 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 		pw_log_error("can't add service: %s", avahi_strerror(res));
 		pw_zeroconf_emit_error(zc, res, avahi_strerror(res));
 		return -EIO;
+	}
+
+	if (subtypes) {
+		struct spa_json iter;
+		char v[512];
+
+		if (spa_json_begin_array_relax(&iter, subtypes, strlen(subtypes)) <= 0) {
+			res = -EINVAL;
+			pw_log_error("invalid subtypes: %s", subtypes);
+			pw_zeroconf_emit_error(zc, res, spa_strerror(res));
+			return res;
+		}
+		while (spa_json_get_string(&iter, v, sizeof(v)) > 0) {
+			res = avahi_entry_group_add_service_subtype(e->group,
+					ifindex, proto,
+					(AvahiPublishFlags)0, session_name,
+					service, domain, v);
+			if (res < 0) {
+				res = avahi_client_errno(zc->client);
+				pw_log_error("can't add subtype: %s", avahi_strerror(res));
+				pw_zeroconf_emit_error(zc, res, avahi_strerror(res));
+				return -EIO;
+			}
+		}
 	}
 	if ((res = avahi_entry_group_commit(e->group)) < 0) {
 		res = avahi_client_errno(zc->client);
@@ -481,7 +518,9 @@ static struct entry *entry_new(struct pw_zeroconf *zc, uint32_t type, void *user
 	e->props = pw_properties_new_dict(info);
 	spa_list_append(&zc->entries, &e->link);
 	spa_list_init(&e->services);
-	pw_log_info("created %s", type == TYPE_ANNOUNCE ? "announce" : "browse");
+	pw_log_debug("created %s for \"%s\"",
+			type == TYPE_ANNOUNCE ? "announce" : "browse",
+			pw_properties_get(e->props, "zeroconf.session"));
 	return e;
 }
 

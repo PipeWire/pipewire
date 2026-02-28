@@ -838,6 +838,17 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
       video_size += d->chunk->size;
     }
+
+    /* If the buffer number is smaller than the plane number,
+     * update the stride and offset for the remaining planes.
+     */
+    if (n_datas && n_datas < n_planes) {
+      for (i = n_datas; i < n_planes; i++) {
+        meta->stride[i] = gst_video_format_info_extrapolate_stride (info->finfo, i, b->buffer->datas[0].chunk->stride);
+        meta->offset[i] = meta->offset[i-1] +
+            meta->stride[i-1] * GST_VIDEO_FORMAT_INFO_SCALE_HEIGHT (info->finfo, i-1, GST_VIDEO_INFO_HEIGHT(info));
+      }
+    }
   }
 
   if (b->buffer->n_datas != gst_buffer_n_memory(data->buf)) {

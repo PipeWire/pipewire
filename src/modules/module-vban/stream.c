@@ -61,6 +61,7 @@ struct impl {
 	struct vban_header header;
 	uint32_t timestamp;
 	uint32_t n_frames;
+	uint32_t samples_per_frame;
 
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];

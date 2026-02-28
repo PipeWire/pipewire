@@ -98,38 +98,43 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	samples = SPA_MIN(hdr->format_nbs+1, plen / stride);
 
 	n_frames = hdr->n_frames;
-	if (impl->have_sync && impl->n_frames != n_frames) {
-		pw_log_info("unexpected frame (%d != %d)",
-				n_frames, impl->n_frames);
+
+	if (impl->samples_per_frame == 0) {
+		impl->samples_per_frame = samples;
+	} else if (samples != impl->samples_per_frame) {
+		pw_log_warn("samples_per_frame changed (%u != %u)",
+				samples, impl->samples_per_frame);
+		impl->samples_per_frame = samples;
 		impl->have_sync = false;
+	}
+
+	if (impl->have_sync && impl->n_frames != n_frames) {
+		pw_log_info("unexpected frame (%u != %u)",
+				n_frames, impl->n_frames);
 	}
 	impl->n_frames = n_frames + 1;
 
-	timestamp = impl->timestamp;
-	impl->timestamp += samples;
+	/* derive write position from frame counter, like module-rtp */
+	timestamp = n_frames * impl->samples_per_frame;
+	write = timestamp + impl->target_buffer;
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_write);
 
-	/* we always write to timestamp + delay */
-	write = timestamp + impl->target_buffer;
-
 	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u target:%u",
-				timestamp, impl->target_buffer);
+		pw_log_info("sync to n_frames:%u timestamp:%u target:%u",
+				n_frames, timestamp, impl->target_buffer);
 
 		/* we read from timestamp, keeping target_buffer of data
 		 * in the ringbuffer. */
 		impl->ring.readindex = timestamp;
 		impl->ring.writeindex = write;
 		filled = impl->target_buffer;
+		expected_write = write;
 
 		spa_dll_init(&impl->dll);
 		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MAX, 128, impl->rate);
 		memset(impl->buffer, 0, BUFFER_SIZE);
 		impl->have_sync = true;
-	} else if (expected_write != write) {
-		pw_log_debug("unexpected write (%u != %u)",
-				write, expected_write);
 	}
 
 	if (filled + samples > BUFFER_SIZE / stride) {
@@ -137,14 +142,17 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 				BUFFER_SIZE / stride);
 		impl->have_sync = false;
 	} else {
-		pw_log_trace("got samples:%u", samples);
+		pw_log_trace("got n_frames:%u samples:%u", n_frames, samples);
 		spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer,
 				BUFFER_SIZE,
 				(write * stride) & BUFFER_MASK,
 				&buffer[hlen], (samples * stride));
+
+		/* only advance writeindex if this extends the frontier */
 		write += samples;
-		spa_ringbuffer_write_update(&impl->ring, write);
+		if ((int32_t)(write - expected_write) > 0)
+			spa_ringbuffer_write_update(&impl->ring, write);
 	}
 	return 0;
 }
@@ -262,5 +270,6 @@ static int vban_audio_init(struct impl *impl, enum spa_direction direction)
 	else
 		impl->stream_events.process = vban_audio_process_playback;
 	impl->receive_vban = vban_audio_receive;
+	impl->samples_per_frame = 0;
 	return 0;
 }

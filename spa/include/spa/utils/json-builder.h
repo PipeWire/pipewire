@@ -279,9 +279,10 @@ void spa_json_builder_object_stringv(struct spa_json_builder *b,
 		const char *key, const char *fmt, va_list va)
 {
 	char *val;
-	vasprintf(&val, fmt, va);
-	spa_json_builder_object_string(b, key, val);
-	free(val);
+	if (vasprintf(&val, fmt, va) > 0) {
+		spa_json_builder_object_string(b, key, val);
+		free(val);
+	}
 }
 
 SPA_API_JSON_BUILDER SPA_PRINTF_FUNC(3,4)
@@ -346,10 +347,11 @@ void spa_json_builder_object_valuef(struct spa_json_builder *b,
 	va_list va;
 	char *val;
 	va_start(va, fmt);
-	vasprintf(&val, fmt, va);
+	if (vasprintf(&val, fmt, va) > 0) {
+		spa_json_builder_object_value(b, recurse, key, val);
+		free(val);
+	}
 	va_end(va);
-	spa_json_builder_object_value(b, recurse, key, val);
-	free(val);
 }
 
 
@@ -408,10 +410,11 @@ void spa_json_builder_array_valuef(struct spa_json_builder *b, bool recurse, con
 	va_list va;
 	char *val;
 	va_start(va, fmt);
-	vasprintf(&val, fmt, va);
+	if (vasprintf(&val, fmt, va) > 0) {
+		spa_json_builder_object_value(b, recurse, NULL, val);
+		free(val);
+	}
 	va_end(va);
-	spa_json_builder_object_value(b, recurse, NULL, val);
-	free(val);
 }
 
 SPA_API_JSON_BUILDER char *spa_json_builder_reformat(const char *json, uint32_t flags)

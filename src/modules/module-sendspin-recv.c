@@ -267,7 +267,7 @@ static void on_capture_stream_process(void *d)
 
 	avail = spa_ringbuffer_get_read_index(&client->ring, &index);
 
-	if (client->timeout_count > 4 && client->timeout_count > 4) {
+	if (client->timeout_count > 4) {
 		pw_stream_get_time_n(client->stream, &ts, sizeof(ts));
 
 		/* index to server time */
@@ -298,6 +298,12 @@ static void on_capture_stream_process(void *d)
 				avail = 0;
 			}
 		}
+
+		corr = spa_dll_update(&client->dll, SPA_CLAMPD(err, -1000, 1000));
+
+		pw_stream_set_rate(client->stream, 1.0 / corr);
+
+		pw_log_trace("%u %f %f %f %f", index, current_time, target, err, corr);
 	} else {
 		avail = 0;
 	}
@@ -312,12 +318,6 @@ static void on_capture_stream_process(void *d)
 	}
 	if (avail > 0) {
 		n_bytes = SPA_MIN(n_bytes, (uint32_t)avail);
-
-		corr = spa_dll_update(&client->dll, SPA_CLAMPD(err, -1000, 1000));
-
-		pw_log_trace("%u %f %f %f %f", index, current_time, target, err, corr);
-
-		pw_stream_set_rate(client->stream, 1.0 / corr);
 
 		spa_ringbuffer_read_data(&client->ring,
 				client->buffer, client->buffer_size,

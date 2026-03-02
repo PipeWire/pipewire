@@ -576,7 +576,7 @@ static bool is_stale_socket(int fd, const struct sockaddr_un *addr_un)
 
 static int check_socket_activation(const char *path)
 {
-	const int n = listen_fd();
+	const int n = listen_fds();
 
 	for (int i = 0; i < n; i++) {
 		const int fd = LISTEN_FDS_START + i;

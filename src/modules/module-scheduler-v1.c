@@ -582,9 +582,9 @@ again:
 
 	/* first look at all nodes and decide which one should be runnable */
 	spa_list_for_each(n, &context->node_list, link) {
-		/* we don't check drivers, they need to be made runnable
-		 * from other nodes */
-		if (n->exported || !n->active || n->driver)
+		/* we don't check suspendable nodes, they need to be made
+		 * runnable from other nodes */
+		if (n->exported || !n->active || n->can_suspend)
 			continue;
 		check_runnable(context, n);
 	}

@@ -483,6 +483,8 @@ struct client {
 	jack_position_t jack_position;
 	jack_transport_state_t jack_state;
 	struct frame_times jack_times;
+
+	struct object dummy_port;
 };
 
 #define return_val_if_fail(expr, val)				\
@@ -4469,6 +4471,11 @@ jack_client_t * jack_client_open (const char *client_name,
 			0, NULL, &client->info);
 	client->info.change_mask = 0;
 
+	client->dummy_port.type = INTERFACE_Port;
+	snprintf(client->dummy_port.port.name, sizeof(client->dummy_port.port.name), "%s:dummy", client_name);
+	snprintf(client->dummy_port.port.alias1, sizeof(client->dummy_port.port.alias1), "%s:dummy", client_name);
+	snprintf(client->dummy_port.port.alias2, sizeof(client->dummy_port.port.alias2), "%s:dummy", client_name);
+
 	client->show_monitor = pw_properties_get_bool(client->props, "jack.show-monitor", true);
 	client->show_midi = pw_properties_get_bool(client->props, "jack.show-midi", true);
 	client->merge_monitor = pw_properties_get_bool(client->props, "jack.merge-monitor", true);
@@ -5942,9 +5949,7 @@ static const char *port_name(struct object *o)
 {
 	const char *name;
 	struct client *c = o->client;
-	if (c == NULL)
-		return NULL;
-	if (c->default_as_system && is_port_default(c, o))
+	if (c != NULL && c->default_as_system && is_port_default(c, o))
 		name = o->port.system;
 	else
 		name = o->port.name;
@@ -6990,13 +6995,11 @@ jack_port_t * jack_port_by_id (jack_client_t *client,
 
 	pthread_mutex_lock(&c->context.lock);
 	res = find_by_serial(c, port_id);
-	if (res && res->type != INTERFACE_Port)
-		res = NULL;
-	pw_log_debug("%p: port %d -> %p", c, port_id, res);
 	pthread_mutex_unlock(&c->context.lock);
+	if (res == NULL || res->type != INTERFACE_Port)
+		res = &c->dummy_port;
 
-	if (res == NULL)
-		pw_log_info("%p: port %d not found", c, port_id);
+	pw_log_debug("%p: port %d -> %p", c, port_id, res);
 
 	return object_to_port(res);
 }

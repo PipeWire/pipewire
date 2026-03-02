@@ -1041,7 +1041,6 @@ struct pw_impl_link {
 	unsigned int feedback:1;
 	unsigned int preparing:1;
 	unsigned int prepared:1;
-	unsigned int passive:1;
 	unsigned int destroyed:1;
 };
 

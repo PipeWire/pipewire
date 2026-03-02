@@ -974,9 +974,9 @@ int pw_impl_link_prepare(struct pw_impl_link *this)
 {
 	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 
-	pw_log_debug("%p: prepared:%d preparing:%d in_active:%d out_active:%d passive:%u",
+	pw_log_debug("%p: prepared:%d preparing:%d in_active:%d out_active:%d",
 			this, this->prepared, this->preparing,
-			impl->input.node->active, impl->output.node->active, this->passive);
+			impl->input.node->active, impl->output.node->active);
 
 	if (this->destroyed || this->preparing || this->prepared)
 		return 0;
@@ -1466,7 +1466,6 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 	struct impl *impl;
 	struct pw_impl_link *this;
 	struct pw_impl_node *input_node, *output_node;
-	const char *str;
 	int res;
 
 	if (output == input)
@@ -1515,15 +1514,6 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	this->output = output;
 	this->input = input;
-
-	/* passive means that this link does not make the nodes active */
-	str = pw_properties_get(properties, PW_KEY_LINK_PASSIVE);
-	this->passive = str ? spa_atob(str) :
-		(output->passive && input_node->can_suspend) ||
-		(input->passive && output_node->can_suspend) ||
-		(input->passive && output->passive);
-	if (this->passive && str == NULL)
-		 pw_properties_set(properties, PW_KEY_LINK_PASSIVE, "true");
 
 	this->async = (output_node->async || input_node->async) &&
 		SPA_FLAG_IS_SET(output->flags, PW_IMPL_PORT_FLAG_ASYNC) &&

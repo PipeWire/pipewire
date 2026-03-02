@@ -907,7 +907,7 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 	bool activated = false;
 
 	{
-		int i, n = listen_fd();
+		int i, n = listen_fds();
 		for (i = 0; i < n; ++i) {
 			if (is_socket_unix(LISTEN_FDS_START + i, SOCK_STREAM,
 						s->addr.sun_path) > 0) {

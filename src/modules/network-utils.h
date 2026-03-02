@@ -143,7 +143,7 @@ static inline bool pw_net_addr_is_any(struct sockaddr_storage *addr)
 
 /* Returns the number of file descriptors passed for socket activation.
  * Returns 0 if none, -1 on error. */
-static inline int listen_fd(void)
+static inline int listen_fds(void)
 {
 	uint32_t n;
 	int i, flags;
@@ -160,8 +160,6 @@ static inline int listen_fd(void)
 		if (fcntl(LISTEN_FDS_START + i, F_SETFD, flags | FD_CLOEXEC) == -1)
 			return -1;
 	}
-
-	unsetenv("LISTEN_FDS");
 
 	return (int)n;
 }
@@ -192,12 +190,10 @@ static inline int is_socket_unix(int fd, int type, const char *path)
 		if (addr.sun_family != AF_UNIX)
 			return 0;
 		size_t length = strlen(path);
-		if (length > 0) {
-			if (len < offsetof(struct sockaddr_un, sun_path) + length)
-				return 0;
-			if (memcmp(addr.sun_path, path, length) != 0)
-				return 0;
-		}
+		if (len < offsetof(struct sockaddr_un, sun_path) + length + 1)
+			return 0;
+		if (memcmp(addr.sun_path, path, length + 1) != 0)
+			return 0;
 	}
 
 	return 1;

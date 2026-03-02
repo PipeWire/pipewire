@@ -382,8 +382,7 @@ on_source_io(void *data, int fd, uint32_t mask)
 
 	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
 		socklen_t len = sizeof(res);
-		if ((mask & SPA_IO_HUP) ||
-		    getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len) < 0)
+		if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &res, &len) < 0)
 			res = -EPIPE;
 		else
 			res = -res;

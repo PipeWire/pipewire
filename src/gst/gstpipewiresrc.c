@@ -531,6 +531,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->autoconnect = DEFAULT_AUTOCONNECT;
   src->min_latency = 0;
   src->max_latency = GST_CLOCK_TIME_NONE;
+  src->last_buffer_clock_time = GST_CLOCK_TIME_NONE;
   src->n_buffers = 0;
   src->flushing_on_remove_buffer = FALSE;
   src->on_disconnect = DEFAULT_ON_DISCONNECT;
@@ -1606,8 +1607,18 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
       GST_LOG_OBJECT (pwsrc, "popped buffer %p", buf);
       if (buf != NULL) {
         if (pwsrc->resend_last || pwsrc->keepalive_time > 0) {
+          GstClock *clock;
+
           gst_buffer_take (&pwsrc->last_buffer, gst_buffer_copy (buf));
           gst_buffer_add_parent_buffer_meta (pwsrc->last_buffer, buf);
+
+          clock = gst_element_get_clock (GST_ELEMENT_CAST (pwsrc));
+          if (clock != NULL) {
+            pwsrc->last_buffer_clock_time = gst_clock_get_time (clock);
+            gst_object_unref (clock);
+          } else {
+            pwsrc->last_buffer_clock_time = GST_CLOCK_TIME_NONE;
+          }
         }
         break;
       }
@@ -1633,21 +1644,33 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
   if (update_time) {
     GstClock *clock;
-    GstClockTime pts, dts;
+    GstClockTime current_clock_time;
 
     clock = gst_element_get_clock (GST_ELEMENT_CAST (pwsrc));
     if (clock != NULL) {
-      pts = dts = gst_clock_get_time (clock);
+      current_clock_time = gst_clock_get_time (clock);
       gst_object_unref (clock);
     } else {
-      pts = dts = GST_CLOCK_TIME_NONE;
+      current_clock_time = GST_CLOCK_TIME_NONE;
     }
 
-    GST_BUFFER_PTS (*buffer) = pts;
-    GST_BUFFER_DTS (*buffer) = dts;
+    if (GST_CLOCK_TIME_IS_VALID (current_clock_time) &&
+        GST_CLOCK_TIME_IS_VALID (pwsrc->last_buffer_clock_time) &&
+        GST_CLOCK_TIME_IS_VALID (GST_BUFFER_PTS (*buffer)) &&
+        GST_CLOCK_TIME_IS_VALID (GST_BUFFER_DTS (*buffer))) {
+      GstClockTime diff;
+
+      diff = current_clock_time - pwsrc->last_buffer_clock_time;
+
+      GST_BUFFER_PTS (*buffer) += diff;
+      GST_BUFFER_DTS (*buffer) += diff;
+    } else {
+      GST_BUFFER_PTS (*buffer) = GST_BUFFER_DTS (*buffer) = current_clock_time;
+    }
 
     GST_LOG_OBJECT (pwsrc, "Sending keepalive buffer pts/dts: %" GST_TIME_FORMAT
-      " (%" G_GUINT64_FORMAT ")", GST_TIME_ARGS (pts), pts);
+      " (%" G_GUINT64_FORMAT ")", GST_TIME_ARGS (current_clock_time),
+      current_clock_time);
   }
 
   return GST_FLOW_OK;

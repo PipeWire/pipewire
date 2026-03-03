@@ -1592,22 +1592,23 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (pwsrc->eos) {
       if (pwsrc->last_buffer == NULL)
         goto streaming_eos;
-      buf = pwsrc->last_buffer;
-      pwsrc->last_buffer = NULL;
+      buf = gst_buffer_steal (&pwsrc->last_buffer);
       update_time = TRUE;
       GST_LOG_OBJECT (pwsrc, "EOS, send last buffer");
       break;
     } else if (timeout && pwsrc->last_buffer != NULL) {
+      buf = gst_buffer_copy (pwsrc->last_buffer);
       update_time = TRUE;
-      buf = gst_buffer_ref(pwsrc->last_buffer);
       GST_LOG_OBJECT (pwsrc, "timeout, send keepalive buffer");
       break;
     } else {
       buf = dequeue_buffer (pwsrc);
       GST_LOG_OBJECT (pwsrc, "popped buffer %p", buf);
       if (buf != NULL) {
-        if (pwsrc->resend_last || pwsrc->keepalive_time > 0)
-          gst_buffer_replace (&pwsrc->last_buffer, buf);
+        if (pwsrc->resend_last || pwsrc->keepalive_time > 0) {
+          gst_buffer_take (&pwsrc->last_buffer, gst_buffer_copy (buf));
+          gst_buffer_add_parent_buffer_meta (pwsrc->last_buffer, buf);
+        }
         break;
       }
     }

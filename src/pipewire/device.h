@@ -5,6 +5,7 @@
 #ifndef PIPEWIRE_DEVICE_H
 #define PIPEWIRE_DEVICE_H
 
+#include <spa/pod/command.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 
@@ -92,11 +93,12 @@ struct pw_device_events {
 #define PW_DEVICE_METHOD_SUBSCRIBE_PARAMS	1
 #define PW_DEVICE_METHOD_ENUM_PARAMS		2
 #define PW_DEVICE_METHOD_SET_PARAM		3
-#define PW_DEVICE_METHOD_NUM			4
+#define PW_DEVICE_METHOD_SEND_COMMAND		4
+#define PW_DEVICE_METHOD_NUM			5
 
 /** Device methods */
 struct pw_device_methods {
-#define PW_VERSION_DEVICE_METHODS	0
+#define PW_VERSION_DEVICE_METHODS	1
 	uint32_t version;
 
 	int (*add_listener) (void *object,
@@ -143,6 +145,15 @@ struct pw_device_methods {
 	 */
 	int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
+
+	/**
+	 * Send a command to the device
+	 *
+	 * \param command the command to send
+	 *
+	 * This requires X and W permissions on the device.
+	 */
+	int (*send_command) (void *object, const struct spa_command *command);
 };
 
 /** \copydoc pw_device_methods.add_listener
@@ -182,6 +193,13 @@ PW_API_DEVICE_IMPL int pw_device_set_param(struct pw_device *object, uint32_t id
 	return spa_api_method_r(int, -ENOTSUP,
 			pw_device, (struct spa_interface*)object, set_param, 0,
 			id, flags, param);
+}
+/** \copydoc pw_device_methods.send_command
+ * \sa pw_device_methods.send_command */
+PW_API_DEVICE_IMPL int pw_device_send_command(struct pw_device *object, const struct spa_command *command)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			pw_device, (struct spa_interface*)object, send_command, 0, command);
 }
 
 /**

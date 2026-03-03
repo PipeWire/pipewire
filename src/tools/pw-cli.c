@@ -2063,6 +2063,8 @@ static int do_send_command(struct data *data, const char *cmd, char *args, char 
 
 	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node)) {
 		ti = spa_debug_type_find_short(spa_type_node_command_id, a[1]);
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device)) {
+		ti = spa_debug_type_find_short(spa_type_device_command_id, a[1]);
 	} else {
 		*error = spa_aprintf("send-command not implemented on object %d type:%s",
 				atoi(a[0]), global->type);
@@ -2070,7 +2072,7 @@ static int do_send_command(struct data *data, const char *cmd, char *args, char 
 	}
 
 	if (ti == NULL) {
-		*error = spa_aprintf("%s: unknown node command type: %s", cmd, a[1]);
+		*error = spa_aprintf("%s: unknown command type: %s", cmd, a[1]);
 		return -EINVAL;
 	}
 	if ((res = spa_json_to_pod(&b.b, 0, ti, a[2], strlen(a[2]))) < 0) {
@@ -2083,7 +2085,12 @@ static int do_send_command(struct data *data, const char *cmd, char *args, char 
 	}
 	spa_debug_pod(0, NULL, pod);
 
-	pw_node_send_command((struct pw_node*)global->proxy, (struct spa_command*)pod);
+	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node)) {
+		pw_node_send_command((struct pw_node*)global->proxy, (struct spa_command*)pod);
+	} else if (spa_streq(global->type, PW_TYPE_INTERFACE_Device)) {
+		pw_device_send_command((struct pw_device*)global->proxy, (struct spa_command*)pod);
+	}
+
 	return 0;
 }
 

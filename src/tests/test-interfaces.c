@@ -153,6 +153,7 @@ static void test_device_abi(void)
 			const struct spa_pod *filter);
 		int (*set_param) (void *object, uint32_t id, uint32_t flags,
 			const struct spa_pod *param);
+		int (*send_command) (void *object, const struct spa_command *command);
 	} methods = { PW_VERSION_DEVICE_METHODS, };
 	struct {
 		uint32_t version;
@@ -167,7 +168,8 @@ static void test_device_abi(void)
 	TEST_FUNC(m, methods, subscribe_params);
 	TEST_FUNC(m, methods, enum_params);
 	TEST_FUNC(m, methods, set_param);
-	spa_assert_se(PW_VERSION_DEVICE_METHODS == 0);
+	TEST_FUNC(m, methods, send_command);
+	spa_assert_se(PW_VERSION_DEVICE_METHODS == 1);
 	spa_assert_se(sizeof(m) == sizeof(methods));
 
 	TEST_FUNC(e, events, version);

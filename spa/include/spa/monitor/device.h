@@ -8,6 +8,7 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/dict.h>
+#include <spa/pod/command.h>
 #include <spa/pod/event.h>
 
 #ifdef __cplusplus
@@ -126,7 +127,27 @@ struct spa_device_events {
 #define SPA_DEVICE_METHOD_SYNC		1
 #define SPA_DEVICE_METHOD_ENUM_PARAMS	2
 #define SPA_DEVICE_METHOD_SET_PARAM	3
-#define SPA_DEVICE_METHOD_NUM		4
+#define SPA_DEVICE_METHOD_SEND_COMMAND	4
+#define SPA_DEVICE_METHOD_NUM		5
+
+/* object id of SPA_TYPE_COMMAND_Device */
+enum spa_device_commands {
+	SPA_DEVICE_COMMAND_User,
+};
+
+#define SPA_DEVICE_COMMAND_ID(cmd)	SPA_COMMAND_ID(cmd, SPA_TYPE_COMMAND_Device)
+#define SPA_DEVICE_COMMAND_INIT(id)	SPA_COMMAND_INIT(SPA_TYPE_COMMAND_Device, id)
+
+
+/* properties for SPA_TYPE_COMMAND_Device */
+enum spa_command_device {
+	SPA_COMMAND_DEVICE_START,
+
+	SPA_COMMAND_DEVICE_START_User 		= 0x1000,
+	SPA_COMMAND_DEVICE_extra,		/** extra info (String) */
+
+	SPA_COMMAND_DEVICE_START_CUSTOM   	= 0x1000000,
+};
 
 /**
  * spa_device_methods:
@@ -134,7 +155,7 @@ struct spa_device_events {
 struct spa_device_methods {
 	/* the version of the methods. This can be used to expand this
 	 * structure in the future */
-#define SPA_VERSION_DEVICE_METHODS	0
+#define SPA_VERSION_DEVICE_METHODS	1
 	uint32_t version;
 
 	/**
@@ -226,6 +247,23 @@ struct spa_device_methods {
 	int (*set_param) (void *object,
 			  uint32_t id, uint32_t flags,
 			  const struct spa_pod *param);
+
+	/**
+	 * Send a command to a device.
+	 *
+	 * This function must be called from the main thread.
+	 *
+	 * \param object a \ref spa_device
+	 * \param command a \ref spa_command of type \ref spa_command_device
+	 * \return 0 on success
+	 *         -EINVAL when node or command is NULL
+	 *         -ENOTSUP when this node can't process commands
+	 *         -EINVAL \a command is an invalid command
+	 *
+	 * \since 1
+	 */
+	int (*send_command) (void *object, const struct spa_command *command);
+
 };
 
 SPA_API_DEVICE int spa_device_add_listener(struct spa_device *object,
@@ -255,6 +293,12 @@ SPA_API_DEVICE int spa_device_set_param(struct spa_device *object,
 {
 	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, set_param, 0,
 			id, flags, param);
+}
+SPA_API_DEVICE int spa_device_send_command(struct spa_device *object,
+			  const struct spa_command *command)
+{
+	return spa_api_method_r(int, -ENOTSUP, spa_device, &object->iface, send_command, 1,
+			command);
 }
 
 #define SPA_KEY_DEVICE_ENUM_API		"device.enum.api"	/**< the api used to discover this

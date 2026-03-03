@@ -5,8 +5,9 @@
 #ifndef SPA_DEVICE_TYPE_INFO_H
 #define SPA_DEVICE_TYPE_INFO_H
 
-#include <spa/utils/type-info.h>
+#include <spa/utils/type.h>
 
+#include <spa/monitor/device.h>
 #include <spa/monitor/event.h>
 
 #ifdef __cplusplus
@@ -33,6 +34,22 @@ static const struct spa_type_info spa_type_device_event[] = {
 	{ SPA_EVENT_DEVICE_START, SPA_TYPE_Id, SPA_TYPE_INFO_DEVICE_EVENT_BASE, spa_type_device_event_id },
 	{ SPA_EVENT_DEVICE_Object, SPA_TYPE_Int, SPA_TYPE_INFO_DEVICE_EVENT_BASE "Object", NULL },
 	{ SPA_EVENT_DEVICE_Props, SPA_TYPE_OBJECT_Props, SPA_TYPE_INFO_DEVICE_EVENT_BASE "Props", NULL },
+	{ 0, 0, NULL, NULL },
+};
+
+#define SPA_TYPE_INFO_DeviceCommand			SPA_TYPE_INFO_COMMAND_BASE "Device"
+#define SPA_TYPE_INFO_DEVICE_COMMAND_BASE		SPA_TYPE_INFO_DeviceCommand ":"
+
+static const struct spa_type_info spa_type_device_command_id[] = {
+	{ SPA_DEVICE_COMMAND_User, SPA_TYPE_COMMAND_Device, SPA_TYPE_INFO_DEVICE_COMMAND_BASE "User",  NULL },
+	{ 0, 0, NULL, NULL },
+};
+
+static const struct spa_type_info spa_type_device_command[] = {
+	{ SPA_COMMAND_DEVICE_START, SPA_TYPE_Id, SPA_TYPE_INFO_DEVICE_COMMAND_BASE, spa_type_device_command_id },
+
+	{ SPA_COMMAND_DEVICE_extra, SPA_TYPE_String, SPA_TYPE_INFO_DEVICE_COMMAND_BASE "extra", NULL },
+
 	{ 0, 0, NULL, NULL },
 };
 

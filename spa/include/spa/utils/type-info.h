@@ -62,7 +62,7 @@ static const struct spa_type_info spa_types[] = {
 	{ SPA_TYPE_EVENT_Node, SPA_TYPE_Object, SPA_TYPE_INFO_EVENT_BASE "Node", spa_type_node_event },
 
 	{ SPA_TYPE_COMMAND_START, SPA_TYPE_Object, SPA_TYPE_INFO_Command, NULL },
-	{ SPA_TYPE_COMMAND_Device, SPA_TYPE_Object, SPA_TYPE_INFO_COMMAND_BASE "Device", NULL },
+	{ SPA_TYPE_COMMAND_Device, SPA_TYPE_Object, SPA_TYPE_INFO_COMMAND_BASE "Device", spa_type_device_command },
 	{ SPA_TYPE_COMMAND_Node, SPA_TYPE_Object, SPA_TYPE_INFO_COMMAND_BASE "Node", spa_type_node_command },
 
 	{ SPA_TYPE_OBJECT_START, SPA_TYPE_Object, SPA_TYPE_INFO_Object, NULL },

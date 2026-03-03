@@ -83,6 +83,7 @@ struct _GstPipeWireSrc {
   GstClockTime max_latency;
 
   GstBuffer *last_buffer;
+  GstClockTime last_buffer_clock_time;
 
   enum spa_meta_videotransform_value transform_value;
 

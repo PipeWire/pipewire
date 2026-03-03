@@ -144,7 +144,12 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 	spa_list_for_each(p, &node->output_ports, link) {
 		spa_list_for_each(l, &p->links, output_link) {
 			n = l->input->node;
-			if (!l->prepared || !n->active || l->input->passive)
+			pw_log_trace(" out-port %p: link %p passive:%d prepared:%d active:%d runn:%d", p,
+					l, l->input->passive, l->prepared, n->active, n->runnable);
+			if (!n->active || l->input->passive)
+				continue;
+			pw_impl_link_prepare(l);
+			if (!l->prepared)
 				continue;
 			if (!n->runnable)
 				make_runnable(context, n);
@@ -153,7 +158,12 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 	spa_list_for_each(p, &node->input_ports, link) {
 		spa_list_for_each(l, &p->links, input_link) {
 			n = l->output->node;
-			if (!l->prepared || !n->active || l->output->passive)
+			pw_log_trace(" in-port %p: link %p passive:%d prepared:%d active:%d runn:%d", p,
+					l, l->output->passive, l->prepared, n->active, n->runnable);
+			if (!n->active || l->output->passive)
+				continue;
+			pw_impl_link_prepare(l);
+			if (!l->prepared)
 				continue;
 			if (!n->runnable)
 				make_runnable(context, n);
@@ -201,6 +211,9 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 	struct pw_impl_link *l;
 	struct pw_impl_node *n;
 
+	pw_log_trace("node %p: '%s' always-process:%d runnable:%u active:%d", node,
+			node->name, node->always_process, node->runnable, node->active);
+
 	if (node->always_process && !node->runnable)
 		make_runnable(context, node);
 
@@ -209,6 +222,8 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 			n = l->input->node;
 			/* the peer needs to be active and we are linked to it
 			 * with a non-passive link */
+			pw_log_trace(" out-port %p: link %p passive:%d prepared:%d active:%d", p,
+					l, p->passive, l->prepared, n->active);
 			if (!n->active || p->passive)
 				continue;
 			/* explicitly prepare the link in case it was suspended */
@@ -222,6 +237,8 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 	spa_list_for_each(p, &node->input_ports, link) {
 		spa_list_for_each(l, &p->links, input_link) {
 			n = l->output->node;
+			pw_log_trace(" in-port %p: link %p passive:%d prepared:%d active:%d", p,
+					l, p->passive, l->prepared, n->active);
 			if (!n->active || p->passive)
 				continue;
 			pw_impl_link_prepare(l);

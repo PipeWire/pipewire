@@ -1051,13 +1051,13 @@ static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *p
 	case PW_IMPL_PORT_STATE_INIT:
 	case PW_IMPL_PORT_STATE_CONFIGURE:
 		if (this->prepared || state < old) {
-			this->prepared = false;
+			this->prepared = this->preparing = false;
 			link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);
 		}
 		break;
 	case PW_IMPL_PORT_STATE_READY:
 		if (this->prepared || state < old) {
-			this->prepared = false;
+			this->prepared = this->preparing = false;
 			link_update_state(this, PW_LINK_STATE_NEGOTIATING, 0, NULL);
 		}
 		break;

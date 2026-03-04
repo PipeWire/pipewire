@@ -1593,7 +1593,8 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     if (pwsrc->eos) {
       if (pwsrc->last_buffer == NULL)
         goto streaming_eos;
-      buf = gst_buffer_steal (&pwsrc->last_buffer);
+      buf = pwsrc->last_buffer;
+      pwsrc->last_buffer = NULL;
       update_time = TRUE;
       GST_LOG_OBJECT (pwsrc, "EOS, send last buffer");
       break;
@@ -1608,8 +1609,11 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
       if (buf != NULL) {
         if (pwsrc->resend_last || pwsrc->keepalive_time > 0) {
           GstClock *clock;
+          GstBuffer *old;
 
-          gst_buffer_take (&pwsrc->last_buffer, gst_buffer_copy (buf));
+          old = pwsrc->last_buffer;
+          pwsrc->last_buffer = gst_buffer_copy (buf);
+          gst_buffer_unref (old);
           gst_buffer_add_parent_buffer_meta (pwsrc->last_buffer, buf);
 
           clock = gst_element_get_clock (GST_ELEMENT_CAST (pwsrc));

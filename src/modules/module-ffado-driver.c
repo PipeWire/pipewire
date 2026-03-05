@@ -1556,8 +1556,6 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_properties_set(props, PW_KEY_NODE_VIRTUAL, "true");
 	if (pw_properties_get(props, PW_KEY_NODE_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_GROUP, "ffado-group");
-	if (pw_properties_get(props, PW_KEY_NODE_LINK_GROUP) == NULL)
-		pw_properties_set(props, PW_KEY_NODE_LINK_GROUP, "ffado-group");
 	if (pw_properties_get(props, PW_KEY_NODE_PAUSE_ON_IDLE) == NULL)
 		pw_properties_set(props, PW_KEY_NODE_PAUSE_ON_IDLE, "false");
 

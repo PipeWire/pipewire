@@ -196,55 +196,60 @@ struct data {
 };
 
 static const struct format_info {
-	const char *name;
+	const char *sf_name;
 	int sf_format;
+	uint32_t sf_width;
+	const char *spa_name;
 	uint32_t spa_format;
-	uint32_t width;
+	uint32_t spa_width;
+#define FORMAT_ENCODED	(1<<0)
+	uint32_t flags;
 } format_info[] = {
-	{  "ulaw", SF_FORMAT_ULAW, SPA_AUDIO_FORMAT_ULAW, 1 },
-	{  "alaw", SF_FORMAT_ULAW, SPA_AUDIO_FORMAT_ALAW, 1 },
-	{  "s8", SF_FORMAT_PCM_S8, SPA_AUDIO_FORMAT_S8, 1 },
-	{  "u8", SF_FORMAT_PCM_U8, SPA_AUDIO_FORMAT_U8, 1 },
-	{  "s16", SF_FORMAT_PCM_16, SPA_AUDIO_FORMAT_S16, 2 },
-	{  "s24", SF_FORMAT_PCM_24, SPA_AUDIO_FORMAT_S24, 3 },
-	{  "s32", SF_FORMAT_PCM_32, SPA_AUDIO_FORMAT_S32, 4 },
-	{  "f32", SF_FORMAT_FLOAT, SPA_AUDIO_FORMAT_F32, 4 },
-	{  "f64", SF_FORMAT_DOUBLE, SPA_AUDIO_FORMAT_F32, 8 },
+	{  "ulaw", SF_FORMAT_ULAW, 1, "ulaw", SPA_AUDIO_FORMAT_ULAW, 1, 0 },
+	{  "alaw", SF_FORMAT_ULAW, 1, "alaw", SPA_AUDIO_FORMAT_ALAW, 1, 0 },
+	{  "s8", SF_FORMAT_PCM_S8, 1, "s8", SPA_AUDIO_FORMAT_S8, 1, 0 },
+	{  "u8", SF_FORMAT_PCM_U8, 1, "u8", SPA_AUDIO_FORMAT_U8, 1, 0 },
+	{  "s16", SF_FORMAT_PCM_16, 2, "s16", SPA_AUDIO_FORMAT_S16, 2, 0 },
+	/* we read and write S24 as S32 with sndfile */
+	{  "s24", SF_FORMAT_PCM_24, 3, "s32", SPA_AUDIO_FORMAT_S32, 4, 0 },
+	{  "s32", SF_FORMAT_PCM_32, 4, "s32", SPA_AUDIO_FORMAT_S32, 4, 0 },
+	{  "f32", SF_FORMAT_FLOAT, 4, "f32", SPA_AUDIO_FORMAT_F32, 4, 0 },
+	{  "f64", SF_FORMAT_DOUBLE, 8, "f64", SPA_AUDIO_FORMAT_F32, 8, 0 },
 
-	{  "mp1", SF_FORMAT_MPEG_LAYER_I, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "mp2", SF_FORMAT_MPEG_LAYER_II, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "mp3", SF_FORMAT_MPEG_LAYER_III, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "vorbis", SF_FORMAT_VORBIS, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "opus", SF_FORMAT_OPUS, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "mp1", SF_FORMAT_MPEG_LAYER_I, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "mp2", SF_FORMAT_MPEG_LAYER_II, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "mp3", SF_FORMAT_MPEG_LAYER_III, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "vorbis", SF_FORMAT_VORBIS, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "opus", SF_FORMAT_OPUS, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
 
-	{  "ima-adpcm", SF_FORMAT_IMA_ADPCM, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "ms-adpcm", SF_FORMAT_MS_ADPCM, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "nms-adpcm-16", SF_FORMAT_NMS_ADPCM_16, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "nms-adpcm-24", SF_FORMAT_NMS_ADPCM_24, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "nms-adpcm-32", SF_FORMAT_NMS_ADPCM_32, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "ima-adpcm", SF_FORMAT_IMA_ADPCM, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "ms-adpcm", SF_FORMAT_MS_ADPCM, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "nms-adpcm-16", SF_FORMAT_NMS_ADPCM_16, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "nms-adpcm-24", SF_FORMAT_NMS_ADPCM_24, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "nms-adpcm-32", SF_FORMAT_NMS_ADPCM_32, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
 
-	{  "alac-16", SF_FORMAT_ALAC_16, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "alac-20", SF_FORMAT_ALAC_20, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "alac-24", SF_FORMAT_ALAC_24, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "alac-32", SF_FORMAT_ALAC_32, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "alac-16", SF_FORMAT_ALAC_16, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "alac-20", SF_FORMAT_ALAC_20, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "alac-24", SF_FORMAT_ALAC_24, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "alac-32", SF_FORMAT_ALAC_32, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
 
-	{  "gsm610", SF_FORMAT_GSM610, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "g721-32", SF_FORMAT_G721_32, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "g723-24", SF_FORMAT_G723_24, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "g723-40", SF_FORMAT_G723_40, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "dwvw-12", SF_FORMAT_DWVW_12, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "dwvw-16", SF_FORMAT_DWVW_16, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "dwvw-24", SF_FORMAT_DWVW_24, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "vox", SF_FORMAT_VOX_ADPCM, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "dpcm-16", SF_FORMAT_DPCM_16, SPA_AUDIO_FORMAT_F32, 1 },
-	{  "dpcm-8", SF_FORMAT_DPCM_8, SPA_AUDIO_FORMAT_F32, 1 },
+	{  "gsm610", SF_FORMAT_GSM610, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "g721-32", SF_FORMAT_G721_32, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "g723-24", SF_FORMAT_G723_24, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "g723-40", SF_FORMAT_G723_40, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "dwvw-12", SF_FORMAT_DWVW_12, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "dwvw-16", SF_FORMAT_DWVW_16, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "dwvw-24", SF_FORMAT_DWVW_24, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "vox", SF_FORMAT_VOX_ADPCM, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "dpcm-16", SF_FORMAT_DPCM_16, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
+	{  "dpcm-8", SF_FORMAT_DPCM_8, 1, "f32", SPA_AUDIO_FORMAT_F32, 4, FORMAT_ENCODED },
 
 };
 
 static const struct format_info *format_info_by_name(const char *str)
 {
 	SPA_FOR_EACH_ELEMENT_VAR(format_info, i)
-		if (spa_streq(str, i->name))
+		if (spa_streq(str, i->sf_name))
 			return i;
 	return NULL;
 }
@@ -263,7 +268,7 @@ static void list_formats(struct data *d)
 
 	fprintf(stdout, _("Supported formats:\n"));
 	SPA_FOR_EACH_ELEMENT_VAR(format_info, i)
-		fprintf(stdout, "  %s\n", i->name);
+		fprintf(stdout, "  %s\n", i->sf_name);
 }
 
 static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
@@ -1676,8 +1681,13 @@ static int setup_raw(struct data *data)
 	if (info == NULL)
 		return -EINVAL;
 
+	if (info->flags & FORMAT_ENCODED) {
+		fprintf(stderr, "raw: raw encoded format %s not supported\n", info->sf_name);
+		return -ENOTSUP;
+	}
+
 	data->spa_format = info->spa_format;
-	data->stride = info->width * data->channels;
+	data->stride = info->spa_width * data->channels;
 	data->fill = data->mode == mode_playback ?  raw_play : raw_record;
 
 	if (spa_streq(data->filename, "-")) {
@@ -1696,7 +1706,7 @@ static int setup_raw(struct data *data)
 	if (data->verbose)
 		fprintf(stderr, "raw: rate=%u channels=%u fmt=%s samplesize=%u stride=%u\n",
 				data->rate, data->channels,
-				info->name, info->width, data->stride);
+				info->spa_name, info->spa_width, data->stride);
 
 	return 0;
 }
@@ -2034,14 +2044,10 @@ static int setup_sndfile(struct data *data)
 
 	if (data->verbose)
 		fprintf(stderr, "PCM: fmt:%s rate:%u channels:%u width:%u\n",
-				fi->name, data->rate, data->channels, fi->width);
-
-	/* we read and write S24 as S32 with sndfile */
-	if (fi->spa_format == SPA_AUDIO_FORMAT_S24)
-		fi = format_info_by_sf_format(SF_FORMAT_PCM_32);
+				fi->spa_name, data->rate, data->channels, fi->spa_width);
 
 	data->spa_format = fi->spa_format;
-	data->stride = fi->width * data->channels;
+	data->stride = fi->spa_width * data->channels;
 	data->fill = data->mode == mode_playback ?
 			playback_fill_fn(data->spa_format) :
 			record_fill_fn(data->spa_format);

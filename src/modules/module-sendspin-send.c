@@ -201,6 +201,13 @@ struct client {
 #define COMMAND_VOLUME	(1<<0)
 #define COMMAND_MUTE	(1<<1)
 	uint32_t supported_commands;
+#define STATE_UNKNOWN		0
+#define STATE_SYNCHRONIZED	1
+#define STATE_ERROR		2
+	uint32_t state;
+
+	int volume;
+	bool mute;
 
 	bool playing;
 };
@@ -495,9 +502,33 @@ static int send_server_time(struct client *c, uint64_t t1, uint64_t t2)
 }
 
 #if 0
-static int send_server_command(struct client *c)
+static int send_server_command(struct client *c, int command, int value)
 {
-	return 0;
+	struct spa_json_builder b;
+	size_t size;
+	char *mem;
+	int res;
+
+	spa_json_builder_memstream(&b, &mem, &size, 0);
+	spa_json_builder_array_push(&b,   "{");
+	spa_json_builder_object_string(&b,  "type", "server/command");
+	spa_json_builder_object_push(&b,    "payload", "{");
+	spa_json_builder_object_push(&b,      "player", "{");
+	if (command == COMMAND_VOLUME) {
+		spa_json_builder_object_string(&b, "command", "volume");
+		spa_json_builder_object_int(&b,    "volume", value);
+	} else {
+		spa_json_builder_object_string(&b, "command", "mute");
+		spa_json_builder_object_int(&b,    "mute", value ? true : false);
+	}
+	spa_json_builder_pop(&b,              "}");
+	spa_json_builder_pop(&b,            "}");
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_close(&b);
+
+	res = pw_websocket_connection_send_text(c->conn, mem, size);
+	free(mem);
+	return res;
 }
 #endif
 
@@ -779,7 +810,7 @@ static int handle_client_hello(struct client *c, struct spa_json *payload)
 static int handle_client_state(struct client *c, struct spa_json *payload)
 {
 	struct spa_json it[1];
-	char key[256];
+	char key[256], val[128];
         const char *v;
 	int l;
 
@@ -790,10 +821,21 @@ static int handle_client_state(struct client *c, struct spa_json *payload)
 			spa_json_enter(payload, &it[0]);
 			while ((l = spa_json_object_next(&it[0], key, sizeof(key), &v)) > 0) {
 				if (spa_streq(key, "state")) {
+					spa_json_parse_stringn(v, l, val, sizeof(val));
+					if (spa_streq(val, "synchronized"))
+						c->state = STATE_SYNCHRONIZED;
+					else if (spa_streq(val, "error"))
+						c->state = STATE_ERROR;
+					else
+						c->state = STATE_UNKNOWN;
 				}
 				else if (spa_streq(key, "volume")) {
+					if (spa_json_parse_int(v, l, &c->volume) <= 0)
+		                                return -EINVAL;
 				}
 				else if (spa_streq(key, "mute")) {
+					if (spa_json_parse_bool(v, l, &c->mute) <= 0)
+		                                return -EINVAL;
 				}
 			}
 		}

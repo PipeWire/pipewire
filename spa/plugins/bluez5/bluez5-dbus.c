@@ -7097,7 +7097,7 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 				memcpy(big_entry->broadcast_code, bcode, strlen(bcode));
 				spa_log_debug(monitor->log, "big_entry->broadcast_code %s", big_entry->broadcast_code);
 			} else if (spa_streq(key, "adapter")) {
-				if (spa_json_get_string(&it[1], big_entry->adapter, sizeof(big_entry->adapter)) <= 0)
+				if (spa_json_get_string(&it[0], big_entry->adapter, sizeof(big_entry->adapter)) <= 0)
 					goto parse_failed;
 				spa_log_debug(monitor->log, "big_entry->adapter %s", big_entry->adapter);
 			} else if (spa_streq(key, "encryption")) {

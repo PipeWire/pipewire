@@ -762,8 +762,6 @@ struct pw_impl_node {
 					  *  is selected to drive the graph */
 	unsigned int visited:1;		/**< for sorting */
 	unsigned int want_driver:1;	/**< this node wants to be assigned to a driver */
-	unsigned int in_passive:1;	/**< node input links should be passive */
-	unsigned int out_passive:1;	/**< node output links should be passive */
 	unsigned int runnable:1;	/**< node is runnable */
 	unsigned int freewheel:1;	/**< if this is the freewheel driver */
 	unsigned int loopchecked:1;	/**< for feedback loop checking */
@@ -787,6 +785,9 @@ struct pw_impl_node {
 	unsigned int lazy:1;		/**< the graph is lazy scheduling */
 	unsigned int exclusive:1;	/**< ports can only be linked once */
 	unsigned int reliable:1;	/**< ports need reliable tee */
+
+	bool passive_away[2];	/**< node input links should be passive */
+	bool passive_into[2];	/**< node input links should be passive */
 
 	uint32_t transport;		/**< latest transport request */
 
@@ -962,7 +963,8 @@ struct pw_impl_port {
 		bool added;
 	} rt;					/**< data only accessed from the data thread */
 	unsigned int destroying:1;
-	unsigned int passive:1;
+	unsigned int passive_into:1;
+	unsigned int passive_away:1;
 	unsigned int auto_path:1;		/* path was automatically generated */
 	unsigned int auto_name:1;		/* name was automatically generated */
 	unsigned int auto_alias:1;		/* alias was automatically generated */

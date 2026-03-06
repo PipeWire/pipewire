@@ -450,10 +450,24 @@ Whether the node target may be changed using metadata.
 
 @PAR@ node-prop  node.passive = false
 \parblock
-This is a passive node and so it should not keep sinks/sources busy. This property makes the session manager create passive links to the sink/sources. If the node is not otherwise linked (via a non-passive link), the node and the sink it is linked to are idle (and eventually suspended).
+This can be used to configure the port.passive property for all ports of this node.
+
+Possible values are:
+
+ * "out": output ports are passive, They will not make the peers active and active peers will
+          not make this node active.
+ * "in": input ports are passive, They will not make the peers active and active peers will
+          not make this node active.
+ * "true": A combination in "in" and "out", both input and output ports are passive.
+ * "out-follow": output ports will not make the peer active but when the peer is activated via
+                 some other way, this node will also become active.
+ * "in-follow": input ports will not make the peer active but when the peer is activated via
+                 some other way, this node will also become active.
+ * "follow": A combination of "in-follow" and "out-follow".
 
 This is used for filter nodes that sit in front of sinks/sources and need to suspend together with the sink/source.
 \endparblock
+
 
 @PAR@ node-prop  node.link-group = ID
 Add the node to a certain link group. Nodes from the same link group are not automatically linked to each other by the session manager. And example is a coupled stream where you don't want the output to link to the input streams, making a useless loop.
@@ -1418,6 +1432,11 @@ them. Below are some port properties may interesting for users:
 @PAR@ port-prop  port.alias # string
 \parblock
 \copydoc PW_KEY_PORT_ALIAS
+\endparblock
+
+@PAR@ port-prop  port.passive # string
+\parblock
+\copydoc PW_KEY_PORT_PASSIVE
 \endparblock
 
 \see pw_keys in the API documentation for a full list.

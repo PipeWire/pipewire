@@ -537,10 +537,25 @@ static int check_properties(struct pw_impl_port *port)
 			&schedule_tee_node;
 	}
 
-	/* inherit passive state from parent node */
-	port->passive = pw_properties_get_bool(port->properties, PW_KEY_PORT_PASSIVE,
-			port->direction == PW_DIRECTION_INPUT ?
-			node->in_passive : node->out_passive);
+
+	if ((str = pw_properties_get(port->properties, PW_KEY_PORT_PASSIVE)) == NULL) {
+		/* inherit passive state from parent node */
+		port->passive_into = node->passive_into[port->direction];
+		port->passive_away = node->passive_away[port->direction];
+	} else {
+		if (spa_streq(str, "true")) {
+			port->passive_into = true;
+			port->passive_away = true;
+		}
+		else if (spa_streq(str, "follow")) {
+			port->passive_into = false;
+			port->passive_away = true;
+		} else {
+			port->passive_into = false;
+			port->passive_away = false;
+		}
+
+	}
 
 	if (media_class != NULL &&
 	    (strstr(media_class, "Sink") != NULL ||

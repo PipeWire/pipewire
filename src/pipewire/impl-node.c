@@ -1269,12 +1269,35 @@ static void check_properties(struct pw_impl_node *node)
 	}
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL)
 		str = "false";
-	if (spa_streq(str, "out"))
-		node->out_passive = true;
-	else if (spa_streq(str, "in"))
-		node->in_passive = true;
-	else
-		node->in_passive = node->out_passive = spa_atob(str);
+
+	if (spa_streq(str, "out")) {
+		node->passive_away[SPA_DIRECTION_OUTPUT] = true;
+		node->passive_into[SPA_DIRECTION_OUTPUT]= true;
+	}
+	if (spa_streq(str, "out-follow")) {
+		node->passive_away[SPA_DIRECTION_OUTPUT] = true;
+		node->passive_into[SPA_DIRECTION_OUTPUT] = false;
+	}
+	else if (spa_streq(str, "in")) {
+		node->passive_away[SPA_DIRECTION_INPUT] = true;
+		node->passive_into[SPA_DIRECTION_INPUT]= true;
+	}
+	else if (spa_streq(str, "in-follow")) {
+		node->passive_away[SPA_DIRECTION_INPUT] = true;
+		node->passive_into[SPA_DIRECTION_INPUT] = false;
+	}
+	else if (spa_streq(str, "follow")) {
+		node->passive_away[SPA_DIRECTION_INPUT] = true;
+		node->passive_into[SPA_DIRECTION_INPUT] = false;
+		node->passive_away[SPA_DIRECTION_OUTPUT] = true;
+		node->passive_into[SPA_DIRECTION_OUTPUT] = false;
+	}
+	else {
+		node->passive_away[SPA_DIRECTION_OUTPUT] =
+			node->passive_into[SPA_DIRECTION_OUTPUT] =
+			node->passive_away[SPA_DIRECTION_INPUT] =
+			node->passive_into[SPA_DIRECTION_INPUT] = spa_atob(str);
+	}
 
 	node->want_driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_WANT_DRIVER, false);
 	node->always_process = pw_properties_get_bool(node->properties, PW_KEY_NODE_ALWAYS_PROCESS, false);

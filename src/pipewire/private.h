@@ -778,7 +778,6 @@ struct pw_impl_node {
 	unsigned int forced_quantum:1;
 	unsigned int trigger:1;		/**< has the TRIGGER property and needs an extra
 					  *  trigger to start processing. */
-	unsigned int can_suspend:1;
 	unsigned int checked;		/**< for sorting */
 	unsigned int sync:1;		/**< the sync-groups are active */
 	unsigned int async:1;		/**< async processing, one cycle latency */

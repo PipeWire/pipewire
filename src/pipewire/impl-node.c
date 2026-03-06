@@ -1261,14 +1261,13 @@ static void check_properties(struct pw_impl_node *node)
 		SPA_FLAG_UPDATE(node->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_ASYNC, async);
 	}
 
-	if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
-	    (strstr(str, "/Sink") != NULL || strstr(str, "/Source") != NULL)) {
-		node->can_suspend = true;
-	} else {
-		node->can_suspend = false;
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL) {
+		if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
+		    (strstr(str, "/Sink") != NULL || strstr(str, "/Source") != NULL))
+			str = "follow";
+		else
+			str = "false";
 	}
-	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL)
-		str = "false";
 
 	if (spa_streq(str, "out")) {
 		node->passive_away[SPA_DIRECTION_OUTPUT] = true;

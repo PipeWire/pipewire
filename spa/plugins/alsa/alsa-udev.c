@@ -538,6 +538,9 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 		if ((str = udev_device_get_property_value(udev_device, "ACP_PROFILE_SET")) && *str)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_PROFILE_SET, str);
 
+		if ((str = udev_device_get_property_value(udev_device, "ACP_IGNORE_DB")) && *str)
+			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_IGNORE_DB, str);
+
 		if ((str = udev_device_get_property_value(udev_device, "SOUND_CLASS")) && *str)
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_DEVICE_CLASS, str);
 

@@ -902,8 +902,7 @@ static int dump(struct dump_config *c, int indent, struct spa_json *it, const ch
 	} else if (spa_json_is_null(value, len) ||
 	    spa_json_is_bool(value, len)) {
 		fprintf(file, "%s%.*s%s", LITERAL(c), len, value, NORMAL(c));
-	} else if (spa_json_is_int(value, len) ||
-	    spa_json_is_float(value, len)) {
+	} else if (spa_json_is_json_number(value, len)) {
 		fprintf(file, "%s%.*s%s", NUMBER(c), len, value, NORMAL(c));
 	} else if (spa_json_is_json_string(value, len)) {
 		fprintf(file, "%s%.*s%s", STRING(c), len, value, NORMAL(c));

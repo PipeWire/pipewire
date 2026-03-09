@@ -480,6 +480,33 @@ SPA_API_JSON bool spa_json_is_int(const char *val, int len)
 	return spa_json_parse_int(val, len, &dummy);
 }
 
+SPA_API_JSON bool spa_json_is_json_number(const char *val, int len)
+{
+	static const int8_t trans[9][7] = {
+	/*      '1-9'  '0'  '-'  '+'  '.'  'eE'  other */
+	/* 0 */ {-1,  -1,   -1,  -1,   6,   7,   -1 },  /* after '0' */
+	/* 1 */ { 1,   1,   -1,  -1,   6,   7,   -1 },  /* in integer */
+	/* 2 */ { 2,   2,   -1,  -1,  -1,   7,   -1 },  /* in fraction */
+	/* 3 */ { 3,   3,   -1,  -1,  -1,  -1,   -1 },  /* in exponent */
+	/* 4 */ { 1,   0,    5,  -1,  -1,  -1,   -1 },  /* start */
+	/* 5 */ { 1,   0,   -1,  -1,  -1,  -1,   -1 },  /* after '-' */
+	/* 6 */ { 2,   2,   -1,  -1,  -1,  -1,   -1 },  /* after '.' */
+	/* 7 */ { 3,   3,    8,   8,  -1,  -1,   -1 },  /* after 'e'/'E' */
+	/* 8 */ { 3,   3,   -1,  -1,  -1,  -1,   -1 },  /* after exp sign */
+	};
+	int i, state = 4;
+
+	for (i = 0; i < len; i++) {
+		char v = val[i];
+		int cls = (v >= '1' && v <= '9') ? 0 : v == '0' ? 1 :
+		          v == '-' ? 2 : v == '+' ? 3 : v == '.' ? 4 :
+		          (v == 'e' || v == 'E') ? 5 : 6;
+		if ((state = trans[state][cls]) < 0)
+			return false;
+	}
+	return state < 4;
+}
+
 /* bool */
 SPA_API_JSON bool spa_json_is_true(const char *val, int len)
 {

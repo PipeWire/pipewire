@@ -2,7 +2,6 @@
 #undef SPA_AUDIO_MAX_CHANNELS
 
 #define SPA_API_IMPL	SPA_EXPORT
-#include <spa/utils/defs.h>
 #include <spa/buffer/alloc.h>
 #include <spa/buffer/buffer.h>
 #include <spa/buffer/type-info.h>
@@ -126,16 +125,17 @@
 #include <spa/param/video/raw-types.h>
 #include <spa/param/video/raw-utils.h>
 #include <spa/param/video/type-info.h>
+#include <spa/pod/body.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/command.h>
 #include <spa/pod/compare.h>
 #include <spa/pod/dynamic.h>
 #include <spa/pod/event.h>
 #include <spa/pod/filter.h>
-#include <spa/pod/body.h>
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/pod.h>
+#include <spa/pod/simplify.h>
 #include <spa/pod/vararg.h>
 #include <spa/support/cpu.h>
 #include <spa/support/dbus.h>
@@ -158,6 +158,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/json-core.h>
 #include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/utils/json-pod.h>
 #include <spa/utils/keys.h>
 #include <spa/utils/list.h>

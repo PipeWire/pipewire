@@ -21,11 +21,14 @@ extern "C" {
  * \{
  */
 
-/**< Link capable of device ID negotiation. The value is either "true" or "false" */
+/**< Link capable of device ID negotiation. The value is to the version of the
+ * API specification. */
 #define PW_CAPABILITY_DEVICE_ID_NEGOTIATION	"pipewire.device-id-negotiation"
 /**< Link with device ID negotition capability supports negotiating with
- * provided list of devices. The value consists of a JSON encoded string array
- * of base64 encoded dev_t values. */
+ * a specific set of devices. The value of API version 1 consists of a JSON
+ * object containing a single key "available-devices" that contain a list of
+ * hexadecimal encoded `dev_t` device IDs.
+ */
 #define PW_CAPABILITY_DEVICE_IDS		"pipewire.device-ids"
 
 #define PW_CAPABILITY_DEVICE_ID		"pipewire.device-id"	/**< Link capable of device Id negotation */

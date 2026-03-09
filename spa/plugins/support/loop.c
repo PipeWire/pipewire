@@ -462,12 +462,12 @@ again:
 		 * this invoking thread but we need to serialize the flushing here with
 		 * a mutex */
 		if (loop_thread == 0)
-			pthread_mutex_lock(&impl->lock);
+			spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
 
 		flush_all_queues(impl);
 
 		if (loop_thread == 0)
-			pthread_mutex_unlock(&impl->lock);
+			spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
 
 		res = item->res;
 	} else {
@@ -482,9 +482,9 @@ again:
 				recurse = impl->recurse;
 				while (impl->recurse > 0) {
 					impl->recurse--;
-					pthread_mutex_unlock(&impl->lock);
+					spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
 				}
-				pthread_mutex_unlock(&impl->lock);
+				spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
 			}
 
 			if ((res = spa_system_eventfd_read(impl->system, queue->ack_fd, &count)) < 0)
@@ -492,7 +492,7 @@ again:
 						queue, queue->ack_fd, spa_strerror(res));
 
 			for (i = 0; i < recurse; i++) {
-				pthread_mutex_lock(&impl->lock);
+				spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
 				impl->recurse++;
 			}
 
@@ -569,9 +569,14 @@ static int loop_locked(void *object, spa_invoke_func_t func, uint32_t seq,
 {
 	struct impl *impl = object;
 	int res;
-	pthread_mutex_lock(&impl->lock);
+
+	res = pthread_mutex_lock(&impl->lock);
+	if (res)
+		return -res;
+
 	res = func(&impl->loop, false, seq, data, size, user_data);
-	pthread_mutex_unlock(&impl->lock);
+	spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
+
 	return res;
 }
 
@@ -598,7 +603,7 @@ static void loop_enter(void *object)
 	struct impl *impl = object;
 	pthread_t thread_id = pthread_self();
 
-	pthread_mutex_lock(&impl->lock);
+	spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
 	if (impl->enter_count == 0) {
 		spa_return_if_fail(impl->thread == 0);
 		impl->thread = thread_id;
@@ -625,7 +630,7 @@ static void loop_leave(void *object)
 		impl->thread = 0;
 		flush_all_queues(impl);
 	}
-	pthread_mutex_unlock(&impl->lock);
+	spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
 }
 
 static int loop_check(void *object)
@@ -644,7 +649,7 @@ static int loop_check(void *object)
 
 	/* we could take the lock, check if we actually locked it somewhere */
 	res = impl->recurse > 0 ? 1 : -EPERM;
-	pthread_mutex_unlock(&impl->lock);
+	spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
 	return res;
 }
 static int loop_lock(void *object)
@@ -748,11 +753,11 @@ static int loop_iterate_cancel(void *object, int timeout)
 
 	remove_count = impl->remove_count;
 	spa_loop_control_hook_before(&impl->hooks_list);
-	pthread_mutex_unlock(&impl->lock);
+	spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
 
 	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
 
-	pthread_mutex_lock(&impl->lock);
+	spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
 	spa_loop_control_hook_after(&impl->hooks_list);
 	if (remove_count != impl->remove_count)
 		nfds = 0;
@@ -796,11 +801,11 @@ static int loop_iterate(void *object, int timeout)
 
 	remove_count = impl->remove_count;
 	spa_loop_control_hook_before(&impl->hooks_list);
-	pthread_mutex_unlock(&impl->lock);
+	spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
 
 	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
 
-	pthread_mutex_lock(&impl->lock);
+	spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
 	spa_loop_control_hook_after(&impl->hooks_list);
 	if (remove_count != impl->remove_count)
 		return 0;

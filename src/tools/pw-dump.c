@@ -310,7 +310,7 @@ static void put_pod_value(struct data *d, const char *key, const struct spa_type
 		int index = 0;
 
 		if (b->type == SPA_CHOICE_None) {
-			put_pod_value(d, NULL, info, b->child.type,
+			put_pod_value(d, key, info, b->child.type,
 					SPA_POD_CONTENTS(struct spa_pod, &b->child),
 					b->child.size);
 		} else {

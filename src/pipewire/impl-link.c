@@ -701,7 +701,10 @@ static int do_allocation(struct pw_impl_link *this)
 		/* always enable async mode */
 		alloc_flags = PW_BUFFERS_FLAG_ASYNC;
 
-		if (output->node->remote || input->node->remote)
+		/* shared mem can only be used if both nodes are in the same process
+		 * and we are sure that the buffers are never going to be shared
+		 * because of the exclusive flag */
+		if (output->node->remote || input->node->remote || !output->exclusive)
 			alloc_flags |= PW_BUFFERS_FLAG_SHARED;
 
 		if (output->node->driver)

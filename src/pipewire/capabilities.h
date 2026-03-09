@@ -31,8 +31,6 @@ extern "C" {
  */
 #define PW_CAPABILITY_DEVICE_IDS		"pipewire.device-ids"
 
-#define PW_CAPABILITY_DEVICE_ID		"pipewire.device-id"	/**< Link capable of device Id negotation */
-
 /** \}
  */
 

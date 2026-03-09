@@ -751,6 +751,8 @@ static int loop_iterate_cancel(void *object, int timeout)
 	int i, nfds;
 	uint32_t remove_count;
 
+	spa_return_val_if_fail(impl->enter_count > 0, -EPERM);
+
 	remove_count = impl->remove_count;
 	spa_loop_control_hook_before(&impl->hooks_list);
 	spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
@@ -798,6 +800,8 @@ static int loop_iterate(void *object, int timeout)
 	struct spa_poll_event ep[MAX_EP], *e;
 	int i, nfds;
 	uint32_t remove_count;
+
+	spa_return_val_if_fail(impl->enter_count > 0, -EPERM);
 
 	remove_count = impl->remove_count;
 	spa_loop_control_hook_before(&impl->hooks_list);

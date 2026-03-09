@@ -2777,15 +2777,17 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 	bool is_bap = codec->kind == MEDIA_CODEC_BAP;
 	size_t i;
 
-	codec_target_profile = get_codec_target_profile(monitor, codec);
-	if (!codec_target_profile)
-		return false;
-
 	if (codec->kind == MEDIA_CODEC_HFP) {
 		if (!(profile & SPA_BT_PROFILE_HEADSET_AUDIO))
 			return false;
+		if (!is_media_codec_enabled(monitor, codec))
+			return false;
 		return spa_bt_backend_supports_codec(monitor->backend, device, codec->codec_id) == 1;
 	}
+
+	codec_target_profile = get_codec_target_profile(monitor, codec);
+	if (!codec_target_profile)
+		return false;
 
 	if (!device->adapter->a2dp_application_registered && is_a2dp) {
 		/* Codec switching not supported: only plain SBC allowed */

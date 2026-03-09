@@ -425,19 +425,10 @@ SPA_API_JSON bool spa_json_is_null(const char *val, int len)
 /* float */
 SPA_API_JSON int spa_json_parse_float(const char *val, int len, float *result)
 {
-	char buf[96];
-	char *end;
-	int pos;
+	char buf[96], *end;
 
 	if (len <= 0 || len >= (int)sizeof(buf))
 		return 0;
-
-	for (pos = 0; pos < len; ++pos) {
-		switch (val[pos]) {
-		case '+': case '-': case '0' ... '9': case '.': case 'e': case 'E': break;
-		default: return 0;
-		}
-	}
 
 	memcpy(buf, val, len);
 	buf[len] = '\0';
@@ -466,8 +457,7 @@ SPA_API_JSON char *spa_json_format_float(char *str, int size, float val)
 /* int */
 SPA_API_JSON int spa_json_parse_int(const char *val, int len, int *result)
 {
-	char buf[64];
-	char *end;
+	char buf[64], *end;
 
 	if (len <= 0 || len >= (int)sizeof(buf))
 		return 0;

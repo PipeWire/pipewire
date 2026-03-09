@@ -587,18 +587,35 @@ static enum spa_bt_profile get_codec_profile(const struct media_codec *codec,
 {
 	switch (direction) {
 	case SPA_BT_MEDIA_SOURCE:
-		return codec->kind == MEDIA_CODEC_BAP ? SPA_BT_PROFILE_BAP_SOURCE : SPA_BT_PROFILE_A2DP_SOURCE;
+		if (codec->kind == MEDIA_CODEC_A2DP)
+			return SPA_BT_PROFILE_A2DP_SOURCE;
+		else if (codec->kind == MEDIA_CODEC_BAP)
+			return SPA_BT_PROFILE_BAP_SOURCE;
+		else if (codec->kind == MEDIA_CODEC_HFP)
+			return SPA_BT_PROFILE_HEADSET_AUDIO;
+		else
+			return SPA_BT_PROFILE_NULL;
 	case SPA_BT_MEDIA_SINK:
-		if (codec->kind == MEDIA_CODEC_ASHA)
+		if (codec->kind == MEDIA_CODEC_A2DP)
+			return SPA_BT_PROFILE_A2DP_SINK;
+		else if (codec->kind == MEDIA_CODEC_ASHA)
 			return SPA_BT_PROFILE_ASHA_SINK;
 		else if (codec->kind == MEDIA_CODEC_BAP)
 			return SPA_BT_PROFILE_BAP_SINK;
+		else if (codec->kind == MEDIA_CODEC_HFP)
+			return SPA_BT_PROFILE_HEADSET_AUDIO;
 		else
-			return SPA_BT_PROFILE_A2DP_SINK;
+			return SPA_BT_PROFILE_NULL;
 	case SPA_BT_MEDIA_SOURCE_BROADCAST:
-		return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
+		if (codec->kind == MEDIA_CODEC_BAP)
+			return SPA_BT_PROFILE_BAP_BROADCAST_SOURCE;
+		else
+			return SPA_BT_PROFILE_NULL;
 	case SPA_BT_MEDIA_SINK_BROADCAST:
-		return SPA_BT_PROFILE_BAP_BROADCAST_SINK;
+		if (codec->kind == MEDIA_CODEC_BAP)
+			return SPA_BT_PROFILE_BAP_BROADCAST_SINK;
+		else
+			return SPA_BT_PROFILE_NULL;
 	default:
 		spa_assert_not_reached();
 	}

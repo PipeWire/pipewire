@@ -98,9 +98,9 @@ static int emit_info(struct impl *this, bool full)
 			(this->dev.cap.version >> 8) & 0xFF,
 			(this->dev.cap.version) & 0xFF);
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_VERSION, version);
-	snprintf(capabilities, sizeof(capabilities), "%08x", this->dev.cap.capabilities);
+	snprintf(capabilities, sizeof(capabilities), "0x%08x", this->dev.cap.capabilities);
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_CAPABILITIES, capabilities);
-	snprintf(device_caps, sizeof(device_caps), "%08x", this->dev.cap.device_caps);
+	snprintf(device_caps, sizeof(device_caps), "0x%08x", this->dev.cap.device_caps);
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_DEVICE_CAPS, device_caps);
 #undef ADD_ITEM
 	info.props = &SPA_DICT_INIT(items, n_items);

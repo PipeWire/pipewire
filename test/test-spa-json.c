@@ -740,6 +740,7 @@ PWTEST(json_float_check)
 		{ "-1.", 1, 0 },
 
 		{ "-.0", 1, 0 },
+		{ "-1E10", 1, 1 },
 
 	};
 	unsigned i;

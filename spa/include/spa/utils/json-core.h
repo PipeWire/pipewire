@@ -476,40 +476,29 @@ SPA_API_JSON bool spa_json_is_int(const char *val, int len)
 
 SPA_API_JSON bool spa_json_is_json_number(const char *val, int len)
 {
-        int pos = 0, first;
-        /* integer */
-        if (len == 0)
-                return 0;
-        if (pos < len && val[pos] == '-')
-                pos++;
-	first = pos;
-        while(pos < len && val[pos] >= '0' && val[pos] <= '9')
-		pos++;
-	if (pos == first || (first + 1 < pos && val[first] == '0'))
-		return 0;
-        /* fraction */
-        if (pos == len)
-                return 1;
-        if (val[pos++] != '.')
-                return 0;
-	first = pos;
-        while(pos < len && val[pos] >= '0' && val[pos] <= '9')
-		pos++;
-	if (pos == first)
-		return 0;
-        /* exponent */
-        if (pos == len)
-                return 1;
-        if (val[pos] != 'e' && val[pos] != 'E')
-                return 0;
-	pos++;
-        if (val[pos] == '-' || val[pos] == '+')
-		pos++;
-        while(pos < len && val[pos] >= '0' && val[pos] <= '9')
-		pos++;
-        if (pos != len)
-                return 0;
-        return 1;
+	static const int8_t trans[9][7] = {
+	/*      '1-9'  '0'  '-'  '+'  '.'  'eE'  other */
+	/* 0 */ {-1,  -1,   -1,  -1,   6,   7,   -1 },  /* after '0' */
+	/* 1 */ { 1,   1,   -1,  -1,   6,   7,   -1 },  /* in integer */
+	/* 2 */ { 2,   2,   -1,  -1,  -1,   7,   -1 },  /* in fraction */
+	/* 3 */ { 3,   3,   -1,  -1,  -1,  -1,   -1 },  /* in exponent */
+	/* 4 */ { 1,   0,    5,  -1,  -1,  -1,   -1 },  /* start */
+	/* 5 */ { 1,   0,   -1,  -1,  -1,  -1,   -1 },  /* after '-' */
+	/* 6 */ { 2,   2,   -1,  -1,  -1,  -1,   -1 },  /* after '.' */
+	/* 7 */ { 3,   3,    8,   8,  -1,  -1,   -1 },  /* after 'e'/'E' */
+	/* 8 */ { 3,   3,   -1,  -1,  -1,  -1,   -1 },  /* after exp sign */
+	};
+	int i, state = 4;
+
+	for (i = 0; i < len; i++) {
+		char v = val[i];
+		int cls = (v >= '1' && v <= '9') ? 0 : v == '0' ? 1 :
+		          v == '-' ? 2 : v == '+' ? 3 : v == '.' ? 4 :
+		          (v == 'e' || v == 'E') ? 5 : 6;
+		if ((state = trans[state][cls]) < 0)
+			return false;
+	}
+	return state < 4;
 }
 
 /* bool */

@@ -349,10 +349,10 @@ rectangles. For example
 	params[n_params++] = spa_pod_builder_pop(&b, &f);
 ```
 
-After having received the first \ref SPA_PARAM_PeerCapability param, if it contained the \ref
-PW_CAPABILITY_DEVICE_ID set to `true`, the full set of formats can be sent using \ref
-pw_stream_update_params following by activating the stream using
-`pw_stream_set_active(stream, true)`.
+After having received the first \ref SPA_PARAM_PeerCapability param, if it contained the
+\ref PW_CAPABILITY_DEVICE_ID_NEGOTIATION set to a supported API version number, the full
+set of formats can be sent using \ref pw_stream_update_params following by activating the
+stream usina supported API version numberstream_set_active(stream, true)`.
 
 Note that the first \ref SPA_PARAM_Format received may be the result of the initial format
 negotian with bare minimum parameters, and will be superseded by the result of the format

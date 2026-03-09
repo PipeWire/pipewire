@@ -330,10 +330,12 @@ static int impl_node_enum_params(void *object, int seq,
 	struct spa_pod_dynamic_builder b;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
-	bool found = false;
 
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
+
+	if (!pw_param_info_find(impl->this.node->info.params, impl->this.node->info.n_params, id))
+		return -ENOENT;
 
 	result.id = id;
 	result.next = 0;
@@ -350,8 +352,6 @@ static int impl_node_enum_params(void *object, int seq,
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
-		found = true;
-
 		if (result.index < start)
 			continue;
 
@@ -366,7 +366,8 @@ static int impl_node_enum_params(void *object, int seq,
 		if (count == num)
 			break;
 	}
-	return found ? 0 : -ENOENT;
+
+	return 0;
 }
 
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
@@ -598,7 +599,6 @@ node_port_enum_params(struct impl *impl, int seq,
 	struct spa_pod_dynamic_builder b;
 	struct spa_result_node_params result;
 	uint32_t count = 0;
-	bool found = false;
 
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
@@ -608,6 +608,9 @@ node_port_enum_params(struct impl *impl, int seq,
 
 	pw_log_debug("%p: seq:%d port %d.%d id:%u start:%u num:%u n_params:%d",
 			impl, seq, direction, port_id, id, start, num, port->params.n_params);
+
+	if (!pw_param_info_find(port->port->info.params, port->port->info.n_params, id))
+		return -ENOENT;
 
 	result.id = id;
 	result.next = 0;
@@ -624,8 +627,6 @@ node_port_enum_params(struct impl *impl, int seq,
 		if (param == NULL || !spa_pod_is_object_id(param, id))
 			continue;
 
-		found = true;
-
 		if (result.index < start)
 			continue;
 
@@ -640,7 +641,8 @@ node_port_enum_params(struct impl *impl, int seq,
 		if (count == num)
 			break;
 	}
-	return found ? 0 : -ENOENT;
+
+	return 0;
 }
 
 static int

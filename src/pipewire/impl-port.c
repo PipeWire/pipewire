@@ -1740,8 +1740,13 @@ int pw_impl_port_for_each_param(struct pw_impl_port *port,
 		spa_hook_remove(&listener);
 
 		if (user_data.cache) {
-			pw_param_update(&impl->param_list, &impl->pending_list, 0, NULL);
-			pi->user = 1;
+			if (SPA_RESULT_IS_OK(res) && !SPA_RESULT_IS_ASYNC(res)) {
+				pw_param_update(&impl->param_list, &impl->pending_list, 0, NULL);
+				pi->user = 1;
+			}
+			else {
+				pw_param_clear(&impl->pending_list, SPA_ID_INVALID);
+			}
 		}
 	}
 

@@ -2653,8 +2653,13 @@ int pw_impl_node_for_each_param(struct pw_impl_node *node,
 		spa_hook_remove(&listener);
 
 		if (user_data.cache) {
-			pw_param_update(&impl->param_list, &impl->pending_list, 0, NULL);
-			pi->user = 1;
+			if (SPA_RESULT_IS_OK(res) && !SPA_RESULT_IS_ASYNC(res)) {
+				pw_param_update(&impl->param_list, &impl->pending_list, 0, NULL);
+				pi->user = 1;
+			}
+			else {
+				pw_param_clear(&impl->pending_list, SPA_ID_INVALID);
+			}
 		}
 	}
 	return res;

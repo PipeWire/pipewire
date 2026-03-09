@@ -484,6 +484,44 @@ SPA_API_JSON bool spa_json_is_int(const char *val, int len)
 	return spa_json_parse_int(val, len, &dummy);
 }
 
+SPA_API_JSON bool spa_json_is_json_number(const char *val, int len)
+{
+        int pos = 0, first;
+        /* integer */
+        if (len == 0)
+                return 0;
+        if (pos < len && val[pos] == '-')
+                pos++;
+	first = pos;
+        while(pos < len && val[pos] >= '0' && val[pos] <= '9')
+		pos++;
+	if (pos == first || (first + 1 < pos && val[first] == '0'))
+		return 0;
+        /* fraction */
+        if (pos == len)
+                return 1;
+        if (val[pos++] != '.')
+                return 0;
+	first = pos;
+        while(pos < len && val[pos] >= '0' && val[pos] <= '9')
+		pos++;
+	if (pos == first)
+		return 0;
+        /* exponent */
+        if (pos == len)
+                return 1;
+        if (val[pos] != 'e' && val[pos] != 'E')
+                return 0;
+	pos++;
+        if (val[pos] == '-' || val[pos] == '+')
+		pos++;
+        while(pos < len && val[pos] >= '0' && val[pos] <= '9')
+		pos++;
+        if (pos != len)
+                return 0;
+        return 1;
+}
+
 /* bool */
 SPA_API_JSON bool spa_json_is_true(const char *val, int len)
 {

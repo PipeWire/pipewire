@@ -264,7 +264,8 @@ static void clear_data(struct impl *impl, struct spa_data *d)
 	case SPA_DATA_DmaBuf:
 	case SPA_DATA_SyncObj:
 		pw_log_debug("%p: close fd:%d", impl, (int)d->fd);
-		close(d->fd);
+		if (d->fd != -1)
+			close(d->fd);
 		break;
 	}
 }
@@ -864,8 +865,11 @@ do_port_use_buffers(struct impl *impl,
 
 			memcpy(&b->datas[j], d, sizeof(struct spa_data));
 
-			if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC)
+			if (flags & SPA_NODE_BUFFERS_FLAG_ALLOC) {
+				b->datas[j].fd = -1;
+				b->datas[j].data = SPA_UINT32_TO_PTR(SPA_ID_INVALID);
 				continue;
+			}
 
 			switch (d->type) {
 			case SPA_DATA_DmaBuf:

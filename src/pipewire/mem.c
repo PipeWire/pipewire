@@ -15,6 +15,7 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/list.h>
 #include <spa/buffer/buffer.h>
 
@@ -856,8 +857,10 @@ void pw_memblock_free(struct pw_memblock *block)
 	}
 
 	if (block->fd != -1 && !(block->flags & PW_MEMBLOCK_FLAG_DONT_CLOSE)) {
-		pw_log_debug("%p: close fd:%d", pool, block->fd);
-		close(block->fd);
+		int fd = spa_steal_fd(block->fd);
+		pw_log_debug("%p: block:%p close fd:%d", pool, block, fd);
+		if (close(fd) < 0)
+			pw_log_error("%p: block:%p close fd:%d failed: %m", pool, block, fd);
 	}
 
 	spa_hook_list_clean(&b->listener_list);

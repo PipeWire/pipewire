@@ -727,13 +727,20 @@ static int loop_accept(void *object)
 }
 
 struct cancellation_handler_data {
+	struct impl *impl;
 	struct spa_poll_event *ep;
 	int ep_count;
+	int unlocked;
+	int locked;
 };
 
 static void cancellation_handler(void *closure)
 {
 	const struct cancellation_handler_data *data = closure;
+	struct impl *impl = data->impl;
+
+	if (data->unlocked && !data->locked)
+		spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
 
 	for (int i = 0; i < data->ep_count; i++) {
 		struct spa_source *s = data->ep[i].data;
@@ -750,22 +757,24 @@ static int loop_iterate_cancel(void *object, int timeout)
 	struct spa_poll_event ep[MAX_EP], *e;
 	int i, nfds;
 	uint32_t remove_count;
+	struct cancellation_handler_data cdata = { impl, ep, 0, 0, 0 };
 
 	spa_return_val_if_fail(impl->enter_count > 0, -EPERM);
 
+	pthread_cleanup_push(cancellation_handler, &cdata);
+
 	remove_count = impl->remove_count;
 	spa_loop_control_hook_before(&impl->hooks_list);
-	spa_assert_se(pthread_mutex_unlock(&impl->lock) == 0);
+	spa_assert_se((cdata.unlocked = (pthread_mutex_unlock(&impl->lock) == 0)));
 
 	nfds = spa_system_pollfd_wait(impl->system, impl->poll_fd, ep, SPA_N_ELEMENTS(ep), timeout);
 
-	spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
+	spa_assert_se((cdata.locked = (pthread_mutex_lock(&impl->lock) == 0)));
 	spa_loop_control_hook_after(&impl->hooks_list);
 	if (remove_count != impl->remove_count)
 		nfds = 0;
 
-	struct cancellation_handler_data cdata = { ep, nfds };
-	pthread_cleanup_push(cancellation_handler, &cdata);
+	cdata.ep_count = nfds;
 
 	/* first we set all the rmasks, then call the callbacks. The reason is that
 	 * some callback might also want to look at other sources it manages and

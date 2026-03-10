@@ -728,10 +728,10 @@ static int loop_accept(void *object)
 
 struct cancellation_handler_data {
 	struct impl *impl;
-	struct spa_poll_event *ep;
-	int ep_count;
-	int unlocked;
-	int locked;
+	const struct spa_poll_event *ep;
+	volatile int ep_count;
+	volatile int unlocked;
+	volatile int locked;
 };
 
 static void cancellation_handler(void *closure)

@@ -92,7 +92,6 @@ struct impl {
 
 	struct spa_node node;
 
-	struct spa_log *log;
 	struct spa_loop *data_loop;
 	struct spa_system *data_system;
 
@@ -282,7 +281,7 @@ static int clear_buffers(struct impl *impl, struct mix *mix)
 	for (i = 0; i < mix->n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];
 
-		spa_log_debug(impl->log, "%p: clear buffer %d", impl, i);
+		pw_log_debug("%p: clear buffer %d", impl, i);
 		clear_buffer(impl, &b->buffer);
 		pw_memblock_unref(b->mem);
 	}
@@ -299,7 +298,7 @@ static void free_mix(struct port *p, struct mix *mix)
 
 	if (mix->n_buffers) {
 		/* this shouldn't happen */
-		spa_log_warn(impl->log, "%p: mix port-id:%u freeing leaked buffers", impl, mix->mix_id - 1u);
+		pw_log_warn("%p: mix port-id:%u freeing leaked buffers", impl, mix->mix_id - 1u);
 	}
 
 	clear_buffers(impl, mix);
@@ -509,7 +508,7 @@ do_update_port(struct impl *impl,
 	       const struct spa_port_info *info)
 {
 	if (change_mask & PW_CLIENT_NODE_PORT_UPDATE_PARAMS) {
-		spa_log_debug(impl->log, "%p: port %u update %d params", impl, port->id, n_params);
+		pw_log_debug("%p: port %u update %d params", impl, port->id, n_params);
 		update_params(&port->params, n_params, params);
 	}
 
@@ -543,7 +542,7 @@ static int mix_clear_cb(void *item, void *data)
 static void
 clear_port(struct impl *impl, struct port *port)
 {
-	spa_log_debug(impl->log, "%p: clear port %p", impl, port);
+	pw_log_debug("%p: clear port %p", impl, port);
 
 	do_update_port(impl, port,
 		       PW_CLIENT_NODE_PORT_UPDATE_PARAMS |
@@ -783,7 +782,7 @@ do_port_use_buffers(struct impl *impl,
 	if (n_buffers > MAX_BUFFERS)
 		return -ENOSPC;
 
-	spa_log_debug(impl->log, "%p: %s port %d.%d use buffers %p %u flags:%08x", impl,
+	pw_log_debug("%p: %s port %d.%d use buffers %p %u flags:%08x", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers, flags);
 
@@ -853,7 +852,7 @@ do_port_use_buffers(struct impl *impl,
 		mb[i].mem_id = m->id;
 		mb[i].offset = SPA_PTRDIFF(baseptr, mem->map->ptr);
 		mb[i].size = SPA_PTRDIFF(endptr, baseptr);
-		spa_log_debug(impl->log, "%p: buffer %d %d %d %d", impl, i, mb[i].mem_id,
+		pw_log_debug("%p: buffer %d %d %d %d", impl, i, mb[i].mem_id,
 				mb[i].offset, mb[i].size);
 
 		b->buffer.n_metas = SPA_MIN(buffers[i]->n_metas, MAX_METAS);
@@ -883,7 +882,7 @@ do_port_use_buffers(struct impl *impl,
 				if (d->flags & SPA_DATA_FLAG_WRITABLE)
 					flags |= PW_MEMBLOCK_FLAG_WRITABLE;
 
-				spa_log_debug(impl->log, "mem %d type:%d fd:%d", j, d->type, (int)d->fd);
+				pw_log_debug("mem %d type:%d fd:%d", j, d->type, (int)d->fd);
 				m = pw_mempool_import(impl->client_pool,
 					flags, d->type, d->fd);
 				if (m == NULL)
@@ -894,14 +893,14 @@ do_port_use_buffers(struct impl *impl,
 				break;
 			}
 			case SPA_DATA_MemPtr:
-				spa_log_debug(impl->log, "mem %d %zd", j, SPA_PTRDIFF(d->data, baseptr));
+				pw_log_debug("mem %d %zd", j, SPA_PTRDIFF(d->data, baseptr));
 				b->datas[j].data = SPA_INT_TO_PTR(SPA_PTRDIFF(d->data, baseptr));
 				SPA_FLAG_CLEAR(b->datas[j].flags, SPA_DATA_FLAG_MAPPABLE);
 				break;
 			default:
 				b->datas[j].type = SPA_ID_INVALID;
 				b->datas[j].data = NULL;
-				spa_log_error(impl->log, "invalid memory type %d", d->type);
+				pw_log_error("invalid memory type %d", d->type);
 				break;
 			}
 		}
@@ -937,7 +936,7 @@ impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(CHECK_PORT(impl, SPA_DIRECTION_OUTPUT, port_id), -EINVAL);
 
-	spa_log_trace_fp(impl->log, "reuse buffer %d", buffer_id);
+	pw_log_trace_fp("reuse buffer %d", buffer_id);
 
 	return -ENOTSUP;
 }
@@ -950,7 +949,7 @@ static int impl_node_process(void *object)
 
 	/* this should not be called, we call the exported node
 	 * directly */
-	spa_log_warn(impl->log, "exported node activation");
+	pw_log_warn("exported node activation");
 	spa_system_clock_gettime(impl->data_system, CLOCK_MONOTONIC, &ts);
 	n->rt.target.activation->status = PW_NODE_ACTIVATION_TRIGGERED;
 	n->rt.target.activation->signal_time = SPA_TIMESPEC_TO_NSEC(&ts);
@@ -1011,7 +1010,7 @@ client_node_port_update(void *data,
 	struct port *port;
 	bool remove;
 
-	spa_log_debug(impl->log, "%p: got port update change:%08x params:%d",
+	pw_log_debug("%p: got port update change:%08x params:%d",
 			impl, change_mask, n_params);
 
 	remove = (change_mask == 0);
@@ -1049,7 +1048,7 @@ client_node_port_update(void *data,
 static int client_node_set_active(void *data, bool active)
 {
 	struct impl *impl = data;
-	spa_log_debug(impl->log, "%p: active:%d", impl, active);
+	pw_log_debug("%p: active:%d", impl, active);
 	return pw_impl_node_set_active(impl->this.node, active);
 }
 
@@ -1072,7 +1071,7 @@ static int client_node_port_buffers(void *data,
 	struct mix *mix;
 	uint32_t i, j;
 
-	spa_log_debug(impl->log, "%p: %s port %d.%d buffers %p %u", impl,
+	pw_log_debug("%p: %s port %d.%d buffers %p %u", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers);
 
@@ -1100,7 +1099,7 @@ static int client_node_port_buffers(void *data,
 		oldbuf = b->outbuf;
 		newbuf = buffers[i];
 
-		spa_log_debug(impl->log, "buffer %d n_datas:%d", i, newbuf->n_datas);
+		pw_log_debug("buffer %d n_datas:%d", i, newbuf->n_datas);
 
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_chunk *oldchunk = oldbuf->datas[j].chunk;
@@ -1109,7 +1108,7 @@ static int client_node_port_buffers(void *data,
 
 			if (d->type == SPA_DATA_MemFd &&
 			    !SPA_FLAG_IS_SET(flags, SPA_DATA_FLAG_MAPPABLE)) {
-				spa_log_debug(impl->log, "buffer:%d data:%d has non mappable MemFd, "
+				pw_log_debug("buffer:%d data:%d has non mappable MemFd, "
 						"fixing to ensure backwards compatibility.",
 						i, j);
 				flags |= SPA_DATA_FLAG_MAPPABLE;
@@ -1124,7 +1123,7 @@ static int client_node_port_buffers(void *data,
 			b->datas[j].flags = flags;
 			b->datas[j].fd = d->fd;
 
-			spa_log_debug(impl->log, " data %d type:%d fl:%08x fd:%d, offs:%d max:%d",
+			pw_log_debug(" data %d type:%d fl:%08x fd:%d, offs:%d max:%d",
 					j, d->type, flags, (int) d->fd, d->mapoffset,
 					d->maxsize);
 		}
@@ -1151,7 +1150,7 @@ static void node_on_data_fd_events(struct spa_source *source)
 	struct impl *impl = source->data;
 
 	if (SPA_UNLIKELY(source->rmask & (SPA_IO_ERR | SPA_IO_HUP))) {
-		spa_log_warn(impl->log, "%p: got error", impl);
+		pw_log_warn("%p: got error", impl);
 		return;
 	}
 	if (SPA_LIKELY(source->rmask & SPA_IO_IN)) {
@@ -1168,10 +1167,10 @@ static void node_on_data_fd_events(struct spa_source *source)
 		if (impl->resource && impl->resource->version < 5) {
 			struct pw_node_activation *a = node->rt.target.activation;
 			int status = a->state[0].status;
-			spa_log_trace_fp(impl->log, "%p: got ready %d", impl, status);
+			pw_log_trace_fp("%p: got ready %d", impl, status);
 			spa_node_call_ready(&impl->callbacks, status);
 		} else {
-			spa_log_trace_fp(impl->log, "%p: got complete", impl);
+			pw_log_trace_fp("%p: got complete", impl);
 			pw_impl_node_rt_emit_complete(node);
 		}
 	}
@@ -1772,7 +1771,6 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 	pw_log_debug("%p: new", &impl->node);
 
 	impl_init(impl, NULL);
-	impl->log = pw_log_get();
 	impl->resource = resource;
 	impl->client = client;
 	impl->client_pool = pw_impl_client_get_mempool(client);

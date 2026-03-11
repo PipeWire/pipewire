@@ -92,9 +92,8 @@ static struct spa_thread *impl_create(void *object,
 	pthread_t pt;
 	pthread_attr_t *attr = NULL, attributes;
 	const char *str;
-	int err, old_policy, new_policy;
+	int err;
 	int (*create_func)(pthread_t *, const pthread_attr_t *attr, void *(*start)(void*), void *) = NULL;
-	struct sched_param sp;
 	bool reset_on_fork = true;
 
 	attr = pw_thread_fill_attr(props, &attributes);
@@ -124,11 +123,19 @@ static struct spa_thread *impl_create(void *object,
 			reset_on_fork = spa_atob(str);
 	}
 
+#ifdef SCHED_RESET_ON_FORK
+	int old_policy, new_policy;
+	struct sched_param sp;
+
 	pthread_getschedparam(pt, &old_policy, &sp);
 	new_policy = old_policy;
 	SPA_FLAG_UPDATE(new_policy, SCHED_RESET_ON_FORK, reset_on_fork);
 	if (old_policy != new_policy)
 		pthread_setschedparam(pt, new_policy, &sp);
+#else
+	if (reset_on_fork)
+		pw_log_debug("SCHED_RESET_ON_FORK is not supported on this platform");
+#endif
 
 	return (struct spa_thread*)pt;
 }

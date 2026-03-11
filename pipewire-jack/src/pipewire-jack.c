@@ -6018,7 +6018,16 @@ jack_port_type_id_t jack_port_type_id (const jack_port_t *port)
 	return_val_if_fail(o != NULL, 0);
 	if (o->type != INTERFACE_Port)
 		return TYPE_ID_OTHER;
-	return o->port.type_id;
+
+	/* map internal type IDs to jack1/jack2 compatible public values */
+	switch (o->port.type_id) {
+	case TYPE_ID_AUDIO: return 0;
+	case TYPE_ID_MIDI:
+	case TYPE_ID_OSC:
+	case TYPE_ID_UMP:   return 1;  /* all MIDI variants map to 1 */
+	case TYPE_ID_VIDEO: return 3;  /* video maps to 3 */
+	default:            return o->port.type_id;
+	}
 }
 
 SPA_EXPORT

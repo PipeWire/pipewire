@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
@@ -551,7 +552,7 @@ static bool check_realtime_privileges(struct impl *impl)
 			struct rlimit rlim;
 			/* second try, try to clamp to RLIMIT_RTPRIO */
 			if (getrlimit(RLIMIT_RTPRIO, &rlim) == 0 && max > (int)rlim.rlim_max) {
-				pw_log_info("Clamp rtprio %d to %d", priority, (int)rlim.rlim_max);
+				pw_log_info("Clamp rtprio %d to %ju", priority, (uintmax_t) rlim.rlim_max);
 				max = (int)rlim.rlim_max;
 			}
 			else
@@ -644,8 +645,8 @@ static int set_rlimit(struct rlimit *rlim)
 	if (res < 0)
 		pw_log_info("setrlimit() failed: %s", spa_strerror(res));
 	else
-		pw_log_debug("rt.time.soft:%"PRIi64" rt.time.hard:%"PRIi64,
-				(int64_t)rlim->rlim_cur, (int64_t)rlim->rlim_max);
+		pw_log_debug("rt.time.soft:%ju rt.time.hard:%ju",
+				(uintmax_t) rlim->rlim_cur, (uintmax_t) rlim->rlim_max);
 
 	return res;
 }
@@ -1014,8 +1015,8 @@ static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
 
 	/* Set rlimit with rtkit limits */
 	if (impl->rttime_max < impl->rl.rlim_cur) {
-		pw_log_debug("clamping rt.time.soft from %llu to %lld because of RTKit",
-			     (long long)impl->rl.rlim_cur, (long long)impl->rttime_max);
+		pw_log_debug("clamping rt.time.soft from %ju to %ju because of RTKit",
+			     (uintmax_t) impl->rl.rlim_cur, (uintmax_t) impl->rttime_max);
 	}
 	impl->rl.rlim_cur = SPA_MIN(impl->rl.rlim_cur, impl->rttime_max);
 	impl->rl.rlim_max = SPA_MIN(impl->rl.rlim_max, impl->rttime_max);

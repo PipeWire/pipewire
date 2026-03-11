@@ -519,7 +519,7 @@ static int get_rt_priority_range(int *out_min, int *out_max)
  */
 static bool check_realtime_privileges(struct impl *impl)
 {
-	rlim_t priority = impl->rt_prio;
+	int priority = impl->rt_prio;
 	int err, old_policy, new_policy, min, max;
 	struct sched_param old_sched_params;
 	struct sched_param new_sched_params;
@@ -551,7 +551,7 @@ static bool check_realtime_privileges(struct impl *impl)
 			struct rlimit rlim;
 			/* second try, try to clamp to RLIMIT_RTPRIO */
 			if (getrlimit(RLIMIT_RTPRIO, &rlim) == 0 && max > (int)rlim.rlim_max) {
-				pw_log_info("Clamp rtprio %d to %d", (int)priority, (int)rlim.rlim_max);
+				pw_log_info("Clamp rtprio %d to %d", priority, (int)rlim.rlim_max);
 				max = (int)rlim.rlim_max;
 			}
 			else
@@ -569,7 +569,7 @@ static bool check_realtime_privileges(struct impl *impl)
 		 * it here as it would irreversible change the current thread's
 		 * scheduling policy. */
 		spa_zero(new_sched_params);
-		new_sched_params.sched_priority = SPA_CLAMP((int)priority, min, max);
+		new_sched_params.sched_priority = SPA_CLAMP(priority, min, max);
 		new_policy = REALTIME_POLICY;
 		if ((old_policy & SCHED_RESET_ON_FORK) != 0)
 			new_policy |= SCHED_RESET_ON_FORK;
@@ -593,9 +593,9 @@ static bool check_realtime_privileges(struct impl *impl)
 	}
 
 	if (ret)
-		pw_log_debug("can set rt prio to %d", (int)priority);
+		pw_log_debug("can set rt prio to %d", priority);
 	else
-		pw_log_info("can't set rt prio to %d (try increasing rlimits)", (int)priority);
+		pw_log_info("can't set rt prio to %d (try increasing rlimits)", priority);
 	return ret;
 }
 

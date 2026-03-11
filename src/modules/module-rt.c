@@ -213,20 +213,10 @@ struct impl {
 	struct rlimit rl;
 	int nice_level;
 	int rt_prio;
-	rlim_t rt_time_soft;
-	rlim_t rt_time_hard;
-
-	int uclamp_min;
-	int uclamp_max;
 
 	struct spa_hook module_listener;
 
-	unsigned rlimits_enabled:1;
-	unsigned rtportal_enabled:1;
-	unsigned rtkit_enabled:1;
-
 #ifdef HAVE_DBUS
-	bool use_rtkit;
 	/* For D-Bus. These are const static. */
 	const char* service_name;
 	const char* object_path;
@@ -234,8 +224,6 @@ struct impl {
 	struct pw_rtkit_bus *rtkit_bus;
 	struct pw_thread_loop *thread_loop;
 	int max_rtprio;
-	int min_nice_level;
-	rlim_t rttime_max;
 
 	/* These are only for the RTKit implementation to fill in the `thread`
 	 * struct. Since there's barely any overhead here we'll do this
@@ -529,9 +517,6 @@ static bool check_realtime_privileges(struct impl *impl)
 	int try = 0;
 	bool ret = false;
 
-	if (!impl->rlimits_enabled)
-		return ret;
-
 	while (!ret && try++ < 2) {
 		/* We could check `RLIMIT_RTPRIO`, but the BSDs generally don't have
 		 * that available, and there are also other ways to use realtime
@@ -600,28 +585,8 @@ static bool check_realtime_privileges(struct impl *impl)
 	return ret;
 }
 
-static int set_nice(struct impl *impl, int nice_level, bool warn)
+static void log_set_nice_level(int res, int nice_level, bool warn)
 {
-	int res = 0;
-
-#ifdef HAVE_DBUS
-	if (impl->use_rtkit) {
-		if (nice_level < impl->min_nice_level) {
-			pw_log_info("clamped nice level %d to %d",
-					nice_level, impl->min_nice_level);
-			nice_level = impl->min_nice_level;
-		}
-		res = pw_rtkit_make_high_priority(impl, impl->main_tid, nice_level);
-	}
-	else
-#endif
-	if (impl->rlimits_enabled) {
-		if (setpriority(PRIO_PROCESS, impl->main_tid, nice_level) < 0)
-			res = -errno;
-	}
-	else
-		res = -ENOTSUP;
-
 	if (res < 0) {
 		if (warn)
 			pw_log_warn("could not set nice-level to %d: %s",
@@ -630,7 +595,6 @@ static int set_nice(struct impl *impl, int nice_level, bool warn)
 		pw_log_info("main thread nice level set to %d",
 				nice_level);
 	}
-	return res;
 }
 
 static int set_rlimit(struct rlimit *rlim)
@@ -806,7 +770,7 @@ static int impl_get_rt_range(void *object, const struct spa_dict *props,
 {
 	struct impl *impl = object;
 	int res = 0;
-	if (impl->use_rtkit)
+	if (impl->rtkit_bus)
 		get_rtkit_priority_range(impl, min, max);
 	else
 		res = get_rt_priority_range(min, max);
@@ -856,7 +820,7 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 	if (priority == -1) {
 		priority = impl->rt_prio;
 	}
-	if (impl->use_rtkit) {
+	if (impl->rtkit_bus) {
 		struct rt_params params;
 		struct thread *thr;
 
@@ -939,14 +903,14 @@ static bool check_rtkit(struct pw_context *context)
 	return true;
 }
 
-static int rtkit_get_bus(struct impl *impl)
+static int rtkit_get_bus(struct impl *impl, bool rtportal_enabled, bool rtkit_enabled)
 {
 	int res;
 
 	pw_log_debug("enter rtkit get bus");
 
 	/* Checking xdg-desktop-portal. It works fine in all situations. */
-	if (impl->rtportal_enabled)
+	if (rtportal_enabled)
 		impl->rtkit_bus = pw_rtkit_bus_get_session();
 	else
 		pw_log_info("Portal Realtime disabled");
@@ -964,7 +928,7 @@ static int rtkit_get_bus(struct impl *impl)
 	}
 	/* Failed to get xdg-desktop-portal, try to use rtkit. */
 	if (impl->rtkit_bus == NULL) {
-		if (impl->rtkit_enabled)
+		if (rtkit_enabled)
 			impl->rtkit_bus = pw_rtkit_bus_get_system();
 		else
 			pw_log_info("RTkit disabled");
@@ -1002,24 +966,34 @@ static int do_rtkit_setup(struct spa_loop *loop, bool async, uint32_t seq,
 		retval = 0;
 		pw_log_warn("RTKit does not give us MinNiceLevel, using %lld", retval);
 	}
-	impl->min_nice_level = retval;
+	const int min_nice_level = retval;
 	if (rtkit_get_int_property(impl, "RTTimeUSecMax", &retval) < 0) {
 		retval = impl->rl.rlim_cur;
 		pw_log_warn("RTKit does not give us RTTimeUSecMax, using %lld", retval);
 	}
-	impl->rttime_max = retval;
+	const rlim_t rttime_max = retval;
 
 	/* Retry set_nice with rtkit */
-	if (IS_VALID_NICE_LEVEL(impl->nice_level))
-		set_nice(impl, impl->nice_level, true);
+	if (IS_VALID_NICE_LEVEL(impl->nice_level)) {
+		int nice_level = impl->nice_level;
+
+		if (nice_level < min_nice_level) {
+			pw_log_info("clamped nice level %d to %d",
+					nice_level, min_nice_level);
+			nice_level = min_nice_level;
+		}
+
+		log_set_nice_level(pw_rtkit_make_high_priority(impl, impl->main_tid, nice_level),
+					nice_level, true);
+	}
 
 	/* Set rlimit with rtkit limits */
-	if (impl->rttime_max < impl->rl.rlim_cur) {
+	if (rttime_max < impl->rl.rlim_cur) {
 		pw_log_debug("clamping rt.time.soft from %ju to %ju because of RTKit",
-			     (uintmax_t) impl->rl.rlim_cur, (uintmax_t) impl->rttime_max);
+			     (uintmax_t) impl->rl.rlim_cur, (uintmax_t) rttime_max);
 	}
-	impl->rl.rlim_cur = SPA_MIN(impl->rl.rlim_cur, impl->rttime_max);
-	impl->rl.rlim_max = SPA_MIN(impl->rl.rlim_max, impl->rttime_max);
+	impl->rl.rlim_cur = SPA_MIN(impl->rl.rlim_cur, rttime_max);
+	impl->rl.rlim_max = SPA_MIN(impl->rl.rlim_max, rttime_max);
 
 	set_rlimit(&impl->rl);
 
@@ -1071,6 +1045,19 @@ static int set_uclamp(int uclamp_min, int uclamp_max, pid_t pid)
 #endif /* __linux__ */
 }
 
+static void handle_uclamp(struct pw_properties *props, pid_t tid)
+{
+	int uclamp_min = pw_properties_get_int32(props, "uclamp.min", DEFAULT_UCLAMP_MIN);
+	int uclamp_max = pw_properties_get_int32(props, "uclamp.max", DEFAULT_UCLAMP_MAX);
+
+	if (uclamp_max > 1024) {
+		pw_log_warn("uclamp.max out of bounds. Got %d, clamping to 1024.", uclamp_max);
+		uclamp_max = 1024;
+	}
+
+	if (uclamp_min || uclamp_max < 1024)
+		set_uclamp(uclamp_min, uclamp_max, tid);
+}
 
 SPA_EXPORT
 int pipewire__module_init(struct pw_impl_module *module, const char *args)
@@ -1097,16 +1084,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->context = context;
 	impl->nice_level = pw_properties_get_int32(props, "nice.level", DEFAULT_NICE_LEVEL);
 	impl->rt_prio = pw_properties_get_int32(props, "rt.prio", DEFAULT_RT_PRIO);
-	impl->rt_time_soft = pw_properties_get_int32(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
-	impl->rt_time_hard = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
-	impl->rlimits_enabled = pw_properties_get_bool(props, "rlimits.enabled", true);
-	impl->rtportal_enabled = pw_properties_get_bool(props, "rtportal.enabled", true);
-	impl->rtkit_enabled = pw_properties_get_bool(props, "rtkit.enabled", true);
-	impl->uclamp_min = pw_properties_get_int32(props, "uclamp.min", DEFAULT_UCLAMP_MIN);
-	impl->uclamp_max = pw_properties_get_int32(props, "uclamp.max", DEFAULT_UCLAMP_MAX);
+	impl->rl.rlim_cur = pw_properties_get_int32(props, "rt.time.soft", DEFAULT_RT_TIME_SOFT);
+	impl->rl.rlim_max = pw_properties_get_int32(props, "rt.time.hard", DEFAULT_RT_TIME_HARD);
 
-	impl->rl.rlim_cur = impl->rt_time_soft;
-	impl->rl.rlim_max = impl->rt_time_hard;
 	impl->main_tid = _gettid();
 
 	bool can_use_rtkit = false, use_rtkit = false;
@@ -1126,7 +1106,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 #endif
 	/* If the user has permissions to use regular realtime scheduling, as well as
 	 * the nice level we want, then we'll use that instead of RTKit */
-	if (!check_realtime_privileges(impl)) {
+	bool rlimits_enabled = pw_properties_get_bool(props, "rlimits.enabled", true);
+
+	if (!rlimits_enabled || !check_realtime_privileges(impl)) {
 		if (!can_use_rtkit) {
 			res = -ENOTSUP;
 			pw_log_info("regular realtime scheduling not available"
@@ -1137,27 +1119,31 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if (IS_VALID_NICE_LEVEL(impl->nice_level)) {
-		if (set_nice(impl, impl->nice_level, !use_rtkit) < 0)
+		res = -ENOTSUP;
+		if (rlimits_enabled) {
+			res = 0;
+			if (setpriority(PRIO_PROCESS, impl->main_tid, impl->nice_level) < 0)
+				res = -errno;
+		}
+
+		log_set_nice_level(res, impl->nice_level, !use_rtkit);
+		if (res)
 			use_rtkit = can_use_rtkit;
 	}
 	if (!use_rtkit)
 		set_rlimit(&impl->rl);
 
-	if (impl->uclamp_max > 1024) {
-		pw_log_warn("uclamp.max out of bounds. Got %d, clamping to 1024.", impl->uclamp_max);
-		impl->uclamp_max = 1024;
-	}
-
-	if (impl->uclamp_min || impl->uclamp_max < 1024)
-		set_uclamp(impl->uclamp_min, impl->uclamp_max, impl->main_tid);
+	handle_uclamp(props, impl->main_tid);
 
 #ifdef HAVE_DBUS
-	impl->use_rtkit = use_rtkit;
-	if (impl->use_rtkit) {
+	if (use_rtkit) {
 		struct spa_dict_item items[] = {
 			{ "thread-loop.start-signal", "true" }
 		};
-		if ((res = rtkit_get_bus(impl)) < 0)
+		bool rtportal_enabled = pw_properties_get_bool(props, "rtportal.enabled", true);
+		bool rtkit_enabled = pw_properties_get_bool(props, "rtkit.enabled", true);
+
+		if ((res = rtkit_get_bus(impl, rtportal_enabled, rtkit_enabled)) < 0)
 			goto error;
 
 		impl->thread_loop = pw_thread_loop_new("module-rt",

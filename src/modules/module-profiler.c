@@ -166,7 +166,7 @@ static void do_flush_event(void *data, uint64_t count)
 
 		avail = spa_ringbuffer_get_read_index(&n->buffer, &idx);
 
-		pw_log_trace("%p: avail %d", impl, avail);
+		pw_log_trace("%p: node:%p avail %d", n, impl, avail);
 
 		if (avail > 0) {
 			size_t size = total + avail + sizeof(struct spa_pod_struct);

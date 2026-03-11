@@ -2,12 +2,16 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <stddef.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
 #include <time.h>
+#include <threads.h>
 #include <fnmatch.h>
 
 #include <spa/support/log.h>
@@ -91,6 +95,14 @@ impl_log_logtv(void *object,
 	spa_strbuf_init(&msg, location, sizeof(location));
 
 	spa_strbuf_append(&msg, "%s[%s]", prefix, levels[level]);
+
+#ifdef HAVE_GETTID
+	static thread_local pid_t tid;
+	if (SPA_UNLIKELY(tid == 0))
+		tid = gettid();
+
+	spa_strbuf_append(&msg, "[%jd]", (intmax_t) tid);
+#endif
 
 	if (impl->local_timestamp) {
 		char buf[64];

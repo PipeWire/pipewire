@@ -718,7 +718,7 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 			port->io[0] = info->data;
 			port->io[1] = info->data;
 		}
-		if (!port->active) {
+		if (port->direction == SPA_DIRECTION_INPUT && !port->active) {
 			spa_list_append(&info->impl->mix_list, &port->mix_link);
 			port->active = true;
 		}

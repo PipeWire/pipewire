@@ -67,16 +67,10 @@ impl_log_logtv(void *object,
 	      const char *fmt,
 	      va_list args)
 {
-#define RESERVED_LENGTH 24
-
 	struct impl *impl = object;
-	char timestamp[18] = {0};
-	char topicstr[32] = {0};
-	char filename[64] = {0};
-	char location[1000 + RESERVED_LENGTH], *p;
+	char location[1024];
 	static const char * const levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
 	const char *prefix = "", *suffix = "";
-	int size, len;
 	bool do_trace;
 
 	if ((do_trace = (level == SPA_LOG_LEVEL_TRACE && impl->have_source)))
@@ -93,8 +87,10 @@ impl_log_logtv(void *object,
 			suffix = SPA_ANSI_RESET;
 	}
 
-	p = location;
-	len = sizeof(location) - RESERVED_LENGTH;
+	struct spa_strbuf msg;
+	spa_strbuf_init(&msg, location, sizeof(location));
+
+	spa_strbuf_append(&msg, "%s[%s]", prefix, levels[level]);
 
 	if (impl->local_timestamp) {
 		char buf[64];
@@ -104,67 +100,52 @@ impl_log_logtv(void *object,
 		clock_gettime(impl->clock_id, &now);
 		localtime_r(&now.tv_sec, &now_tm);
 		strftime(buf, sizeof(buf), "%H:%M:%S", &now_tm);
-		spa_scnprintf(timestamp, sizeof(timestamp), "[%s.%06d]", buf,
+		spa_strbuf_append(&msg, "[%s.%06d]", buf,
 				(int)(now.tv_nsec / SPA_NSEC_PER_USEC));
 	} else if (impl->timestamp) {
 		struct timespec now;
 		clock_gettime(impl->clock_id, &now);
-		spa_scnprintf(timestamp, sizeof(timestamp), "[%05jd.%06jd]",
+		spa_strbuf_append(&msg, "[%05jd.%06jd]",
 			(intmax_t) (now.tv_sec & 0x1FFFFFFF) % 100000, (intmax_t) now.tv_nsec / 1000);
 	}
 
 	if (topic && topic->topic)
-		spa_scnprintf(topicstr, sizeof(topicstr), " %-12s | ", topic->topic);
+		spa_strbuf_append(&msg, " %-12s | ", topic->topic);
 
 
 	if (impl->line && line != 0) {
 		const char *s = strrchr(file, '/');
-		spa_scnprintf(filename, sizeof(filename), "[%16.16s:%5i %s()]",
+		spa_strbuf_append(&msg, "[%16.16s:%5i %s()]",
 			s ? s + 1 : file, line, func);
 	}
 
-	size = spa_scnprintf(p, len, "%s[%s]%s%s%s ", prefix, levels[level],
-			     timestamp, topicstr, filename);
-	/*
-	 * it is assumed that at this point `size` <= `len`,
-	 * which is reasonable as long as file names and function names
-	 * don't become very long
-	 */
-	size += spa_vscnprintf(p + size, len - size, fmt, args);
+	spa_strbuf_append(&msg, " ");
+	spa_strbuf_appendv(&msg, fmt, args);
+	spa_strbuf_append(&msg, "%s\n", suffix);
 
-	/*
-	 * `RESERVED_LENGTH` bytes are reserved for printing the suffix
-	 * (at the moment it's "... (truncated)\x1B[0m\n" at its longest - 21 bytes),
-	 * its length must be less than `RESERVED_LENGTH` (including the null byte),
-	 * otherwise a stack buffer overrun could ensue
-	 */
+	if (SPA_UNLIKELY(msg.pos >= msg.maxsize)) {
+		static const char truncated_text[] = "... (truncated)";
+		size_t suffix_length = strlen(suffix) + strlen(truncated_text) + 1 + 1;
 
-	/* if the message could not fit entirely... */
-	if (size >= len - 1) {
-		size = len - 1; /* index of the null byte */
-		len = sizeof(location);
-		size += spa_scnprintf(p + size, len - size, "... (truncated)");
+		spa_assert(msg.maxsize >= suffix_length);
+		msg.pos = msg.maxsize - suffix_length;
+
+		spa_strbuf_append(&msg, "%s%s\n", truncated_text, suffix);
+		spa_assert(msg.pos < msg.maxsize);
 	}
-	else {
-		len = sizeof(location);
-	}
-
-	size += spa_scnprintf(p + size, len - size, "%s\n", suffix);
 
 	if (SPA_UNLIKELY(do_trace)) {
 		uint32_t index;
 
 		spa_ringbuffer_get_write_index(&impl->trace_rb, &index);
 		spa_ringbuffer_write_data(&impl->trace_rb, impl->trace_data, TRACE_BUFFER,
-					  index & (TRACE_BUFFER - 1), location, size);
-		spa_ringbuffer_write_update(&impl->trace_rb, index + size);
+					  index & (TRACE_BUFFER - 1), msg.buffer, msg.pos);
+		spa_ringbuffer_write_update(&impl->trace_rb, index + msg.pos);
 
 		if (spa_system_eventfd_write(impl->system, impl->source.fd, 1) < 0)
 			fprintf(impl->file, "error signaling eventfd: %s\n", strerror(errno));
 	} else
-		fputs(location, impl->file);
-
-#undef RESERVED_LENGTH
+		fputs(msg.buffer, impl->file);
 }
 
 static SPA_PRINTF_FUNC(6,0) void

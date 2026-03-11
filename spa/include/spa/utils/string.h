@@ -380,17 +380,26 @@ SPA_API_STRING void spa_strbuf_init(struct spa_strbuf *buf, char *buffer, size_t
 		buf->buffer[0] = '\0';
 }
 
+SPA_PRINTF_FUNC(2, 0)
+SPA_API_STRING int spa_strbuf_appendv(struct spa_strbuf *buf, const char *fmt, va_list args)
+{
+	size_t remain = buf->maxsize - buf->pos;
+	int written = vsnprintf(&buf->buffer[buf->pos], remain, fmt, args);
+	if (written > 0)
+		buf->pos += SPA_MIN(remain, (size_t)written);
+	return written;
+}
+
 SPA_PRINTF_FUNC(2, 3)
 SPA_API_STRING int spa_strbuf_append(struct spa_strbuf *buf, const char *fmt, ...)
 {
-	size_t remain = buf->maxsize - buf->pos;
-	ssize_t written;
 	va_list args;
+	int written;
+
 	va_start(args, fmt);
-	written = vsnprintf(&buf->buffer[buf->pos], remain, fmt, args);
+	written = spa_strbuf_appendv(buf, fmt, args);
 	va_end(args);
-	if (written > 0)
-		buf->pos += SPA_MIN(remain, (size_t)written);
+
 	return written;
 }
 

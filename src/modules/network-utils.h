@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <sys/un.h>
+#include <netinet/in.h>
 
 #include <spa/utils/string.h>
 

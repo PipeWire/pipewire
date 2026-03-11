@@ -6,7 +6,6 @@
 
 #include <dlfcn.h>
 #include <fcntl.h>
-#include <linux/limits.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>

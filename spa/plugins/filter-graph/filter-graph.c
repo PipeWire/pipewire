@@ -1622,6 +1622,7 @@ static int impl_activate(void *object, const struct spa_dict *props)
 				goto error;
 			}
 		}
+		node->control_changed = true;
 	}
 
 	/* then link ports */

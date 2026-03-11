@@ -1954,7 +1954,7 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 			count++;
 		}
 	}
-	param = count == 0 ? NULL : spa_tag_build_end(&b.b, &f);
+	param = spa_tag_build_end(&b.b, &f);
 
 	old = port->tag[direction];
 

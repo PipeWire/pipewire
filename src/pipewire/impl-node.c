@@ -1136,11 +1136,12 @@ static void check_properties(struct pw_impl_node *node)
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_context *context = node->context;
-	const char *str, *recalc_reason = NULL;
+	const char *str, *recalc_reason = NULL, *state = NULL, *s;
 	struct spa_fraction frac;
 	uint32_t value;
 	bool driver, trigger, sync, async;
 	struct match match;
+	size_t len;
 
 	match = MATCH_INIT(node);
 	pw_context_conf_section_match_rules(context, "node.rules",
@@ -1268,31 +1269,31 @@ static void check_properties(struct pw_impl_node *node)
 		else
 			str = "false";
 	}
+	while ((s = pw_split_walk(str, ",\0", &len, &state))) {
+		char v[16] = { 0 };
+		snprintf(v, sizeof(v), "%.*s", (int)len, s);
 
-	if (spa_streq(str, "out")) {
-		node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_TRUE;
-	}
-	if (spa_streq(str, "out-follow")) {
-		node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW;
-	}
-	else if (spa_streq(str, "in")) {
-		node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_TRUE;
-	}
-	else if (spa_streq(str, "in-follow")) {
-		node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW;
-	}
-	else if (spa_streq(str, "follow")) {
-		node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW;
-		node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW;
-	}
-	else if (spa_streq(str, "follow-suspend")) {
-		node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
-		node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
-	}
-	else {
-		node->passive_mode[SPA_DIRECTION_OUTPUT] =
-			node->passive_mode[SPA_DIRECTION_INPUT] =
-			spa_atob(str) ? PASSIVE_MODE_TRUE : PASSIVE_MODE_FALSE;
+		if (spa_streq(v, "out"))
+			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_TRUE;
+		else if (spa_streq(v, "out-follow"))
+			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW;
+		else if (spa_streq(v, "in-follow"))
+			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW;
+		else if (spa_streq(v, "in"))
+			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_TRUE;
+		else if (spa_streq(v, "follow-suspend")) {
+			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
+			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
+		}
+		else if (spa_streq(v, "follow")) {
+			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW;
+			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW;
+		}
+		else {
+			node->passive_mode[SPA_DIRECTION_OUTPUT] =
+				node->passive_mode[SPA_DIRECTION_INPUT] =
+				spa_atob(v) ? PASSIVE_MODE_TRUE : PASSIVE_MODE_FALSE;
+		}
 	}
 
 	node->want_driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_WANT_DRIVER, false);
@@ -1358,8 +1359,8 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "force rate changed";
 	}
 
-	pw_log_debug("%p: driver:%d recalc:%s active:%d", node, node->driver,
-			recalc_reason, node->active);
+	pw_log_debug("%p: driver:%d recalc:%s active:%d passive:%d:%d", node, node->driver,
+			recalc_reason, node->active, node->passive_mode[0], node->passive_mode[1]);
 
 	if (recalc_reason != NULL && node->active)
 		pw_context_recalc_graph(context, recalc_reason);

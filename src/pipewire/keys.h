@@ -212,9 +212,9 @@ extern "C" {
 #define PW_KEY_NODE_VIRTUAL		"node.virtual"		/**< the node is some sort of virtual
 								  *  object */
 #define PW_KEY_NODE_PASSIVE		"node.passive"		/**< indicate that a node wants passive links
-								  *  on output/input/all ports when the value is
-								  *  "out"/"out-follow"/"in"/"in-follow"/
-								  *  "true"/"follow" */
+								  *  on output/input/all ports. A ','-separated
+								  *  array of values  "out"/"out-follow"/"in"/
+								  *  "in-follow"/"true"/"follow" is accepted. */
 #define PW_KEY_NODE_LINK_GROUP		"node.link-group"	/**< the node is internally linked to
 								  *  nodes with the same link-group. Can be an
 								  *  array of group names. */

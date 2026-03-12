@@ -108,6 +108,7 @@ int main(int argc, char *argv[])
 				PW_KEY_MEDIA_TYPE, "Audio",
 				PW_KEY_MEDIA_CATEGORY, "Filter",
 				PW_KEY_MEDIA_ROLE, "DSP",
+				PW_KEY_NODE_PASSIVE, "follow",
 				NULL),
 			&filter_events,
 			&data);

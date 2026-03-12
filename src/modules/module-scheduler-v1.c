@@ -200,6 +200,9 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
  *  A (p)  -> (*)  B    A + B no change
  *  A (f)  -> (*)  B    A + B no change
  *  A (fs) -> (*)  B    A + B no change
+ *
+ *  There is a special case for FOLLOW_SUSPEND<->FOLLOW_SUSPEND to make
+ *  it possible to manually link a source to a sink
  */
 static inline bool runnable_pair(struct pw_impl_port *a, struct pw_impl_port *b)
 {

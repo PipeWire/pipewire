@@ -188,12 +188,25 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
  * Only consider ports that have a PASSIVE_MODE_FALSE link.
  * All other port modes don't make A and B runnable.
  *
- *  A     ->     B     A + B both set to running
- *  A     -> (p) B     A + B both set to running
- *  A     -> (f) B     A + B both set to running
- *  A (p) -> (*) B     A + B no change
- *  A (f) -> (*) B     A + B no change
+ *  A      ->     B     A + B both set to running
+ *  A      -> (p) B     A + B both set to running
+ *  A      -> (f) B     A + B both set to running
+ *  A (p)  -> (*) B     A + B no change
+ *  A (f)  -> (*) B     A + B no change
+ *  A (fs) -> (*) B     A + B no change
+ *  A (fs) -> (fs) B    A + B both set to running
  */
+static inline bool may_follow(struct pw_impl_port *p, struct pw_impl_port *other)
+{
+	pw_log_warn("%s %s %d %d", p->node->name, other->node->name,
+			p->passive_mode, other->passive_mode);
+	if (p->passive_mode == PASSIVE_MODE_FALSE)
+		return true;
+	if (p->passive_mode == PASSIVE_MODE_FOLLOW_SUSPEND &&
+	    other->passive_mode == PASSIVE_MODE_FOLLOW_SUSPEND)
+		return true;
+	return false;
+}
 static void check_runnable(struct pw_context *context, struct pw_impl_node *node)
 {
 	struct pw_impl_port *p;
@@ -213,7 +226,7 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 			 * with a non-passive link */
 			pw_log_trace(" out-port %p: link %p passive:%d prepared:%d active:%d", p,
 					l, p->passive_mode, l->prepared, n->active);
-			if (!n->active || p->passive_mode != PASSIVE_MODE_FALSE)
+			if (!n->active || !may_follow(p, l->input))
 				continue;
 			/* explicitly prepare the link in case it was suspended */
 			pw_impl_link_prepare(l);
@@ -228,7 +241,7 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 			n = l->output->node;
 			pw_log_trace(" in-port %p: link %p passive:%d prepared:%d active:%d", p,
 					l, p->passive_mode, l->prepared, n->active);
-			if (!n->active || p->passive_mode != PASSIVE_MODE_FALSE)
+			if (!n->active || !may_follow(p, l->output))
 				continue;
 			pw_impl_link_prepare(l);
 			if (!l->prepared)

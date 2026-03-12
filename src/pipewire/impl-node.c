@@ -1264,7 +1264,7 @@ static void check_properties(struct pw_impl_node *node)
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL) {
 		if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
 		    (strstr(str, "/Sink") != NULL || strstr(str, "/Source") != NULL))
-			str = "follow";
+			str = "follow-suspend";
 		else
 			str = "false";
 	}
@@ -1284,6 +1284,10 @@ static void check_properties(struct pw_impl_node *node)
 	else if (spa_streq(str, "follow")) {
 		node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW;
 		node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW;
+	}
+	else if (spa_streq(str, "follow-suspend")) {
+		node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
+		node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
 	}
 	else {
 		node->passive_mode[SPA_DIRECTION_OUTPUT] =

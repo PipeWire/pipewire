@@ -537,7 +537,6 @@ static int check_properties(struct pw_impl_port *port)
 			&schedule_tee_node;
 	}
 
-
 	if ((str = pw_properties_get(port->properties, PW_KEY_PORT_PASSIVE)) == NULL) {
 		/* inherit passive state from parent node */
 		port->passive_mode = node->passive_mode[port->direction];

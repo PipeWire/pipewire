@@ -785,10 +785,11 @@ struct pw_impl_node {
 	unsigned int exclusive:1;	/**< ports can only be linked once */
 	unsigned int reliable:1;	/**< ports need reliable tee */
 
-#define PASSIVE_MODE_FALSE	0
-#define PASSIVE_MODE_TRUE	1
-#define PASSIVE_MODE_FOLLOW	2
-	bool passive_mode[2];		/**< node input links should be passive */
+#define PASSIVE_MODE_FALSE		0
+#define PASSIVE_MODE_TRUE		1
+#define PASSIVE_MODE_FOLLOW		2
+#define PASSIVE_MODE_FOLLOW_SUSPEND	3
+	int passive_mode[2];		/**< node input links should be passive */
 
 	uint32_t transport;		/**< latest transport request */
 

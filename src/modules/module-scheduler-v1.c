@@ -198,8 +198,6 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
  */
 static inline bool may_follow(struct pw_impl_port *p, struct pw_impl_port *other)
 {
-	pw_log_warn("%s %s %d %d", p->node->name, other->node->name,
-			p->passive_mode, other->passive_mode);
 	if (p->passive_mode == PASSIVE_MODE_FALSE)
 		return true;
 	if (p->passive_mode == PASSIVE_MODE_FOLLOW_SUSPEND &&

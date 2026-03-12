@@ -2486,10 +2486,12 @@ static struct spa_fga_port ramp_ports[] = {
 	{ .index = 1,
 	  .name = "Start",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 2,
 	  .name = "Stop",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 3,
 	  .name = "Current",
@@ -2498,6 +2500,7 @@ static struct spa_fga_port ramp_ports[] = {
 	{ .index = 4,
 	  .name = "Duration (s)",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 1.0f, .min = 0.0f, .max = FLT_MAX
 	},
 };
 

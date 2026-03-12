@@ -401,7 +401,7 @@ SPA_API_JSON int spa_json_is_container(const char *val, int len)
 }
 SPA_API_JSON int spa_json_is_container_end(const char *val, int len)
 {
-	return len > 0 && (*val == '}'  || *val == '}');
+	return len > 0 && (*val == '}'  || *val == ']');
 }
 
 /* object */

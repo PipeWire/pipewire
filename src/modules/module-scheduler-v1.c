@@ -105,18 +105,17 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 		state = PW_NODE_STATE_IDLE;
 	return pw_impl_node_set_state(node, state);
 }
-
-/* make a node runnable. This will automatically also make all non-passive peer nodes
- * runnable and the nodes that belong to the same groups or link_groups. We stop when
- * we reach a passive_into port.
+/* Make a node runnable. Peer nodes are also made runnable when the passive_into state
+ * of the port is false, which is only when the port is folow or non-passive.
  *
- * We have 4 cases for the links:
- * (p) marks a passive_into port. we don't follow the peer from this port.
+ *            away       into
+ * false   :  false      false
+ * true    :  true       true     <- passive_into peer ports skipped
+ * follow  :  true       false
  *
- *  A   ->   B   ==> B can also be runnable
- *  A  p->   B   ==> B can also be runnable
- *  A   ->p  B   ==> B can not be runnable
- *  A  p->p  B   ==> B can not be runnable
+ *  A (*) ->     B     if A running -> B set to running
+ *  A (*) -> (f) B     if A running -> B set to running
+ *  A (*) -> (p) B     if A running -> B no change
  */
 static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 {
@@ -188,22 +187,24 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 	}
 }
 
-/* check if a node and its peer can run. They can both run if there is a non-passive
- * link between them. The passive link is between 1 or more passive ports.
+/* check if a node and its peer can run.
  *
- * There are 4 cases:
+ * When looking at a node we only consider the non passive_away links, the
+ * passive_away links from the node don't make the peer or node runnable.
  *
- * (p) marks a passive_away port. we don't follow the peer from this port.
- * A can not be a driver
+ *            away       into
+ * false   :  false      false	<- !passive_away ports followed 
+ * true    :  true       true
+ * follow  :  true       false
  *
- *  A   ->   B   ==> both nodes can run
- *  A   ->p  B   ==> both nodes can run (B is passive so it can't activate A, but
- *                   A can activate B)
- *  A  p->   B   ==> nodes don't run, port A is passive and doesn't activate B
- *  A  p->p  B   ==> nodes don't run
+ * A port only has a passive_away link when the port is set to non-passive.
+ * All other port modes don't make A and B runnable.
  *
- *  Once we decide the two nodes should be made runnable we do make_runnable()
- *  on both.
+ *  A     ->     B     A + B both set to running
+ *  A     -> (p) B     A + B both set to running
+ *  A     -> (f) B     A + B both set to running
+ *  A (p) -> (*) B     A + B no change
+ *  A (f) -> (*) B     A + B no change
  */
 static void check_runnable(struct pw_context *context, struct pw_impl_node *node)
 {

@@ -399,6 +399,7 @@ static struct spa_fga_port lufs2gain_ports[] = {
 	{ .index = 0,
 	  .name = "LUFS",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
+	  .def = 0.0f, .min = 0.0f, .max = FLT_MAX
 	},
 	{ .index = 1,
 	  .name = "Gain",

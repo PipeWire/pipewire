@@ -593,6 +593,10 @@ static const struct spa_fga_descriptor *onnx_plugin_make_desc(void *plugin, cons
 			fp->flags |= SPA_FGA_PORT_OUTPUT;
 
 		fp->name = ti->data_name;
+		fp->min = -FLT_MAX;
+		fp->max = FLT_MAX;
+		fp->def = 0.0f;
+
 		ti->data_index = desc->desc.n_ports;
 
 		desc->desc.n_ports++;

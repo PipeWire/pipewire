@@ -105,13 +105,9 @@ static int ensure_state(struct pw_impl_node *node, bool running)
 		state = PW_NODE_STATE_IDLE;
 	return pw_impl_node_set_state(node, state);
 }
-/* Make a node runnable. Peer nodes are also made runnable when the passive_into state
- * of the port is false, which is only when the port is folow or non-passive.
- *
- *            away       into
- * false   :  false      false
- * true    :  true       true     <- passive_into peer ports skipped
- * follow  :  true       false
+
+/* Make a node runnable. Peer nodes are also made runnable when the passive_mode
+ * of the port is false or follow.
  *
  *  A (*) ->     B     if A running -> B set to running
  *  A (*) -> (f) B     if A running -> B set to running
@@ -144,8 +140,8 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 		spa_list_for_each(l, &p->links, output_link) {
 			n = l->input->node;
 			pw_log_trace(" out-port %p: link %p passive:%d prepared:%d active:%d runn:%d", p,
-					l, l->input->passive_into, l->prepared, n->active, n->runnable);
-			if (!n->active || l->input->passive_into)
+					l, l->input->passive_mode, l->prepared, n->active, n->runnable);
+			if (!n->active || l->input->passive_mode == PASSIVE_MODE_TRUE)
 				continue;
 			pw_impl_link_prepare(l);
 			if (!l->prepared)
@@ -158,8 +154,8 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 		spa_list_for_each(l, &p->links, input_link) {
 			n = l->output->node;
 			pw_log_trace(" in-port %p: link %p passive:%d prepared:%d active:%d runn:%d", p,
-					l, l->output->passive_into, l->prepared, n->active, n->runnable);
-			if (!n->active || l->output->passive_into)
+					l, l->output->passive_mode, l->prepared, n->active, n->runnable);
+			if (!n->active || l->output->passive_mode == PASSIVE_MODE_TRUE)
 				continue;
 			pw_impl_link_prepare(l);
 			if (!l->prepared)
@@ -189,15 +185,7 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 
 /* check if a node and its peer can run.
  *
- * When looking at a node we only consider the non passive_away links, the
- * passive_away links from the node don't make the peer or node runnable.
- *
- *            away       into
- * false   :  false      false	<- !passive_away ports followed 
- * true    :  true       true
- * follow  :  true       false
- *
- * A port only has a passive_away link when the port is set to non-passive.
+ * Only consider ports that have a PASSIVE_MODE_FALSE link.
  * All other port modes don't make A and B runnable.
  *
  *  A     ->     B     A + B both set to running
@@ -224,8 +212,8 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 			/* the peer needs to be active and we are linked to it
 			 * with a non-passive link */
 			pw_log_trace(" out-port %p: link %p passive:%d prepared:%d active:%d", p,
-					l, p->passive_away, l->prepared, n->active);
-			if (!n->active || p->passive_away)
+					l, p->passive_mode, l->prepared, n->active);
+			if (!n->active || p->passive_mode != PASSIVE_MODE_FALSE)
 				continue;
 			/* explicitly prepare the link in case it was suspended */
 			pw_impl_link_prepare(l);
@@ -239,8 +227,8 @@ static void check_runnable(struct pw_context *context, struct pw_impl_node *node
 		spa_list_for_each(l, &p->links, input_link) {
 			n = l->output->node;
 			pw_log_trace(" in-port %p: link %p passive:%d prepared:%d active:%d", p,
-					l, p->passive_away, l->prepared, n->active);
-			if (!n->active || p->passive_away)
+					l, p->passive_mode, l->prepared, n->active);
+			if (!n->active || p->passive_mode != PASSIVE_MODE_FALSE)
 				continue;
 			pw_impl_link_prepare(l);
 			if (!l->prepared)

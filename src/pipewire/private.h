@@ -785,8 +785,10 @@ struct pw_impl_node {
 	unsigned int exclusive:1;	/**< ports can only be linked once */
 	unsigned int reliable:1;	/**< ports need reliable tee */
 
-	bool passive_away[2];	/**< node input links should be passive */
-	bool passive_into[2];	/**< node input links should be passive */
+#define PASSIVE_MODE_FALSE	0
+#define PASSIVE_MODE_TRUE	1
+#define PASSIVE_MODE_FOLLOW	2
+	bool passive_mode[2];		/**< node input links should be passive */
 
 	uint32_t transport;		/**< latest transport request */
 
@@ -961,9 +963,9 @@ struct pw_impl_port {
 		struct spa_list node_link;
 		bool added;
 	} rt;					/**< data only accessed from the data thread */
+	int passive_mode;
+
 	unsigned int destroying:1;
-	unsigned int passive_into:1;
-	unsigned int passive_away:1;
 	unsigned int auto_path:1;		/* path was automatically generated */
 	unsigned int auto_name:1;		/* name was automatically generated */
 	unsigned int auto_alias:1;		/* alias was automatically generated */

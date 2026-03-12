@@ -10,7 +10,9 @@
 #include <time.h>
 #include <stdbool.h>
 #include <getopt.h>
+#ifdef __linux__
 #include <alloca.h>
+#endif
 
 #include <spa/debug/context.h>
 #include <spa/utils/string.h>

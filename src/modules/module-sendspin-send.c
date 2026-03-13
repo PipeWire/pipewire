@@ -729,8 +729,10 @@ static int parse_player_v1_support(struct client *c, struct spa_json *payload)
 				if ((res = parse_codec(c, &it[1], &info)) < 0)
 					return res;
 
-				if (count++ == 0)
+				if (count == 0 && info.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 					c->info = info;
+					count++;
+				}
 			}
 		}
 		else if (spa_streq(key, "buffer_capacity")) {

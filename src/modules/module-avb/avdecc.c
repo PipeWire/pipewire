@@ -415,15 +415,6 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 	server->adp  = avb_adp_register(server);
 	server->acmp = avb_acmp_register(server);
 
-	server->domain_attr = avb_msrp_attribute_new(server->msrp,
-			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
-	server->domain_attr->attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
-	server->domain_attr->attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
-	server->domain_attr->attr.domain.sr_class_vid = htons(AVB_DEFAULT_VLAN);
-
-	avb_mrp_attribute_begin(server->domain_attr->mrp, 0);
-	avb_mrp_attribute_join(server->domain_attr->mrp, 0, true);
-
 	avb_maap_reserve(server->maap, 1);
 
 	init_descriptors(server);

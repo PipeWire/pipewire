@@ -32,6 +32,7 @@ struct es_builder_st {
 	es_builder_cb_t build_descriptor_cb;
 };
 
+
 /*
  *  \brief The Entity keeps track of multiple things, the locks the current
  *  configuration use for instance. That tragets the Milan V1.2 mode only
@@ -42,7 +43,7 @@ static struct descriptor *es_builder_desc_entity_milan_v12(struct server *server
     struct aecp_aem_entity_milan_state entity_state = {0};
     struct descriptor *desc;
     struct aecp_aem_entity_state *state =
-	    (struct aecp_aem_entity_state *) &entity_state;
+		(struct aecp_aem_entity_state *) &entity_state;
 
     memcpy(&state->desc, ptr, size);
 
@@ -116,6 +117,38 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 	return desc;
 }
 
+static struct descriptor *es_buidler_desc_avb_interface(struct server *server,
+		uint16_t type, uint16_t index, size_t size, void *ptr)
+{
+	struct aecp_aem_avb_interface_state if_state = {0};
+	struct aecp_aem_avb_interface_state *if_ptr;
+	struct descriptor *desc;
+
+	memcpy(&if_state.desc, ptr, size);
+	desc = server_add_descriptor(server, type, index, sizeof(if_state),
+			&if_state);
+
+	if (!desc) {
+		pw_log_error("Error durring allocation\n");
+		spa_assert(0);
+	}
+
+	if_ptr = desc->ptr;
+
+#if 0
+	avb_msrp_attribute_new(server->msrp, &if_ptr->domain_attr,
+			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+	if_ptr->domain_attr->attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
+	if_ptr->domain_attr->attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
+	if_ptr->domain_attr->attr.domain.sr_class_vid = htons(AVB_DEFAULT_VLAN);
+
+	avb_mrp_attribute_begin(if_ptr->domain_attr->mrp, 0);
+	avb_mrp_attribute_join(if_ptr->domain_attr->mrp, 0, true);
+#endif
+
+	return desc;
+}
+
 // Assign a ID to an specific builder
 #define HELPER_ES_BUIDLER(type, callback) \
     [type] = { .build_descriptor_cb = callback  }
@@ -126,6 +159,7 @@ static const struct es_builder_st es_builder_milan_v12[] =
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_ENTITY, es_builder_desc_entity_milan_v12),
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_OUTPUT, es_buidler_desc_stream_general_prepare),
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_INPUT, es_buidler_desc_stream_general_prepare),
+	HELPER_ES_BUIDLER(AVB_AEM_DESC_AVB_INTERFACE, es_buidler_desc_avb_interface),
 };
 
 /** All callback that needs a status information for Legacy AVB*/
@@ -133,6 +167,7 @@ static const struct es_builder_st es_builder_legacy_avb[] =
 {
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_OUTPUT, es_buidler_desc_stream_general_prepare),
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_INPUT, es_buidler_desc_stream_general_prepare),
+	HELPER_ES_BUIDLER(AVB_AEM_DESC_AVB_INTERFACE, es_buidler_desc_avb_interface),
 };
 
 /**
@@ -144,13 +179,13 @@ static const struct {
 	size_t count;
 } es_builders[] = {
 	[AVB_MODE_LEGACY] = {
-	       .es_builder = es_builder_legacy_avb,
-	       .count = ARRAY_SIZE(es_builder_legacy_avb),
+		.es_builder = es_builder_legacy_avb,
+		.count = ARRAY_SIZE(es_builder_legacy_avb),
 	},
 
 	[AVB_MODE_MILAN_V12] = {
-	       .es_builder = es_builder_milan_v12,
-	       .count = ARRAY_SIZE(es_builder_milan_v12),
+		.es_builder = es_builder_milan_v12,
+		.count = ARRAY_SIZE(es_builder_milan_v12),
 	},
 };
 

@@ -79,6 +79,12 @@ struct aecp_aem_lock_state {
 	bool is_locked;
 };
 
+struct aecp_aem_avb_interface_state {
+	struct avb_aem_desc_avb_interface desc;
+	struct avb_msrp_attribute *domain_attr;
+};
+
+
 /**
  * \brief the generic entity state common for all flavor of AVB
  */

@@ -247,7 +247,7 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 	int res;
 
 	struct stream_common *common;
-	struct avb_msrp_attribute *msrp_attr;
+	struct avb_msrp_attribute *stream_attr;
 
 
 	common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
@@ -287,11 +287,6 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 				NULL));
 	}
 
-#if 0
-	mvrp_attr = &stream_in_state->mvrp_attr
-	*mvrp_attr = avb_mvrp_attribute_new(mvrp_attr, AVB_MVRP_ATTRIBUTE_TYPE_VID);
-	(*mvrp_attr)->attr.vid.vlan = htons(stream->vlan_id);
-#endif
 	if (stream->stream == NULL)
 		goto error_free;
 
@@ -328,30 +323,30 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 
 	setup_pdu(stream);
 	setup_msg(stream);
-	
-	if (stream->direction == SPA_DIRECTION_OUTPUT) {
-		msrp_attr = avb_msrp_attribute_new(server->msrp,
+
+	if (direction == SPA_DIRECTION_INPUT) {
+		stream_attr = avb_msrp_attribute_new(server->msrp,
 				AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
 	} else {
 
-		msrp_attr = avb_msrp_attribute_new(server->msrp,
+		stream_attr = avb_msrp_attribute_new(server->msrp,
 				AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 
-		msrp_attr->attr.talker.vlan_id = htons(stream->vlan_id);
+		stream_attr->attr.talker.vlan_id = htons(stream->vlan_id);
 
-		msrp_attr->attr.talker.tspec_max_frame_size =
+		stream_attr->attr.talker.tspec_max_frame_size =
 			htons(32 + stream->frames_per_pdu * stream->stride);
 
-		msrp_attr->attr.talker.tspec_max_interval_frames =
+		stream_attr->attr.talker.tspec_max_interval_frames =
 			htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
 
-		msrp_attr->attr.talker.priority = stream->prio;
-		msrp_attr->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
-		msrp_attr->attr.talker.accumulated_latency = htonl(95);
+		stream_attr->attr.talker.priority = stream->prio;
+		stream_attr->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
+		stream_attr->attr.talker.accumulated_latency = htonl(95);
 	}
 
 
-	common->msrp_attr = msrp_attr;
+	common->stream_attr = stream_attr;
 
 	spa_list_append(&server->streams, &stream->link);
 
@@ -369,7 +364,7 @@ void stream_destroy(struct stream *stream)
 	struct stream_common *common;
 	common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
 
-	avb_mrp_attribute_destroy(common->msrp_attr->mrp);
+	avb_mrp_attribute_destroy(common->stream_attr->mrp);
 }
 
 static int setup_socket(struct stream *stream)
@@ -458,39 +453,24 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 		}
 	}
 
-#if 0
-	FIXME!!! This should be used only one  and activated once and for all..
-	avb_mrp_attribute_begin(stream->vlan_attr->mrp, now);
-	avb_mrp_attribute_join(stream->vlan_attr->mrp, now, true);
-
-#endif
 	if (stream->direction == SPA_DIRECTION_INPUT) {
-		common->msrp_attr->attr.listener.stream_id = htobe64(stream->peer_id);
-		common->msrp_attr->param = AVB_MSRP_LISTENER_PARAM_READY;
-		avb_mrp_attribute_begin(common->msrp_attr->mrp, now);
-		avb_mrp_attribute_join(common->msrp_attr->mrp, now, true);
-#if 0
-		stream->talker_attr->attr.talker.stream_id = htobe64(stream->peer_id);
-		avb_mrp_attribute_begin(stream->talker_attr->mrp, now);
-#endif
+		common->stream_attr->attr.listener.stream_id = htobe64(stream->peer_id);
+		common->stream_attr->param = AVB_MSRP_LISTENER_PARAM_READY;
+		avb_mrp_attribute_begin(common->stream_attr->mrp, now);
+		avb_mrp_attribute_join(common->stream_attr->mrp, now, true);
 	} else {
 		if ((res = avb_maap_get_address(server->maap, stream->addr, index)) < 0)
 			return res;
 
-#if 0
-		stream->listener_attr->attr.listener.stream_id = htobe64(stream->id);
-		stream->listener_attr->param = AVB_MSRP_LISTENER_PARAM_IGNORE;
-		avb_mrp_attribute_begin(stream->listener_attr->mrp, now);
-#endif
-		common->msrp_attr->attr.talker.stream_id = htobe64(stream->id);
-		memcpy(common->msrp_attr->attr.talker.dest_addr, stream->addr, 6);
+		common->stream_attr->attr.talker.stream_id = htobe64(stream->id);
+		memcpy(common->stream_attr->attr.talker.dest_addr, stream->addr, 6);
 
 		stream->sock_addr.sll_halen = ETH_ALEN;
 		memcpy(&stream->sock_addr.sll_addr, stream->addr, ETH_ALEN);
 		memcpy(h->dest, stream->addr, 6);
 		memcpy(h->src, server->mac_addr, 6);
-		avb_mrp_attribute_begin(common->msrp_attr->mrp, now);
-		avb_mrp_attribute_join(common->msrp_attr->mrp, now, true);
+		avb_mrp_attribute_begin(common->stream_attr->mrp, now);
+		avb_mrp_attribute_join(common->stream_attr->mrp, now, true);
 	}
 
 	pw_stream_set_active(stream->stream, true);
@@ -513,7 +493,7 @@ int stream_deactivate(struct stream *stream, uint64_t now)
 	avb_mrp_attribute_leave(stream->vlan_attr->mrp, now);
 #endif // 
 
-	avb_mrp_attribute_leave(common->msrp_attr->mrp, now);
+	avb_mrp_attribute_leave(common->stream_attr->mrp, now);
 
 	return 0;
 }

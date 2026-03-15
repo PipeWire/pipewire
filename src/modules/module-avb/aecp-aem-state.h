@@ -130,7 +130,7 @@ struct aecp_aem_stream_input_counters {
 
 struct stream_common {
 	struct stream stream;
-	struct avb_msrp_attribute *msrp_attr;
+	struct avb_msrp_attribute *stream_attr;
 };
 
 struct aecp_aem_stream_input_state {

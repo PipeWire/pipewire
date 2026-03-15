@@ -180,10 +180,9 @@ struct impl {
 
 	struct spa_ratelimit rate_limit;
 
-	unsigned int do_disconnect:1;
+	unsigned int do_disconnect_core:1;
 
 	char *ifname;
-	char *session_name;
 	uint32_t ttl;
 	bool mcast_loop;
 	uint32_t dscp;
@@ -458,7 +457,7 @@ static void impl_destroy(struct impl *impl)
 	if (impl->stream)
 		rtp_stream_destroy(impl->stream);
 
-	if (impl->core && impl->do_disconnect)
+	if (impl->core && impl->do_disconnect_core)
 		pw_core_disconnect(impl->core);
 
 	if (impl->rtp_fd != -1) {
@@ -470,7 +469,6 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->props);
 
 	free(impl->ifname);
-	free(impl->session_name);
 	free(impl);
 }
 
@@ -643,7 +641,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 					PW_KEY_REMOTE_NAME, str,
 					NULL),
 				0);
-		impl->do_disconnect = true;
+		impl->do_disconnect_core = true;
 	}
 	if (impl->core == NULL) {
 		res = -errno;

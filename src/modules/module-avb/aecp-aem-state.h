@@ -154,8 +154,6 @@ struct acmp_stream_status_common {
 	struct stream_input_saved_binding_param saved_bindings;
 	uint8_t probing_status;
 	uint8_t acmp_status;
-	uint8_t stream_dest_mac[6];
-	uint16_t stream_vlanid;
 };
 
 struct acmp_stream_status_milan_v12 {

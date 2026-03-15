@@ -956,6 +956,7 @@ int handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(struct acmp *acmp,
 {
 	uint8_t buf[512];
 	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)acmp;
+	struct stream *stream_generic = (struct stream *) stream;
 	struct server *server = acmp->server;
 	struct avb_ethernet_header *h = (struct avb_ethernet_header *)m;
 	struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
@@ -997,9 +998,10 @@ int handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(struct acmp *acmp,
 	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
 	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
 
-	memcpy(stream->acmp_status.common.stream_dest_mac, p->stream_dest_mac,
+	memcpy(stream_generic->addr, p->stream_dest_mac,
 			sizeof(p->stream_dest_mac));
-	stream->acmp_status.common.stream_vlanid = ntohs(p->stream_vlan_id);
+	stream_generic->vlan_id = ntohs(p->stream_vlan_id);
+
 
 
 	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_COMPLETED;

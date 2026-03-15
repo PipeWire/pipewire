@@ -34,8 +34,8 @@ struct avb_mvrp_attribute {
 	} attr;
 };
 
-struct avb_mvrp_attribute *avb_mvrp_attribute_new(struct avb_mvrp *mvrp,
-		uint8_t type);
+int avb_mvrp_attribute_new(struct avb_mvrp *mvrp,
+	struct avb_mvrp_attribute *attr, uint8_t type);
 
 struct avb_mvrp *avb_mvrp_register(struct server *server);
 

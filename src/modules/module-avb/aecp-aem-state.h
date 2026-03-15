@@ -81,7 +81,10 @@ struct aecp_aem_lock_state {
 
 struct aecp_aem_avb_interface_state {
 	struct avb_aem_desc_avb_interface desc;
-	struct avb_msrp_attribute *domain_attr;
+
+	struct avb_msrp_attribute domain_attr;
+
+	struct avb_mvrp_attribute vlan_attr;
 };
 
 
@@ -130,7 +133,10 @@ struct aecp_aem_stream_input_counters {
 
 struct stream_common {
 	struct stream stream;
-	struct avb_msrp_attribute *stream_attr;
+
+	struct avb_msrp_attribute lstream_attr;
+	struct avb_msrp_attribute tastream_attr;
+	struct avb_msrp_attribute tfstream_attr;
 };
 
 struct aecp_aem_stream_input_state {
@@ -138,6 +144,7 @@ struct aecp_aem_stream_input_state {
 
 	struct aecp_aem_stream_input_counters counters;
 	struct stream_common common;
+	struct avb_mvrp_attribute mvrp_attr;
 };
 
 struct stream_input_saved_binding_param {

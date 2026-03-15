@@ -13,7 +13,7 @@
 static const uint8_t mvrp_mac[6] = AVB_MVRP_MAC;
 
 struct attr {
-	struct avb_mvrp_attribute attr;
+	struct avb_mvrp_attribute *attr;
 	struct spa_hook listener;
 	struct spa_list link;
 	struct mvrp *mvrp;
@@ -47,8 +47,8 @@ static int mvrp_attr_event(void *data, uint64_t now, uint8_t attribute_type, uin
 	struct mvrp *mvrp = data;
 	struct attr *a;
 	spa_list_for_each(a, &mvrp->attributes, link)
-		if (a->attr.type == attribute_type)
-			avb_mrp_attribute_rx_event(a->attr.mrp, now, event);
+		if (a->attr->type == attribute_type)
+			avb_mrp_attribute_rx_event(a->attr->mrp, now, event);
 	return 0;
 }
 
@@ -81,10 +81,10 @@ static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m)
 	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
 
 	d = (struct avb_packet_mvrp_vid *)v->first_value;
-	*d = a->attr.attr.vid;
+	*d = a->attr->attr.vid;
 
 	ev = SPA_PTROFF(d, sizeof(*d), uint8_t);
-	*ev = (a->attr.mrp->pending_send - 1) * 36;
+	*ev = (a->attr->mrp->pending_send - 1) * 36;
 
 	f = SPA_PTROFF(ev, sizeof(*ev), struct avb_packet_mrp_footer);
 	f->end_mark = 0;
@@ -95,7 +95,7 @@ static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m)
 static void notify_vid(struct mvrp *mvrp, uint64_t now, struct attr *attr, uint8_t notify)
 {
 	pw_log_info("> notify vid: %s", avb_mrp_notify_name(notify));
-	debug_vid(&attr->attr.attr.vid);
+	debug_vid(&attr->attr->attr.vid);
 }
 
 static const struct {
@@ -171,8 +171,9 @@ static void mvrp_notify(void *data, uint64_t now, uint8_t notify)
 {
 	struct attr *a = data;
 	struct mvrp *mvrp = a->mvrp;
-	if (dispatch[a->attr.type].notify)
-		dispatch[a->attr.type].notify(mvrp, now, a, notify);
+
+	if (dispatch[a->attr->type].notify)
+		dispatch[a->attr->type].notify(mvrp, now, a, notify);
 }
 
 static const struct avb_mrp_attribute_events mrp_attr_events = {
@@ -180,23 +181,28 @@ static const struct avb_mrp_attribute_events mrp_attr_events = {
 	.notify = mvrp_notify,
 };
 
-struct avb_mvrp_attribute *avb_mvrp_attribute_new(struct avb_mvrp *m,
-		uint8_t type)
+int avb_mvrp_attribute_new(struct avb_mvrp *m,
+	struct avb_mvrp_attribute *mvrp_attr, uint8_t type)
 {
 	struct mvrp *mvrp = (struct mvrp*)m;
 	struct avb_mrp_attribute *attr;
 	struct attr *a;
 
 	attr = avb_mrp_attribute_new(mvrp->server->mrp, sizeof(struct attr));
+	if (!attr) {
+		pw_log_error("MVRP attribute allocation failed");
+		return -1;
+	}
 
 	a = attr->user_data;
-	a->attr.mrp = attr;
-	a->attr.type = type;
+	a->attr = mvrp_attr;
+	a->attr->mrp = attr;
+	a->attr->type = type;
 	attr->name = "MVRP";
 	spa_list_append(&mvrp->attributes, &a->link);
 	avb_mrp_attribute_add_listener(attr, &a->listener, &mrp_attr_events, a);
 
-	return &a->attr;
+	return 0;
 }
 
 static void mvrp_event(void *data, uint64_t now, uint8_t event)
@@ -213,15 +219,15 @@ static void mvrp_event(void *data, uint64_t now, uint8_t event)
 	p->version = AVB_MRP_PROTOCOL_VERSION;
 
 	spa_list_for_each(a, &mvrp->attributes, link) {
-		if (!a->attr.mrp->pending_send)
+		if (!a->attr->mrp->pending_send)
 			continue;
-		if (dispatch[a->attr.type].encode == NULL)
+		if (dispatch[a->attr->type].encode == NULL)
 			continue;
 
-		pw_log_debug("send %s %s", dispatch[a->attr.type].name,
-				avb_mrp_send_name(a->attr.mrp->pending_send));
+		pw_log_debug("send %s %s", dispatch[a->attr->type].name,
+				avb_mrp_send_name(a->attr->mrp->pending_send));
 
-		len = dispatch[a->attr.type].encode(mvrp, a, msg);
+		len = dispatch[a->attr->type].encode(mvrp, a, msg);
 		if (len < 0)
 			break;
 

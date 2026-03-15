@@ -106,7 +106,7 @@ struct avb_msrp_attribute {
 
 struct avb_msrp;
 
-struct avb_msrp_attribute *avb_msrp_attribute_new(struct avb_msrp *msrp,
+int avb_msrp_attribute_new(struct avb_msrp *m, struct avb_msrp_attribute *attr,
 		uint8_t type);
 
 struct avb_msrp *avb_msrp_register(struct server *server);

@@ -240,17 +240,12 @@ static const struct pw_stream_events sink_stream_events = {
 struct stream *server_create_stream(struct server *server, struct stream *stream,
 		enum spa_direction direction, uint16_t index)
 {
+	struct stream_common *common = (struct stream_common *)stream;
 	uint32_t n_params;
 	const struct spa_pod *params[1];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	int res;
-
-	struct stream_common *common;
-	struct avb_msrp_attribute *stream_attr;
-
-
-	common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
 
 	stream->server = server;
 	stream->direction = direction;
@@ -324,29 +319,38 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 	setup_pdu(stream);
 	setup_msg(stream);
 
-	if (direction == SPA_DIRECTION_INPUT) {
-		stream_attr = avb_msrp_attribute_new(server->msrp,
-				AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
-	} else {
-
-		stream_attr = avb_msrp_attribute_new(server->msrp,
-				AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
-
-		stream_attr->attr.talker.vlan_id = htons(stream->vlan_id);
-
-		stream_attr->attr.talker.tspec_max_frame_size =
-			htons(32 + stream->frames_per_pdu * stream->stride);
-
-		stream_attr->attr.talker.tspec_max_interval_frames =
-			htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
-
-		stream_attr->attr.talker.priority = stream->prio;
-		stream_attr->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
-		stream_attr->attr.talker.accumulated_latency = htonl(95);
+	res = avb_msrp_attribute_new(server->msrp, &common->lstream_attr,
+			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	if (res) {
+		goto error_free;
 	}
 
+	res = avb_msrp_attribute_new(server->msrp, &common->tastream_attr,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	if (res) {
+		goto error_free;
+	}
 
-	common->stream_attr = stream_attr;
+	res = avb_msrp_attribute_new(server->msrp, &common->tfstream_attr,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
+	if (res) {
+		goto error_free;
+	}
+
+	if (stream->direction == SPA_DIRECTION_OUTPUT) {
+		struct avb_msrp_attribute *ta = &common->tastream_attr;
+
+		ta->attr.talker.vlan_id = htons(stream->vlan_id);
+		ta->attr.talker.tspec_max_frame_size =
+			htons(32 + stream->frames_per_pdu * stream->stride);
+
+		ta->attr.talker.tspec_max_interval_frames =
+			htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
+
+		ta->attr.talker.priority = stream->prio;
+		ta->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
+		ta->attr.talker.accumulated_latency = htonl(95);
+	}
 
 	spa_list_append(&server->streams, &stream->link);
 
@@ -355,7 +359,7 @@ error_free_stream:
 	pw_stream_destroy(stream->stream);
 	errno = -res;
 error_free:
-	free(stream);
+	free(stream->buffer_data);
 	return NULL;
 }
 
@@ -364,7 +368,9 @@ void stream_destroy(struct stream *stream)
 	struct stream_common *common;
 	common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
 
-	avb_mrp_attribute_destroy(common->stream_attr->mrp);
+	avb_mrp_attribute_destroy(common->lstream_attr.mrp);
+	avb_mrp_attribute_destroy(common->tastream_attr.mrp);
+	avb_mrp_attribute_destroy(common->tfstream_attr.mrp);
 }
 
 static int setup_socket(struct stream *stream)
@@ -454,23 +460,31 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 	}
 
 	if (stream->direction == SPA_DIRECTION_INPUT) {
-		common->stream_attr->attr.listener.stream_id = htobe64(stream->peer_id);
-		common->stream_attr->param = AVB_MSRP_LISTENER_PARAM_READY;
-		avb_mrp_attribute_begin(common->stream_attr->mrp, now);
-		avb_mrp_attribute_join(common->stream_attr->mrp, now, true);
+		struct aecp_aem_stream_input_state *input_stream;
+		input_stream = SPA_CONTAINER_OF(common, struct aecp_aem_stream_input_state, common);
+
+		common->lstream_attr.attr.listener.stream_id = htobe64(stream->peer_id);
+		common->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_READY;
+		avb_mrp_attribute_begin(common->lstream_attr.mrp, now);
+		avb_mrp_attribute_join(common->lstream_attr.mrp, now, true);
+
+		input_stream->mvrp_attr.attr.vid.vlan = htons(stream->vlan_id);
+		avb_mrp_attribute_begin(input_stream->mvrp_attr.mrp, now);
+		avb_mrp_attribute_join(input_stream->mvrp_attr.mrp, now, true);
+
 	} else {
 		if ((res = avb_maap_get_address(server->maap, stream->addr, index)) < 0)
 			return res;
 
-		common->stream_attr->attr.talker.stream_id = htobe64(stream->id);
-		memcpy(common->stream_attr->attr.talker.dest_addr, stream->addr, 6);
+		common->tastream_attr.attr.talker.stream_id = htobe64(stream->id);
+		memcpy(common->tastream_attr.attr.talker.dest_addr, stream->addr, 6);
 
 		stream->sock_addr.sll_halen = ETH_ALEN;
 		memcpy(&stream->sock_addr.sll_addr, stream->addr, ETH_ALEN);
 		memcpy(h->dest, stream->addr, 6);
 		memcpy(h->src, server->mac_addr, 6);
-		avb_mrp_attribute_begin(common->stream_attr->mrp, now);
-		avb_mrp_attribute_join(common->stream_attr->mrp, now, true);
+		avb_mrp_attribute_begin(common->tastream_attr.mrp, now);
+		avb_mrp_attribute_join(common->tastream_attr.mrp, now, true);
 	}
 
 	pw_stream_set_active(stream->stream, true);
@@ -493,7 +507,9 @@ int stream_deactivate(struct stream *stream, uint64_t now)
 	avb_mrp_attribute_leave(stream->vlan_attr->mrp, now);
 #endif // 
 
-	avb_mrp_attribute_leave(common->stream_attr->mrp, now);
+	avb_mrp_attribute_leave(common->lstream_attr.mrp, now);
+	avb_mrp_attribute_leave(common->tastream_attr.mrp, now);
+	avb_mrp_attribute_leave(common->tfstream_attr.mrp, now);
 
 	return 0;
 }

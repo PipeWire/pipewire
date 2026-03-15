@@ -217,7 +217,8 @@ PWTEST(avb_mrp_attribute_lifecycle)
 	pwtest_ptr_notnull(server);
 
 	/* Create an MSRP talker attribute */
-	attr = avb_msrp_attribute_new(server->msrp,
+	attr = calloc(1, sizeof(*attr));
+	avb_msrp_attribute_new(server->msrp, attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	pwtest_ptr_notnull(attr);
 	pwtest_ptr_notnull(attr->mrp);
@@ -271,7 +272,8 @@ PWTEST(avb_milan_server_create)
 	avb_adp_register(server);
 	avb_acmp_register(server);
 
-	server->domain_attr = avb_msrp_attribute_new(server->msrp,
+	server->domain_attr = calloc(1, sizeof(*server->domain_attr));
+	avb_msrp_attribute_new(server->msrp, server->domain_attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
 	server->domain_attr->attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
 	server->domain_attr->attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
@@ -323,7 +325,8 @@ PWTEST(avb_mrp_begin_join_new_tx)
 	pwtest_ptr_notnull(server);
 
 	/* Create a talker attribute */
-	attr = avb_msrp_attribute_new(server->msrp,
+	attr = calloc(1, sizeof(*attr));
+	avb_msrp_attribute_new(server->msrp, attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	pwtest_ptr_notnull(attr);
 
@@ -364,7 +367,8 @@ PWTEST(avb_mrp_join_leave_cycle)
 	server = avb_test_server_new(impl);
 	pwtest_ptr_notnull(server);
 
-	attr = avb_msrp_attribute_new(server->msrp,
+	attr = calloc(1, sizeof(*attr));
+	avb_msrp_attribute_new(server->msrp, attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	pwtest_ptr_notnull(attr);
 
@@ -440,7 +444,8 @@ PWTEST(avb_mrp_rx_new_notification)
 	/* Register a global MRP listener to track notifications */
 	avb_mrp_add_listener(server->mrp, &listener, &test_mrp_events, &tracker);
 
-	attr = avb_msrp_attribute_new(server->msrp,
+	attr = calloc(1, sizeof(*attr));
+	avb_msrp_attribute_new(server->msrp, attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	pwtest_ptr_notnull(attr);
 
@@ -486,7 +491,8 @@ PWTEST(avb_mrp_registrar_leave_timer)
 
 	avb_mrp_add_listener(server->mrp, &listener, &test_mrp_events, &tracker);
 
-	attr = avb_msrp_attribute_new(server->msrp,
+	attr = calloc(1, sizeof(*attr));
+	avb_msrp_attribute_new(server->msrp, attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	avb_mrp_attribute_begin(attr->mrp, 0);
 	avb_mrp_attribute_join(attr->mrp, 0, true);
@@ -527,9 +533,11 @@ PWTEST(avb_mrp_multiple_attributes)
 	server = avb_test_server_new(impl);
 	pwtest_ptr_notnull(server);
 
-	attr1 = avb_msrp_attribute_new(server->msrp,
+	attr1 = calloc(1, sizeof(*attr1));
+	avb_msrp_attribute_new(server->msrp, attr1,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
-	attr2 = avb_msrp_attribute_new(server->msrp,
+	attr2 = calloc(1, sizeof(*attr2));
+	avb_msrp_attribute_new(server->msrp, attr2,
 			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
 	pwtest_ptr_notnull(attr1);
 	pwtest_ptr_notnull(attr2);
@@ -570,22 +578,26 @@ PWTEST(avb_msrp_attribute_types)
 	pwtest_ptr_notnull(server);
 
 	/* Create all four MSRP attribute types */
-	talker = avb_msrp_attribute_new(server->msrp,
+	talker = calloc(1, sizeof(*talker));
+	avb_msrp_attribute_new(server->msrp, talker,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	pwtest_ptr_notnull(talker);
 	pwtest_int_eq(talker->type, AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 
-	talker_fail = avb_msrp_attribute_new(server->msrp,
+	talker_fail = calloc(1, sizeof(*talker_fail));
+	avb_msrp_attribute_new(server->msrp, talker_fail,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
 	pwtest_ptr_notnull(talker_fail);
 	pwtest_int_eq(talker_fail->type, AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
 
-	listener_attr = avb_msrp_attribute_new(server->msrp,
+	listener_attr = calloc(1, sizeof(*listener_attr));
+	avb_msrp_attribute_new(server->msrp, listener_attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
 	pwtest_ptr_notnull(listener_attr);
 	pwtest_int_eq(listener_attr->type, AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
 
-	domain = avb_msrp_attribute_new(server->msrp,
+	domain = calloc(1, sizeof(*domain));
+	avb_msrp_attribute_new(server->msrp, domain,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
 	pwtest_ptr_notnull(domain);
 	pwtest_int_eq(domain->type, AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
@@ -638,7 +650,8 @@ PWTEST(avb_msrp_domain_transmit)
 
 	/* The test server already has a domain_attr, but create another
 	 * to test independent domain attribute behavior */
-	domain = avb_msrp_attribute_new(server->msrp,
+	domain = calloc(1, sizeof(*domain));
+	avb_msrp_attribute_new(server->msrp, domain,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
 	domain->attr.domain.sr_class_id = 7;
 	domain->attr.domain.sr_class_priority = 2;
@@ -675,7 +688,8 @@ PWTEST(avb_msrp_talker_transmit)
 	server = avb_test_server_new(impl);
 	pwtest_ptr_notnull(server);
 
-	talker = avb_msrp_attribute_new(server->msrp,
+	talker = calloc(1, sizeof(*talker));
+	avb_msrp_attribute_new(server->msrp, talker,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	pwtest_ptr_notnull(talker);
 
@@ -1012,7 +1026,8 @@ PWTEST(avb_msrp_talker_failed_notify)
 	server = avb_test_server_new(impl);
 	pwtest_ptr_notnull(server);
 
-	talker_fail = avb_msrp_attribute_new(server->msrp,
+	talker_fail = calloc(1, sizeof(*talker_fail));
+	avb_msrp_attribute_new(server->msrp, talker_fail,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
 	pwtest_ptr_notnull(talker_fail);
 
@@ -2584,7 +2599,8 @@ PWTEST(avb_mrp_leave_all_timer)
 	avb_mrp_add_listener(server->mrp, &listener, &test_mrp_events, &tracker);
 
 	/* Create and join an attribute */
-	attr = avb_msrp_attribute_new(server->msrp,
+	attr = calloc(1, sizeof(*attr));
+	avb_msrp_attribute_new(server->msrp, attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	pwtest_ptr_notnull(attr);
 
@@ -2630,7 +2646,8 @@ PWTEST(avb_mrp_periodic_timer)
 	server = avb_test_server_new(impl);
 	pwtest_ptr_notnull(server);
 
-	attr = avb_msrp_attribute_new(server->msrp,
+	attr = calloc(1, sizeof(*attr));
+	avb_msrp_attribute_new(server->msrp, attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
 	avb_mrp_attribute_begin(attr->mrp, 0);
 	avb_mrp_attribute_join(attr->mrp, 0, true);
@@ -2674,7 +2691,8 @@ PWTEST(avb_msrp_talker_failed_process)
 	/* Create a talker-failed attribute that matches the stream_id
 	 * we'll send in the MSRP packet. This ensures process_talker_fail()
 	 * finds a matching attribute and calls avb_mrp_attribute_rx_event(). */
-	talker_fail = avb_msrp_attribute_new(server->msrp,
+	talker_fail = calloc(1, sizeof(*talker_fail));
+	avb_msrp_attribute_new(server->msrp, talker_fail,
 			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
 	pwtest_ptr_notnull(talker_fail);
 
@@ -2780,7 +2798,8 @@ PWTEST(avb_mvrp_attribute_lifecycle)
 	server = avb_test_server_new(impl);
 	pwtest_ptr_notnull(server);
 
-	vid = avb_mvrp_attribute_new(server->mvrp,
+	vid = calloc(1, sizeof(*vid));
+	avb_mvrp_attribute_new(server->mvrp, vid,
 			AVB_MVRP_ATTRIBUTE_TYPE_VID);
 	pwtest_ptr_notnull(vid);
 	pwtest_int_eq(vid->type, AVB_MVRP_ATTRIBUTE_TYPE_VID);
@@ -2816,7 +2835,8 @@ PWTEST(avb_mvrp_vid_transmit)
 	server = avb_test_server_new(impl);
 	pwtest_ptr_notnull(server);
 
-	vid = avb_mvrp_attribute_new(server->mvrp,
+	vid = calloc(1, sizeof(*vid));
+	avb_mvrp_attribute_new(server->mvrp, vid,
 			AVB_MVRP_ATTRIBUTE_TYPE_VID);
 	pwtest_ptr_notnull(vid);
 

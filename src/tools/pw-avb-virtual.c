@@ -112,7 +112,8 @@ static struct server *create_virtual_server(struct data *data)
 	avb_adp_register(server);
 	avb_acmp_register(server);
 
-	server->domain_attr = avb_msrp_attribute_new(server->msrp,
+	server->domain_attr = calloc(1, sizeof(*server->domain_attr));
+	avb_msrp_attribute_new(server->msrp, server->domain_attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
 	server->domain_attr->attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
 	server->domain_attr->attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;

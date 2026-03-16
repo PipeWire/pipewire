@@ -1085,10 +1085,6 @@ wait_negotiated (GstPipeWireSrc *this)
     GST_DEBUG_OBJECT (this, "waiting for NEGOTIATED, now %s", pw_stream_state_as_string (state));
     if (state == PW_STREAM_STATE_ERROR)
       break;
-    if (this->flushing) {
-      state = PW_STREAM_STATE_ERROR;
-      break;
-    }
 
     if (this->negotiated)
       break;

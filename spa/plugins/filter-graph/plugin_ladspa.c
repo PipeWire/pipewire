@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #include <math.h>
 #include <limits.h>
+#include <float.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/defs.h>
@@ -113,8 +114,14 @@ static void ladspa_port_update_ranges(struct descriptor *dd, struct spa_fga_port
 	LADSPA_PortRangeHintDescriptor hint = d->PortRangeHints[p].HintDescriptor;
 	LADSPA_Data lower, upper;
 
-	lower = d->PortRangeHints[p].LowerBound;
-	upper = d->PortRangeHints[p].UpperBound;
+	if (hint & LADSPA_HINT_BOUNDED_BELOW)
+		lower = d->PortRangeHints[p].LowerBound;
+	else
+		lower = -FLT_MAX;
+	if (hint & LADSPA_HINT_BOUNDED_ABOVE)
+		upper = d->PortRangeHints[p].UpperBound;
+	else
+		upper = FLT_MAX;
 
 	port->hint = 0;
 	if (hint & LADSPA_HINT_TOGGLED)

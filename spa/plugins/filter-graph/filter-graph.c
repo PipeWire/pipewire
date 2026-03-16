@@ -1035,8 +1035,8 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 			}
 		} else if (SPA_FGA_IS_PORT_CONTROL(fp->flags)) {
 			if (SPA_FGA_IS_PORT_INPUT(fp->flags)) {
-				spa_log_info(impl->log, "using port %lu ('%s') as control %d", p,
-						fp->name, desc->n_control);
+				spa_log_info(impl->log, "using port %lu ('%s') as control %d %f/%f/%f", p,
+						fp->name, desc->n_control, fp->def, fp->min, fp->max);
 				desc->control[desc->n_control++] = p;
 			}
 			else if (SPA_FGA_IS_PORT_OUTPUT(fp->flags)) {

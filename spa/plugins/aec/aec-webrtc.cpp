@@ -221,6 +221,11 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	}};
 #endif
 
+	if (out_info->channels != 1 && rec_info->channels != out_info->channels) {
+		spa_log_error(impl->log, "Source channels must be equal to capture channels or 1");
+		return -EINVAL;
+	}
+
 #if defined(HAVE_WEBRTC)
 	auto apm = std::unique_ptr<webrtc::AudioProcessing>(webrtc::AudioProcessing::Create(config));
 #elif defined(HAVE_WEBRTC1)

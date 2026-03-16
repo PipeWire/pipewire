@@ -39,7 +39,7 @@ struct impl_data {
 	std::unique_ptr<float *[]> play_buffer, rec_buffer, out_buffer;
 };
 
-SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.eac.webrtc");
+SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.aec.webrtc");
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
 

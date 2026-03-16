@@ -1,3 +1,39 @@
+# PipeWire 1.6.2 (2026-03-16)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Fix a potential crash when the wrong memory was freed.
+  - Fix a optimization with shared memory over some links that could
+    cause errors later on.
+  - Fix SOFA filter and default control input in LADSPA and LV2.
+  - Some other small fixes and improvements.
+
+
+## PipeWire
+  - Remove an optimization to skip share mem in links, it causes problems
+    later on. (#5159)
+
+## Modules
+  - Don't try to free invalid memory or close invalid fds when the client
+    aborted before allocating buffer memory. (#5162)
+
+## SPA
+  - support ACP_IGNORE_DB in udev.
+  - Use 0x as a prefix for hex values.
+  - Mark Props as write-only in libcamera.
+  - Small optimization in the audio mixer.
+  - Fix initialization of control properties for SOFA and biquads in the
+    filter-graph. (#5152)
+  - Fix min/max default values for LADSPA and LV2.
+
+## JACK
+  - Fix jack_port_type_id(). Return values that are compatible with JACK1/2.
+
+
+Older versions:
+
 # PipeWire 1.6.1 (2026-03-09)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -27,8 +63,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## Tools
   - Fix playback of encoded formats. (#5155)
-
-Older versions:
 
 # PipeWire 1.6.0 (2026-02-19)
 

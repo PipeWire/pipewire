@@ -560,6 +560,17 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 		fp->min = mins[i];
 		fp->max = maxes[i];
 		fp->def = controls[i];
+
+		if (isnan(fp->min))
+			fp->min = -FLT_MAX;
+		if (isnan(fp->max))
+			fp->max = FLT_MAX;
+		if (isnan(fp->def))
+			fp->def = 0.0f;
+		if (fp->max <= fp->min)
+			fp->max = FLT_MAX;
+		if (fp->def <= fp->min)
+			fp->min = -FLT_MAX;
 	}
 	return &desc->desc;
 }

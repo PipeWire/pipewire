@@ -436,7 +436,7 @@ static inline const char *pa_path_get_filename(const char *p)
         return NULL;
     if ((fn = strrchr(p, PA_PATH_SEP_CHAR)))
         return fn+1;
-    return (char*) p;
+    return p;
 }
 
 static inline bool pa_is_path_absolute(const char *fn)

@@ -131,11 +131,6 @@
 PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define BUFFER_SIZE		(1u<<22)
-#define BUFFER_MASK		(BUFFER_SIZE-1)
-#define BUFFER_SIZE2		(BUFFER_SIZE>>1)
-#define BUFFER_MASK2		(BUFFER_SIZE2-1)
-
 #define FRAMES_PER_TCP_PACKET	4096
 #define FRAMES_PER_UDP_PACKET	352
 
@@ -274,13 +269,6 @@ struct impl {
 
 	bool mute;
 	float volume;
-
-	struct spa_ringbuffer ring;
-	uint8_t buffer[BUFFER_SIZE];
-
-	struct spa_io_position *io_position;
-
-	uint32_t filled;
 };
 
 static inline void bit_writer(uint8_t **p, int *pos, uint8_t data, int len)

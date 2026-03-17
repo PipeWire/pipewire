@@ -59,12 +59,20 @@ enum device_profile {
 	DEVICE_PROFILE_OFF = 0,
 	DEVICE_PROFILE_AG,
 	DEVICE_PROFILE_A2DP,
+	DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY,
+	DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY,
 	DEVICE_PROFILE_HSP_HFP,
 	DEVICE_PROFILE_BAP,
 	DEVICE_PROFILE_BAP_SINK,
 	DEVICE_PROFILE_BAP_SOURCE,
 	DEVICE_PROFILE_ASHA,
 	DEVICE_PROFILE_LAST,
+};
+
+enum codec_order {
+	CODEC_ORDER_NONE = 0,
+	CODEC_ORDER_QUALITY,
+	CODEC_ORDER_LATENCY,
 };
 
 enum {
@@ -204,9 +212,113 @@ static bool profile_is_bap(enum device_profile profile)
 	return false;
 }
 
-static void get_media_codecs(struct impl *this, enum spa_bluetooth_audio_codec id, const struct media_codec **codecs, size_t size)
+static bool profile_is_a2dp(enum device_profile profile)
+{
+	switch (profile) {
+	case DEVICE_PROFILE_A2DP:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
+		return true;
+	default:
+		break;
+	}
+	return false;
+}
+
+static size_t get_media_codec_quality_priority (const struct media_codec *mc)
+{
+	/* From lowest quality to highest quality */
+	static const enum spa_bluetooth_audio_codec quality_priorities[] = {
+		SPA_BLUETOOTH_AUDIO_CODEC_START,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_G,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO,
+		SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX,
+		SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM,
+		SPA_BLUETOOTH_AUDIO_CODEC_MPEG,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL,
+		SPA_BLUETOOTH_AUDIO_CODEC_SBC,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX,
+		SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ,
+		SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
+		SPA_BLUETOOTH_AUDIO_CODEC_AAC,
+		SPA_BLUETOOTH_AUDIO_CODEC_LC3PLUS_HR,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX_HD,
+		SPA_BLUETOOTH_AUDIO_CODEC_LDAC
+	};
+	size_t i;
+
+	for (i = 0; SPA_N_ELEMENTS(quality_priorities); ++i) {
+		if (quality_priorities[i] == mc->id)
+			return i;
+	}
+
+	return 0;
+}
+
+static size_t get_media_codec_latency_priority (const struct media_codec *mc)
+{
+	/* From highest latency to lowest latency */
+	static const enum spa_bluetooth_audio_codec latency_priorities[] = {
+		SPA_BLUETOOTH_AUDIO_CODEC_START,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_G,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05,
+		SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX,
+		SPA_BLUETOOTH_AUDIO_CODEC_MPEG,
+		SPA_BLUETOOTH_AUDIO_CODEC_AAC,
+		SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX_HD,
+		SPA_BLUETOOTH_AUDIO_CODEC_LDAC,
+		SPA_BLUETOOTH_AUDIO_CODEC_LC3PLUS_HR,
+		SPA_BLUETOOTH_AUDIO_CODEC_SBC,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX,
+		SPA_BLUETOOTH_AUDIO_CODEC_SBC_XQ,
+		SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM_DUPLEX,
+		SPA_BLUETOOTH_AUDIO_CODEC_FASTSTREAM,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL_DUPLEX,
+		SPA_BLUETOOTH_AUDIO_CODEC_APTX_LL,
+	};
+	size_t i;
+
+	for (i = 0; SPA_N_ELEMENTS(latency_priorities); ++i) {
+		if (latency_priorities[i] == mc->id)
+			return i;
+	}
+
+	return 0;
+}
+
+static int media_codec_quality_cmp(const void *a, const void *b) {
+	const struct media_codec *ca = *(const struct media_codec **)a;
+	const struct media_codec *cb = *(const struct media_codec **)b;
+	size_t ca_prio = get_media_codec_quality_priority (ca);
+	size_t cb_prio = get_media_codec_quality_priority (cb);
+	if (ca_prio > cb_prio) return -1;
+	if (ca_prio < cb_prio) return 1;
+	return 0;
+}
+
+static int media_codec_latency_cmp(const void *a, const void *b) {
+	const struct media_codec *ca = *(const struct media_codec **)a;
+	const struct media_codec *cb = *(const struct media_codec **)b;
+	size_t ca_prio = get_media_codec_latency_priority (ca);
+	size_t cb_prio = get_media_codec_latency_priority (cb);
+	if (ca_prio > cb_prio) return -1;
+	if (ca_prio < cb_prio) return 1;
+	return 0;
+}
+
+static void get_media_codecs(struct impl *this, enum codec_order order, enum spa_bluetooth_audio_codec id, const struct media_codec **codecs, size_t size)
 {
 	const struct media_codec * const *c;
+	size_t n = 0;
 
 	spa_assert(size > 0);
 	spa_assert(this->supported_codecs);
@@ -216,12 +328,24 @@ static void get_media_codecs(struct impl *this, enum spa_bluetooth_audio_codec i
 			continue;
 
 		if ((*c)->id == id || id == 0) {
-			*codecs++ = *c;
+			codecs[n++] = *c;
 			--size;
 		}
 	}
 
-	*codecs = NULL;
+	codecs[n] = NULL;
+
+	switch (order) {
+	case CODEC_ORDER_QUALITY:
+		qsort(codecs, n, sizeof(struct media_codec *), media_codec_quality_cmp);
+		break;
+	case CODEC_ORDER_LATENCY:
+		qsort(codecs, n, sizeof(struct media_codec *), media_codec_latency_cmp);
+		break;
+	case CODEC_ORDER_NONE:
+	default:
+		break;
+	}
 }
 
 static const struct media_codec *get_supported_media_codec(struct impl *this, enum spa_bluetooth_audio_codec id,
@@ -380,6 +504,8 @@ static bool node_update_volume_from_transport(struct node *node, bool reset)
 
 	/* PW is the controller for remote device. */
 	if (impl->profile != DEVICE_PROFILE_A2DP
+	    && impl->profile != DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY
+	    && impl->profile != DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY
 	    && impl->profile != DEVICE_PROFILE_BAP
 	    && impl->profile != DEVICE_PROFILE_BAP_SINK
 	    && impl->profile != DEVICE_PROFILE_BAP_SOURCE
@@ -1262,6 +1388,8 @@ static int emit_nodes(struct impl *this)
 		}
 		break;
 	case DEVICE_PROFILE_A2DP:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
 		if (this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE) {
 			t = find_transport(this, SPA_BT_PROFILE_A2DP_SOURCE);
 			if (t) {
@@ -1464,13 +1592,13 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 	 * XXX: source-only case, as it will only switch the sink, and we only
 	 * XXX: list the sink codecs here. TODO: fix this
 	 */
-	if ((profile == DEVICE_PROFILE_A2DP || (profile_is_bap(profile) && is_bap_client(this)))
+	if ((profile_is_a2dp (profile) || (profile_is_bap(profile) && is_bap_client(this)))
 			&& !(this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_SOURCE)) {
 		int ret;
 		const struct media_codec *codecs[64];
 		uint32_t profiles;
 
-		get_media_codecs(this, codec, codecs, SPA_N_ELEMENTS(codecs));
+		get_media_codecs(this, CODEC_ORDER_NONE, codec, codecs, SPA_N_ELEMENTS(codecs));
 
 		this->switching_codec = true;
 
@@ -1485,6 +1613,14 @@ static int set_profile(struct impl *this, uint32_t profile, enum spa_bluetooth_a
 			profiles = this->bt_dev->profiles & SPA_BT_PROFILE_BAP_DUPLEX;
 			break;
 		case DEVICE_PROFILE_A2DP:
+			profiles = this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_DUPLEX;
+			break;
+		case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+			get_media_codecs(this, CODEC_ORDER_QUALITY, 0, codecs, SPA_N_ELEMENTS(codecs));
+			profiles = this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_DUPLEX;
+			break;
+		case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
+			get_media_codecs(this, CODEC_ORDER_LATENCY, 0, codecs, SPA_N_ELEMENTS(codecs));
 			profiles = this->bt_dev->connected_profiles & SPA_BT_PROFILE_A2DP_DUPLEX;
 			break;
 		default:
@@ -1646,6 +1782,8 @@ static void profiles_changed(void *userdata, uint32_t connected_change)
 			      nodes_changed);
 		break;
 	case DEVICE_PROFILE_A2DP:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
 		nodes_changed = (connected_change & SPA_BT_PROFILE_A2DP_DUPLEX);
 		spa_log_debug(this->log, "profiles changed: A2DP nodes changed: %d",
 			      nodes_changed);
@@ -1801,6 +1939,8 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 
 	switch (index) {
 	case DEVICE_PROFILE_A2DP:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
 		if (device->connected_profiles & SPA_BT_PROFILE_A2DP_SINK)
 			have_output = true;
 
@@ -1850,6 +1990,8 @@ static uint32_t get_profile_from_index(struct impl *this, uint32_t index, uint32
 	switch (profile) {
 	case DEVICE_PROFILE_OFF:
 	case DEVICE_PROFILE_AG:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
 		*codec = 0;
 		*next = (profile + 1) << 16;
 		return profile;
@@ -1884,6 +2026,8 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum
 	switch (profile) {
 	case DEVICE_PROFILE_OFF:
 	case DEVICE_PROFILE_AG:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
 		return (profile << 16);
 
 	case DEVICE_PROFILE_ASHA:
@@ -2123,6 +2267,36 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 			n_source++;
 		break;
 	}
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
+	{
+		uint32_t profile;
+
+		/* make this device profile visible only if there is an A2DP sink */
+		profile = device->connected_profiles & (SPA_BT_PROFILE_A2DP_SINK | SPA_BT_PROFILE_A2DP_SOURCE);
+		if (!(profile & SPA_BT_PROFILE_A2DP_SINK))
+			return NULL;
+
+		switch (profile_index) {
+		case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+			name = "a2dp-auto-prefer-quality";
+			desc = _("Auto: Prefer Quality (A2DP)");
+			break;
+		case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
+			name = "a2dp-auto-prefer-latency";
+			desc = _("Auto: Prefer Latency (A2DP)");
+			break;
+		default:
+			return NULL;
+		}
+
+		priority = 0;
+
+		n_sink++;
+		if (this->autoswitch_routes && (device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))
+			n_source++;
+		break;
+	}
 	case DEVICE_PROFILE_BAP_SINK:
 	case DEVICE_PROFILE_BAP_SOURCE:
 		/* These are client-only */
@@ -2324,6 +2498,8 @@ static bool profile_has_route(uint32_t profile, uint32_t route)
 	case DEVICE_PROFILE_AG:
 		break;
 	case DEVICE_PROFILE_A2DP:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
+	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
 		switch (route) {
 		case ROUTE_INPUT:
 		case ROUTE_OUTPUT:
@@ -2623,7 +2799,7 @@ static struct spa_pod *build_route(struct impl *this, struct spa_pod_builder *b,
 		spa_pod_builder_array(b, sizeof(uint32_t), SPA_TYPE_Id,
 				node->n_channels, node->channels);
 
-		if ((this->profile == DEVICE_PROFILE_A2DP || profile_is_bap(this->profile)) &&
+		if ((profile_is_a2dp (this->profile) || profile_is_bap(this->profile)) &&
 				(dev & SINK_ID_FLAG)) {
 			spa_pod_builder_prop(b, SPA_PROP_latencyOffsetNsec, 0);
 			spa_pod_builder_long(b, node->latency_offset);
@@ -2659,7 +2835,7 @@ next:
 
 	c = this->supported_codecs[*j];
 
-	if (!(this->profile == DEVICE_PROFILE_A2DP && c->kind == MEDIA_CODEC_A2DP) &&
+	if (!(profile_is_a2dp (this->profile) && c->kind == MEDIA_CODEC_A2DP) &&
 			!(profile_is_bap(this->profile) && c->kind == MEDIA_CODEC_BAP) &&
 			!(this->profile == DEVICE_PROFILE_HSP_HFP && c->kind == MEDIA_CODEC_HFP) &&
 			!(this->profile == DEVICE_PROFILE_ASHA && c->kind == MEDIA_CODEC_ASHA))
@@ -3240,7 +3416,7 @@ static int impl_set_param(void *object,
 			return 0;
 		}
 
-		if (this->profile == DEVICE_PROFILE_A2DP || profile_is_bap(this->profile) ||
+		if (profile_is_a2dp (this->profile) || profile_is_bap(this->profile) ||
 				this->profile == DEVICE_PROFILE_ASHA || this->profile == DEVICE_PROFILE_HSP_HFP) {
 			size_t j;
 			for (j = 0; j < this->supported_codec_count; ++j) {

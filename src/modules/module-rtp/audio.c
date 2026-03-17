@@ -546,7 +546,7 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 		else
 			header.m = 0;
 
-		rtp_timestamp = impl->ts_offset + (set_timestamp ? set_timestamp : timestamp);
+		rtp_timestamp = impl->ts_offset + impl->ts_align + (set_timestamp ? set_timestamp : timestamp);
 
 		header.sequence_number = htons(impl->seq);
 		header.timestamp = htonl(rtp_timestamp);
@@ -705,8 +705,10 @@ static void rtp_audio_process_capture(void *data)
 	 * that resynchronization is needed, then this will be done immediately below. */
 
 	if (!impl->have_sync) {
-		pw_log_info("(re)sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
-				actual_timestamp, impl->seq, impl->ts_offset, impl->ssrc);
+		if (!impl->direct_timestamp)
+			impl->ts_align = actual_timestamp - impl->ring.readindex;
+		pw_log_info("(re)sync to timestamp:%u seq:%u ts_offset:%u ts_align:%u SSRC:%u",
+				actual_timestamp, impl->seq, impl->ts_offset, impl->ts_align, impl->ssrc);
 		spa_ringbuffer_read_update(&impl->ring, actual_timestamp);
 		spa_ringbuffer_write_update(&impl->ring, actual_timestamp);
 		memset(impl->buffer, 0, BUFFER_SIZE);

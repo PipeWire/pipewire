@@ -109,6 +109,7 @@ struct impl {
 	uint32_t mtu;
 	uint32_t header_size;
 	uint32_t payload_size;
+	uint32_t ts_align;
 
 	struct spa_ringbuffer ring;
 	uint8_t buffer[BUFFER_SIZE];

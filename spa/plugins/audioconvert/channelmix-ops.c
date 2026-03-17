@@ -720,7 +720,7 @@ done:
 	if (src_paired == 0)
 		src_paired = ~0LU;
 
-	for (jc = 0, ic = 0, i = 0; ic < dst_chan; i++) {
+	for (jc = 0, ic = 0, i = 0; ic < dst_chan && i < MAX_CHANNELS; i++) {
 		float sum = 0.0f;
 		char str1[1024], str2[1024];
 		struct spa_strbuf sb1, sb2;
@@ -730,7 +730,7 @@ done:
 
 		if (i < CHANNEL_BITS && (dst_paired & (1UL << i)) == 0)
 			continue;
-		for (jc = 0, j = 0; jc < src_chan; j++) {
+		for (jc = 0, j = 0; jc < src_chan && j < MAX_CHANNELS; j++) {
 			if (j < CHANNEL_BITS && (src_paired & (1UL << j)) == 0)
 				continue;
 

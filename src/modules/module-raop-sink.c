@@ -346,7 +346,7 @@ static int send_udp_sync_packet(struct impl *impl, uint32_t rtptime, unsigned in
 	res = sendmsg(impl->control_fd, &msg, MSG_NOSIGNAL);
 	if (res < 0) {
 		res = -errno;
-		pw_log_warn("error sending control packet: %d", res);
+		pw_log_warn("error sending control packet: %d (%m)", res);
 	}
 
 	pw_log_debug("raop control sync: first:%d latency:%u now:%"PRIx64" rtptime:%u",

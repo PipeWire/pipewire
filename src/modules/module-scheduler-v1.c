@@ -123,24 +123,12 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 	struct pw_impl_port *p;
 	struct pw_impl_link *l;
 	struct pw_impl_node *n;
-	uint32_t n_sync = 0;
-	char *sync[MAX_SYNC+1] = { NULL };
 
 	if (!node->runnable) {
 		pw_log_debug("%s is runnable", node->name);
 		node->runnable = true;
 	}
 
-	if (node->sync) {
-		for (uint32_t i = 0; node->sync_groups[i]; i++) {
-			if (n_sync >= MAX_SYNC)
-				break;
-			if (pw_strv_find(sync, node->sync_groups[i]) >= 0)
-				continue;
-			sync[n_sync++] = node->sync_groups[i];
-			sync[n_sync] = NULL;
-		}
-	}
 	spa_list_for_each(p, &node->output_ports, link) {
 		spa_list_for_each(l, &p->links, output_link) {
 			n = l->input->node;
@@ -173,7 +161,7 @@ static void make_runnable(struct pw_context *context, struct pw_impl_node *node)
 	 * that are not yet runnable. We don't include sync-groups because they
 	 * are only used to group the node with a driver, not to determine the
 	 * runnable state of a node. */
-	if (node->groups != NULL || node->link_groups != NULL || sync[0] != NULL) {
+	if (node->groups != NULL || node->link_groups != NULL) {
 		spa_list_for_each(n, &context->node_list, link) {
 			if (n->exported || !n->active || n->runnable)
 				continue;

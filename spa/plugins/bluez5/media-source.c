@@ -1784,7 +1784,7 @@ static uint32_t get_samples(struct impl *this, int64_t *duration_ns)
 static void update_target_latency(struct impl *this)
 {
 	struct port *port = &this->port;
-	int32_t target;
+	int32_t target = 0;
 	int samples;
 
 	if (this->transport == NULL || !port->have_format)
@@ -1803,7 +1803,7 @@ static void update_target_latency(struct impl *this)
 	 */
 	if (this->decode_buffer_target)
 		target = this->decode_buffer_target;
-	else
+	else if (this->transport->iso_io)
 		target = spa_bt_iso_io_get_source_target_latency(this->transport->iso_io);
 
 	spa_bt_decode_buffer_set_target_latency(&port->buffer, target);

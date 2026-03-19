@@ -62,6 +62,7 @@ struct spa_cpu { struct spa_interface iface; };
 #define SPA_CPU_FLAG_BMI2		(1<<18)	/**< Bit Manipulation Instruction Set 2 */
 #define SPA_CPU_FLAG_AVX512		(1<<19)	/**< AVX-512 */
 #define SPA_CPU_FLAG_SLOW_UNALIGNED	(1<<20)	/**< unaligned loads/stores are slow */
+#define SPA_CPU_FLAG_SLOW_GATHER	(1<<21)	/**< gather functions are slow */
 
 /* PPC specific */
 #define SPA_CPU_FLAG_ALTIVEC		(1<<0)	/**< standard */

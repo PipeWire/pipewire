@@ -78,6 +78,8 @@ x86_init(struct impl *impl)
 		if ((ebx & AVX512_BITS) == AVX512_BITS)
 			flags |= SPA_CPU_FLAG_AVX512;
 	}
+	if (max_level < 0x16)
+		flags |= SPA_CPU_FLAG_SLOW_GATHER;
 
 	/* Check cpuid level of extended features.  */
 	__cpuid (0x80000000, ext_level, ebx, ecx, edx);

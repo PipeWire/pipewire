@@ -1,3 +1,37 @@
+# PipeWire 1.4.11 (2026-03-19)
+
+This is a small bugfix release that is API and ABI compatible with
+previous 1.x releases.
+
+## Highlights
+  - Fix a potential invalid memory free and fd close, causing crashes.
+  - Improve filter-graph setup and channel handling.
+  - Fix a segfault in some JACK apps (Ardour) when a lot of objects are
+    created/destroyed because a function was not expected to return NULL.
+  - Some more small fixes and improvements.
+
+
+## Modules
+  - Add priority.session to some of the sink/sources to make it possible to
+    change the default device. (#5125)
+  - Support link-local addresses in RAOP and snapcast. (#4830)
+  - Fix potential invalid mem and fd free in client-node. (#5162)
+
+## SPA
+  - Improve filter-graph setup and reset.
+  - Improve filter-graph multichannel handling. (#4866)
+  - Fix some issues with filter-graph without channel layout. (#5084)
+  - Mark libcamera properties as write-only.
+  - Improve the JSON parser, container start ends a symbol.
+
+## JACK
+  - Avoid segfaults because jack_port_by_id() returns NULL. (#3512)
+  - Fix jack_port_type_id() compatibility with JACK1/2.
+  - Fix jack-server port registration.
+
+
+Older versions:
+
 # PipeWire 1.4.10 (2026-01-16)
 
 This is a small bugfix release that is API and ABI compatible with
@@ -36,9 +70,6 @@ previous 1.x releases.
 
 ## GStreamer
   - Avoid scaling overflow in the clock.
-
-
-Older versions:
 
 # PipeWire 1.4.9 (2025-10-09)
 

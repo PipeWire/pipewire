@@ -2172,7 +2172,7 @@ static inline void cycle_signal(struct client *c, int status)
 	struct pw_node_activation *driver = c->rt.driver_activation;
 	struct pw_node_activation *activation = c->activation;
 
-	if (SPA_LIKELY(status == 0)) {
+	if (SPA_LIKELY(status == 0 && c->buffer_frames != (uint32_t)-1)) {
 		if (c->timebase_callback && driver && driver->segment_owner[0] == c->node_id) {
 			if (activation->pending_new_pos ||
 			    c->jack_state == JackTransportRolling ||
@@ -4875,7 +4875,7 @@ int jack_activate (jack_client_t *client)
 	freeze_callbacks(c);
 
 	/* reemit buffer_frames */
-	c->buffer_frames = 0;
+	c->buffer_frames = (uint32_t)-1;
 
 	pw_data_loop_start(c->loop);
 	c->active = true;
@@ -5456,7 +5456,7 @@ SPA_EXPORT
 jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 {
 	struct client *c = (struct client *) client;
-	jack_nframes_t res = -1;
+	uint32_t res = -1;
 
 	return_val_if_fail(c != NULL, 0);
 
@@ -5473,7 +5473,7 @@ jack_nframes_t jack_get_buffer_size (jack_client_t *client)
 	}
 	c->buffer_frames = res;
 	pw_log_debug("buffer_frames: %u", res);
-	return res;
+	return (jack_nframes_t)res;
 }
 
 SPA_EXPORT

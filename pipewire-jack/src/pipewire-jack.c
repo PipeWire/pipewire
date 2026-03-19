@@ -2172,7 +2172,7 @@ static inline void cycle_signal(struct client *c, int status)
 	struct pw_node_activation *driver = c->rt.driver_activation;
 	struct pw_node_activation *activation = c->activation;
 
-	if (SPA_LIKELY(status == 0 && c->buffer_frames != (uint32_t)-1)) {
+	if (SPA_LIKELY(status == 0)) {
 		if (c->timebase_callback && driver && driver->segment_owner[0] == c->node_id) {
 			if (activation->pending_new_pos ||
 			    c->jack_state == JackTransportRolling ||
@@ -2210,7 +2210,7 @@ on_rtsocket_condition(void *data, int fd, uint32_t mask)
 		}
 	} else if (SPA_LIKELY(mask & SPA_IO_IN)) {
 		uint32_t buffer_frames;
-		int status = 0;
+		int status = -EBUSY;
 
 		buffer_frames = cycle_run(c);
 

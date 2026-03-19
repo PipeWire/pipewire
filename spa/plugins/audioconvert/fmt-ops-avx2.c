@@ -30,6 +30,38 @@
 		_mm256_srli_epi16(x, 8));				\
 })
 
+#define _MM_TRANS_1x4_PS(v0,v1,v2,v3)					\
+({									\
+	v1 = _mm_shuffle_ps(v0, v0, _MM_SHUFFLE(0, 3, 2, 1));		\
+	v2 = _mm_shuffle_ps(v0, v0, _MM_SHUFFLE(1, 0, 3, 2));		\
+	v3 = _mm_shuffle_ps(v0, v0, _MM_SHUFFLE(2, 1, 0, 3));		\
+})
+#define _MM_TRANS_1x4_EPI32(v0,v1,v2,v3)				\
+({									\
+	v1 = _mm_shuffle_epi32(v0, _MM_SHUFFLE(0, 3, 2, 1));		\
+	v2 = _mm_shuffle_epi32(v0, _MM_SHUFFLE(1, 0, 3, 2));		\
+	v3 = _mm_shuffle_epi32(v0, _MM_SHUFFLE(2, 1, 0, 3));		\
+})
+
+#define _MM_STOREM_PS(d0,d1,d2,d3,v)					\
+({									\
+	__m128 o[3];							\
+	_MM_TRANS_1x4_PS(v, o[0], o[1], o[2]);				\
+	_mm_store_ss(d0, v);						\
+	_mm_store_ss(d1, o[0]);						\
+	_mm_store_ss(d2, o[1]);						\
+	_mm_store_ss(d3, o[2]);						\
+})
+#define _MM_STOREM_EPI32(d0,d1,d2,d3,v)					\
+({									\
+	__m128i o[3];							\
+	_MM_TRANS_1x4_EPI32(v, o[0], o[1], o[2]);			\
+	*d0 = _mm_cvtsi128_si32(v);					\
+	*d1 = _mm_cvtsi128_si32(o[0]);					\
+	*d2 = _mm_cvtsi128_si32(o[1]);					\
+	*d3 = _mm_cvtsi128_si32(o[2]);					\
+})
+
 static void
 conv_s16_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
@@ -397,18 +429,13 @@ conv_s24_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 12 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out[0] = _mm_cvtsi32_ss(factor, s24_to_s32(*((int24_t*)s+0)));
-		out[1] = _mm_cvtsi32_ss(factor, s24_to_s32(*((int24_t*)s+1)));
-		out[2] = _mm_cvtsi32_ss(factor, s24_to_s32(*((int24_t*)s+2)));
-		out[3] = _mm_cvtsi32_ss(factor, s24_to_s32(*((int24_t*)s+3)));
-		out[0] = _mm_mul_ss(out[0], factor);
-		out[1] = _mm_mul_ss(out[1], factor);
-		out[2] = _mm_mul_ss(out[2], factor);
-		out[3] = _mm_mul_ss(out[3], factor);
-		_mm_store_ss(&d0[n], out[0]);
-		_mm_store_ss(&d1[n], out[1]);
-		_mm_store_ss(&d2[n], out[2]);
-		_mm_store_ss(&d3[n], out[3]);
+		in[0] = _mm_setr_epi32(s24_to_s32(*((int24_t*)s+0)),
+				s24_to_s32(*((int24_t*)s+1)),
+				s24_to_s32(*((int24_t*)s+2)),
+				s24_to_s32(*((int24_t*)s+3)));
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], factor);
+		_MM_STOREM_PS(&d0[n], &d1[n], &d2[n], &d3[n], out[0]);
 		s += 3 * n_channels;
 	}
 }
@@ -473,18 +500,11 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 	for(; n < n_samples; n++) {
 		__m128 out[4], factor = _mm_set1_ps(1.0f / S32_SCALE_I2F);
-		out[0] = _mm_cvtsi32_ss(factor, s[0]);
-		out[1] = _mm_cvtsi32_ss(factor, s[1]);
-		out[2] = _mm_cvtsi32_ss(factor, s[2]);
-		out[3] = _mm_cvtsi32_ss(factor, s[3]);
-		out[0] = _mm_mul_ss(out[0], factor);
-		out[1] = _mm_mul_ss(out[1], factor);
-		out[2] = _mm_mul_ss(out[2], factor);
-		out[3] = _mm_mul_ss(out[3], factor);
-		_mm_store_ss(&d0[n], out[0]);
-		_mm_store_ss(&d1[n], out[1]);
-		_mm_store_ss(&d2[n], out[2]);
-		_mm_store_ss(&d3[n], out[3]);
+		__m128i in[1];
+		in[0] = _mm_setr_epi32(s[0], s[1], s[2], s[3]);
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], factor);
+		_MM_STOREM_PS(&d0[n], &d1[n], &d2[n], &d3[n], out[0]);
 		s += n_channels;
 	}
 }
@@ -612,14 +632,10 @@ conv_f32d_to_s32_1s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
 		in[0] = _MM_CLAMP_PS(in[0], int_min, int_max);
 		out[0] = _mm_cvtps_epi32(in[0]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
-
-		d[0*n_channels] = _mm_cvtsi128_si32(out[0]);
-		d[1*n_channels] = _mm_cvtsi128_si32(out[1]);
-		d[2*n_channels] = _mm_cvtsi128_si32(out[2]);
-		d[3*n_channels] = _mm_cvtsi128_si32(out[3]);
+		_MM_STOREM_EPI32(&d[0*n_channels],
+				&d[1*n_channels],
+				&d[2*n_channels],
+				&d[3*n_channels], out[0]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
@@ -774,15 +790,7 @@ conv_f32d_to_s32_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		__m128 int_min = _mm_set1_ps(S32_MIN_F2I);
 		__m128 int_max = _mm_set1_ps(S32_MAX_F2I);
 
-		in[0] = _mm_load_ss(&s0[n]);
-		in[1] = _mm_load_ss(&s1[n]);
-		in[2] = _mm_load_ss(&s2[n]);
-		in[3] = _mm_load_ss(&s3[n]);
-
-		in[0] = _mm_unpacklo_ps(in[0], in[2]);
-		in[1] = _mm_unpacklo_ps(in[1], in[3]);
-		in[0] = _mm_unpacklo_ps(in[0], in[1]);
-
+		in[0] = _mm_setr_ps(s0[n], s1[n], s2[n], s3[n]);
 		in[0] = _mm_mul_ps(in[0], scale);
 		in[0] = _MM_CLAMP_PS(in[0], int_min, int_max);
 		out[0] = _mm_cvtps_epi32(in[0]);
@@ -972,18 +980,16 @@ conv_f32d_to_s16_4s_avx2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		__m128 int_max = _mm_set1_ps(S16_MAX);
 		__m128 int_min = _mm_set1_ps(S16_MIN);
 
-		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_scale);
-		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_scale);
-		in[2] = _mm_mul_ss(_mm_load_ss(&s2[n]), int_scale);
-		in[3] = _mm_mul_ss(_mm_load_ss(&s3[n]), int_scale);
-		in[0] = _MM_CLAMP_SS(in[0], int_min, int_max);
-		in[1] = _MM_CLAMP_SS(in[1], int_min, int_max);
-		in[2] = _MM_CLAMP_SS(in[2], int_min, int_max);
-		in[3] = _MM_CLAMP_SS(in[3], int_min, int_max);
+		in[0] = _mm_setr_ps(s0[n], s1[n], s2[n], s3[n]);
+		in[0] = _mm_mul_ps(in[0], int_scale);
+		in[0] = _MM_CLAMP_PS(in[0], int_min, int_max);
+
+		_MM_TRANS_1x4_PS(in[0], in[1], in[2], in[3]);
 		d[0] = _mm_cvtss_si32(in[0]);
 		d[1] = _mm_cvtss_si32(in[1]);
 		d[2] = _mm_cvtss_si32(in[2]);
 		d[3] = _mm_cvtss_si32(in[3]);
+
 		d += n_channels;
 	}
 }
@@ -1055,14 +1061,10 @@ conv_f32d_to_s16_4_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const v
 		__m128 int_max = _mm_set1_ps(S16_MAX);
 		__m128 int_min = _mm_set1_ps(S16_MIN);
 
-		in[0] = _mm_mul_ss(_mm_load_ss(&s0[n]), int_scale);
-		in[1] = _mm_mul_ss(_mm_load_ss(&s1[n]), int_scale);
-		in[2] = _mm_mul_ss(_mm_load_ss(&s2[n]), int_scale);
-		in[3] = _mm_mul_ss(_mm_load_ss(&s3[n]), int_scale);
-		in[0] = _MM_CLAMP_SS(in[0], int_min, int_max);
-		in[1] = _MM_CLAMP_SS(in[1], int_min, int_max);
-		in[2] = _MM_CLAMP_SS(in[2], int_min, int_max);
-		in[3] = _MM_CLAMP_SS(in[3], int_min, int_max);
+		in[0] = _mm_setr_ps(s0[n], s1[n], s2[n], s3[n]);
+		in[0] = _mm_mul_ps(in[0], int_scale);
+		in[0] = _MM_CLAMP_PS(in[0], int_min, int_max);
+		_MM_TRANS_1x4_PS(in[0], in[1], in[2], in[3]);
 		d[0] = _mm_cvtss_si32(in[0]);
 		d[1] = _mm_cvtss_si32(in[1]);
 		d[2] = _mm_cvtss_si32(in[2]);

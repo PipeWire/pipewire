@@ -26,6 +26,72 @@
 	a = _mm_shufflehi_epi16(a, _MM_SHUFFLE(2, 3, 0, 1));		\
 })
 
+#define spa_read_unaligned(ptr, type) \
+__extension__ ({ \
+	__typeof__(type) _val; \
+	memcpy(&_val, (ptr), sizeof(_val)); \
+	_val; \
+})
+
+#define spa_write_unaligned(ptr, type, val) \
+__extension__ ({ \
+	__typeof__(type) _val = (val); \
+	memcpy((ptr), &_val, sizeof(_val)); \
+})
+
+#define _MM_TRANS_1x4_PS(v0,v1,v2,v3)					\
+({									\
+	v1 = _mm_shuffle_ps(v0, v0, _MM_SHUFFLE(0, 3, 2, 1));		\
+	v2 = _mm_shuffle_ps(v0, v0, _MM_SHUFFLE(1, 0, 3, 2));		\
+	v3 = _mm_shuffle_ps(v0, v0, _MM_SHUFFLE(2, 1, 0, 3));		\
+})
+
+#define _MM_TRANS_1x4_EPI32(v0,v1,v2,v3)				\
+({									\
+	v1 = _mm_shuffle_epi32(v0, _MM_SHUFFLE(0, 3, 2, 1));		\
+	v2 = _mm_shuffle_epi32(v0, _MM_SHUFFLE(1, 0, 3, 2));		\
+	v3 = _mm_shuffle_epi32(v0, _MM_SHUFFLE(2, 1, 0, 3));		\
+})
+#if 0
+#define _MM_STOREM_PS(d0,d1,d2,d3,v)					\
+({									\
+	*d0 = v[0]; 							\
+	*d1 = v[1]; 							\
+	*d2 = v[2]; 							\
+	*d3 = v[3]; 							\
+})
+#else
+#define _MM_STOREM_PS(d0,d1,d2,d3,v)					\
+({									\
+	__m128 o[3];							\
+	_MM_TRANS_1x4_PS(v, o[0], o[1], o[2]);				\
+	_mm_store_ss(d0, v);						\
+	_mm_store_ss(d1, o[0]);						\
+	_mm_store_ss(d2, o[1]);						\
+	_mm_store_ss(d3, o[2]);						\
+})
+#endif
+
+#define _MM_STOREM_EPI32(d0,d1,d2,d3,v)					\
+({									\
+	__m128i o[3];							\
+	_MM_TRANS_1x4_EPI32(v, o[0], o[1], o[2]);			\
+	*d0 = _mm_cvtsi128_si32(v);					\
+	*d1 = _mm_cvtsi128_si32(o[0]);					\
+	*d2 = _mm_cvtsi128_si32(o[1]);					\
+	*d3 = _mm_cvtsi128_si32(o[2]);					\
+})
+
+#define _MM_STOREUM_EPI32(d0,d1,d2,d3,v)				\
+({									\
+	__m128i o[3];							\
+	_MM_TRANS_1x4_EPI32(v, o[0], o[1], o[2]);			\
+	spa_write_unaligned(d0, uint32_t, _mm_cvtsi128_si32(v));	\
+	spa_write_unaligned(d1, uint32_t, _mm_cvtsi128_si32(o[0]));	\
+	spa_write_unaligned(d2, uint32_t, _mm_cvtsi128_si32(o[1]));	\
+	spa_write_unaligned(d3, uint32_t, _mm_cvtsi128_si32(o[2]));	\
+})
+
 static void
 conv_s16_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
@@ -233,18 +299,6 @@ conv_s16s_to_f32d_2_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const 
 	}
 }
 
-#define spa_read_unaligned(ptr, type) \
-__extension__ ({ \
-	__typeof__(type) _val; \
-	memcpy(&_val, (ptr), sizeof(_val)); \
-	_val; \
-})
-
-#define spa_write_unaligned(ptr, type, val) \
-__extension__ ({ \
-	__typeof__(type) _val = (val); \
-	memcpy((ptr), &_val, sizeof(_val)); \
-})
 void
 conv_s24_to_f32d_1s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
@@ -416,18 +470,13 @@ conv_s24_to_f32d_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 		s += 4 * n_channels;
 	}
 	for(; n < n_samples; n++) {
-		out[0] = _mm_cvtsi32_ss(factor, s24_to_s32(*s));
-		out[1] = _mm_cvtsi32_ss(factor, s24_to_s32(*(s+1)));
-		out[2] = _mm_cvtsi32_ss(factor, s24_to_s32(*(s+2)));
-		out[3] = _mm_cvtsi32_ss(factor, s24_to_s32(*(s+3)));
-		out[0] = _mm_mul_ss(out[0], factor);
-		out[1] = _mm_mul_ss(out[1], factor);
-		out[2] = _mm_mul_ss(out[2], factor);
-		out[3] = _mm_mul_ss(out[3], factor);
-		_mm_store_ss(&d0[n], out[0]);
-		_mm_store_ss(&d1[n], out[1]);
-		_mm_store_ss(&d2[n], out[2]);
-		_mm_store_ss(&d3[n], out[3]);
+		in[0] = _mm_setr_epi32(s24_to_s32(*s),
+				s24_to_s32(*(s+1)),
+				s24_to_s32(*(s+2)),
+				s24_to_s32(*(s+3)));
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], factor);
+		_MM_STOREM_PS(&d0[n], &d1[n], &d2[n], &d3[n], out[0]);
 		s += n_channels;
 	}
 }
@@ -445,6 +494,59 @@ conv_s24_to_f32d_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 		conv_s24_to_f32d_2s_sse2(conv, &dst[i], &s[3*i], n_channels, n_samples);
 	for(; i < n_channels; i++)
 		conv_s24_to_f32d_1s_sse2(conv, &dst[i], &s[3*i], n_channels, n_samples);
+}
+
+void
+conv_s32_to_f32d_4s_sse2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const int32_t *s = src;
+	float *d0 = dst[0], *d1 = dst[1], *d2 = dst[2], *d3 = dst[3];
+	uint32_t n, unrolled;
+	__m128i in[4];
+	__m128 out[4], factor = _mm_set1_ps(1.0f / S32_SCALE_I2F);
+
+	if (SPA_IS_ALIGNED(d0, 16) &&
+	    SPA_IS_ALIGNED(d1, 16) &&
+	    SPA_IS_ALIGNED(d2, 16) &&
+	    SPA_IS_ALIGNED(d3, 16) &&
+	    SPA_IS_ALIGNED(s, 16) && (n_channels & 3) == 0)
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 4) {
+		in[0] = _mm_load_si128((__m128i*)(s + 0*n_channels));
+		in[1] = _mm_load_si128((__m128i*)(s + 1*n_channels));
+		in[2] = _mm_load_si128((__m128i*)(s + 2*n_channels));
+		in[3] = _mm_load_si128((__m128i*)(s + 3*n_channels));
+
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[1] = _mm_cvtepi32_ps(in[1]);
+		out[2] = _mm_cvtepi32_ps(in[2]);
+		out[3] = _mm_cvtepi32_ps(in[3]);
+
+		out[0] = _mm_mul_ps(out[0], factor);
+		out[1] = _mm_mul_ps(out[1], factor);
+		out[2] = _mm_mul_ps(out[2], factor);
+		out[3] = _mm_mul_ps(out[3], factor);
+
+		_MM_TRANSPOSE4_PS(out[0], out[1], out[2], out[3]);
+
+		_mm_store_ps(&d0[n], out[0]);
+		_mm_store_ps(&d1[n], out[1]);
+		_mm_store_ps(&d2[n], out[2]);
+		_mm_store_ps(&d3[n], out[3]);
+
+		s += 4*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		in[0] = _mm_setr_epi32(s[0], s[1], s[2], s[3]);
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], factor);
+		_MM_STOREM_PS(&d0[n], &d1[n], &d2[n], &d3[n], out[0]);
+		s += n_channels;
+	}
 }
 
 static void
@@ -487,6 +589,8 @@ conv_s32_to_f32d_sse2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	const int32_t *s = src[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
+	for(; i + 3 < n_channels; i += 4)
+		conv_s32_to_f32d_4s_sse2(conv, &dst[i], &s[i], n_channels, n_samples);
 	for(; i < n_channels; i++)
 		conv_s32_to_f32d_1s_sse2(conv, &dst[i], &s[i], n_channels, n_samples);
 }
@@ -513,14 +617,10 @@ conv_f32d_to_s32_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		in[0] = _mm_mul_ps(_mm_load_ps(&s0[n]), scale);
 		in[0] = _MM_CLAMP_PS(in[0], int_min, int_max);
 		out[0] = _mm_cvtps_epi32(in[0]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
-
-		d[0*n_channels] = _mm_cvtsi128_si32(out[0]);
-		d[1*n_channels] = _mm_cvtsi128_si32(out[1]);
-		d[2*n_channels] = _mm_cvtsi128_si32(out[2]);
-		d[3*n_channels] = _mm_cvtsi128_si32(out[3]);
+		_MM_STOREM_EPI32(&d[0*n_channels],
+				&d[1*n_channels],
+				&d[2*n_channels],
+				&d[3*n_channels], out[0]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
@@ -630,15 +730,7 @@ conv_f32d_to_s32_4s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
-		in[0] = _mm_load_ss(&s0[n]);
-		in[1] = _mm_load_ss(&s1[n]);
-		in[2] = _mm_load_ss(&s2[n]);
-		in[3] = _mm_load_ss(&s3[n]);
-
-		in[0] = _mm_unpacklo_ps(in[0], in[2]);
-		in[1] = _mm_unpacklo_ps(in[1], in[3]);
-		in[0] = _mm_unpacklo_ps(in[0], in[1]);
-
+		in[0] = _mm_setr_ps(s0[n], s1[n], s2[n], s3[n]);
 		in[0] = _mm_mul_ps(in[0], scale);
 		in[0] = _MM_CLAMP_PS(in[0], int_min, int_max);
 		out[0] = _mm_cvtps_epi32(in[0]);
@@ -754,14 +846,10 @@ conv_f32d_to_s32_1s_noise_sse2(struct convert *conv, void * SPA_RESTRICT dst, co
 		in[0] = _mm_add_ps(in[0], _mm_load_ps(&noise[n]));
 		in[0] = _MM_CLAMP_PS(in[0], int_min, int_max);
 		out[0] = _mm_cvtps_epi32(in[0]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
-
-		d[0*n_channels] = _mm_cvtsi128_si32(out[0]);
-		d[1*n_channels] = _mm_cvtsi128_si32(out[1]);
-		d[2*n_channels] = _mm_cvtsi128_si32(out[2]);
-		d[3*n_channels] = _mm_cvtsi128_si32(out[3]);
+		_MM_STOREM_EPI32(&d[0*n_channels],
+				&d[1*n_channels],
+				&d[2*n_channels],
+				&d[3*n_channels], out[0]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
@@ -810,14 +898,10 @@ conv_interleave_32_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA
 
 	for(n = 0; n < unrolled; n += 4) {
 		out[0] = _mm_load_si128((__m128i*)&s0[n]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
-
-		d[0*n_channels] = _mm_cvtsi128_si32(out[0]);
-		d[1*n_channels] = _mm_cvtsi128_si32(out[1]);
-		d[2*n_channels] = _mm_cvtsi128_si32(out[2]);
-		d[3*n_channels] = _mm_cvtsi128_si32(out[3]);
+		_MM_STOREM_EPI32(&d[0*n_channels],
+				&d[1*n_channels],
+				&d[2*n_channels],
+				&d[3*n_channels], out[0]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
@@ -893,14 +977,10 @@ conv_interleave_32s_1s_sse2(void *data, void * SPA_RESTRICT dst, const void * SP
 	for(n = 0; n < unrolled; n += 4) {
 		out[0] = _mm_load_si128((__m128i*)&s0[n]);
 		out[0] = _MM_BSWAP_EPI32(out[0]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
-
-		d[0*n_channels] = _mm_cvtsi128_si32(out[0]);
-		d[1*n_channels] = _mm_cvtsi128_si32(out[1]);
-		d[2*n_channels] = _mm_cvtsi128_si32(out[2]);
-		d[3*n_channels] = _mm_cvtsi128_si32(out[3]);
+		_MM_STOREM_EPI32(&d[0*n_channels],
+				&d[1*n_channels],
+				&d[2*n_channels],
+				&d[3*n_channels], out[0]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {
@@ -1257,14 +1337,10 @@ conv_f32d_to_s16_2s_sse2(void *data, void * SPA_RESTRICT dst, const void * SPA_R
 		t[1] = _mm_packs_epi32(t[1], t[1]);
 
 		out[0] = _mm_unpacklo_epi16(t[0], t[1]);
-		out[1] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(0, 3, 2, 1));
-		out[2] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(1, 0, 3, 2));
-		out[3] = _mm_shuffle_epi32(out[0], _MM_SHUFFLE(2, 1, 0, 3));
-
-		spa_write_unaligned(d + 0*n_channels, uint32_t, _mm_cvtsi128_si32(out[0]));
-		spa_write_unaligned(d + 1*n_channels, uint32_t, _mm_cvtsi128_si32(out[1]));
-		spa_write_unaligned(d + 2*n_channels, uint32_t, _mm_cvtsi128_si32(out[2]));
-		spa_write_unaligned(d + 3*n_channels, uint32_t, _mm_cvtsi128_si32(out[3]));
+		_MM_STOREUM_EPI32(&d[0*n_channels],
+				&d[1*n_channels],
+				&d[2*n_channels],
+				&d[3*n_channels], out[0]);
 		d += 4*n_channels;
 	}
 	for(; n < n_samples; n++) {

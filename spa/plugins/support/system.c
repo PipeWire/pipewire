@@ -30,6 +30,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.system");
 #  define TFD_TIMER_CANCEL_ON_SET (1 << 1)
 #endif
 
+SPA_STATIC_ASSERT(sizeof(struct spa_poll_event) == sizeof(struct epoll_event));
+
 struct impl {
 	struct spa_handle handle;
 	struct spa_system system;
@@ -132,16 +134,9 @@ static int impl_pollfd_del(void *object, int pfd, int fd)
 static int impl_pollfd_wait(void *object, int pfd,
 		struct spa_poll_event *ev, int n_ev, int timeout)
 {
-	struct epoll_event ep[n_ev];
-	int i, nfds;
-
-	if (SPA_UNLIKELY((nfds = epoll_wait(pfd, ep, n_ev, timeout)) < 0))
+	int nfds;
+	if (SPA_UNLIKELY((nfds = epoll_wait(pfd, (struct epoll_event*)ev, n_ev, timeout)) < 0))
 		return -errno;
-
-        for (i = 0; i < nfds; i++) {
-                ev[i].events = ep[i].events;
-                ev[i].data = ep[i].data.ptr;
-        }
 	return nfds;
 }
 

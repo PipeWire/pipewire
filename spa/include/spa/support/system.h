@@ -41,7 +41,7 @@ struct itimerspec;
 #define SPA_TYPE_INTERFACE_System	SPA_TYPE_INFO_INTERFACE_BASE "System"
 #define SPA_TYPE_INTERFACE_DataSystem	SPA_TYPE_INFO_INTERFACE_BASE "DataSystem"
 
-#define SPA_VERSION_SYSTEM		0
+#define SPA_VERSION_SYSTEM		1
 struct spa_system { struct spa_interface iface; };
 
 /* IO events */
@@ -60,10 +60,10 @@ struct spa_system { struct spa_interface iface; };
 struct spa_poll_event {
 	uint32_t events;
 	void *data;
-};
+} __attribute__ ((packed));
 
 struct spa_system_methods {
-#define SPA_VERSION_SYSTEM_METHODS	0
+#define SPA_VERSION_SYSTEM_METHODS	1
 	uint32_t version;
 
 	/* read/write/ioctl */
@@ -151,7 +151,7 @@ SPA_API_SYSTEM int spa_system_pollfd_del(struct spa_system *object, int pfd, int
 SPA_API_SYSTEM int spa_system_pollfd_wait(struct spa_system *object, int pfd,
 			struct spa_poll_event *ev, int n_ev, int timeout)
 {
-	return spa_api_method_fast_r(int, -ENOTSUP, spa_system, &object->iface, pollfd_wait, 0, pfd, ev, n_ev, timeout);
+	return spa_api_method_fast_r(int, -ENOTSUP, spa_system, &object->iface, pollfd_wait, 1, pfd, ev, n_ev, timeout);
 }
 
 SPA_API_SYSTEM int spa_system_timerfd_create(struct spa_system *object, int clockid, int flags)

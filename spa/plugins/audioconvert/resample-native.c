@@ -576,7 +576,7 @@ int resample_native_init(struct resample *r)
 			r, c->cutoff, r->quality, c->window, r->i_rate, r->o_rate, gcd, n_taps, n_phases,
 			r->cpu_flags, d->info->cpu_flags);
 
-	r->cpu_flags = d->info->cpu_flags;
+	r->func_cpu_flags = d->info->cpu_flags;
 
 	impl_native_reset(r);
 	impl_native_update_rate(r, 1.0);

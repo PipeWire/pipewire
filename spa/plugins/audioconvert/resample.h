@@ -38,6 +38,7 @@ struct resample {
 #define RESAMPLE_OPTION_PREFILL		(1<<0)
 	uint32_t options;
 	uint32_t cpu_flags;
+	uint32_t func_cpu_flags;
 	const char *func_name;
 
 	uint32_t channels;

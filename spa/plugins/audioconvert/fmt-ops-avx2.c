@@ -4,6 +4,8 @@
 
 #include "fmt-ops.h"
 
+#include <spa/support/cpu.h>
+
 #include <immintrin.h>
 // GCC: workaround for missing AVX intrinsic: "_mm256_setr_m128()"
 //      (see https://stackoverflow.com/questions/32630458/setting-m256i-to-the-value-of-two-m128i-values)
@@ -285,7 +287,7 @@ conv_s16s_to_f32d_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const 
 }
 
 static void
-conv_s24_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+conv_s24_to_f32d_1s_gather_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
 	const int8_t *s = src;
@@ -321,7 +323,7 @@ conv_s24_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 }
 
 static void
-conv_s24_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+conv_s24_to_f32d_2s_gather_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
 	const int8_t *s = src;
@@ -373,7 +375,7 @@ conv_s24_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 }
 static void
-conv_s24_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+conv_s24_to_f32d_4s_gather_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
 	const int8_t *s = src;
@@ -447,16 +449,22 @@ conv_s24_to_f32d_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	const int8_t *s = src[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
-	for(; i + 3 < n_channels; i += 4)
-		conv_s24_to_f32d_4s_avx2(conv, &dst[i], &s[3*i], n_channels, n_samples);
-	for(; i + 1 < n_channels; i += 2)
-		conv_s24_to_f32d_2s_avx2(conv, &dst[i], &s[3*i], n_channels, n_samples);
-	for(; i < n_channels; i++)
-		conv_s24_to_f32d_1s_avx2(conv, &dst[i], &s[3*i], n_channels, n_samples);
+	if (conv->cpu_flags & SPA_CPU_FLAG_SLOW_GATHER) {
+#if defined (HAVE_SSE2)
+		conv_s24_to_f32d_sse2(conv, dst, src, n_samples);
+#endif
+	} else {
+		for(; i + 3 < n_channels; i += 4)
+			conv_s24_to_f32d_4s_gather_avx2(conv, &dst[i], &s[3*i], n_channels, n_samples);
+		for(; i + 1 < n_channels; i += 2)
+			conv_s24_to_f32d_2s_gather_avx2(conv, &dst[i], &s[3*i], n_channels, n_samples);
+		for(; i < n_channels; i++)
+			conv_s24_to_f32d_1s_gather_avx2(conv, &dst[i], &s[3*i], n_channels, n_samples);
+	}
 }
 
 static void
-conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+conv_s32_to_f32d_4s_gather_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
 	const int32_t *s = src;
@@ -510,7 +518,7 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 }
 
 static void
-conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+conv_s32_to_f32d_2s_gather_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
 	const int32_t *s = src;
@@ -555,7 +563,7 @@ conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 }
 
 static void
-conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+conv_s32_to_f32d_1s_gather_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
 		uint32_t n_channels, uint32_t n_samples)
 {
 	const int32_t *s = src;
@@ -595,6 +603,169 @@ conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 	}
 }
 
+
+static void
+conv_s32_to_f32d_2s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const int32_t *s = src;
+	float *d0 = dst[0], *d1 = dst[1];
+	uint32_t n, unrolled;
+	__m256i in[4];
+	__m256 out[4], t[4], factor = _mm256_set1_ps(1.0f / S32_SCALE_I2F);
+
+	if (SPA_IS_ALIGNED(d0, 32) &&
+	    SPA_IS_ALIGNED(d1, 32))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm256_setr_epi64x(
+				*((uint64_t*)&s[0*n_channels]),
+				*((uint64_t*)&s[1*n_channels]),
+				*((uint64_t*)&s[4*n_channels]),
+				*((uint64_t*)&s[5*n_channels]));
+		in[1] = _mm256_setr_epi64x(
+				*((uint64_t*)&s[2*n_channels]),
+				*((uint64_t*)&s[3*n_channels]),
+				*((uint64_t*)&s[6*n_channels]),
+				*((uint64_t*)&s[7*n_channels]));
+
+		out[0] = _mm256_cvtepi32_ps(in[0]);
+		out[1] = _mm256_cvtepi32_ps(in[1]);
+
+		out[0] = _mm256_mul_ps(out[0], factor); /* a0 b0 a1 b1 a4 b4 a5 b5 */
+		out[1] = _mm256_mul_ps(out[1], factor); /* a2 b2 a3 b3 a6 b6 a7 b7 */
+
+		t[0] = _mm256_unpacklo_ps(out[0], out[1]); /* a0 a2 b0 b2 a4 a6 b4 b6 */
+		t[1] = _mm256_unpackhi_ps(out[0], out[1]); /* a1 a3 b1 b3 a5 a7 b5 b7 */
+
+		out[0] = _mm256_unpacklo_ps(t[0], t[1]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[1] = _mm256_unpackhi_ps(t[0], t[1]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
+
+		_mm256_store_ps(&d0[n], out[0]);
+		_mm256_store_ps(&d1[n], out[1]);
+
+		s += 8*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		__m128 out[2], factor = _mm_set1_ps(1.0f / S32_SCALE_I2F);
+		out[0] = _mm_cvtsi32_ss(factor, s[0]);
+		out[1] = _mm_cvtsi32_ss(factor, s[1]);
+		out[0] = _mm_mul_ss(out[0], factor);
+		out[1] = _mm_mul_ss(out[1], factor);
+		_mm_store_ss(&d0[n], out[0]);
+		_mm_store_ss(&d1[n], out[1]);
+		s += n_channels;
+	}
+}
+
+static void
+conv_s32_to_f32d_1s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const int32_t *s = src;
+	float *d0 = dst[0];
+	uint32_t n, unrolled;
+	__m256i in[2];
+	__m256 out[2], factor = _mm256_set1_ps(1.0f / S32_SCALE_I2F);
+
+	if (SPA_IS_ALIGNED(d0, 32))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm256_setr_epi32(
+				s[0*n_channels], s[1*n_channels],
+				s[2*n_channels], s[3*n_channels],
+				s[4*n_channels], s[5*n_channels],
+				s[6*n_channels], s[7*n_channels]);
+		out[0] = _mm256_cvtepi32_ps(in[0]);
+		out[0] = _mm256_mul_ps(out[0], factor);
+		_mm256_store_ps(&d0[n+0], out[0]);
+		s += 8*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		__m128 out, factor = _mm_set1_ps(1.0f / S32_SCALE_I2F);
+		out = _mm_cvtsi32_ss(factor, s[0]);
+		out = _mm_mul_ss(out, factor);
+		_mm_store_ss(&d0[n], out);
+		s += n_channels;
+	}
+}
+
+static void
+conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src,
+		uint32_t n_channels, uint32_t n_samples)
+{
+	const int32_t *s = src;
+	float *d0 = dst[0], *d1 = dst[1], *d2 = dst[2], *d3 = dst[3];
+	uint32_t n, unrolled;
+	__m256i in[4];
+	__m256 out[4], t[4], factor = _mm256_set1_ps(1.0f / S32_SCALE_I2F);
+
+	if (SPA_IS_ALIGNED(d0, 32) &&
+	    SPA_IS_ALIGNED(d1, 32) &&
+	    SPA_IS_ALIGNED(d2, 32) &&
+	    SPA_IS_ALIGNED(d3, 32))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		in[0] = _mm256_setr_m128i(
+				_mm_loadu_si128((__m128i*)&s[0*n_channels]),
+				_mm_loadu_si128((__m128i*)&s[4*n_channels]));
+		in[1] = _mm256_setr_m128i(
+				_mm_loadu_si128((__m128i*)&s[1*n_channels]),
+				_mm_loadu_si128((__m128i*)&s[5*n_channels]));
+		in[2] = _mm256_setr_m128i(
+				_mm_loadu_si128((__m128i*)&s[2*n_channels]),
+				_mm_loadu_si128((__m128i*)&s[6*n_channels]));
+		in[3] = _mm256_setr_m128i(
+				_mm_loadu_si128((__m128i*)&s[3*n_channels]),
+				_mm_loadu_si128((__m128i*)&s[7*n_channels]));
+
+		out[0] = _mm256_cvtepi32_ps(in[0]);	/* a0 b0 c0 d0 a4 b4 c4 d4 */
+		out[1] = _mm256_cvtepi32_ps(in[1]);	/* a1 b1 c1 d1 a5 b5 c5 d5 */
+		out[2] = _mm256_cvtepi32_ps(in[2]);	/* a2 b2 c2 d2 a6 b6 c6 d6 */
+		out[3] = _mm256_cvtepi32_ps(in[3]);	/* a3 b3 c3 d3 a7 b7 c7 d7 */
+
+		out[0] = _mm256_mul_ps(out[0], factor);
+		out[1] = _mm256_mul_ps(out[1], factor);
+		out[2] = _mm256_mul_ps(out[2], factor);
+		out[3] = _mm256_mul_ps(out[3], factor);
+
+		t[0] = _mm256_unpacklo_ps(out[0], out[2]); /* a0 a2 b0 b2 a4 a6 b4 b6 */
+		t[1] = _mm256_unpackhi_ps(out[0], out[2]); /* c0 c2 d0 d2 c4 c6 d4 d6 */
+		t[2] = _mm256_unpacklo_ps(out[1], out[3]); /* a1 a3 b1 b3 a5 a7 b5 b7 */
+		t[3] = _mm256_unpackhi_ps(out[1], out[3]); /* c1 c3 d1 d3 c5 c7 d5 d7 */
+
+		out[0] = _mm256_unpacklo_ps(t[0], t[2]); /* a0 a1 a2 a3 a4 a5 a6 a7 */
+		out[1] = _mm256_unpackhi_ps(t[0], t[2]); /* b0 b1 b2 b3 b4 b5 b6 b7 */
+		out[2] = _mm256_unpacklo_ps(t[1], t[3]); /* c0 c1 c2 c3 c4 c5 c6 c7 */
+		out[3] = _mm256_unpackhi_ps(t[1], t[3]); /* d0 d1 d2 d3 d4 d5 d6 d7 */
+
+		_mm256_store_ps(&d0[n], out[0]);
+		_mm256_store_ps(&d1[n], out[1]);
+		_mm256_store_ps(&d2[n], out[2]);
+		_mm256_store_ps(&d3[n], out[3]);
+
+		s += 8*n_channels;
+	}
+	for(; n < n_samples; n++) {
+		__m128 out[4], factor = _mm_set1_ps(1.0f / S32_SCALE_I2F);
+		__m128i in[1];
+		in[0] = _mm_setr_epi32(s[0], s[1], s[2], s[3]);
+		out[0] = _mm_cvtepi32_ps(in[0]);
+		out[0] = _mm_mul_ps(out[0], factor);
+		_MM_STOREM_PS(&d0[n], &d1[n], &d2[n], &d3[n], out[0]);
+		s += n_channels;
+	}
+}
+
 void
 conv_s32_to_f32d_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
@@ -602,12 +773,21 @@ conv_s32_to_f32d_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const voi
 	const int32_t *s = src[0];
 	uint32_t i = 0, n_channels = conv->n_channels;
 
-	for(; i + 3 < n_channels; i += 4)
-		conv_s32_to_f32d_4s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
-	for(; i + 1 < n_channels; i += 2)
-		conv_s32_to_f32d_2s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
-	for(; i < n_channels; i++)
-		conv_s32_to_f32d_1s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+	if (conv->cpu_flags & SPA_CPU_FLAG_SLOW_GATHER) {
+		for(; i + 3 < n_channels; i += 4)
+			conv_s32_to_f32d_4s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+		for(; i + 1 < n_channels; i += 2)
+			conv_s32_to_f32d_2s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+		for(; i < n_channels; i++)
+			conv_s32_to_f32d_1s_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+	} else {
+		for(; i + 3 < n_channels; i += 4)
+			conv_s32_to_f32d_4s_gather_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+		for(; i + 1 < n_channels; i += 2)
+			conv_s32_to_f32d_2s_gather_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+		for(; i < n_channels; i++)
+			conv_s32_to_f32d_1s_gather_avx2(conv, &dst[i], &s[i], n_channels, n_samples);
+	}
 }
 
 static void
@@ -1187,3 +1367,4 @@ conv_f32d_to_s16s_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const 
 		d += 2;
 	}
 }
+

@@ -108,9 +108,6 @@ static struct conv_info conv_table[] =
 	MAKE(U32, F32, 0, conv_u32_to_f32_c),
 	MAKE(U32, F32P, 0, conv_u32_to_f32d_c),
 
-#if defined (HAVE_SSE2)
-	MAKE(S32, F32P, 0, conv_s32_to_f32d_sse2, SPA_CPU_FLAG_SSE2 | SPA_CPU_FLAG_SLOW_GATHER),
-#endif
 #if defined (HAVE_AVX2)
 	MAKE(S32, F32P, 0, conv_s32_to_f32d_avx2, SPA_CPU_FLAG_AVX2),
 #endif
@@ -132,9 +129,6 @@ static struct conv_info conv_table[] =
 
 	MAKE(S24, F32, 0, conv_s24_to_f32_c),
 	MAKE(S24P, F32P, 0, conv_s24d_to_f32d_c),
-#if defined (HAVE_SSE2)
-	MAKE(S24, F32P, 0, conv_s24_to_f32d_sse2, SPA_CPU_FLAG_SSE2 | SPA_CPU_FLAG_SLOW_GATHER),
-#endif
 #if defined (HAVE_AVX2)
 	MAKE(S24, F32P, 0, conv_s24_to_f32d_avx2, SPA_CPU_FLAG_AVX2),
 #endif
@@ -637,7 +631,7 @@ int convert_init(struct convert *conv)
 		conv->random[i] = random();
 
 	conv->is_passthrough = conv->src_fmt == conv->dst_fmt;
-	conv->cpu_flags = info->cpu_flags;
+	conv->func_cpu_flags = info->cpu_flags;
 	conv->update_noise = ninfo->noise;
 	conv->process = info->process;
 	conv->clear = cinfo ? cinfo->clear : NULL;

@@ -44,7 +44,7 @@ endif
 if have_sse2
   audioconvert_sse2 = static_library('audioconvert_sse2',
     ['fmt-ops-sse2.c' ],
-    c_args : [sse2_args, '-O3', '-DHAVE_SSE2'],
+    c_args : [sse2_args, '-O3', '-DHAVE_SSE2', simd_cargs],
     dependencies : [ spa_dep ],
     install : false
     )
@@ -55,7 +55,7 @@ if have_ssse3
   audioconvert_ssse3 = static_library('audioconvert_ssse3',
     ['fmt-ops-ssse3.c',
       'resample-native-ssse3.c' ],
-    c_args : [ssse3_args, '-O3', '-DHAVE_SSSE3'],
+    c_args : [ssse3_args, '-O3', '-DHAVE_SSSE3', simd_cargs],
     dependencies : [ spa_dep ],
     install : false
     )
@@ -65,7 +65,7 @@ endif
 if have_sse41
   audioconvert_sse41 = static_library('audioconvert_sse41',
     ['fmt-ops-sse41.c'],
-    c_args : [sse41_args, '-O3', '-DHAVE_SSE41'],
+    c_args : [sse41_args, '-O3', '-DHAVE_SSE41', simd_cargs],
     dependencies : [ spa_dep ],
     install : false
     )
@@ -75,7 +75,7 @@ endif
 if have_avx2 and have_fma
   audioconvert_avx2_fma = static_library('audioconvert_avx2_fma',
     ['resample-native-avx2.c'],
-    c_args : [avx2_args, fma_args, '-O3', '-DHAVE_AVX2', '-DHAVE_FMA'],
+    c_args : [avx2_args, fma_args, '-O3', '-DHAVE_AVX2', '-DHAVE_FMA', simd_cargs],
     dependencies : [ spa_dep ],
     install : false
     )
@@ -85,7 +85,7 @@ endif
 if have_avx2
   audioconvert_avx2 = static_library('audioconvert_avx2',
     ['fmt-ops-avx2.c'],
-    c_args : [avx2_args, '-O3', '-DHAVE_AVX2'],
+    c_args : [avx2_args, '-O3', '-DHAVE_AVX2', simd_cargs],
     dependencies : [ spa_dep ],
     install : false
     )

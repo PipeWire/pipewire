@@ -60,7 +60,7 @@ int peaks_init(struct peaks *peaks)
 	if (info == NULL)
 		return -ENOTSUP;
 
-	peaks->cpu_flags = info->cpu_flags;
+	peaks->func_cpu_flags = info->cpu_flags;
 	peaks->func_name = info->name;
 	peaks->free = impl_peaks_free;
 	peaks->min_max = info->min_max;

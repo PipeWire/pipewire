@@ -885,8 +885,8 @@ int channelmix_init(struct channelmix *mix)
 	mix->free = impl_channelmix_free;
 	mix->process = info->process;
 	mix->set_volume = impl_channelmix_set_volume;
-	mix->cpu_flags = info->cpu_flags;
 	mix->delay = (uint32_t)(mix->rear_delay * mix->freq / 1000.0f);
+	mix->func_cpu_flags = info->cpu_flags;
 	mix->func_name = info->name;
 
 	spa_zero(mix->taps_mem);

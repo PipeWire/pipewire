@@ -219,6 +219,7 @@ struct convert {
 	uint32_t n_channels;
 	uint32_t rate;
 	uint32_t cpu_flags;
+	uint32_t func_cpu_flags;
 	const char *func_name;
 
 	unsigned int is_passthrough:1;

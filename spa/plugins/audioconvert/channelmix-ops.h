@@ -44,6 +44,7 @@ struct channelmix {
 	uint32_t upmix;
 
 	struct spa_log *log;
+	uint32_t func_cpu_flags;
 	const char *func_name;
 
 #define CHANNELMIX_FLAG_ZERO		(1<<0)		/**< all zero components */

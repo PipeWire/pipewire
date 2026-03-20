@@ -14,6 +14,7 @@ extern struct spa_log_topic resample_log_topic;
 
 struct peaks {
 	uint32_t cpu_flags;
+	uint32_t func_cpu_flags;
 	const char *func_name;
 
 	struct spa_log *log;

@@ -2125,7 +2125,7 @@ static int setup_in_convert(struct impl *this)
 		return res;
 
 	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d remap:%d %s", this,
-			this->cpu_flags, in->conv.cpu_flags, in->conv.is_passthrough,
+			this->cpu_flags, in->conv.func_cpu_flags, in->conv.is_passthrough,
 			remap, in->conv.func_name);
 
 	return 0;
@@ -2282,7 +2282,7 @@ static int setup_channelmix(struct impl *this, uint32_t channels, uint32_t *posi
 	set_volume(this);
 
 	spa_log_debug(this->log, "%p: got channelmix features %08x:%08x flags:%08x %s",
-			this, this->cpu_flags, this->mix.cpu_flags,
+			this, this->cpu_flags, this->mix.func_cpu_flags,
 			this->mix.flags, this->mix.func_name);
 	return 0;
 }
@@ -2330,7 +2330,7 @@ static int setup_resample(struct impl *this)
 		res = resample_native_init(&this->resample);
 
 	spa_log_debug(this->log, "%p: got resample features %08x:%08x %s",
-			this, this->cpu_flags, this->resample.cpu_flags,
+			this, this->cpu_flags, this->resample.func_cpu_flags,
 			this->resample.func_name);
 	return res;
 }
@@ -2422,7 +2422,7 @@ static int setup_out_convert(struct impl *this)
 
 	spa_log_debug(this->log, "%p: got converter features %08x:%08x quant:%d:%d"
 			" passthrough:%d remap:%d %s", this,
-			this->cpu_flags, out->conv.cpu_flags, out->conv.method,
+			this->cpu_flags, out->conv.func_cpu_flags, out->conv.method,
 			out->conv.noise_bits, out->conv.is_passthrough, remap, out->conv.func_name);
 
 	return 0;

@@ -77,7 +77,7 @@ Certain properties are, by convention, expected for specific object types.
 
 Each object type has a list of methods that it needs to implement.
 
-The session manager is responsible for defining the list of permissions each client has. Each permission entry is an object ID and four flags. The four flags are:
+The session manager is responsible for defining the list of permissions each client has. Each permission entry is an object ID and five flags. The five flags are:
 
 - Read: the object can be seen and events can be received;
 - Write: the object can be modified, usually through methods (which requires the execute flag)
@@ -109,7 +109,7 @@ Modules in PipeWire can only be loaded in their own process. A client, for examp
 
 Nodes are the core data processing entities in PipeWire.
 They may produce data (capture devices, signal generators, ...), consume data (playback devices, network endpoints, ...) or both (filters).
-Notes have a method `process`, which eats up data from input ports and provides data for each output port.
+Nodes have a method `process`, which eats up data from input ports and provides data for each output port.
 
 #### Ports
 

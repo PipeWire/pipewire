@@ -72,6 +72,16 @@ if have_sse41
   simd_cargs += ['-DHAVE_SSE41']
   simd_dependencies += audioconvert_sse41
 endif
+if have_avx
+  audioconvert_avx = static_library('audioconvert_avx',
+    ['channelmix-ops-avx.c'],
+    c_args : [avx_args, '-O3', '-DHAVE_AVX', simd_cargs],
+    dependencies : [ spa_dep ],
+    install : false
+    )
+  simd_cargs += ['-DHAVE_AVX']
+  simd_dependencies += audioconvert_avx
+endif
 if have_avx2 and have_fma
   audioconvert_avx2_fma = static_library('audioconvert_avx2_fma',
     ['resample-native-avx2.c'],

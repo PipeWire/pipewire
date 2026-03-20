@@ -140,4 +140,8 @@ DEFINE_FUNCTION(f32_5p1_4, sse);
 DEFINE_FUNCTION(f32_7p1_4, sse);
 #endif
 
+#if defined (HAVE_AVX)
+DEFINE_FUNCTION(copy, avx);
+#endif
+
 #undef DEFINE_FUNCTION

@@ -36,6 +36,11 @@ static const struct channelmix_info {
 	uint32_t cpu_flags;
 } channelmix_table[] =
 {
+#if defined (HAVE_AVX)
+	MAKE(2, MASK_MONO, 2, MASK_MONO, channelmix_copy_avx, SPA_CPU_FLAG_AVX),
+	MAKE(2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_avx, SPA_CPU_FLAG_AVX),
+	MAKE(EQ, 0, EQ, 0, channelmix_copy_avx, SPA_CPU_FLAG_AVX),
+#endif
 #if defined (HAVE_SSE)
 	MAKE(2, MASK_MONO, 2, MASK_MONO, channelmix_copy_sse, SPA_CPU_FLAG_SSE),
 	MAKE(2, MASK_STEREO, 2, MASK_STEREO, channelmix_copy_sse, SPA_CPU_FLAG_SSE),

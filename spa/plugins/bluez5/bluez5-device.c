@@ -2281,16 +2281,16 @@ static struct spa_pod *build_profile(struct impl *this, struct spa_pod_builder *
 		case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
 			name = "a2dp-auto-prefer-quality";
 			desc = _("Auto: Prefer Quality (A2DP)");
+			priority = 255;
 			break;
 		case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
 			name = "a2dp-auto-prefer-latency";
 			desc = _("Auto: Prefer Latency (A2DP)");
+			priority = 254;
 			break;
 		default:
 			return NULL;
 		}
-
-		priority = 0;
 
 		n_sink++;
 		if (this->autoswitch_routes && (device->connected_profiles & SPA_BT_PROFILE_HEADSET_HEAD_UNIT))

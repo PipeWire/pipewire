@@ -2121,15 +2121,37 @@ static void set_initial_profile(struct impl *this)
 
 		t = find_transport(this, i);
 		if (t) {
-			if (i == SPA_BT_PROFILE_A2DP_SOURCE || i == SPA_BT_PROFILE_BAP_SOURCE)
+			if (i == SPA_BT_PROFILE_A2DP_SOURCE || i == SPA_BT_PROFILE_BAP_SOURCE) {
 				this->profile =  DEVICE_PROFILE_AG;
-			else if (i == SPA_BT_PROFILE_BAP_SINK)
+				this->props.codec = t->media_codec->id;
+			} else if (i == SPA_BT_PROFILE_BAP_SINK) {
 				this->profile =  DEVICE_PROFILE_BAP;
-			else if (i == SPA_BT_PROFILE_ASHA_SINK)
+				this->props.codec = t->media_codec->id;
+			} else if (i == SPA_BT_PROFILE_ASHA_SINK) {
 				this->profile =  DEVICE_PROFILE_ASHA;
-			else
-				this->profile =  DEVICE_PROFILE_A2DP;
-			this->props.codec = t->media_codec->id;
+				this->props.codec = t->media_codec->id;
+			} else {
+				const struct media_codec *codecs[64];
+				const struct media_codec *quality_codec = NULL;
+				int j;
+
+				get_media_codecs(this, CODEC_ORDER_QUALITY, 0, codecs, SPA_N_ELEMENTS(codecs));
+				for (j = 0; codecs[j] != NULL; ++j) {
+					if (codecs[j]->kind == MEDIA_CODEC_A2DP) {
+						quality_codec = codecs[j];
+						break;
+					}
+				}
+
+				if (quality_codec) {
+					this->profile = DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY;
+					this->props.codec = quality_codec->id;
+				} else {
+					this->profile = DEVICE_PROFILE_A2DP;
+					this->props.codec = t->media_codec->id;
+				}
+			}
+
 			spa_log_debug(this->log, "initial profile media profile:%d codec:%d",
 					this->profile, this->props.codec);
 			return;

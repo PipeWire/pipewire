@@ -13,8 +13,8 @@ msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/pipewire/-/"
 "issues\n"
-"POT-Creation-Date: 2026-02-11 16:53+0000\n"
-"PO-Revision-Date: 2026-02-13 09:36+0800\n"
+"POT-Creation-Date: 2026-03-19 15:38+0000\n"
+"PO-Revision-Date: 2026-03-23 08:48+0800\n"
 "Last-Translator: lumingzh <lumingzh@qq.com>\n"
 "Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
 "Language: zh_CN\n"
@@ -22,7 +22,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Launchpad-Export-Date: 2016-03-22 13:23+0000\n"
-"X-Generator: Gtranslator 49.0\n"
+"X-Generator: Gtranslator 50.0\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #: src/daemon/pipewire.c:29
@@ -65,46 +65,46 @@ msgstr "虚拟输出"
 msgid "Tunnel for %s@%s"
 msgstr "用于 %s@%s 的隧道"
 
-#: src/modules/module-zeroconf-discover.c:326
+#: src/modules/module-zeroconf-discover.c:290
 msgid "Unknown device"
 msgstr "未知设备"
 
-#: src/modules/module-zeroconf-discover.c:338
+#: src/modules/module-zeroconf-discover.c:302
 #, c-format
 msgid "%s on %s@%s"
 msgstr "%2$s@%3$s 上的 %1$s"
 
-#: src/modules/module-zeroconf-discover.c:342
+#: src/modules/module-zeroconf-discover.c:306
 #, c-format
 msgid "%s on %s"
 msgstr "%2$s 上的 %1$s"
 
-#: src/tools/pw-cat.c:264
+#: src/tools/pw-cat.c:269
 #, c-format
 msgid "Supported formats:\n"
 msgstr "支持的格式：\n"
 
-#: src/tools/pw-cat.c:749
+#: src/tools/pw-cat.c:754
 #, c-format
 msgid "Supported channel layouts:\n"
 msgstr "支持的声道布局：\n"
 
-#: src/tools/pw-cat.c:759
+#: src/tools/pw-cat.c:764
 #, c-format
 msgid "Supported channel layout aliases:\n"
 msgstr "支持的声道布局别名：\n"
 
-#: src/tools/pw-cat.c:761
+#: src/tools/pw-cat.c:766
 #, c-format
 msgid "    %s -> %s\n"
 msgstr "    %s -> %s\n"
 
-#: src/tools/pw-cat.c:766
+#: src/tools/pw-cat.c:771
 #, c-format
 msgid "Supported channel names:\n"
 msgstr "支持的声道名称：\n"
 
-#: src/tools/pw-cat.c:1177
+#: src/tools/pw-cat.c:1182
 #, c-format
 msgid ""
 "%s [options] [<file>|-]\n"
@@ -119,7 +119,7 @@ msgstr ""
 "  -v, --verbose                         输出详细操作\n"
 "\n"
 
-#: src/tools/pw-cat.c:1184
+#: src/tools/pw-cat.c:1189
 #, c-format
 msgid ""
 "  -R, --remote                          Remote daemon name\n"
@@ -151,7 +151,7 @@ msgstr ""
 "  -P  --properties                      设置节点属性\n"
 "\n"
 
-#: src/tools/pw-cat.c:1202
+#: src/tools/pw-cat.c:1207
 #, c-format
 msgid ""
 "      --rate                            Sample rate (default %u)\n"
@@ -198,7 +198,7 @@ msgstr ""
 "  -n, --sample-count COUNT              计数采样后停止\n"
 "\n"
 
-#: src/tools/pw-cat.c:1227
+#: src/tools/pw-cat.c:1232
 msgid ""
 "  -p, --playback                        Playback mode\n"
 "  -r, --record                          Recording mode\n"
@@ -218,7 +218,7 @@ msgstr ""
 "  -c, --midi-clip                       MIDI 剪辑模式\n"
 "\n"
 
-#: src/tools/pw-cat.c:1827
+#: src/tools/pw-cat.c:1837
 #, c-format
 msgid "Supported containers and extensions:\n"
 msgstr "支持的容器和扩展：\n"
@@ -245,12 +245,12 @@ msgstr ""
 msgid "Pro Audio"
 msgstr "专业音频"
 
-#: spa/plugins/alsa/acp/acp.c:537 spa/plugins/alsa/acp/alsa-mixer.c:4699
-#: spa/plugins/bluez5/bluez5-device.c:2021
+#: spa/plugins/alsa/acp/acp.c:535 spa/plugins/alsa/acp/alsa-mixer.c:4699
+#: spa/plugins/bluez5/bluez5-device.c:2165
 msgid "Off"
 msgstr "关"
 
-#: spa/plugins/alsa/acp/acp.c:620
+#: spa/plugins/alsa/acp/acp.c:618
 #, c-format
 msgid "%s [ALSA UCM error]"
 msgstr "%s [ALSA UCM 错误]"
@@ -278,7 +278,7 @@ msgstr "输入插孔"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2726
 #: spa/plugins/alsa/acp/alsa-mixer.c:2810
-#: spa/plugins/bluez5/bluez5-device.c:2422
+#: spa/plugins/bluez5/bluez5-device.c:2598
 msgid "Microphone"
 msgstr "话筒"
 
@@ -344,15 +344,15 @@ msgid "No Bass Boost"
 msgstr "无重低音增强"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:2741
-#: spa/plugins/bluez5/bluez5-device.c:2428
+#: spa/plugins/bluez5/bluez5-device.c:2604
 msgid "Speaker"
 msgstr "扬声器"
 
 #. Don't call it "headset", the HF one has the mic
 #: spa/plugins/alsa/acp/alsa-mixer.c:2742
 #: spa/plugins/alsa/acp/alsa-mixer.c:2820
-#: spa/plugins/bluez5/bluez5-device.c:2434
-#: spa/plugins/bluez5/bluez5-device.c:2501
+#: spa/plugins/bluez5/bluez5-device.c:2610
+#: spa/plugins/bluez5/bluez5-device.c:2677
 msgid "Headphones"
 msgstr "模拟耳机"
 
@@ -462,7 +462,7 @@ msgstr "立体声"
 
 #: spa/plugins/alsa/acp/alsa-mixer.c:4535
 #: spa/plugins/alsa/acp/alsa-mixer.c:4693
-#: spa/plugins/bluez5/bluez5-device.c:2410
+#: spa/plugins/bluez5/bluez5-device.c:2586
 msgid "Headset"
 msgstr "耳机"
 
@@ -657,101 +657,109 @@ msgstr "内置音频"
 msgid "Modem"
 msgstr "调制解调器"
 
-#: spa/plugins/bluez5/bluez5-device.c:2032
+#: spa/plugins/bluez5/bluez5-device.c:2176
 msgid "Audio Gateway (A2DP Source & HSP/HFP AG)"
 msgstr "音频网关 (A2DP 信源 或 HSP/HFP 网关)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2061
+#: spa/plugins/bluez5/bluez5-device.c:2205
 msgid "Audio Streaming for Hearing Aids (ASHA Sink)"
 msgstr "助听器音频流 (ASHA 信宿)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2104
+#: spa/plugins/bluez5/bluez5-device.c:2248
 #, c-format
 msgid "High Fidelity Playback (A2DP Sink, codec %s)"
 msgstr "高保真回放 (A2DP 信宿, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2107
+#: spa/plugins/bluez5/bluez5-device.c:2251
 #, c-format
 msgid "High Fidelity Duplex (A2DP Source/Sink, codec %s)"
 msgstr "高保真双工 (A2DP 信源/信宿, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2115
+#: spa/plugins/bluez5/bluez5-device.c:2259
 msgid "High Fidelity Playback (A2DP Sink)"
 msgstr "高保真回放 (A2DP 信宿)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2117
+#: spa/plugins/bluez5/bluez5-device.c:2261
 msgid "High Fidelity Duplex (A2DP Source/Sink)"
 msgstr "高保真双工 (A2DP 信源/信宿)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2194
+#: spa/plugins/bluez5/bluez5-device.c:2283
+msgid "Auto: Prefer Quality (A2DP)"
+msgstr "自动：质量优先 (A2DP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:2287
+msgid "Auto: Prefer Latency (A2DP)"
+msgstr "自动：延迟优先 (A2DP)"
+
+#: spa/plugins/bluez5/bluez5-device.c:2368
 #, c-format
 msgid "High Fidelity Playback (BAP Sink, codec %s)"
 msgstr "高保真回放 (BAP 信宿, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2199
+#: spa/plugins/bluez5/bluez5-device.c:2373
 #, c-format
 msgid "High Fidelity Input (BAP Source, codec %s)"
 msgstr "高保真输入 (BAP 信源, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2203
+#: spa/plugins/bluez5/bluez5-device.c:2377
 #, c-format
 msgid "High Fidelity Duplex (BAP Source/Sink, codec %s)"
 msgstr "高保真双工 (BAP 信源/信宿, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2212
+#: spa/plugins/bluez5/bluez5-device.c:2386
 msgid "High Fidelity Playback (BAP Sink)"
 msgstr "高保真回放 (BAP 信宿)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2216
+#: spa/plugins/bluez5/bluez5-device.c:2390
 msgid "High Fidelity Input (BAP Source)"
 msgstr "高保真输入 (BAP 信源)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2219
+#: spa/plugins/bluez5/bluez5-device.c:2393
 msgid "High Fidelity Duplex (BAP Source/Sink)"
 msgstr "高保真双工 (BAP 信源/信宿)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2259
+#: spa/plugins/bluez5/bluez5-device.c:2433
 #, c-format
 msgid "Headset Head Unit (HSP/HFP, codec %s)"
 msgstr "头戴式耳机单元 (HSP/HFP, 编码 %s)"
 
-#: spa/plugins/bluez5/bluez5-device.c:2411
-#: spa/plugins/bluez5/bluez5-device.c:2416
-#: spa/plugins/bluez5/bluez5-device.c:2423
-#: spa/plugins/bluez5/bluez5-device.c:2429
-#: spa/plugins/bluez5/bluez5-device.c:2435
-#: spa/plugins/bluez5/bluez5-device.c:2441
-#: spa/plugins/bluez5/bluez5-device.c:2447
-#: spa/plugins/bluez5/bluez5-device.c:2453
-#: spa/plugins/bluez5/bluez5-device.c:2459
+#: spa/plugins/bluez5/bluez5-device.c:2587
+#: spa/plugins/bluez5/bluez5-device.c:2592
+#: spa/plugins/bluez5/bluez5-device.c:2599
+#: spa/plugins/bluez5/bluez5-device.c:2605
+#: spa/plugins/bluez5/bluez5-device.c:2611
+#: spa/plugins/bluez5/bluez5-device.c:2617
+#: spa/plugins/bluez5/bluez5-device.c:2623
+#: spa/plugins/bluez5/bluez5-device.c:2629
+#: spa/plugins/bluez5/bluez5-device.c:2635
 msgid "Handsfree"
 msgstr "免提"
 
-#: spa/plugins/bluez5/bluez5-device.c:2417
+#: spa/plugins/bluez5/bluez5-device.c:2593
 msgid "Handsfree (HFP)"
 msgstr "免提（HFP）"
 
-#: spa/plugins/bluez5/bluez5-device.c:2440
+#: spa/plugins/bluez5/bluez5-device.c:2616
 msgid "Portable"
 msgstr "便携式"
 
-#: spa/plugins/bluez5/bluez5-device.c:2446
+#: spa/plugins/bluez5/bluez5-device.c:2622
 msgid "Car"
 msgstr "车内"
 
-#: spa/plugins/bluez5/bluez5-device.c:2452
+#: spa/plugins/bluez5/bluez5-device.c:2628
 msgid "HiFi"
 msgstr "高保真"
 
-#: spa/plugins/bluez5/bluez5-device.c:2458
+#: spa/plugins/bluez5/bluez5-device.c:2634
 msgid "Phone"
 msgstr "电话"
 
-#: spa/plugins/bluez5/bluez5-device.c:2465
+#: spa/plugins/bluez5/bluez5-device.c:2641
 msgid "Bluetooth"
 msgstr "蓝牙"
 
-#: spa/plugins/bluez5/bluez5-device.c:2466
+#: spa/plugins/bluez5/bluez5-device.c:2642
 msgid "Bluetooth Handsfree"
 msgstr "蓝牙免提"
 

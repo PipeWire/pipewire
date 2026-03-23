@@ -528,13 +528,15 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 
 static int suspend_node(struct pw_impl_node *this)
 {
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 	struct pw_impl_port *p;
 
 	pw_log_debug("%p: suspend node state:%s", this,
 			pw_node_state_as_string(this->info.state));
 
-	if (this->info.state > 0 && this->info.state <= PW_NODE_STATE_SUSPENDED)
+	if (this->info.state > 0 && this->info.state < PW_NODE_STATE_SUSPENDED ||
+		this->info.state == PW_NODE_STATE_SUSPENDED && impl->pending_state == PW_NODE_STATE_SUSPENDED)
 		return 0;
 
 	spa_list_for_each(p, &this->input_ports, link) {

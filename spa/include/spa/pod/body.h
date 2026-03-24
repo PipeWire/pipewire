@@ -111,8 +111,15 @@ SPA_API_POD_BODY int spa_pod_choice_n_values(uint32_t choice_type, uint32_t *min
 SPA_API_POD_BODY int spa_pod_body_from_data(void *data, size_t maxsize, off_t offset, size_t size,
 		struct spa_pod *pod, const void **body)
 {
-	if (offset < 0 || offset > (int64_t)UINT32_MAX)
+	if (offset < 0)
 		return -EINVAL;
+	/* On 32-bit platforms, off_t is a signed 32-bit type (since it tracks pointer
+	 * width), and consequently can never exceed UINT32_MAX. Skip the upper-bound
+	 * check on 32-bit platforms to avoid a compiler warning. */
+#if __SIZEOF_POINTER__ > 4
+	if (offset > (int64_t)UINT32_MAX)
+		return -EINVAL;
+#endif
 	if (size < sizeof(struct spa_pod) ||
 	    size > maxsize ||
 	    maxsize - size < (uint32_t)offset)

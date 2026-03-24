@@ -271,9 +271,6 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	while (offs < end) {
 		uint32_t delta;
 		int size;
-		uint64_t state = 0;
-		uint8_t *d;
-		size_t s;
 
 		if (first && !hdr.z)
 			delta = 0;
@@ -294,17 +291,9 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 			return -EINVAL;
 		}
 
-		d = &packet[offs];
-		s = size;
-		while (s > 0) {
-			uint32_t ump[4];
-			int ump_size = spa_ump_from_midi(&d, &s, ump, sizeof(ump), 0, &state);
-			if (ump_size <= 0)
-				break;
+		spa_pod_builder_control(&b, timestamp, SPA_CONTROL_Midi);
+		spa_pod_builder_bytes(&b, &packet[offs], size);
 
-			spa_pod_builder_control(&b, timestamp, SPA_CONTROL_UMP);
-	                spa_pod_builder_bytes(&b, ump, ump_size);
-		}
 		offs += size;
 		first = false;
 	}
@@ -378,7 +367,7 @@ unexpected_ssrc:
 	return -EINVAL;
 }
 
-static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t value, void *ev, uint32_t size)
+static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t value, const void *ev, uint32_t size)
 {
         uint64_t buffer;
         uint8_t b;
@@ -437,62 +426,54 @@ static void rtp_midi_flush_packets(struct impl *impl,
 
 	while (spa_pod_parser_get_control_body(parser, &c, &c_body) >= 0) {
 		uint32_t delta, offset;
-		uint8_t event[16];
-		int size;
-		size_t c_size = c.value.size;
-		uint64_t state = 0;
+		uint32_t size = c.value.size;
+		const uint8_t *data = c_body;
 
-		if (c.type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_Midi)
 			continue;
 
-		while (c_size > 0) {
-			size = spa_ump_to_midi((const uint32_t **)&c_body, &c_size, event, sizeof(event), &state);
-			if (size <= 0)
-				break;
+		offset = c.offset * impl->rate / rate;
 
-			offset = c.offset * impl->rate / rate;
-
-			if (len > 0 && (len + size > max_size ||
-			    offset - base > impl->psamples)) {
-				/* flush packet when we have one and when it's either
-				 * too large or has too much data. */
-				if (len < 16) {
-					midi_header.b = 0;
-					midi_header.len = len;
-					iov[1].iov_len = sizeof(midi_header) - 1;
-				} else {
-					midi_header.b = 1;
-					midi_header.len = (len >> 8) & 0xf;
-					midi_header.len_b = len & 0xff;
-					iov[1].iov_len = sizeof(midi_header);
-				}
-				iov[2].iov_len = len;
-
-				pw_log_trace("sending %d timestamp:%d %u %u",
-						len, timestamp + base,
-						offset, impl->psamples);
-				rtp_stream_emit_send_packet(impl, iov, 3);
-
-				impl->seq++;
-				len = 0;
-			}
-			if ((unsigned int)size > BUFFER_SIZE || len > BUFFER_SIZE - size) {
-				pw_log_error("Buffer overflow prevented!");
-				return; // FIXME: what to do instead?
-			}
-			if (len == 0) {
-				/* start new packet */
-				base = prev_offset = offset;
-				header.sequence_number = htons(impl->seq);
-				header.timestamp = htonl(impl->ts_offset + timestamp + base);
-
-				memcpy(&impl->buffer[len], event, size);
-				len += size;
+		if (len > 0 && (len + size > max_size ||
+		    offset - base > impl->psamples)) {
+			/* flush packet when we have one and when it's either
+			 * too large or has too much data. */
+			if (len < 16) {
+				midi_header.b = 0;
+				midi_header.len = len;
+				iov[1].iov_len = sizeof(midi_header) - 1;
 			} else {
-				delta = offset - prev_offset;
-				prev_offset = offset;
-				len += write_event(&impl->buffer[len], BUFFER_SIZE - len, delta, event, size);
+				midi_header.b = 1;
+				midi_header.len = (len >> 8) & 0xf;
+				midi_header.len_b = len & 0xff;
+				iov[1].iov_len = sizeof(midi_header);
 			}
+			iov[2].iov_len = len;
+
+			pw_log_trace("sending %d timestamp:%d %u %u",
+					len, timestamp + base,
+					offset, impl->psamples);
+			rtp_stream_emit_send_packet(impl, iov, 3);
+
+			impl->seq++;
+			len = 0;
+		}
+		if ((unsigned int)size > BUFFER_SIZE || len > BUFFER_SIZE - size) {
+			pw_log_error("Buffer overflow prevented!");
+			return; // FIXME: what to do instead?
+		}
+		if (len == 0) {
+			/* start new packet */
+			base = prev_offset = offset;
+			header.sequence_number = htons(impl->seq);
+			header.timestamp = htonl(impl->ts_offset + timestamp + base);
+
+			memcpy(&impl->buffer[len], data, size);
+			len += size;
+		} else {
+			delta = offset - prev_offset;
+			prev_offset = offset;
+			len += write_event(&impl->buffer[len], BUFFER_SIZE - len, delta, data, size);
 		}
 	}
 	if (len > 0) {

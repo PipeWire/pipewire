@@ -1448,8 +1448,9 @@ static size_t convert_from_event(void *midi, void *buffer, size_t size, uint32_t
 
 	switch (type) {
 	case TYPE_ID_MIDI:
+		event_type = SPA_CONTROL_Midi;
+		break;
 	case TYPE_ID_OSC:
-		/* we handle MIDI as OSC, check below */
 		event_type = SPA_CONTROL_OSC;
 		break;
 	case TYPE_ID_UMP:
@@ -1466,27 +1467,15 @@ static size_t convert_from_event(void *midi, void *buffer, size_t size, uint32_t
 	for (i = 0; i < count; i++) {
 		jack_midi_event_t ev;
 		jack_midi_event_get(&ev, midi, i);
+		uint32_t ev_type;
 
-		if (type != TYPE_ID_MIDI || is_osc(&ev)) {
-			/* no midi port or it's OSC */
-			spa_pod_builder_control(&b, ev.time, event_type);
-			spa_pod_builder_bytes(&b, ev.buffer, ev.size);
-		} else {
-			/* midi port and it's not OSC, convert to UMP */
-			uint8_t *data = ev.buffer;
-			size_t size = ev.size;
-			uint64_t state = 0;
+		if (type == TYPE_ID_MIDI && is_osc(&ev))
+			ev_type = SPA_CONTROL_OSC;
+		else
+			ev_type = event_type;
 
-			while (size > 0) {
-				uint32_t ump[4];
-				int ump_size = spa_ump_from_midi(&data, &size,
-						ump, sizeof(ump), 0, &state);
-				if (ump_size <= 0)
-					break;
-				spa_pod_builder_control(&b, ev.time, SPA_CONTROL_UMP);
-				spa_pod_builder_bytes(&b, ump, ump_size);
-			}
-		}
+		spa_pod_builder_control(&b, ev.time, ev_type);
+		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
 	}
 	spa_pod_builder_pop(&b, &f);
 	return b.state.offset;

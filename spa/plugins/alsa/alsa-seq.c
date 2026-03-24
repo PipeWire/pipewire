@@ -620,9 +620,8 @@ static int process_read(struct seq_state *state)
 {
 	struct seq_stream *stream = &state->streams[SPA_DIRECTION_OUTPUT];
 	const bool ump = state->ump;
-	uint32_t *data;
+	void *data;
 	uint8_t midi1_data[MAX_EVENT_SIZE];
-	uint32_t ump_data[MAX_EVENT_SIZE];
 	long size;
 	int res = -1;
 	struct seq_port *port;
@@ -633,9 +632,6 @@ static int process_read(struct seq_state *state)
 		uint64_t ev_time, diff;
 		uint32_t offset;
 		void *event;
-		uint8_t *midi1_ptr;
-		size_t midi1_size = 0;
-		uint64_t ump_state = 0;
 		snd_seq_event_type_t SPA_UNUSED type;
 
 		if (ump) {
@@ -702,7 +698,7 @@ static int process_read(struct seq_state *state)
 #ifdef HAVE_ALSA_UMP
 			snd_seq_ump_event_t *ev = event;
 
-			data = (uint32_t*)&ev->ump[0];
+			data = &ev->ump[0];
 			size = spa_ump_message_size(snd_ump_msg_hdr_type(ev->ump[0])) * 4;
 #else
 			spa_assert_not_reached();
@@ -715,34 +711,21 @@ static int process_read(struct seq_state *state)
 				spa_log_warn(state->log, "decode failed: %s", snd_strerror(size));
 				continue;
 			}
-
-			midi1_ptr = midi1_data;
-			midi1_size = size;
+			data = midi1_data;
 		}
 
-		do {
-			if (!ump) {
-				data = ump_data;
-				size = spa_ump_from_midi(&midi1_ptr, &midi1_size,
-						ump_data, sizeof(ump_data), 0, &ump_state);
-				if (size <= 0)
-					break;
-			}
+		spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
+				type, ev_time, offset, size, addr->client, addr->port);
 
-			spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
-					type, ev_time, offset, size, addr->client, addr->port);
+		spa_pod_builder_control(&port->builder, offset, ump ? SPA_CONTROL_UMP : SPA_CONTROL_Midi );
+		spa_pod_builder_bytes(&port->builder, data, size);
 
-			spa_pod_builder_control(&port->builder, offset, SPA_CONTROL_UMP);
-			spa_pod_builder_bytes(&port->builder, data, size);
-
-			/* make sure we can fit at least one control event of max size otherwise
-			 * we keep the event in the queue and try to copy it in the next cycle */
-			if (port->builder.state.offset +
-					sizeof(struct spa_pod_control) +
-					MAX_EVENT_SIZE > port->buffer->buf->datas[0].maxsize)
-				goto done;
-
-		} while (!ump);
+		/* make sure we can fit at least one control event of max size otherwise
+		 * we keep the event in the queue and try to copy it in the next cycle */
+		if (port->builder.state.offset +
+				sizeof(struct spa_pod_control) +
+				MAX_EVENT_SIZE > port->buffer->buf->datas[0].maxsize)
+			goto done;
         }
 
 done:
@@ -819,7 +802,6 @@ static int process_write(struct seq_state *state)
 		const void *c_body;
 		uint64_t out_time;
 		snd_seq_real_time_t out_rt;
-		bool first = true;
 
 		if (io->status != SPA_STATUS_HAVE_DATA ||
 		    io->buffer_id >= port->n_buffers)
@@ -844,9 +826,6 @@ static int process_write(struct seq_state *state)
 			size_t body_size;
 			uint8_t *body;
 
-			if (c.type != SPA_CONTROL_UMP)
-				continue;
-
 			body = (uint8_t*)c_body;
 			body_size = c.value.size;
 
@@ -860,6 +839,9 @@ static int process_write(struct seq_state *state)
 			if (ump) {
 #ifdef HAVE_ALSA_UMP
 				snd_seq_ump_event_t ev;
+
+				if (c.type != SPA_CONTROL_UMP)
+					continue;
 
 				snd_seq_ump_ev_clear(&ev);
 				snd_seq_ev_set_ump_data(&ev, body, SPA_MIN(sizeof(ev.ump), (size_t)body_size));
@@ -878,26 +860,26 @@ static int process_write(struct seq_state *state)
 #endif
 			} else {
 				snd_seq_event_t ev;
-				uint8_t data[MAX_EVENT_SIZE];
-				int size;
-				uint64_t st = 0;
+				int size = 0;
+				long s;
+
+				if (c.type != SPA_CONTROL_Midi)
+					continue;
 
 				while (body_size > 0) {
-					if ((size = spa_ump_to_midi((const uint32_t **)&body, &body_size,
-									data, sizeof(data), &st)) <= 0)
-						break;
-
-					if (first)
+					if (size == 0)
 						snd_seq_ev_clear(&ev);
 
-					if ((size = snd_midi_event_encode(stream->codec, data, size, &ev)) < 0) {
+					if ((s = snd_midi_event_encode(stream->codec, body, body_size, &ev)) < 0) {
 						spa_log_warn(state->log, "failed to encode event: %s",
 								snd_strerror(size));
 						snd_midi_event_reset_encode(stream->codec);
-						first = true;
+						size = 0;
 						continue;
 					}
-					first = false;
+					body += s;
+					body_size -= s;
+					size += s;
 					if (ev.type == SND_SEQ_EVENT_NONE)
 						/* this can happen when the event is not complete yet, like
 						 * a sysex message and we need to encode some more data. */
@@ -913,7 +895,7 @@ static int process_write(struct seq_state *state)
 						spa_log_warn(state->log, "failed to output event: %s",
 								snd_strerror(err));
 					}
-					first = true;
+					size = 0;
 				}
 			}
 		}

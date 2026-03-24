@@ -163,9 +163,6 @@ static int vban_midi_receive_midi(struct impl *impl, uint8_t *packet,
 
 	while (offs < plen) {
 		int size;
-		uint8_t *midi_data;
-		size_t midi_size;
-		uint64_t midi_state = 0;
 
 		size = get_midi_size(&packet[offs], plen - offs);
 		if (size <= 0 || offs + size > plen) {
@@ -174,18 +171,9 @@ static int vban_midi_receive_midi(struct impl *impl, uint8_t *packet,
 			break;
 		}
 
-		midi_data = &packet[offs];
-		midi_size = size;
-		while (midi_size > 0) {
-			uint32_t ump[4];
-			int ump_size = spa_ump_from_midi(&midi_data, &midi_size,
-					ump, sizeof(ump), 0, &midi_state);
-			if (ump_size <= 0)
-				break;
+		spa_pod_builder_control(&b, timestamp, SPA_CONTROL_Midi);
+	        spa_pod_builder_bytes(&b, &packet[offs], size);
 
-			spa_pod_builder_control(&b, timestamp, SPA_CONTROL_UMP);
-	                spa_pod_builder_bytes(&b, ump, ump_size);
-		}
 		offs += size;
 	}
 	spa_pod_builder_pop(&b, &f[0]);
@@ -237,34 +225,25 @@ static void vban_midi_flush_packets(struct impl *impl,
 	len = 0;
 
 	while (spa_pod_parser_get_control_body(parser, &c, &c_body) >= 0) {
-		int size;
-		uint8_t event[16];
-		uint64_t state = 0;
-		size_t c_size = c.value.size;
+		uint32_t size = c.value.size;
+		const void *data = c_body;
 
-		if (c.type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_Midi)
 			continue;
 
-		while (c_size > 0) {
-			size = spa_ump_to_midi((const uint32_t**)&c_body,
-					&c_size, event, sizeof(event), &state);
-			if (size <= 0)
-				break;
+		if (len == 0) {
+			/* start new packet */
+			header.n_frames++;
+		} else if (len + size > impl->mtu) {
+			/* flush packet when we have one and when it's too large */
+			iov[1].iov_len = len;
 
-			if (len == 0) {
-				/* start new packet */
-				header.n_frames++;
-			} else if (len + size > impl->mtu) {
-				/* flush packet when we have one and when it's too large */
-				iov[1].iov_len = len;
-
-				pw_log_debug("sending %d", len);
-				vban_stream_emit_send_packet(impl, iov, 2);
-				len = 0;
-			}
-			memcpy(&impl->buffer[len], event, size);
-			len += size;
+			pw_log_debug("sending %d", len);
+			vban_stream_emit_send_packet(impl, iov, 2);
+			len = 0;
 		}
+		memcpy(&impl->buffer[len], data, size);
+		len += size;
 	}
 	if (len > 0) {
 		/* flush last packet */

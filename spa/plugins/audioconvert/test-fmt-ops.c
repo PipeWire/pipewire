@@ -45,9 +45,9 @@ static void run_test(const char *name,
 	void *tp[N_CHANNELS];
 	int i, j;
 	const uint8_t *in8 = in, *out8 = out;
-	struct convert conv;
-
-	conv.n_channels = N_CHANNELS;
+	struct convert conv = {
+		.n_channels = N_CHANNELS,
+	};
 
 	for (j = 0; j < N_SAMPLES; j++) {
 		memcpy(&samp_in[j * in_size], &in8[(j % n_samples) * in_size], in_size);

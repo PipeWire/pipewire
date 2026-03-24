@@ -345,34 +345,26 @@ static void midi_to_ffado(struct port *p, float *src, uint32_t n_samples)
 	p->event_pos = 0;
 
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
-		uint8_t data[16];
-		int j, size;
-		size_t c_size = c.value.size;
-		uint64_t state = 0;
+		uint32_t j, size = c.value.size;
+		const uint8_t *data = c_body;
 
-		if (c.type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_Midi)
 			continue;
 
 		if (index < c.offset)
 			index = SPA_ROUND_UP_N(c.offset, 8);
 
-		while (c_size > 0) {
-			size = spa_ump_to_midi((const uint32_t**)&c_body, &c_size, data, sizeof(data), &state);
-			if (size <= 0)
-				break;
-
-			for (j = 0; j < size; j++) {
-				if (index >= n_samples) {
-					/* keep events that don't fit for the next cycle */
-					if (p->event_pos < sizeof(p->event_buffer))
-						p->event_buffer[p->event_pos++] = data[j];
-					else
-						unhandled++;
-				}
+		for (j = 0; j < size; j++) {
+			if (index >= n_samples) {
+				/* keep events that don't fit for the next cycle */
+				if (p->event_pos < sizeof(p->event_buffer))
+					p->event_buffer[p->event_pos++] = data[j];
 				else
-					dst[index] = 0x01000000 | (uint32_t) data[j];
-				index += 8;
+					unhandled++;
 			}
+			else
+				dst[index] = 0x01000000 | (uint32_t) data[j];
+			index += 8;
 		}
 	}
 	if (unhandled > 0)
@@ -497,16 +489,8 @@ static void ffado_to_midi(struct port *p, float *dst, uint32_t *src, uint32_t si
 			continue;
 
 		if (process_byte(p, i, data & 0xff, &frame, &bytes, &size)) {
-			uint64_t state = 0;
-			while (size > 0) {
-				uint32_t ev[4];
-				int ev_size = spa_ump_from_midi(&bytes, &size, ev, sizeof(ev), 0, &state);
-				if (ev_size <= 0)
-					break;
-
-				spa_pod_builder_control(&b, frame, SPA_CONTROL_UMP);
-		                spa_pod_builder_bytes(&b, ev, ev_size);
-			}
+			spa_pod_builder_control(&b, frame, SPA_CONTROL_Midi);
+	                spa_pod_builder_bytes(&b, bytes, size);
 		}
         }
 	spa_pod_builder_pop(&b, &f);

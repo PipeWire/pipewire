@@ -501,6 +501,7 @@ impl_node_port_enum_params(void *object, int seq,
 	struct seq_state *this = object;
 	struct seq_port *port;
 	struct spa_pod *param;
+	struct spa_pod_frame f[1];
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
@@ -524,10 +525,18 @@ impl_node_port_enum_params(void *object, int seq,
 	case SPA_PARAM_EnumFormat:
 		if (result.index > 0)
 			return 0;
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+		spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+		spa_pod_builder_add(&b,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+			0);
+		if (port->control_types != 0) {
+			spa_pod_builder_add(&b,
+				SPA_FORMAT_CONTROL_types,  SPA_POD_Int(port->control_types),
+				0);
+		}
+		param = spa_pod_builder_pop(&b, &f[0]);
 		break;
 
 	case SPA_PARAM_Format:
@@ -535,10 +544,18 @@ impl_node_port_enum_params(void *object, int seq,
 			return -EIO;
 		if (result.index > 0)
 			return 0;
-		param = spa_pod_builder_add_object(&b,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_Format,
+		spa_pod_builder_push_object(&b, &f[0],
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+		spa_pod_builder_add(&b,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
+			0);
+		if (port->control_types != 0) {
+			spa_pod_builder_add(&b,
+				SPA_FORMAT_CONTROL_types,  SPA_POD_Int(port->control_types),
+				0);
+		}
+		param = spa_pod_builder_pop(&b, &f[0]);
 		break;
 
 	case SPA_PARAM_Buffers:
@@ -955,7 +972,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->quantum_limit = 8192;
 	this->min_pool_size = 500;
 	this->max_pool_size = 2000;
-	this->ump = true;
+	this->ump = false;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

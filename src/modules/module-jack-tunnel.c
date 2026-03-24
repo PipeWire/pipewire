@@ -242,13 +242,16 @@ static inline void do_volume(float *dst, const float *src, struct volume *vol, u
 	}
 }
 
-static inline void fix_midi_event(uint8_t *data, size_t size)
+static inline bool fix_midi_event(const uint8_t *data, size_t size, uint8_t dst[3])
 {
 	/* fixup NoteOn with vel 0 */
 	if (size > 2 && (data[0] & 0xF0) == 0x90 && data[2] == 0x00) {
-		data[0] = 0x80 + (data[0] & 0x0F);
-		data[2] = 0x40;
+		dst[0] = 0x80 + (data[0] & 0x0F);
+		dst[1] = data[1];
+		dst[2] = 0x40;
+		return true;
 	}
+	return false;
 }
 
 static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_samples)
@@ -259,9 +262,6 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 	struct spa_pod_control c;
 	const void *seq_body, *c_body;
 	int res;
-	bool in_sysex = false;
-	uint8_t tmp[n_samples * 4];
-	size_t tmp_size = 0;
 
 	jack.midi_clear_buffer(dst);
 	if (src == NULL)
@@ -273,36 +273,20 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 		return;
 
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
-		int size;
-		size_t c_size = c.value.size;
-		uint64_t state = 0;
+		uint32_t size = c.value.size;
+		const uint8_t *data = c_body;
+		uint8_t tmp[3];
 
-		if (c.type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_Midi)
 			continue;
 
-		while (c_size > 0) {
-			size = spa_ump_to_midi((const uint32_t**)&c_body, &c_size,
-					&tmp[tmp_size], sizeof(tmp) - tmp_size, &state);
-			if (size <= 0)
-				break;
-
-			if (impl->fix_midi)
-				fix_midi_event(&tmp[tmp_size], size);
-
-			if (!in_sysex && tmp[tmp_size] == 0xf0)
-				in_sysex = true;
-
-			tmp_size += size;
-			if (in_sysex && tmp[tmp_size-1] == 0xf7)
-				in_sysex = false;
-
-			if (!in_sysex) {
-				if ((res = jack.midi_event_write(dst, c.offset, tmp, tmp_size)) < 0)
-					pw_log_warn("midi %p: can't write event: %s", dst,
-							spa_strerror(res));
-				tmp_size = 0;
-			}
+		if (impl->fix_midi && fix_midi_event(data, size, tmp)) {
+			data = tmp;
+			size = 3;
 		}
+		if ((res = jack.midi_event_write(dst, c.offset, data, size)) < 0)
+			pw_log_warn("midi %p: can't write event: %s", dst,
+					spa_strerror(res));
 	}
 }
 
@@ -318,19 +302,11 @@ static void jack_to_midi(float *dst, float *src, uint32_t size)
 	spa_pod_builder_push_sequence(&b, &f, 0);
 	for (i = 0; i < count; i++) {
 		jack_midi_event_t ev;
-		uint64_t state = 0;
 
 		jack.midi_event_get(&ev, src, i);
 
-		while (ev.size > 0) {
-			uint32_t ump[4];
-			int ump_size = spa_ump_from_midi(&ev.buffer, &ev.size, ump, sizeof(ump), 0, &state);
-			if (ump_size <= 0)
-				break;
-
-			spa_pod_builder_control(&b, ev.time, SPA_CONTROL_UMP);
-	                spa_pod_builder_bytes(&b, ump, ump_size);
-		}
+		spa_pod_builder_control(&b, ev.time, SPA_CONTROL_Midi);
+		spa_pod_builder_bytes(&b, ev.buffer, ev.size);
 	}
 	spa_pod_builder_pop(&b, &f);
 }

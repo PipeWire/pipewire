@@ -51,9 +51,9 @@ static void run_test1(const char *name, const char *impl, bool in_packed, bool o
 	void *op[n_channels];
 	struct timespec ts;
 	uint64_t count, t1, t2;
-	struct convert conv;
-
-	conv.n_channels = n_channels;
+	struct convert conv = {
+		.n_channels = n_channels,
+	};
 
 	for (j = 0; j < n_channels; j++) {
 		ip[j] = &samp_in[j * n_samples * 4];

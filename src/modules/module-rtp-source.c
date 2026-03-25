@@ -699,11 +699,13 @@ static void stream_open_connection(void *data, int *result)
 		goto finish;
 	}
 
-	if ((res = pw_timer_queue_add(impl->timer_queue, &impl->igmp_recovery.timer,
-			NULL, impl->igmp_recovery.check_interval * SPA_NSEC_PER_SEC,
-			on_igmp_recovery_timer_event, impl)) < 0) {
-		pw_log_error("can't add timer: %s", spa_strerror(res));
-		goto finish;
+	if (impl->is_multicast) {
+		if ((res = pw_timer_queue_add(impl->timer_queue, &impl->igmp_recovery.timer,
+				NULL, impl->igmp_recovery.check_interval * SPA_NSEC_PER_SEC,
+				on_igmp_recovery_timer_event, impl)) < 0) {
+			pw_log_error("can't add timer: %s", spa_strerror(res));
+			goto finish;
+		}
 	}
 
 finish:

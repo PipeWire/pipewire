@@ -72,6 +72,7 @@ struct impl {
 	struct spa_node node;
 
 	uint32_t quantum_limit;
+	uint32_t control_types;
 
 	struct spa_log *log;
 
@@ -473,9 +474,9 @@ static int port_set_format(void *object,
 		if (!port->have_format) {
 			this->n_formats++;
 			port->have_format = true;
-			port->types = types;
-			spa_log_debug(this->log, "%p: set format on port %d:%d",
-					this, direction, port_id);
+			port->types = types == 0 ? this->control_types : types;
+			spa_log_debug(this->log, "%p: set format on port %d:%d types:%08x %08x",
+					this, direction, port_id, port->types, this->control_types);
 		}
 	}
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -955,12 +956,22 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 
 	this->quantum_limit = 8192;
+	/* by default we convert to midi1 */
+	this->control_types = 1u<<SPA_CONTROL_Midi;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "clock.quantum-limit")) {
 			spa_atou32(s, &this->quantum_limit, 0);
+		}
+		else if (spa_streq(k, "control.ump")) {
+			if (spa_atob(s))
+				/* we convert to UMP when forced */
+				this->control_types = 1u<<SPA_CONTROL_UMP;
+			else
+				/* when unforced we let both midi1 and UMP through */
+				this->control_types = 0;
 		}
 	}
 

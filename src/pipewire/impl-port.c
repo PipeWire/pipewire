@@ -1087,11 +1087,11 @@ int pw_impl_port_set_mix(struct pw_impl_port *port, struct spa_node *node, uint3
 
 static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 {
-	uint32_t media_type, media_subtype;
+	uint32_t media_type, media_subtype, n_items;
 	int res;
-	const char *fallback_lib, *factory_name;
+	const char *fallback_lib, *factory_name, *str;
 	struct spa_handle *handle;
-	struct spa_dict_item items[3];
+	struct spa_dict_item items[4];
 	char quantum_limit[16];
 	void *iface;
 	struct pw_context *context = port->node->context;
@@ -1143,14 +1143,17 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 		return -ENOTSUP;
 	}
 
-	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_LIBRARY_NAME, fallback_lib);
+	n_items = 0;
+	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_LIBRARY_NAME, fallback_lib);
 	spa_scnprintf(quantum_limit, sizeof(quantum_limit), "%u",
 			context->settings.clock_quantum_limit);
-	items[1] = SPA_DICT_ITEM_INIT("clock.quantum-limit", quantum_limit);
-	items[2] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LOOP_NAME, port->node->data_loop->name);
+	items[n_items++] = SPA_DICT_ITEM_INIT("clock.quantum-limit", quantum_limit);
+	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LOOP_NAME, port->node->data_loop->name);
+	if ((str = pw_properties_get(port->properties, "control.ump")) != NULL)
+		items[n_items++] = SPA_DICT_ITEM_INIT("control.ump", str);
 
 	handle = pw_context_load_spa_handle(context, factory_name,
-			&SPA_DICT_INIT_ARRAY(items));
+			&SPA_DICT_INIT(items, n_items));
 	if (handle == NULL)
 		return -errno;
 

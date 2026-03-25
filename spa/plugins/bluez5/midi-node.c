@@ -23,7 +23,6 @@
 #include <spa/utils/ringbuffer.h>
 #include <spa/monitor/device.h>
 #include <spa/control/control.h>
-#include <spa/control/ump-utils.h>
 
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
@@ -450,7 +449,7 @@ static void midi_event_recv(void *user_data, uint16_t timestamp, uint8_t *data, 
 	struct impl *this = user_data;
 	struct port *port = &this->ports[PORT_OUT];
 	struct time_sync *sync = &port->sync;
-	uint64_t time, state = 0;
+	uint64_t time;
 	int res;
 
 	spa_assert(size > 0);
@@ -460,19 +459,11 @@ static void midi_event_recv(void *user_data, uint16_t timestamp, uint8_t *data, 
 	spa_log_trace(this->log, "%p: event:0x%x size:%d timestamp:%d time:%"PRIu64"",
 			this, (int)data[0], (int)size, (int)timestamp, (uint64_t)time);
 
-	while (size > 0) {
-		uint32_t ump[4];
-		int ump_size = spa_ump_from_midi(&data, &size,
-					ump, sizeof(ump), 0, &state);
-		if (ump_size <= 0)
-			break;
-
-		res = midi_event_ringbuffer_push(&this->event_rbuf, time, (uint8_t*)ump, ump_size);
-		if (res < 0) {
-			midi_event_ringbuffer_init(&this->event_rbuf);
-			spa_log_warn(this->log, "%p: MIDI receive buffer overflow: %s",
-					this, spa_strerror(res));
-		}
+	res = midi_event_ringbuffer_push(&this->event_rbuf, time, data, size);
+	if (res < 0) {
+		midi_event_ringbuffer_init(&this->event_rbuf);
+		spa_log_warn(this->log, "%p: MIDI receive buffer overflow: %s",
+				this, spa_strerror(res));
 	}
 }
 
@@ -713,7 +704,7 @@ static int process_output(struct impl *this)
 			offset = time * this->rate / SPA_NSEC_PER_SEC;
 			offset = SPA_CLAMP(offset, 0u, this->duration - 1);
 
-			spa_pod_builder_control(&port->builder, offset, SPA_CONTROL_UMP);
+			spa_pod_builder_control(&port->builder, offset, SPA_CONTROL_Midi);
 			buf = spa_pod_builder_reserve_bytes(&port->builder, size);
 			if (buf) {
 				midi_event_ringbuffer_pop(&this->event_rbuf, buf, size);
@@ -786,37 +777,28 @@ static int write_data(struct impl *this, struct spa_data *d)
 	time = 0;
 
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
-		int size;
-		uint8_t event[32];
-		const uint32_t *ump = c_body;
-		size_t ump_size = c.value.size;
-		uint64_t state = 0;
+		const uint8_t *event = c_body;
+		uint32_t size = c.value.size;
 
-		if (c.type != SPA_CONTROL_UMP)
+		if (c.type != SPA_CONTROL_Midi)
 			continue;
 
 		time = SPA_MAX(time, this->current_time + c.offset * SPA_NSEC_PER_SEC / this->rate);
 
-		while (ump_size > 0) {
-			size = spa_ump_to_midi(&ump, &ump_size, event, sizeof(event), &state);
-			if (size <= 0)
-				break;
+		spa_log_trace(this->log, "%p: output event:0x%x time:%"PRIu64, this,
+				(size > 0) ? event[0] : 0, time);
 
-			spa_log_trace(this->log, "%p: output event:0x%x time:%"PRIu64, this,
-					(size > 0) ? event[0] : 0, time);
-
-			do {
-				res = spa_bt_midi_writer_write(&this->writer,
-						time, event, size);
-				if (res < 0) {
-					return res;
-				} else if (res) {
-					int res2;
-					if ((res2 = flush_packet(this)) < 0)
-						return res2;
-				}
-			} while (res);
-		}
+		do {
+			res = spa_bt_midi_writer_write(&this->writer,
+					time, event, size);
+			if (res < 0) {
+				return res;
+			} else if (res) {
+				int res2;
+				if ((res2 = flush_packet(this)) < 0)
+					return res2;
+			}
+		} while (res);
 	}
 
 	if ((res = flush_packet(this)) < 0)

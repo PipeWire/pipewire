@@ -62,6 +62,13 @@ As of 1.4, SPA_CONTROL_UMP (Universal Midi Packet) is the prefered format
 for the MIDI 1.0 and 2.0 messages in the \ref spa_pod_sequence. Conversion
 to SPA_CONTROL_Midi is performed for legacy applications.
 
+As of 1.7 the prefered format is Midi1 again because most devices and
+applications are still Midi1 and conversions between Midi1 and UMP are not
+completely transparent in ALSA and PipeWire. UMP in the ALSA sequencer
+and consumers must be enabled explicitly. UMP in producers is supported
+still and will be converted to Midi1 by all consumers that did not explicitly
+enable UMP support.
+
 ## The PipeWire Daemon
 
 Nothing special is implemented for MIDI. Negotiation of formats
@@ -104,13 +111,14 @@ filtering out the \ref SPA_CONTROL_Midi, \ref SPA_CONTROL_OSC and
 \ref SPA_CONTROL_UMP types. On output ports, the JACK event stream is
 converted to control messages in a similar way.
 
-Normally, all MIDI and UMP messages are converted to MIDI1 jack events unless
-the JACK port was created with an explcit "32 bit raw UMP" format or with
-the JackPortIsMIDI2 flag, in which case the raw UMP is passed to the JACK
-application directly. For output ports,
-the JACK events are assumed to be MIDI1 and converted to UMP unless the port
-has the "32 bit raw UMP" format or the JackPortIsMIDI2 flag, in which case
-the UMP messages are simply passed on.
+Normally, all MIDI and UMP input messages are converted to MIDI1 jack
+events unless the JACK port was created with an explcit "32 bit raw UMP"
+format or with the JackPortIsMIDI2 flag, in which case the messages are
+converted to UMP or passed on directly.
+
+For output ports, the JACK events are assumed to be
+MIDI1 unless the port has the "32 bit raw UMP" format or the JackPortIsMIDI2
+flag, in which case the control messages are assumed to be UMP.
 
 There is a 1 to 1 mapping between the JACK events and control
 messages so there is no information loss or need for complicated

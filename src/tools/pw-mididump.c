@@ -33,7 +33,7 @@ struct data {
 	struct pw_filter *filter;
 	struct port *in_port;
 	int64_t clock_time;
-	bool opt_midi1;
+	bool force_ump;
 };
 
 
@@ -174,7 +174,8 @@ static int dump_filter(struct data *data)
 			PW_FILTER_PORT_FLAG_MAP_BUFFERS,
 			sizeof(struct port),
 			pw_properties_new(
-				PW_KEY_FORMAT_DSP, data->opt_midi1 ? "8 bit raw midi" : "32 bit raw UMP",
+				PW_KEY_FORMAT_DSP,
+					data->force_ump ? "32 bit raw UMP" : "8 bit raw midi",
 				PW_KEY_PORT_NAME, "input",
 				NULL),
 			NULL, 0);
@@ -198,7 +199,7 @@ static void show_help(const char *name, bool error)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
-	        "  -M, --force-midi                      Force midi format, one of \"midi\" or \"ump\",(default ump)\n",
+	        "  -M, --force-midi                      Force midi format, one of \"midi\" or \"ump\",(default midi)\n",
 		name);
 }
 
@@ -238,9 +239,9 @@ int main(int argc, char *argv[])
 
 		case 'M':
 			if (spa_streq(optarg, "midi"))
-				data.opt_midi1 = true;
+				data.force_ump = false;
 			else if (spa_streq(optarg, "ump"))
-				data.opt_midi1 = false;
+				data.force_ump = true;
 			else {
 				fprintf(stderr, "error: bad force-midi %s\n", optarg);
 				show_help(argv[0], true);

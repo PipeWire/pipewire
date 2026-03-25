@@ -1125,9 +1125,9 @@ enum {
 };
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-#define OPTIONS "hvprmdosR:P:q:aM:n:c"
+#define OPTIONS "hvprmdosR:P:q:aM:n:cC"
 #else
-#define OPTIONS "hvprmdsR:P:q:aM:n:c"
+#define OPTIONS "hvprmdsR:P:q:aM:n:cC"
 #endif
 
 static const struct option long_options[] = {
@@ -1168,6 +1168,7 @@ static const struct option long_options[] = {
 	{ "force-midi",		required_argument, NULL, 'M' },
 	{ "sample-count",	required_argument, NULL, 'n' },
 	{ "midi-clip",		no_argument,       NULL, 'c' },
+	{ "monitor",		no_argument,       NULL, 'C' },
 
 	{ NULL, 0, NULL, 0 }
 };
@@ -1192,6 +1193,7 @@ static void show_usage(const char *name, bool is_error)
 	     "      --media-role                      Set media role (default %s)\n"
 	     "      --target                          Set node target serial or name (default %s)\n"
 	     "                                          0 means don't link\n"
+	     "  -C  --monitor                         Capture monitor ports (in recording mode)\n"
 	     "      --latency                         Set node latency (default %s)\n"
 	     "                                          Xunit (unit = s, ms, us, ns)\n"
 	     "                                          or direct samples (256)\n"
@@ -2341,6 +2343,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'c':
 			data.data_type = TYPE_MIDI2;
+			break;
+		case 'C':
+			pw_properties_set(data.props, PW_KEY_STREAM_CAPTURE_SINK, "true");
 			break;
 		case OPT_LISTFORMATS:
 			list_formats(&data);

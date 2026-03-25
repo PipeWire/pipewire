@@ -124,6 +124,9 @@ Set a node target (default auto). The value can be:
 - <b>\<id\></b>: The object.serial or the node.name of a target node
 \endparblock
 
+\par -C | \--monitor
+In recording mode, record from monitor ports.
+
 \par \--latency=VALUE\[*units*\]
 \parblock
 Set the node latency (default 100ms)

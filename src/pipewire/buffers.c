@@ -146,8 +146,11 @@ param_filter(struct pw_buffers *this,
 		if (in_res < 1) {
 			/* in_res == -ENOENT  : unknown parameter, assume NULL and we will
 			 *                      exit the loop below.
-			 * in_res < 1         : some error or no data, exit now
+			 * in_res == 0        : no data, assume NULL
+			 * in_res < 0         : some error, exit now
 			 */
+			if (in_res == 0)
+				in_res = -ENOENT;
 			if (in_res == -ENOENT)
 				iparam = NULL;
 			else
@@ -163,6 +166,8 @@ param_filter(struct pw_buffers *this,
 						id, &oidx, iparam, &oparam, result);
 
 			/* out_res < 1 : no value or error, exit now */
+			if (out_res == 0)
+				out_res = -ENOENT;
 			if (out_res < 1)
 				break;
 

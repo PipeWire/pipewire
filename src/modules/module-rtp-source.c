@@ -246,6 +246,9 @@ struct impl {
 	socklen_t src_len;
 	struct spa_source *source;
 
+	bool is_multicast;
+	bool filter_by_address;
+
 	uint8_t *buffer;
 	size_t buffer_size;
 
@@ -300,13 +303,40 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	ssize_t len;
 	int suppressed;
 	uint64_t current_time;
+	struct sockaddr_storage recvaddr;
+	socklen_t recvaddr_len = sizeof(recvaddr);
 
 	current_time = get_time_ns(impl);
 
 	if (mask & SPA_IO_IN) {
-
-		if ((len = recv(fd, impl->buffer, impl->buffer_size, 0)) < 0)
+		if ((len = recvfrom(fd, impl->buffer, impl->buffer_size, 0, (struct sockaddr *)(&recvaddr), &recvaddr_len)) < 0)
 			goto receive_error;
+
+		/* Filter the packets to exclude those with source addresses
+		 * that do not match the expected one. Only used with unicast.
+		 * (The bind() call in make_socket takes care of only
+		 * receiving packets that target the specified port.) */
+		if (impl->filter_by_address && !pw_net_are_addresses_equal(&recvaddr, &(impl->src_addr), false)) {
+			/* In the IPv6 case, pw_net_get_ip() produces output formatted
+			 * as "<IPv6 address>%<network interface name>". Both constants
+			 * INET6_ADDRSTRLEN and IFNAMSIZ include the null terminator
+			 * in their respective length values. This works out well for
+			 * the formatted output, since this ensures there is one extra
+			 * character for the % delimiter and another extra character
+			 * for the null terminator of the entire string.
+			 *
+			 * (In the IPv4 case, pw_net_get_ip() just outputs the address.) */
+			char address_str[INET6_ADDRSTRLEN + IFNAMSIZ];
+			int res;
+
+			res = pw_net_get_ip(&recvaddr, address_str, sizeof(address_str), NULL, NULL);
+			if (SPA_LIKELY(res == 0))
+				pw_log_trace("Filtering out packet with mismatching address %s", address_str);
+			else
+				pw_log_warn("Filtering out packet with unrecognized address");
+
+			return;
+		}
 
 		if (len < 12)
 			goto short_packet;
@@ -474,12 +504,12 @@ finish:
 }
 
 static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname,
-			struct igmp_recovery *igmp_recovery)
+			struct igmp_recovery *igmp_recovery, bool *is_multicast,
+			bool *filter_by_address)
 {
 	int af, fd, val, res;
 	struct ifreq req;
 	struct sockaddr_storage ba = *(struct sockaddr_storage *)sa;
-	bool do_connect = false;
 	char addr[128];
 
 	af = sa->sa_family;
@@ -522,12 +552,16 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname,
 			pw_net_get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv4 group: %s", addr);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
+			*filter_by_address = false;
+			*is_multicast = true;
 		} else {
 			struct sockaddr_in *ba4 = (struct sockaddr_in*)&ba;
-			if (ba4->sin_addr.s_addr != INADDR_ANY) {
-				ba4->sin_addr.s_addr = INADDR_ANY;
-				do_connect = true;
-			}
+			*filter_by_address = (ba4->sin_addr.s_addr != INADDR_ANY);
+			*is_multicast = false;
+			/* Make sure the ANY address is always used. This is important
+			 * for the bind() call below - with unicast, it shall only filter
+			 * by port number (address filtering is done by recvfrom()). */
+			ba4->sin_addr.s_addr = INADDR_ANY;
 		}
 	} else if (af == AF_INET6) {
 		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
@@ -539,8 +573,15 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname,
 			pw_net_get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv6 group: %s", addr);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
+			*filter_by_address = false;
+			*is_multicast = true;
 		} else {
 			struct sockaddr_in6 *ba6 = (struct sockaddr_in6*)&ba;
+			*filter_by_address = !IN6_IS_ADDR_UNSPECIFIED(&(ba6->sin6_addr.s6_addr));
+			*is_multicast = false;
+			/* Make sure the ANY address is always used. This is important
+			 * for the bind() call below - with unicast, it shall only filter
+			 * by port number (address filtering is done by recvfrom()). */
 			ba6->sin6_addr = in6addr_any;
 		}
 	} else {
@@ -568,13 +609,6 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname,
 		res = -errno;
 		pw_log_error("bind() failed: %m");
 		goto error;
-	}
-	if (do_connect) {
-		if (connect(fd, sa, salen) < 0) {
-			res = -errno;
-			pw_log_error("connect() failed: %m");
-			goto error;
-		}
 	}
 	return fd;
 error:
@@ -613,7 +647,9 @@ static void stream_open_connection(void *data, int *result)
 
 	if ((fd = make_socket((const struct sockaddr *)&impl->src_addr,
 					impl->src_len, impl->ifname,
-					&(impl->igmp_recovery))) < 0) {
+					&(impl->igmp_recovery),
+					&(impl->is_multicast),
+					&(impl->filter_by_address))) < 0) {
 		/* If make_socket() tries to create a socket and join to a multicast
 		 * group while the network interfaces are not ready yet to do so
 		 * (usually because a network manager component is still setting up

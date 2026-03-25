@@ -235,16 +235,13 @@ struct data_info {
 	bool filled;
 };
 
-static inline bool fix_midi_event(const uint8_t *data, size_t size, uint8_t tmp[3])
+static inline void fix_midi_event(uint8_t *data, size_t size)
 {
 	/* fixup NoteOn with vel 0 */
 	if (size > 2 && (data[0] & 0xF0) == 0x90 && data[2] == 0x00) {
-		tmp[0] = 0x80 + (data[0] & 0x0F);
-		tmp[1] = data[1];
-		tmp[2] = 0x40;
-		return true;
+		data[0] = 0x80 + (data[0] & 0x0F);
+		data[2] = 0x40;
 	}
-	return false;
 }
 
 static inline void *n2j_midi_buffer_reserve(struct nj2_midi_buffer *buf,
@@ -276,37 +273,16 @@ static inline void *n2j_midi_buffer_reserve(struct nj2_midi_buffer *buf,
 }
 
 static inline void n2j_midi_buffer_write(struct nj2_midi_buffer *buf,
-		uint32_t offset, const void *data, uint32_t size)
+		uint32_t offset, const void *data, uint32_t size, bool fix)
 {
-	void *ptr = n2j_midi_buffer_reserve(buf, offset, size);
-	if (ptr != NULL)
+	uint8_t *ptr = n2j_midi_buffer_reserve(buf, offset, size);
+	if (ptr != NULL) {
 		memcpy(ptr, data, size);
+		if (fix)
+			fix_midi_event(ptr, size);
+	}
 	else
 		buf->lost_events++;
-}
-
-static inline void n2j_midi_buffer_append(struct nj2_midi_buffer *buf,
-		void *data, uint32_t size)
-{
-	struct nj2_midi_event *ev;
-	uint32_t old_size;
-	uint8_t *old_ptr, *new_ptr;
-
-	ev = &buf->event[--buf->event_count];
-	old_size = ev->size;
-	if (old_size <= MIDI_INLINE_MAX) {
-		old_ptr = ev->buffer;
-	} else {
-		buf->write_pos -= old_size;
-		old_ptr = SPA_PTROFF(buf, ev->offset, void);
-	}
-	new_ptr = n2j_midi_buffer_reserve(buf, ev->time, old_size + size);
-	if (new_ptr == NULL) {
-		buf->lost_events++;
-	} else {
-		memmove(new_ptr, old_ptr, old_size);
-		memcpy(new_ptr+old_size, data, size);
-	}
 }
 
 static void midi_to_netjack2(struct netjack2_peer *peer,
@@ -336,7 +312,6 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 	while (spa_pod_parser_get_control_body(&parser, &c, &c_body) >= 0) {
 		uint32_t size = c.value.size;
 		const uint8_t *data = c_body;
-		uint8_t tmp[3];
 
 		if (c.type != SPA_CONTROL_Midi)
 			continue;
@@ -345,11 +320,7 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 			buf->lost_events++;
 			continue;
 		}
-		if (peer->fix_midi && fix_midi_event(data, size, tmp)) {
-			data = tmp;
-			size = 3;
-		}
-		n2j_midi_buffer_write(buf, c.offset, data, size);
+		n2j_midi_buffer_write(buf, c.offset, data, size, peer->fix_midi);
 	}
 	if (buf->write_pos > 0)
 		memmove(SPA_PTROFF(buf, sizeof(*buf) + buf->event_count * sizeof(struct nj2_midi_event), void),

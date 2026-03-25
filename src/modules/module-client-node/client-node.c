@@ -641,7 +641,6 @@ node_port_enum_params(struct impl *impl, int seq,
 		if (count == num)
 			break;
 	}
-
 	return 0;
 }
 

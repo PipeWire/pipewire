@@ -1793,11 +1793,13 @@ static void add_control_dsp_port_params(struct filter *impl, struct port *port, 
 		SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
 		SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control),
 		0);
+#if 0
 	if (types != 0) {
 		spa_pod_builder_add(&b,
 			SPA_FORMAT_CONTROL_types, SPA_POD_CHOICE_FLAGS_Int(types),
 			0);
 	}
+#endif
 	add_param(impl, port, SPA_PARAM_EnumFormat, PARAM_FLAG_LOCKED,
 			spa_pod_builder_pop(&b, &f[0]));
 }
@@ -1857,10 +1859,13 @@ void *pw_filter_add_port(struct pw_filter *filter,
 			add_video_dsp_port_params(impl, p);
 		else if (spa_streq(str, "8 bit raw midi"))
 			add_control_dsp_port_params(impl, p, 1u << SPA_CONTROL_Midi);
-		else if (spa_streq(str, "8 bit raw control"))
+		else if (spa_streq(str, "8 bit raw control")) {
 			add_control_dsp_port_params(impl, p, 0);
+			pw_properties_set(props, "control.ump", "false");
+		}
 		else if (spa_streq(str, "32 bit raw UMP")) {
 			add_control_dsp_port_params(impl, p, 1u << SPA_CONTROL_UMP);
+			pw_properties_set(props, "control.ump", "true");
 			pw_properties_set(props, PW_KEY_FORMAT_DSP, "8 bit raw midi");
 		}
 	}

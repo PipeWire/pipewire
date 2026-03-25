@@ -227,7 +227,7 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 	if (full)
 		port->info.change_mask = port->info_all;
 	if (port->info.change_mask) {
-		struct spa_dict_item items[6];
+		struct spa_dict_item items[7];
 		uint32_t n_items = 0;
 		int card_id;
 		snd_seq_port_info_t *info;
@@ -284,6 +284,9 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 			snprintf(card, sizeof(card), "%d", card_id);
 			items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_ALSA_CARD, card);
 		}
+		if (this->ump)
+			items[n_items++] = SPA_DICT_ITEM_INIT("control.ump", "true");
+
 		port->info.props = &SPA_DICT_INIT(items, n_items);
 
 		spa_node_emit_port_info(&this->hooks,

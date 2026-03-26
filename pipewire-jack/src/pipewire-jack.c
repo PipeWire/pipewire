@@ -86,7 +86,7 @@ PW_LOG_TOPIC_STATIC(jack_log_topic, "jack");
 #define OTHER_CONNECT_FAIL	-1
 #define OTHER_CONNECT_IGNORE	0
 
-#define NOTIFY_BUFFER_SIZE	(1u<<13)
+#define NOTIFY_BUFFER_SIZE	(1u<<16)
 #define NOTIFY_BUFFER_MASK	(NOTIFY_BUFFER_SIZE-1)
 
 struct notify {
@@ -104,8 +104,8 @@ struct notify {
 #define NOTIFY_TYPE_TOTAL_LATENCY	((9<<4)|NOTIFY_ACTIVE_FLAG)
 #define NOTIFY_TYPE_PORT_RENAME		((10<<4)|NOTIFY_ACTIVE_FLAG)
 	int type;
-	struct object *object;
 	int arg1;
+	struct object *object;
 	const char *msg;
 };
 

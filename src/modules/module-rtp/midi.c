@@ -151,7 +151,7 @@ static int parse_journal(struct impl *impl, uint8_t *packet, uint16_t seq, uint3
 		return -EINVAL;
 	j = (struct rtp_midi_journal*)packet;
 	uint16_t seqnum = ntohs(j->checkpoint_seqnum);
-	rtp_stream_emit_send_feedback(impl, seqnum);
+	rtp_stream_call_send_feedback(impl, seqnum);
 	return 0;
 }
 
@@ -453,7 +453,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			pw_log_trace("sending %d timestamp:%d %u %u",
 					len, timestamp + base,
 					offset, impl->psamples);
-			rtp_stream_emit_send_packet(impl, iov, 3);
+			rtp_stream_call_send_packet(impl, iov, 3);
 
 			impl->seq++;
 			len = 0;
@@ -491,7 +491,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 		iov[2].iov_len = len;
 
 		pw_log_trace("sending %d timestamp:%d", len, base);
-		rtp_stream_emit_send_packet(impl, iov, 3);
+		rtp_stream_call_send_packet(impl, iov, 3);
 		impl->seq++;
 	}
 }

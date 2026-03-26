@@ -252,7 +252,7 @@ static void rtp_opus_flush_packets(struct impl *impl)
 		pw_log_trace("sending %d len:%d timestamp:%d", tosend, res, timestamp);
 		iov[1].iov_len = res;
 
-		rtp_stream_emit_send_packet(impl, iov, 2);
+		rtp_stream_call_send_packet(impl, iov, 2);
 
 		impl->seq++;
 		timestamp += tosend;

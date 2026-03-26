@@ -561,7 +561,7 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 				(double)timestamp * impl->io_position->clock.rate.num /
 				impl->io_position->clock.rate.denom);
 
-		rtp_stream_emit_send_packet(impl, iov, 3);
+		rtp_stream_call_send_packet(impl, iov, 3);
 
 		impl->seq++;
 		impl->first = false;

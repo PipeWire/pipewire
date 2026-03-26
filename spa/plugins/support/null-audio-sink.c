@@ -114,7 +114,6 @@ struct impl {
 	unsigned int started:1;
 	unsigned int following:1;
 	struct spa_source timer_source;
-	struct itimerspec timerspec;
 	uint64_t next_time;
 };
 
@@ -179,11 +178,15 @@ static int impl_node_enum_params(void *object, int seq,
 
 static void set_timeout(struct impl *this, uint64_t next_time)
 {
+	struct itimerspec ts;
+
 	spa_log_trace(this->log, "set timeout %"PRIu64, next_time);
-	this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-	this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+	ts.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
 	spa_system_timerfd_settime(this->data_system,
-			this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &this->timerspec, NULL);
+			this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
 static int set_timers(struct impl *this)
@@ -929,10 +932,6 @@ impl_init(const struct spa_handle_factory *factory,
 							  SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
-	this->timerspec.it_value.tv_sec = 0;
-	this->timerspec.it_value.tv_nsec = 0;
-	this->timerspec.it_interval.tv_sec = 0;
-	this->timerspec.it_interval.tv_nsec = 0;
 
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 

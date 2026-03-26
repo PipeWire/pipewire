@@ -91,7 +91,6 @@ struct impl {
 	struct spa_io_clock *clock;
 
 	struct spa_source timer_source;
-	struct itimerspec timerspec;
 	int clock_fd;
 
 	bool started;
@@ -182,13 +181,16 @@ static void set_timeout(struct impl *this, uint64_t next_time)
 	 * returning -ECANCELED.)
 	 * If timerfd is used with a non-realtime clock, the flag is ignored.
 	 * (Note that the flag only works in combination with SPA_FD_TIMER_ABSTIME.) */
+	struct itimerspec ts;
 
 	spa_log_trace(this->log, "set timeout %"PRIu64, next_time);
-	this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-	this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+	ts.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+	ts.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+	ts.it_interval.tv_sec = 0;
+	ts.it_interval.tv_nsec = 0;
 	spa_system_timerfd_settime(this->data_system,
 			this->timer_source.fd, SPA_FD_TIMER_ABSTIME |
-			SPA_FD_TIMER_CANCEL_ON_SET, &this->timerspec, NULL);
+			SPA_FD_TIMER_CANCEL_ON_SET, &ts, NULL);
 }
 
 static inline uint64_t gettime_nsec(struct impl *this, clockid_t clock_id)
@@ -1043,10 +1045,6 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
-	this->timerspec.it_value.tv_sec = 0;
-	this->timerspec.it_value.tv_nsec = 0;
-	this->timerspec.it_interval.tv_sec = 0;
-	this->timerspec.it_interval.tv_nsec = 0;
 
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 

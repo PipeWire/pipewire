@@ -99,7 +99,6 @@ struct impl {
 
 	bool async;
 	struct spa_source *timer_source;
-	struct itimerspec timerspec;
 
 	bool started;
 	uint64_t start_time;
@@ -264,20 +263,20 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 static void set_timer(struct impl *this, bool enabled)
 {
 	if (this->async || this->props.live) {
+		struct timespec ts = {0};
+
 		if (enabled) {
 			if (this->props.live) {
 				uint64_t next_time = this->start_time + this->elapsed_time;
-				this->timerspec.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-				this->timerspec.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
+				ts.tv_sec = next_time / SPA_NSEC_PER_SEC;
+				ts.tv_nsec = next_time % SPA_NSEC_PER_SEC;
 			} else {
-				this->timerspec.it_value.tv_sec = 0;
-				this->timerspec.it_value.tv_nsec = 1;
+				ts.tv_sec = 0;
+				ts.tv_nsec = 1;
 			}
-		} else {
-			this->timerspec.it_value.tv_sec = 0;
-			this->timerspec.it_value.tv_nsec = 0;
 		}
-		spa_loop_utils_update_timer(this->loop_utils, this->timer_source, &this->timerspec.it_value, &this->timerspec.it_interval, true);
+
+		spa_loop_utils_update_timer(this->loop_utils, this->timer_source, &ts, NULL, true);
 	}
 }
 
@@ -907,10 +906,6 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	this->timer_source = spa_loop_utils_add_timer(this->loop_utils, on_output, this);
-	this->timerspec.it_value.tv_sec = 0;
-	this->timerspec.it_value.tv_nsec = 0;
-	this->timerspec.it_interval.tv_sec = 0;
-	this->timerspec.it_interval.tv_nsec = 0;
 
 	port = &this->port;
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |

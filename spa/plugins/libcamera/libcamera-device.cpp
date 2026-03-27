@@ -5,6 +5,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <cstddef>
+#include <span>
 #include <sstream>
 
 #include <spa/support/plugin.h>
@@ -25,7 +26,6 @@
 
 #include <libcamera/camera.h>
 #include <libcamera/property_ids.h>
-#include <libcamera/base/span.h>
 
 using namespace libcamera;
 
@@ -50,7 +50,7 @@ struct impl {
 	     std::string device_id);
 };
 
-const libcamera::Span<const int64_t> cameraDevice(const Camera& camera)
+std::span<const int64_t> cameraDevice(const Camera& camera)
 {
 	if (auto devices = camera.properties().get(properties::SystemDevices))
 		return devices.value();

@@ -604,6 +604,15 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * All input ports samples are checked to find the maximum value per sample. Unused
  * input ports will be ignored and not cause overhead.
  *
+ * ### Min
+ *
+ * Use the `min` plugin if you need to select the minimum value of a number of input ports.
+ *
+ * It has 8 input ports named "In 1" to "In 8" and one output port "Out".
+ *
+ * All input ports samples are checked to find the minimum value per sample. Unused
+ * input ports will be ignored and not cause overhead.
+ *
  * ### dcblock
  *
  * Use the `dcblock` plugin implements a [DC blocker](https://www.dsprelated.com/freebooks/filters/DC_Blocker.html).

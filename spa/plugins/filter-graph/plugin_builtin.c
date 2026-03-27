@@ -2562,6 +2562,89 @@ static const struct spa_fga_descriptor max_desc = {
 	.cleanup = builtin_cleanup,
 };
 
+/** min */
+static void min_run(void * Instance, unsigned long SampleCount)
+{
+	struct builtin *impl = Instance;
+	float *out = impl->port[0];
+	float *src[8];
+	unsigned long n, p, n_srcs = 0;
+
+	if (out == NULL)
+		return;
+
+	for (p = 1; p < 9; p++) {
+		if (impl->port[p] != NULL)
+			src[n_srcs++] = impl->port[p];
+	}
+
+	if (n_srcs == 0) {
+		spa_memzero(out, SampleCount * sizeof(float));
+	} else if (n_srcs == 1) {
+		spa_memcpy(out, src[0], SampleCount * sizeof(float));
+	} else {
+		for (n = 0; n < SampleCount; n++)
+			out[n] = SPA_MIN(src[0][n], src[1][n]);
+		for (p = 2; p < n_srcs; p++) {
+			for (n = 0; n < SampleCount; n++)
+				out[n] = SPA_MIN(out[n], src[p][n]);
+		}
+	}
+}
+
+static struct spa_fga_port min_ports[] = {
+	{ .index = 0,
+	  .name = "Out",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+
+	{ .index = 1,
+	  .name = "In 1",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 2,
+	  .name = "In 2",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 3,
+	  .name = "In 3",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 4,
+	  .name = "In 4",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 5,
+	  .name = "In 5",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 6,
+	  .name = "In 6",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 7,
+	  .name = "In 7",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 8,
+	  .name = "In 8",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+};
+
+static const struct spa_fga_descriptor min_desc = {
+	.name = "min",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(min_ports),
+	.ports = min_ports,
+
+	.instantiate = builtin_instantiate,
+	.connect_port = builtin_connect_port,
+	.run = min_run,
+	.cleanup = builtin_cleanup,
+};
+
 /* DC blocking */
 struct dcblock {
 	float xm1;
@@ -3367,6 +3450,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &null_desc;
 	case 32:
 		return &convolver2_desc;
+	case 33:
+		return &min_desc;
 	}
 	return NULL;
 }

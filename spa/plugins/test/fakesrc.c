@@ -27,7 +27,6 @@
 SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.fakesrc");
 
 struct props {
-	bool live;
 	uint32_t pattern;
 };
 
@@ -88,12 +87,10 @@ struct impl {
 
 #define CHECK_PORT(this,d,p)  ((d) == SPA_DIRECTION_OUTPUT && (p) < MAX_PORTS)
 
-#define DEFAULT_LIVE false
 #define DEFAULT_PATTERN 0
 
 static void reset_props(struct impl *this, struct props *props)
 {
-	props->live = DEFAULT_LIVE;
 	props->pattern = DEFAULT_PATTERN;
 }
 
@@ -128,7 +125,6 @@ static int impl_node_enum_params(void *object, int seq,
 
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, id,
-			SPA_PROP_live,        SPA_POD_Bool(p->live),
 			SPA_PROP_patternType, SPA_POD_CHOICE_ENUM_Int(2, p->pattern, p->pattern));
 		break;
 	}
@@ -163,7 +159,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
-		struct port *port = &this->port;
 
 		if (param == NULL) {
 			reset_props(this, p);
@@ -171,13 +166,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		}
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_live,        SPA_POD_OPT_Bool(&p->live),
 			SPA_PROP_patternType, SPA_POD_OPT_Int(&p->pattern));
-
-		if (p->live)
-			port->info.flags |= SPA_PORT_FLAG_LIVE;
-		else
-			port->info.flags &= ~SPA_PORT_FLAG_LIVE;
 		break;
 	}
 	default:
@@ -193,23 +182,15 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if (this->callbacks.funcs || this->props.live) {
-		struct itimerspec ts = {0};
+	struct itimerspec ts = {0};
 
-		if (enabled) {
-			if (this->props.live) {
-				uint64_t next_time = this->start_time + this->elapsed_time;
-				ts.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-				ts.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-			} else {
-				ts.it_value.tv_sec = 0;
-				ts.it_value.tv_nsec = 1;
-			}
-		}
-
-		spa_system_timerfd_settime(this->data_system,
-				this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
+	if (enabled) {
+		uint64_t next_time = this->start_time + this->elapsed_time;
+		ts.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+		ts.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
 	}
+
+	spa_system_timerfd_settime(this->data_system, this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
 static inline int read_timer(struct impl *this)
@@ -217,14 +198,12 @@ static inline int read_timer(struct impl *this)
 	uint64_t expirations;
 	int res = 0;
 
-	if (this->callbacks.funcs || this->props.live) {
-		if ((res = spa_system_timerfd_read(this->data_system,
-					this->timer_source.fd, &expirations)) < 0) {
-			if (res != -EAGAIN)
-				spa_log_error(this->log, "%p: timerfd error: %s",
-						this, spa_strerror(res));
-		}
+	if ((res = spa_system_timerfd_read(this->data_system, this->timer_source.fd, &expirations)) < 0) {
+		if (res != -EAGAIN)
+			spa_log_error(this->log, "%p: timerfd error: %s",
+					this, spa_strerror(res));
 	}
+
 	return res;
 }
 
@@ -310,10 +289,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return 0;
 
 		clock_gettime(CLOCK_MONOTONIC, &now);
-		if (this->props.live)
-			this->start_time = SPA_TIMESPEC_TO_NSEC(&now);
-		else
-			this->start_time = 0;
+		this->start_time = SPA_TIMESPEC_TO_NSEC(&now);
 		this->buffer_count = 0;
 		this->elapsed_time = 0;
 
@@ -681,10 +657,7 @@ static int impl_node_process(void *object)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (this->callbacks.funcs == NULL)
-		return make_buffer(this);
-	else
-		return SPA_STATUS_OK;
+	return SPA_STATUS_OK;
 }
 
 static const struct spa_node_methods impl_node = {
@@ -804,9 +777,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_NO_REF;
-	if (this->props.live)
-		port->info.flags |= SPA_PORT_FLAG_LIVE;
+	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_LIVE;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_IO, 0);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_Format, SPA_PARAM_INFO_WRITE);

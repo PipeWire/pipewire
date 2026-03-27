@@ -35,17 +35,14 @@ enum pattern {
 	PATTERN_SNOW,
 };
 
-#define DEFAULT_LIVE true
 #define DEFAULT_PATTERN PATTERN_SMPTE_SNOW
 
 struct props {
-	bool live;
 	uint32_t pattern;
 };
 
 static void reset_props(struct props *props)
 {
-	props->live = DEFAULT_LIVE;
 	props->pattern = DEFAULT_PATTERN;
 }
 
@@ -139,13 +136,6 @@ static int impl_node_enum_params(void *object, int seq,
 
 		switch (result.index) {
 		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_live),
-				SPA_PROP_INFO_description, SPA_POD_String("Configure live mode of the source"),
-				SPA_PROP_INFO_type, SPA_POD_Bool(p->live));
-			break;
-		case 1:
 			spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_add(&b,
 				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_patternType),
@@ -174,7 +164,6 @@ static int impl_node_enum_params(void *object, int seq,
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_Props, id,
-				SPA_PROP_live,        SPA_POD_Bool(p->live),
 				SPA_PROP_patternType, SPA_POD_Int(p->pattern));
 			break;
 		default:
@@ -229,7 +218,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	case SPA_PARAM_Props:
 	{
 		struct props *p = &this->props;
-		struct port *port = &this->port;
 
 		if (param == NULL) {
 			reset_props(p);
@@ -237,13 +225,8 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		}
 		spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_live,        SPA_POD_OPT_Bool(&p->live),
 			SPA_PROP_patternType, SPA_POD_OPT_Int(&p->pattern));
 
-		if (p->live)
-			port->info.flags |= SPA_PORT_FLAG_LIVE;
-		else
-			port->info.flags &= ~SPA_PORT_FLAG_LIVE;
 		break;
 	}
 	default:
@@ -261,22 +244,15 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if (this->props.live) {
-		struct timespec ts = {0};
+	struct timespec ts = {0};
 
-		if (enabled) {
-			if (this->props.live) {
-				uint64_t next_time = this->start_time + this->elapsed_time;
-				ts.tv_sec = next_time / SPA_NSEC_PER_SEC;
-				ts.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-			} else {
-				ts.tv_sec = 0;
-				ts.tv_nsec = 1;
-			}
-		}
-
-		spa_loop_utils_update_timer(this->loop_utils, this->timer_source, &ts, NULL, true);
+	if (enabled) {
+		uint64_t next_time = this->start_time + this->elapsed_time;
+		ts.tv_sec = next_time / SPA_NSEC_PER_SEC;
+		ts.tv_nsec = next_time % SPA_NSEC_PER_SEC;
 	}
+
+	spa_loop_utils_update_timer(this->loop_utils, this->timer_source, &ts, NULL, true);
 }
 
 static int make_buffer(struct impl *this)
@@ -356,10 +332,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return 0;
 
 		clock_gettime(CLOCK_MONOTONIC, &now);
-		if (this->props.live)
-			this->start_time = SPA_TIMESPEC_TO_NSEC(&now);
-		else
-			this->start_time = 0;
+		this->start_time = SPA_TIMESPEC_TO_NSEC(&now);
 		this->frame_count = 0;
 		this->elapsed_time = 0;
 
@@ -753,9 +726,6 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 
 	b->outstanding = false;
 	spa_list_append(&port->empty, &b->link);
-
-	if (!this->props.live)
-		set_timer(this, true);
 }
 
 static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
@@ -793,10 +763,7 @@ static int impl_node_process(void *object)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (!this->props.live)
-		return make_buffer(this);
-	else
-		return SPA_STATUS_OK;
+	return SPA_STATUS_OK;
 }
 
 static const struct spa_node_methods impl_node = {
@@ -910,9 +877,7 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info_all = SPA_PORT_CHANGE_MASK_FLAGS |
 			SPA_PORT_CHANGE_MASK_PARAMS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_NO_REF;
-	if (this->props.live)
-		port->info.flags |= SPA_PORT_FLAG_LIVE;
+	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_LIVE;
 	port->params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[1] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[2] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

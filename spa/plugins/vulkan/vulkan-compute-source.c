@@ -33,17 +33,6 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.vulkan.compute-source");
 #define FRAMES_TO_TIME(this,f) ((this->position->video.framerate.denom * (f) * SPA_NSEC_PER_SEC) / \
                                 (this->position->video.framerate.num))
 
-#define DEFAULT_LIVE true
-
-struct props {
-	bool live;
-};
-
-static void reset_props(struct props *props)
-{
-	props->live = DEFAULT_LIVE;
-}
-
 struct buffer {
 	uint32_t id;
 #define BUFFER_FLAG_OUT (1<<0)
@@ -95,7 +84,6 @@ struct impl {
 #define IDX_Props	1
 #define N_NODE_PARAMS	2
 	struct spa_param_info params[N_NODE_PARAMS];
-	struct props props;
 
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
@@ -136,38 +124,6 @@ static int impl_node_enum_params(void *object, int seq,
 	spa_pod_builder_init(&b, buffer, sizeof(buffer));
 
 	switch (id) {
-	case SPA_PARAM_PropInfo:
-	{
-		struct props *p = &this->props;
-
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_PropInfo, id,
-				SPA_PROP_INFO_id,   SPA_POD_Id(SPA_PROP_live),
-				SPA_PROP_INFO_description, SPA_POD_String("Configure live mode of the source"),
-				SPA_PROP_INFO_type, SPA_POD_Bool(p->live));
-			break;
-		default:
-			return 0;
-		}
-		break;
-	}
-	case SPA_PARAM_Props:
-	{
-		struct props *p = &this->props;
-
-		switch (result.index) {
-		case 0:
-			param = spa_pod_builder_add_object(&b,
-				SPA_TYPE_OBJECT_Props, id,
-				SPA_PROP_live,        SPA_POD_Bool(p->live));
-			break;
-		default:
-			return 0;
-		}
-		break;
-	}
 	default:
 		return -ENOENT;
 	}
@@ -212,25 +168,6 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
 	switch (id) {
-	case SPA_PARAM_Props:
-	{
-		struct props *p = &this->props;
-		struct port *port = &this->port;
-
-		if (param == NULL) {
-			reset_props(p);
-			return 0;
-		}
-		spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_live,        SPA_POD_OPT_Bool(&p->live));
-
-		if (p->live)
-			port->info.flags |= SPA_PORT_FLAG_LIVE;
-		else
-			port->info.flags &= ~SPA_PORT_FLAG_LIVE;
-		break;
-	}
 	default:
 		return -ENOENT;
 	}
@@ -240,23 +177,15 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if (this->props.live) {
-		struct itimerspec ts = {0};
+	struct itimerspec ts = {0};
 
-		if (enabled) {
-			if (this->props.live) {
-				uint64_t next_time = this->start_time + this->elapsed_time;
-				ts.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
-				ts.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
-			} else {
-				ts.it_value.tv_sec = 0;
-				ts.it_value.tv_nsec = 1;
-			}
-		}
-
-		spa_system_timerfd_settime(this->data_system,
-				this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
+	if (enabled) {
+		uint64_t next_time = this->start_time + this->elapsed_time;
+		ts.it_value.tv_sec = next_time / SPA_NSEC_PER_SEC;
+		ts.it_value.tv_nsec = next_time % SPA_NSEC_PER_SEC;
 	}
+
+	spa_system_timerfd_settime(this->data_system, this->timer_source.fd, SPA_FD_TIMER_ABSTIME, &ts, NULL);
 }
 
 static int read_timer(struct impl *this)
@@ -264,14 +193,12 @@ static int read_timer(struct impl *this)
 	uint64_t expirations;
 	int res = 0;
 
-	if (this->props.live) {
-		if ((res = spa_system_timerfd_read(this->data_system,
-						this->timer_source.fd, &expirations)) < 0) {
-			if (res != -EAGAIN)
-				spa_log_error(this->log, "%p: timerfd error: %s",
-						this, spa_strerror(res));
-		}
+	if ((res = spa_system_timerfd_read(this->data_system, this->timer_source.fd, &expirations)) < 0) {
+		if (res != -EAGAIN)
+			spa_log_error(this->log, "%p: timerfd error: %s",
+					this, spa_strerror(res));
 	}
+
 	return res;
 }
 
@@ -346,9 +273,6 @@ static inline void reuse_buffer(struct impl *this, struct port *port, uint32_t i
 
 		SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
 		spa_list_append(&port->empty, &b->link);
-
-		if (!this->props.live)
-			set_timer(this, true);
 	}
 }
 
@@ -407,10 +331,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 			return 0;
 
 		clock_gettime(CLOCK_MONOTONIC, &now);
-		if (this->props.live)
-			this->start_time = SPA_TIMESPEC_TO_NSEC(&now);
-		else
-			this->start_time = 0;
+		this->start_time = SPA_TIMESPEC_TO_NSEC(&now);
 		this->frame_count = 0;
 		this->elapsed_time = 0;
 
@@ -872,10 +793,7 @@ static int impl_node_process(void *object)
 		io->buffer_id = SPA_ID_INVALID;
 	}
 
-	if (!this->props.live)
-		return make_buffer(this);
-	else
-		return SPA_STATUS_OK;
+	return SPA_STATUS_OK;
 }
 
 static const struct spa_node_methods impl_node = {
@@ -983,7 +901,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this->params[IDX_Props] = SPA_PARAM_INFO(SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;
-	reset_props(&this->props);
 
 	this->timer_source.func = on_output;
 	this->timer_source.data = this;
@@ -1000,9 +917,7 @@ impl_init(const struct spa_handle_factory *factory,
 			SPA_PORT_CHANGE_MASK_PARAMS |
 			SPA_PORT_CHANGE_MASK_PROPS;
 	port->info = SPA_PORT_INFO_INIT();
-	port->info.flags = SPA_PORT_FLAG_NO_REF;
-	if (this->props.live)
-		port->info.flags |= SPA_PORT_FLAG_LIVE;
+	port->info.flags = SPA_PORT_FLAG_NO_REF | SPA_PORT_FLAG_LIVE;
 	port->params[IDX_EnumFormat] = SPA_PARAM_INFO(SPA_PARAM_EnumFormat, SPA_PARAM_INFO_READ);
 	port->params[IDX_Meta] = SPA_PARAM_INFO(SPA_PARAM_Meta, SPA_PARAM_INFO_READ);
 	port->params[IDX_IO] = SPA_PARAM_INFO(SPA_PARAM_IO, SPA_PARAM_INFO_READ);

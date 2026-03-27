@@ -97,7 +97,6 @@ struct impl {
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
 
-	bool async;
 	struct spa_source *timer_source;
 
 	bool started;
@@ -262,7 +261,7 @@ static int fill_buffer(struct impl *this, struct buffer *b)
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if (this->async || this->props.live) {
+	if (this->props.live) {
 		struct timespec ts = {0};
 
 		if (enabled) {

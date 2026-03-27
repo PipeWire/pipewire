@@ -100,7 +100,6 @@ struct impl {
 	struct spa_hook_list hooks;
 	struct spa_callbacks callbacks;
 
-	bool async;
 	struct spa_source timer_source;
 
 	bool started;
@@ -241,7 +240,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 static void set_timer(struct impl *this, bool enabled)
 {
-	if (this->async || this->props.live) {
+	if (this->props.live) {
 		struct itimerspec ts = {0};
 
 		if (enabled) {
@@ -265,7 +264,7 @@ static int read_timer(struct impl *this)
 	uint64_t expirations;
 	int res = 0;
 
-	if (this->async || this->props.live) {
+	if (this->props.live) {
 		if ((res = spa_system_timerfd_read(this->data_system,
 						this->timer_source.fd, &expirations)) < 0) {
 			if (res != -EAGAIN)

@@ -1,3 +1,42 @@
+# PipeWire 1.6.3 (2026-04-09)
+
+## Highlights
+  - Fix some RAOP compatibility regressions.
+  - Fix segfault in the mixer in some cases.
+  - Most nodes now produce and consume MIDI1 again and avoid
+    conversions to and from UMP.
+  - Various small fixes and improvements.
+
+
+## PipeWire
+  - Fix regression with sample rate changes. (#5207)
+  - Fix a potential integer overflow in the memory mapping.
+
+## Modules
+  - Align RTP timestamps to make RAOP work on more devices. (#5167)
+  - Avoid crashes in RTP streams because of concurrent event
+    emmission.
+  - Avoid invalid fd usage in native-protocol with special crafted
+    messages.
+  - Fix properties and params enumeration in filter-chain (#5202).
+
+## SPA
+  - Fix compilation with -Werror=discarded-qualifiers
+  - Avoid OOB read in mix matrix. (#5176)
+  - Avoid loading plugins from absolute paths that are not in the
+    search path.
+  - Avoid MIDI conversions to and from UMP. (#5183)
+
+## Bluetooth
+  - Backport some fixes and avoid some crashes.
+
+## JACK
+  - Make sure timebase callback is never called with 0 frames.
+  - Increase the notify queue to avoid losing notifications.
+
+
+Older versions:
+
 # PipeWire 1.6.2 (2026-03-16)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -30,9 +69,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## JACK
   - Fix jack_port_type_id(). Return values that are compatible with JACK1/2.
-
-
-Older versions:
 
 # PipeWire 1.6.1 (2026-03-09)
 

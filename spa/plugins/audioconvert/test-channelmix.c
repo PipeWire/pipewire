@@ -45,7 +45,7 @@ static void test_mix(uint32_t src_chan, uint32_t src_mask, uint32_t dst_chan, ui
 
 	spa_log_debug(&logger.log, "start %d->%d (%08x -> %08x)", src_chan, dst_chan, src_mask, dst_mask);
 
-	spa_zero(mix);
+	channelmix_reset(&mix);
 	mix.options = options;
 	mix.src_chan = src_chan;
 	mix.dst_chan = dst_chan;
@@ -340,7 +340,7 @@ static void test_n_m_impl(void)
 		src[i] = src_data[i];
 	}
 
-	spa_zero(mix);
+	channelmix_reset(&mix);
 	mix.src_chan = 16;
 	mix.dst_chan = 12;
 	mix.log = &logger.log;

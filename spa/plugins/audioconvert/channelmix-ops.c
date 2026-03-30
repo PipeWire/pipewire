@@ -198,9 +198,9 @@ static int make_matrix(struct channelmix *mix)
 	uint32_t dst_chan = mix->dst_chan;
 	uint64_t unassigned, keep;
 	uint32_t i, j, ic, jc, matrix_encoding = MATRIX_NORMAL;
-	float clev = SQRT1_2;
-	float slev = SQRT1_2;
-	float llev = 0.5f;
+	float clev = mix->center_level;
+	float slev = mix->surround_level;
+	float llev = mix->lfe_level;
 	float maxsum = 0.0f;
 	bool filter_fc = false, filter_lfe = false, matched = false, normalize;
 #define _MATRIX(s,d)	matrix[_CH(s)][_CH(d)]
@@ -872,6 +872,21 @@ static void impl_channelmix_set_volume(struct channelmix *mix, float volume, boo
 static void impl_channelmix_free(struct channelmix *mix)
 {
 	mix->process = NULL;
+}
+
+void channelmix_reset(struct channelmix *mix)
+{
+	spa_zero(*mix);
+	mix->options = CHANNELMIX_DEFAULT_OPTIONS;
+	mix->upmix = CHANNELMIX_DEFAULT_UPMIX;
+	mix->lfe_cutoff = CHANNELMIX_DEFAULT_LFE_CUTOFF;
+	mix->fc_cutoff = CHANNELMIX_DEFAULT_FC_CUTOFF;
+	mix->rear_delay = CHANNELMIX_DEFAULT_REAR_DELAY;
+	mix->center_level = CHANNELMIX_DEFAULT_CENTER_LEVEL;
+	mix->surround_level = CHANNELMIX_DEFAULT_SURROUND_LEVEL;
+	mix->lfe_level = CHANNELMIX_DEFAULT_LFE_LEVEL;
+	mix->widen = CHANNELMIX_DEFAULT_WIDEN;
+	mix->hilbert_taps = CHANNELMIX_DEFAULT_HILBERT_TAPS;
 }
 
 int channelmix_init(struct channelmix *mix)

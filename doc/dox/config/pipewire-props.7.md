@@ -783,6 +783,15 @@ more to the center speaker and leaves the ambient sound in the stereo channels.
 This is only active when up-mix is enabled and a Front Center channel is mixed.
 \endparblock
 
+@PAR@ node-prop  channelmix.center-level = 0.707106781
+The level of the center channel when up/downmixing.
+
+@PAR@ node-prop  channelmix.surround-level = 0.707106781
+The level of the surround channels when up/downmixing.
+
+@PAR@ node-prop  channelmix.lfe-level = 0.5
+The level of the LFE channel when up/downmixing.
+
 @PAR@ node-prop  channelmix.hilbert-taps = 0
 \parblock
 This option will apply a 90 degree phase shift to the rear channels to improve specialization.

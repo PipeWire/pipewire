@@ -726,13 +726,41 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 	case 19:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.center-level"),
+			SPA_PROP_INFO_description, SPA_POD_String("Center up/downmix level"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+				this->mix.center_level, 0.0, 10.0),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 20:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.surround-level"),
+			SPA_PROP_INFO_description, SPA_POD_String("Surround up/downmix level"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+				this->mix.surround_level, 0.0, 10.0),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+	case 21:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
+			SPA_PROP_INFO_name, SPA_POD_String("channelmix.lfe-level"),
+			SPA_PROP_INFO_description, SPA_POD_String("LFE up/downmix level"),
+			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float(
+				this->mix.lfe_level, 0.0, 10.0),
+			SPA_PROP_INFO_params, SPA_POD_Bool(true));
+		break;
+
+	case 22:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.hilbert-taps"),
 			SPA_PROP_INFO_description, SPA_POD_String("Taps for phase shift of rear"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(
 				this->mix.hilbert_taps, 0, MAX_TAPS),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 20:
+	case 23:
 		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.upmix-method"),
@@ -751,14 +779,14 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 		spa_pod_builder_pop(b, &f[1]);
 		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
-	case 21:
+	case 24:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_rate),
 			SPA_PROP_INFO_description, SPA_POD_String("Rate scaler"),
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Double(p->rate, 0.0, 10.0));
 		break;
-	case 22:
+	case 25:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_id, SPA_POD_Id(SPA_PROP_quality),
@@ -767,7 +795,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(p->resample_quality, 0, 14),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 23:
+	case 26:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_name, SPA_POD_String("resample.disable"),
@@ -775,7 +803,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->resample_disabled),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 24:
+	case 27:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_name, SPA_POD_String("dither.noise"),
@@ -783,7 +811,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Int(this->dir[1].conv.noise_bits, 0, 16),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 25:
+	case 28:
 		spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 		spa_pod_builder_add(b,
 			SPA_PROP_INFO_name, SPA_POD_String("dither.method"),
@@ -801,7 +829,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 		spa_pod_builder_pop(b, &f[1]);
 		*param = spa_pod_builder_pop(b, &f[0]);
 		break;
-	case 26:
+	case 29:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_name, SPA_POD_String("debug.wav-path"),
@@ -809,7 +837,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			SPA_PROP_INFO_type, SPA_POD_String(p->wav_path),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 27:
+	case 30:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_name, SPA_POD_String("channelmix.lock-volumes"),
@@ -817,7 +845,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->lock_volumes),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 28:
+	case 31:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph.disable"),
@@ -825,7 +853,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 			SPA_PROP_INFO_type, SPA_POD_CHOICE_Bool(p->filter_graph_disabled),
 			SPA_PROP_INFO_params, SPA_POD_Bool(true));
 		break;
-	case 29:
+	case 32:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_PropInfo, id,
 			SPA_PROP_INFO_name, SPA_POD_String("audioconvert.filter-graph.N"),
@@ -836,7 +864,7 @@ static int node_param_prop_info(struct impl *this, uint32_t id, uint32_t index,
 	default:
 		if (this->filter_graph[0] && this->filter_graph[0]->graph) {
 			return spa_filter_graph_enum_prop_info(this->filter_graph[0]->graph,
-					index - 30, b, param);
+					index - 33, b, param);
 		}
 		return 0;
 	}
@@ -903,6 +931,12 @@ static int node_param_props(struct impl *this, uint32_t id, uint32_t index,
 		spa_pod_builder_float(b, this->mix.rear_delay);
 		spa_pod_builder_string(b, "channelmix.stereo-widen");
 		spa_pod_builder_float(b, this->mix.widen);
+		spa_pod_builder_string(b, "channelmix.center-level");
+		spa_pod_builder_float(b, this->mix.center_level);
+		spa_pod_builder_string(b, "channelmix.surround-level");
+		spa_pod_builder_float(b, this->mix.surround_level);
+		spa_pod_builder_string(b, "channelmix.lfe-level");
+		spa_pod_builder_float(b, this->mix.lfe_level);
 		spa_pod_builder_string(b, "channelmix.hilbert-taps");
 		spa_pod_builder_int(b, this->mix.hilbert_taps);
 		spa_pod_builder_string(b, "channelmix.upmix-method");
@@ -1490,6 +1524,12 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 		spa_atof(s, &this->mix.rear_delay);
 	else if (spa_streq(k, "channelmix.stereo-widen"))
 		spa_atof(s, &this->mix.widen);
+	else if (spa_streq(k, "channelmix.center-level"))
+		spa_atof(s, &this->mix.center_level);
+	else if (spa_streq(k, "channelmix.surround-level"))
+		spa_atof(s, &this->mix.surround_level);
+	else if (spa_streq(k, "channelmix.lfe-level"))
+		spa_atof(s, &this->mix.lfe_level);
 	else if (spa_streq(k, "channelmix.hilbert-taps"))
 		spa_atou32(s, &this->mix.hilbert_taps, 0);
 	else if (spa_streq(k, "channelmix.upmix-method"))
@@ -4320,13 +4360,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	this->rate_limit.burst = 1;
 
-	this->mix.options = CHANNELMIX_OPTION_UPMIX | CHANNELMIX_OPTION_MIX_LFE;
-	this->mix.upmix = CHANNELMIX_UPMIX_NONE;
-	this->mix.log = this->log;
-	this->mix.lfe_cutoff = 0.0f;
-	this->mix.fc_cutoff = 0.0f;
-	this->mix.rear_delay = 0.0f;
-	this->mix.widen = 0.0f;
+	channelmix_reset(&this->mix);
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;

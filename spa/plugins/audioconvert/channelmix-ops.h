@@ -28,6 +28,17 @@
 
 #define CHANNELMIX_OPS_MAX_ALIGN 16
 
+#define CHANNELMIX_DEFAULT_OPTIONS (CHANNELMIX_OPTION_UPMIX | CHANNELMIX_OPTION_MIX_LFE)
+#define CHANNELMIX_DEFAULT_UPMIX CHANNELMIX_UPMIX_NONE
+#define CHANNELMIX_DEFAULT_LFE_CUTOFF 0.0f
+#define CHANNELMIX_DEFAULT_FC_CUTOFF 0.0f
+#define CHANNELMIX_DEFAULT_REAR_DELAY 0.0f
+#define CHANNELMIX_DEFAULT_CENTER_LEVEL 0.707106781f
+#define CHANNELMIX_DEFAULT_SURROUND_LEVEL 0.707106781f
+#define CHANNELMIX_DEFAULT_LFE_LEVEL 0.5f
+#define CHANNELMIX_DEFAULT_WIDEN 0.0f
+#define CHANNELMIX_DEFAULT_HILBERT_TAPS 0
+
 struct channelmix {
 	uint32_t src_chan;
 	uint32_t dst_chan;
@@ -60,6 +71,9 @@ struct channelmix {
 	float fc_cutoff;				/* in Hz, 0 is disabled */
 	float rear_delay;				/* in ms, 0 is disabled */
 	float widen;					/* stereo widen. 0 is disabled */
+	float center_level;				/* center down/upmix level, sqrt(1/2) */
+	float lfe_level;				/* lfe down/upmix level, 1/2 */
+	float surround_level;				/* surround down/upmix level, sqrt(1/2) */
 	uint32_t hilbert_taps;				/* to phase shift, 0 disabled */
 	struct lr4 lr4[MAX_CHANNELS];
 
@@ -80,6 +94,7 @@ struct channelmix {
 	void *data;
 };
 
+void channelmix_reset(struct channelmix *mix);
 int channelmix_init(struct channelmix *mix);
 
 static const struct channelmix_upmix_info {

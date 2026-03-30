@@ -87,6 +87,64 @@ static inline int pw_net_parse_address_port(const char *address,
 	return pw_net_parse_address(n, port, addr, len);
 }
 
+static inline bool pw_net_are_addresses_equal(const struct sockaddr_storage *addr1,
+					      const struct sockaddr_storage *addr2,
+					      bool compare_ports)
+{
+	/* IPv6 addresses might actually be mapped IPv4 ones. In cases where
+	 * such mapped IPv4 addresses are compared against plain IPv4 ones
+	 * (that is, ss_family == AF_INET), special handling is required. */
+	bool addr1_is_mapped_ipv4 = (addr1->ss_family == AF_INET6) &&
+	                            IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6*)addr1)->sin6_addr);
+	bool addr2_is_mapped_ipv4 = (addr2->ss_family == AF_INET6) &&
+	                            IN6_IS_ADDR_V4MAPPED(&((struct sockaddr_in6*)addr2)->sin6_addr);
+
+	if ((addr1->ss_family == AF_INET) && (addr2->ss_family == AF_INET)) {
+		/* Both addresses are plain IPv4 addresses. */
+
+		const struct sockaddr_in *addr1_in = (const struct sockaddr_in *)addr1;
+		const struct sockaddr_in *addr2_in = (const struct sockaddr_in *)addr2;
+		return (!compare_ports || (addr1_in->sin_port == addr2_in->sin_port)) &&
+		       (addr1_in->sin_addr.s_addr == addr2_in->sin_addr.s_addr);
+	} else if ((addr1->ss_family == AF_INET6) && (addr2->ss_family == AF_INET6)) {
+		/* Both addresses are IPv6 addresses. (Note that this logic here
+		 * works correctly even if both are actually mapped IPv4 addresses.) */
+
+		const struct sockaddr_in6 *addr1_in6 = (const struct sockaddr_in6 *)addr1;
+		const struct sockaddr_in6 *addr2_in6 = (const struct sockaddr_in6 *)addr2;
+		return (!compare_ports || (addr1_in6->sin6_port == addr2_in6->sin6_port)) &&
+		       (addr1_in6->sin6_scope_id == addr2_in6->sin6_scope_id) &&
+		       (memcmp(&addr1_in6->sin6_addr, &addr2_in6->sin6_addr, sizeof(struct in6_addr)) == 0);
+	} else if ((addr1->ss_family == AF_INET) && addr2_is_mapped_ipv4) {
+		/* addr1 is a plain IPv4 address, addr2 is a mapped IPv4 address.
+		 * Extract the IPv4 portion of addr2 to form a plain IPv4 address
+		 * out of it, then compare the two plain IPv4 addresses. */
+
+		struct in_addr addr2_as_ipv4;
+		const struct sockaddr_in *addr1_in = (const struct sockaddr_in *)addr1;
+		const struct sockaddr_in6 *addr2_in6 = (const struct sockaddr_in6 *)addr2;
+
+		memcpy(&addr2_as_ipv4, &(addr2_in6->sin6_addr.s6_addr[12]), 4);
+
+		return (!compare_ports || (addr1_in->sin_port == addr2_in6->sin6_port)) &&
+		       (addr1_in->sin_addr.s_addr == addr2_as_ipv4.s_addr);
+	} else if (addr1_is_mapped_ipv4 && (addr2->ss_family == AF_INET)) {
+		/* addr2 is a plain IPv4 address, addr1 is a mapped IPv4 address.
+		 * Extract the IPv4 portion of addr1 to form a plain IPv4 address
+		 * out of it, then compare the two plain IPv4 addresses. */
+
+		struct in_addr addr1_as_ipv4;
+		const struct sockaddr_in6 *addr1_in6 = (const struct sockaddr_in6 *)addr1;
+		const struct sockaddr_in *addr2_in = (const struct sockaddr_in *)addr2;
+
+		memcpy(&addr1_as_ipv4, &(addr1_in6->sin6_addr.s6_addr[12]), 4);
+
+		return (!compare_ports || (addr1_in6->sin6_port == addr2_in->sin_port)) &&
+		       (addr1_as_ipv4.s_addr == addr2_in->sin_addr.s_addr);
+	} else
+		return false;
+}
+
 static inline int pw_net_get_ip(const struct sockaddr_storage *sa, char *ip, size_t len, bool *ip4, uint16_t *port)
 {
 	if (ip4)

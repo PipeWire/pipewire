@@ -48,6 +48,7 @@ struct card {
 	unsigned int accessible:1;
 	unsigned int ignored:1;
 	unsigned int emitted:1;
+	unsigned int wireless_disconnected:1;
 
 	/* Local SPA object IDs. (Global IDs are produced by PipeWire
 	 * out of this using its registry.) Compress-Offload or PCM
@@ -59,6 +60,10 @@ struct card {
 	 * is used because 0 is a valid ALSA card number. */
 	uint32_t pcm_device_id;
 	uint32_t compress_offload_device_id;
+
+	/* Syspath of the USB interface that has wireless_status (e.g.
+	 * /sys/devices/.../1-5:1.3). Empty string when not applicable. */
+	char wireless_status_syspath[256];
 };
 
 static uint32_t calc_pcm_device_id(struct card *card)
@@ -92,6 +97,8 @@ struct impl {
 
 	struct spa_source source;
 	struct spa_source notify;
+	struct udev_monitor *usb_umonitor;
+	struct spa_source usb_source;
 	unsigned int use_acp:1;
 	unsigned int expose_busy:1;
 	int use_ucm;
@@ -351,6 +358,87 @@ static int check_udev_environment(struct udev *udev, const char *devname)
 	udev_device_unref(dev);
 
 	return ret;
+}
+
+static void check_wireless_status(struct impl *this, struct card *card)
+{
+	char path[PATH_MAX];
+	char buf[32];
+	size_t sz;
+	bool was_disconnected;
+
+	if (card->wireless_status_syspath[0] == '\0')
+		return;
+
+	was_disconnected = card->wireless_disconnected;
+
+	spa_scnprintf(path, sizeof(path), "%s/wireless_status", card->wireless_status_syspath);
+
+	spa_autoptr(FILE) f = fopen(path, "re");
+	if (f == NULL)
+		return;
+
+	sz = fread(buf, 1, sizeof(buf) - 1, f);
+	buf[sz] = '\0';
+
+	card->wireless_disconnected = spa_strstartswith(buf, "disconnected");
+
+	if (card->wireless_disconnected != was_disconnected)
+		spa_log_info(this->log, "card %u: wireless headset %s",
+		             card->card_nr,
+		             card->wireless_disconnected ? "disconnected" : "connected");
+}
+
+static void find_wireless_status(struct impl *this, struct card *card)
+{
+	const char *bus, *parent_syspath, *parent_sysname;
+	struct udev_device *parent;
+	struct dirent *entry;
+	char path[PATH_MAX];
+	size_t sysname_len;
+
+	bus = udev_device_get_property_value(card->udev_device, "ID_BUS");
+	if (!spa_streq(bus, "usb"))
+		return;
+
+	/* udev_device_get_parent_* returns a borrowed reference owned by the child; do not unref it. */
+	parent = udev_device_get_parent_with_subsystem_devtype(card->udev_device, "usb", "usb_device");
+	if (parent == NULL)
+		return;
+
+	parent_syspath = udev_device_get_syspath(parent);
+	parent_sysname = udev_device_get_sysname(parent);
+	if (parent_syspath == NULL || parent_sysname == NULL)
+		return;
+
+	sysname_len = strlen(parent_sysname);
+
+	spa_autoptr(DIR) dir = opendir(parent_syspath);
+	if (dir == NULL)
+		return;
+
+	while ((entry = readdir(dir)) != NULL) {
+		/* USB interface directories are named "<sysname>:<config>.<intf>" */
+		if (strncmp(entry->d_name, parent_sysname, sysname_len) != 0 ||
+		    entry->d_name[sysname_len] != ':')
+			continue;
+
+		spa_scnprintf(path, sizeof(path), "%s/%s/wireless_status",
+		              parent_syspath, entry->d_name);
+		if (access(path, R_OK) < 0)
+			continue;
+
+		spa_scnprintf(card->wireless_status_syspath,
+		              sizeof(card->wireless_status_syspath),
+		              "%s/%s", parent_syspath, entry->d_name);
+
+		check_wireless_status(this, card);
+
+		spa_log_debug(this->log, "card %u: found wireless_status at %s (%s)",
+		              card->card_nr, card->wireless_status_syspath,
+		              card->wireless_disconnected ? "disconnected" : "connected");
+		return;
+	}
 }
 
 static int check_pcm_device_availability(struct impl *this, struct card *card,
@@ -734,7 +822,11 @@ static void process_card(struct impl *this, enum action action, struct card *car
 			return;
 
 		check_access(this, card);
-		if (card->accessible && !card->emitted) {
+		check_wireless_status(this, card);
+
+		bool effective_accessible = card->accessible && !card->wireless_disconnected;
+
+		if (effective_accessible && !card->emitted) {
 			int res = emit_added_object_info(this, card);
 			if (res < 0) {
 				if (card->ignored)
@@ -753,7 +845,7 @@ static void process_card(struct impl *this, enum action action, struct card *car
 							card->card_nr);
 				card->unavailable = false;
 			}
-		} else if (!card->accessible && card->emitted) {
+		} else if (!effective_accessible && card->emitted) {
 			card->emitted = false;
 
 			if (card->pcm_device_id != ID_DEVICE_NOT_SUPPORTED)
@@ -790,8 +882,11 @@ static void process_udev_device(struct impl *this, enum action action, struct ud
 		return;
 
 	card = find_card(this, card_nr);
-	if (action == ACTION_CHANGE && !card)
+	if (action == ACTION_CHANGE && !card) {
 		card = add_card(this, card_nr, udev_device);
+		if (card)
+			find_wireless_status(this, card);
+	}
 
 	if (!card)
 		return;
@@ -918,6 +1013,41 @@ static void impl_on_fd_events(struct spa_source *source)
 	udev_device_unref(udev_device);
 }
 
+static void impl_on_usb_events(struct spa_source *source)
+{
+	struct impl *this = source->data;
+	struct udev_device *udev_device;
+	const char *action, *syspath;
+	unsigned int i;
+
+	udev_device = udev_monitor_receive_device(this->usb_umonitor);
+	if (udev_device == NULL)
+		return;
+
+	if ((action = udev_device_get_action(udev_device)) == NULL)
+		action = "change";
+
+	if (!spa_streq(action, "change"))
+		goto done;
+
+	syspath = udev_device_get_syspath(udev_device);
+	if (syspath == NULL)
+		goto done;
+
+	for (i = 0; i < this->n_cards; i++) {
+		struct card *card = &this->cards[i];
+		if (card->wireless_status_syspath[0] == '\0')
+			continue;
+		if (!spa_streq(card->wireless_status_syspath, syspath))
+			continue;
+		spa_log_debug(this->log, "wireless_status change for card %u", card->card_nr);
+		process_card(this, ACTION_CHANGE, card);
+	}
+
+done:
+	udev_device_unref(udev_device);
+}
+
 static int start_monitor(struct impl *this)
 {
 	int res;
@@ -941,6 +1071,20 @@ static int start_monitor(struct impl *this)
 	spa_log_debug(this->log, "monitor %p", this->umonitor);
 	spa_loop_add_source(this->main_loop, &this->source);
 
+	this->usb_umonitor = udev_monitor_new_from_netlink(this->udev, "udev");
+	if (this->usb_umonitor != NULL) {
+		udev_monitor_filter_add_match_subsystem_devtype(this->usb_umonitor,
+		                                                "usb", "usb_interface");
+		udev_monitor_enable_receiving(this->usb_umonitor);
+
+		this->usb_source.func = impl_on_usb_events;
+		this->usb_source.data = this;
+		this->usb_source.fd = udev_monitor_get_fd(this->usb_umonitor);
+		this->usb_source.mask = SPA_IO_IN | SPA_IO_ERR;
+
+		spa_loop_add_source(this->main_loop, &this->usb_source);
+	}
+
 	if ((res = start_inotify(this)) < 0)
 		return res;
 
@@ -957,6 +1101,12 @@ static int stop_monitor(struct impl *this)
 	spa_loop_remove_source(this->main_loop, &this->source);
 	udev_monitor_unref(this->umonitor);
 	this->umonitor = NULL;
+
+	if (this->usb_umonitor != NULL) {
+		spa_loop_remove_source(this->main_loop, &this->usb_source);
+		udev_monitor_unref(this->usb_umonitor);
+		this->usb_umonitor = NULL;
+	}
 
 	stop_inotify(this);
 

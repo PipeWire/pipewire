@@ -1503,6 +1503,10 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 	struct ltv_writer writer = LTV_WRITER(caps, *caps_size);
 	const struct bap_qos *preset = NULL;
 
+	uint32_t retransmissions = 0;
+	uint8_t rtn_manual_set = 0;
+	uint32_t max_transport_latency = 0;
+	uint32_t presentation_delay = 0;
 	*caps_size = 0;
 
 	if (settings) {
@@ -1511,6 +1515,14 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 				sscanf(settings->items[i].value, "%"PRIu32, &channel_allocation);
 			if (spa_streq(settings->items[i].key, "preset"))
 				preset_name = settings->items[i].value;
+			if (spa_streq(settings->items[i].key, "max_transport_latency"))
+				spa_atou32(settings->items[i].value, &max_transport_latency, 0);
+			if (spa_streq(settings->items[i].key, "presentation_delay"))
+				spa_atou32(settings->items[i].value, &presentation_delay, 0);
+			if (spa_streq(settings->items[i].key, "retransmissions")) {
+				spa_atou32(settings->items[i].value, &retransmissions, 0);
+				rtn_manual_set = 1;
+			}
 		}
 	}
 
@@ -1537,9 +1549,9 @@ static int codec_get_bis_config(const struct media_codec *codec, uint8_t *caps,
 	else
 		qos->framing = 0;
 	qos->sdu = preset->framelen * get_channel_count(channel_allocation);
-	qos->retransmission = preset->retransmission;
-	qos->latency = preset->latency;
-	qos->delay = preset->delay;
+	qos->retransmission = rtn_manual_set ? retransmissions : preset->retransmission;
+	qos->latency = max_transport_latency ? max_transport_latency : preset->latency;
+	qos->delay = presentation_delay ? presentation_delay : preset->delay;
 	qos->phy = 2;
 	qos->interval = (preset->frame_duration == LC3_CONFIG_DURATION_7_5 ? 7500 : 10000);
 

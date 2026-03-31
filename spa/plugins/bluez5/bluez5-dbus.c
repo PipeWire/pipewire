@@ -188,9 +188,16 @@ struct spa_bt_metadata {
 	uint8_t value[METADATA_MAX_LEN - 1];
 };
 
+#define RTN_MAX				0x1E
+#define MAX_TRANSPORT_LATENCY_MIN	0x5
+#define MAX_TRANSPORT_LATENCY_MAX	0x0FA0
+
 struct spa_bt_bis {
 	struct spa_list link;
 	char qos_preset[255];
+	int retransmissions;
+	int rtn_manual_set;
+	int max_transport_latency;
 	int channel_allocation;
 	struct spa_list metadata_list;
 };
@@ -6192,8 +6199,11 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 	struct bap_codec_qos qos;
 	struct spa_bt_metadata *metadata_entry;
 	struct spa_dict settings;
-	struct spa_dict_item setting_items[2];
+	struct spa_dict_item setting_items[4];
+	uint32_t n_items = 0;
 	char channel_allocation[64] = {0};
+	char retransmissions[3] = {0};
+	char max_transport_latency[5] = {0};
 
 	int mse = 0;
 	int options = 0;
@@ -6218,12 +6228,27 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 		metadata_size += metadata_entry->length - 1;
 	}
 
+
 	spa_log_debug(monitor->log, "bis->channel_allocation %d", bis->channel_allocation);
-	if (bis->channel_allocation)
+	if (bis->channel_allocation) {
 		spa_scnprintf(channel_allocation, sizeof(channel_allocation), "%"PRIu32, bis->channel_allocation);
-	setting_items[0] = SPA_DICT_ITEM_INIT("channel_allocation", channel_allocation);
-	setting_items[1] = SPA_DICT_ITEM_INIT("preset", bis->qos_preset);
-	settings = SPA_DICT_INIT(setting_items, 2);
+	}
+	spa_log_debug(monitor->log, "bis->rtn_manual_set %d", bis->rtn_manual_set);
+	spa_log_debug(monitor->log, "bis->retransmissions %d", bis->retransmissions);
+	if (bis->rtn_manual_set) {
+		spa_scnprintf(retransmissions, sizeof(retransmissions), "%"PRIu8, bis->retransmissions);
+		setting_items[n_items++] = SPA_DICT_ITEM_INIT("retransmissions", retransmissions);
+	}
+	spa_log_debug(monitor->log, "bis->max_transport_latency %d", bis->max_transport_latency);
+	if (bis->max_transport_latency) {
+		spa_scnprintf(max_transport_latency, sizeof(max_transport_latency), "%"PRIu32, bis->max_transport_latency);
+		setting_items[n_items++] = SPA_DICT_ITEM_INIT("max_transport_latency", max_transport_latency);
+	}
+
+	setting_items[n_items++] = SPA_DICT_ITEM_INIT("preset", bis->qos_preset);
+	setting_items[n_items++] = SPA_DICT_ITEM_INIT("channel_allocation", channel_allocation);
+
+	settings = SPA_DICT_INIT(setting_items, n_items);
 
 	caps_size = sizeof(caps);
 	ret = codec->get_bis_config(codec, caps, &caps_size, &settings, &qos);
@@ -7126,6 +7151,20 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 							if (spa_json_get_string(&it[1], bis_entry->qos_preset, sizeof(bis_entry->qos_preset)) <= 0)
 								goto parse_failed;
 							spa_log_debug(monitor->log, "bis_entry->qos_preset %s", bis_entry->qos_preset);
+						} else if (spa_streq(bis_key, "retransmissions")) {
+							if (spa_json_get_int(&it[2], &bis_entry->retransmissions) <= 0)
+								goto parse_failed;
+							if (bis_entry->retransmissions > RTN_MAX)
+								goto parse_failed;
+							bis_entry->rtn_manual_set = 1;
+							spa_log_debug(monitor->log, "bis_entry->retransmissions %d", bis_entry->retransmissions);
+						} else if (spa_streq(bis_key, "max_transport_latency")) {
+							if (spa_json_get_int(&it[2], &bis_entry->max_transport_latency) <= 0)
+								goto parse_failed;
+							if (bis_entry->max_transport_latency < MAX_TRANSPORT_LATENCY_MIN &&
+								bis_entry->max_transport_latency > MAX_TRANSPORT_LATENCY_MAX)
+								goto parse_failed;
+							spa_log_debug(monitor->log, "bis_entry->max_transport_latency %d", bis_entry->max_transport_latency);
 						} else if (spa_streq(bis_key, "audio_channel_allocation")) {
 							if (spa_json_get_int(&it[1], &bis_entry->channel_allocation) <= 0)
 								goto parse_failed;

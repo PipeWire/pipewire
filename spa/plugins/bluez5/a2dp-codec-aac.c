@@ -286,7 +286,7 @@ static void *codec_init_props(const struct media_codec *codec, uint32_t flags, c
 		return NULL;
 
 	if (settings == NULL || (str = spa_dict_lookup(settings, "bluez5.a2dp.aac.bitratemode")) == NULL)
-		str = "0";
+		str = "5";
 
 	p->bitratemode = SPA_CLAMP(atoi(str), 0, 5);
 	return p;

@@ -986,7 +986,10 @@ static void make_available_codec_list(struct impl *backend, struct spa_bt_device
 
 	for (i = 0; backend->codecs[i]; ++i) {
 		const struct media_codec *codec = backend->codecs[i];
+
 		if (codec->kind != MEDIA_CODEC_HFP)
+			continue;
+		if (!spa_bt_get_hfp_codec(backend->monitor, codec->codec_id))
 			continue;
 		if (device_supports_codec(backend, device, codec->id))
 			codec_list_add(codec_list, codec);

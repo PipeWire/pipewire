@@ -395,6 +395,15 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	if (res != AACENC_OK)
 		goto error;
 
+	// Assume >110 kbit/s as a "high bitrate" CBR and increase the
+	// band pass cutout up to 19.3 kHz (as in mode 5 VBR).
+	if (!conf->vbr && this->cur_bitrate > 110000)  {
+		res = aacEncoder_SetParam(this->aacenc, AACENC_BANDWIDTH,
+				19293);
+		if (res != AACENC_OK)
+			goto error;
+	}
+
 	res = aacEncoder_SetParam(this->aacenc, AACENC_TRANSMUX, TT_MP4_LATM_MCP1);
 	if (res != AACENC_OK)
 		goto error;

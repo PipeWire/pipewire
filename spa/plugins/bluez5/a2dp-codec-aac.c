@@ -380,8 +380,12 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	// Fragmentation is not implemented yet,
 	// so make sure every encoded AAC frame fits in (mtu - header)
 	this->max_bitrate = ((this->mtu - sizeof(struct rtp_header)) * 8 * this->rate) / 1024;
-	this->max_bitrate = SPA_MIN(this->max_bitrate, get_valid_aac_bitrate(conf));
-	this->cur_bitrate = this->max_bitrate;
+	this->cur_bitrate = SPA_MIN(this->max_bitrate, get_valid_aac_bitrate(conf));
+	spa_log_debug(log, "AAC: max (peak) bitrate: %d, cur bitrate: %d, mode: %d (vbr: %d)",
+			this->max_bitrate,
+			this->cur_bitrate,
+			bitratemode,
+			conf->vbr);
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_BITRATE, this->cur_bitrate);
 	if (res != AACENC_OK)

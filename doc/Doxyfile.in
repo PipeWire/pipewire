@@ -58,6 +58,7 @@ PREDEFINED             = PA_C_DECL_BEGIN= \
 			 SPA_NORETURN \
 			 SPA_RESTRICT
 HTML_EXTRA_STYLESHEET  = @cssfiles@
+IMAGE_PATH             = "@top_srcdir@/doc/dox/media/"
 
 MAX_INITIALIZER_LINES  = 1
 SORT_MEMBER_DOCS       = NO

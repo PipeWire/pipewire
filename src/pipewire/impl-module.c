@@ -154,6 +154,9 @@ pw_context_load_module(struct pw_context *context,
 		NULL
 	};
 
+	while ((p = strstr(name, "../")) != NULL)
+		name = p + 3;
+
 	pw_log_info("%p: name:%s args:%s", context, name, args);
 
 	module_dir = getenv("PIPEWIRE_MODULE_DIR");

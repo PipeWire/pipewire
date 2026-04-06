@@ -31,6 +31,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.system");
 #endif
 
 SPA_STATIC_ASSERT(sizeof(struct spa_poll_event) == sizeof(struct epoll_event));
+SPA_STATIC_ASSERT(offsetof(struct spa_poll_event, events) == offsetof(struct epoll_event, events));
+SPA_STATIC_ASSERT(offsetof(struct spa_poll_event, data) == offsetof(struct epoll_event, data.ptr));
 
 struct impl {
 	struct spa_handle handle;

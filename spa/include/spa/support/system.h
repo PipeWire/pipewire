@@ -59,8 +59,15 @@ struct spa_system { struct spa_interface iface; };
 
 struct spa_poll_event {
 	uint32_t events;
-	void *data;
-} __attribute__ ((packed));
+	union {
+		void *data;
+		uint64_t data_u64;
+	};
+#ifdef __x86_64__
+} __attribute__((packed));
+#else
+};
+#endif
 
 struct spa_system_methods {
 #define SPA_VERSION_SYSTEM_METHODS	1

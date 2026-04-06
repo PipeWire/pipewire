@@ -158,34 +158,32 @@ static inline int weakjack_load_by_path(struct weakjack *jack, const char *path)
 static inline int weakjack_load(struct weakjack *jack, const char *lib)
 {
 	int res = -ENOENT;
+	const char *search_dirs, *p, *state = NULL;
+	char path[PATH_MAX];
+	size_t len;
 
-	if (lib[0] != '/') {
-		const char *search_dirs, *p, *state = NULL;
-		char path[PATH_MAX];
-		size_t len;
+	while ((p = strstr(lib, "../")) != NULL)
+		lib = p + 3;
 
-		search_dirs = getenv("LIBJACK_PATH");
-		if (!search_dirs)
-			search_dirs = PREFIX "/lib64/:" PREFIX "/lib/:"
-				"/usr/lib64/:/usr/lib/:" LIBDIR;
+	search_dirs = getenv("LIBJACK_PATH");
+	if (!search_dirs)
+		search_dirs = PREFIX "/lib64/:" PREFIX "/lib/:"
+			"/usr/lib64/:/usr/lib/:" LIBDIR;
 
-		while ((p = pw_split_walk(search_dirs, ":", &len, &state))) {
-			int pathlen;
+	while ((p = pw_split_walk(search_dirs, ":", &len, &state))) {
+		int pathlen;
 
-			if (len >= sizeof(path)) {
-				res = -ENAMETOOLONG;
-				continue;
-			}
-			pathlen = snprintf(path, sizeof(path), "%.*s/%s", (int) len, p, lib);
-			if (pathlen < 0 || (size_t) pathlen >= sizeof(path)) {
-				res = -ENAMETOOLONG;
-				continue;
-			}
-			if ((res = weakjack_load_by_path(jack, path)) == 0)
-				break;
+		if (len >= sizeof(path)) {
+			res = -ENAMETOOLONG;
+			continue;
 		}
-	} else {
-		res = weakjack_load_by_path(jack, lib);
+		pathlen = snprintf(path, sizeof(path), "%.*s/%s", (int) len, p, lib);
+		if (pathlen < 0 || (size_t) pathlen >= sizeof(path)) {
+			res = -ENAMETOOLONG;
+			continue;
+		}
+		if ((res = weakjack_load_by_path(jack, path)) == 0)
+			break;
 	}
 	return res;
 }

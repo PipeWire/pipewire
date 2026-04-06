@@ -232,6 +232,9 @@ static struct spa_handle *load_spa_handle(const char *lib,
 	if (lib == NULL)
 		lib = sup->support_lib;
 
+	while ((p = strstr(lib, "../")) != NULL)
+		lib = p + 3;
+
 	pw_log_debug("load lib:'%s' factory-name:'%s'", lib, factory_name);
 
 	plugin = NULL;

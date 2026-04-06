@@ -128,7 +128,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *             # an example ladspa plugin
  *             type = ladspa
  *             name = pitch
- *             plugin = "/usr/lib64/ladspa/ladspa-rubberband.so"
+ *             plugin = "ladspa-rubberband"
  *             label = "rubberband-r3-pitchshifter-mono"
  *             control = {
  *                 # controls are using the ladspa port names as seen in analyseplugin

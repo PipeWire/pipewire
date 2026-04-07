@@ -7,6 +7,9 @@
 #include <pipewire/pipewire.h>
 
 #include "module-avb/aecp-aem-descriptors.h"
+#include "module-avb/aecp-aem.h"
+#include "module-avb/aecp-aem-types.h"
+#include "module-avb/aecp-aem-cmds-resps/cmd-lock-entity.h"
 #include "test-avb-utils.h"
 
 static struct impl *test_impl_new(void)
@@ -1395,6 +1398,668 @@ PWTEST(avb_acmp_packet_filtering)
 	return PWTEST_PASS;
 }
 
+/*
+ * =====================================================================
+ * Phase 5: AECP/AEM Entity Model Tests
+ * =====================================================================
+ */
+
+/*
+ * Test: AECP READ_DESCRIPTOR for the entity descriptor.
+ * Verifies that a valid READ_DESCRIPTOR command returns SUCCESS
+ * with the entity descriptor data.
+ */
+PWTEST(avb_aecp_read_descriptor_entity)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x40 };
+	uint64_t controller_id = 0x020000fffe000040ULL;
+	struct avb_packet_aecp_aem_read_descriptor rd;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	memset(&rd, 0, sizeof(rd));
+	rd.configuration = 0;
+	rd.descriptor_type = htons(AVB_AEM_DESC_ENTITY);
+	rd.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_READ_DESCRIPTOR,
+			&rd, sizeof(rd));
+	pwtest_int_gt(len, 0);
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* Should get a response */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	{
+		uint8_t rbuf[2048];
+		int rlen;
+		struct avb_packet_aecp_aem *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)(sizeof(struct avb_ethernet_header) +
+					sizeof(struct avb_packet_aecp_aem)));
+
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+
+		/* Should be AEM_RESPONSE with SUCCESS */
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_MESSAGE_TYPE(&resp->aecp),
+				AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_SUCCESS);
+
+		/* Response should include the descriptor data, making it
+		 * larger than just the header + read_descriptor payload */
+		pwtest_int_gt(rlen, (int)(sizeof(struct avb_ethernet_header) +
+					sizeof(struct avb_packet_aecp_aem) +
+					sizeof(struct avb_packet_aecp_aem_read_descriptor)));
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: AECP READ_DESCRIPTOR for a non-existent descriptor.
+ * Should return NO_SUCH_DESCRIPTOR error.
+ */
+PWTEST(avb_aecp_read_descriptor_not_found)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x41 };
+	uint64_t controller_id = 0x020000fffe000041ULL;
+	struct avb_packet_aecp_aem_read_descriptor rd;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Request a descriptor type that doesn't exist */
+	memset(&rd, 0, sizeof(rd));
+	rd.descriptor_type = htons(AVB_AEM_DESC_AUDIO_UNIT);
+	rd.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_READ_DESCRIPTOR,
+			&rd, sizeof(rd));
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	{
+		uint8_t rbuf[2048];
+		int rlen;
+		struct avb_packet_aecp_aem *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_MESSAGE_TYPE(&resp->aecp),
+				AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: AECP message filtering — wrong EtherType and subtype.
+ */
+PWTEST(avb_aecp_packet_filtering)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x42 };
+	uint64_t controller_id = 0x020000fffe000042ULL;
+	struct avb_packet_aecp_aem_read_descriptor rd;
+	struct avb_ethernet_header *h;
+	struct avb_packet_aecp_aem *p;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	memset(&rd, 0, sizeof(rd));
+	rd.descriptor_type = htons(AVB_AEM_DESC_ENTITY);
+	rd.descriptor_id = htons(0);
+
+	/* Wrong EtherType — should be filtered */
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_READ_DESCRIPTOR,
+			&rd, sizeof(rd));
+	h = (struct avb_ethernet_header *)pkt;
+	h->type = htons(0x1234);
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+	pwtest_int_eq(avb_loopback_get_packet_count(server), 0);
+
+	/* Wrong subtype — should be filtered */
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 2,
+			AVB_AECP_AEM_CMD_READ_DESCRIPTOR,
+			&rd, sizeof(rd));
+	p = SPA_PTROFF(pkt, sizeof(struct avb_ethernet_header), void);
+	AVB_PACKET_SET_SUBTYPE(&p->aecp.hdr, AVB_SUBTYPE_ADP);
+
+	avb_test_inject_packet(server, 2 * SPA_NSEC_PER_SEC, pkt, len);
+	pwtest_int_eq(avb_loopback_get_packet_count(server), 0);
+
+	/* Correct packet — should get a response */
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 3,
+			AVB_AECP_AEM_CMD_READ_DESCRIPTOR,
+			&rd, sizeof(rd));
+	avb_test_inject_packet(server, 3 * SPA_NSEC_PER_SEC, pkt, len);
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: AECP unsupported message types (ADDRESS_ACCESS, AVC, VENDOR_UNIQUE).
+ * Should return NOT_IMPLEMENTED.
+ */
+PWTEST(avb_aecp_unsupported_message_types)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x43 };
+	uint64_t controller_id = 0x020000fffe000043ULL;
+	struct avb_packet_aecp_aem *p;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Build a basic AECP packet, then change message type to ADDRESS_ACCESS */
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_READ_DESCRIPTOR,
+			NULL, 0);
+
+	p = SPA_PTROFF(pkt, sizeof(struct avb_ethernet_header), void);
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp,
+			AVB_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_COMMAND);
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		int rlen;
+		struct avb_packet_aecp_header *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(resp),
+				AVB_AECP_STATUS_NOT_IMPLEMENTED);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: AEM command not in the legacy command table.
+ * Should return NOT_IMPLEMENTED.
+ */
+PWTEST(avb_aecp_aem_not_implemented)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x44 };
+	uint64_t controller_id = 0x020000fffe000044ULL;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* REBOOT command is not in the legacy table */
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_REBOOT,
+			NULL, 0);
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		int rlen;
+		struct avb_packet_aecp_aem *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: AECP ACQUIRE_ENTITY (legacy) with valid entity descriptor.
+ * Tests the fix for the pointer offset bug in handle_acquire_entity_avb_legacy.
+ */
+PWTEST(avb_aecp_acquire_entity_legacy)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x45 };
+	uint64_t controller_id = 0x020000fffe000045ULL;
+	struct avb_packet_aecp_aem_acquire acq;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Acquire the entity descriptor */
+	memset(&acq, 0, sizeof(acq));
+	acq.flags = 0;
+	acq.owner_guid = htobe64(controller_id);
+	acq.descriptor_type = htons(AVB_AEM_DESC_ENTITY);
+	acq.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_ACQUIRE_ENTITY,
+			&acq, sizeof(acq));
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		int rlen;
+		struct avb_packet_aecp_aem *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_MESSAGE_TYPE(&resp->aecp),
+				AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_SUCCESS);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: AECP LOCK_ENTITY (legacy) with valid entity descriptor.
+ * Tests the fix for the pointer offset bug in handle_lock_entity_avb_legacy.
+ */
+PWTEST(avb_aecp_lock_entity_legacy)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x46 };
+	uint64_t controller_id = 0x020000fffe000046ULL;
+	struct avb_packet_aecp_aem_acquire lock_pkt;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Lock the entity descriptor (lock uses same struct as acquire) */
+	memset(&lock_pkt, 0, sizeof(lock_pkt));
+	lock_pkt.flags = 0;
+	lock_pkt.owner_guid = htobe64(controller_id);
+	lock_pkt.descriptor_type = htons(AVB_AEM_DESC_ENTITY);
+	lock_pkt.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_LOCK_ENTITY,
+			&lock_pkt, sizeof(lock_pkt));
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		int rlen;
+		struct avb_packet_aecp_aem *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_MESSAGE_TYPE(&resp->aecp),
+				AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_SUCCESS);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Milan ENTITY_AVAILABLE command.
+ * Verifies the entity available handler returns lock status.
+ */
+PWTEST(avb_aecp_entity_available_milan)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x47 };
+	uint64_t controller_id = 0x020000fffe000047ULL;
+
+	impl = test_impl_new();
+	server = avb_test_server_new_milan(impl);
+	pwtest_ptr_notnull(server);
+
+	/* ENTITY_AVAILABLE has no payload */
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_ENTITY_AVAILABLE,
+			NULL, 0);
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		int rlen;
+		struct avb_packet_aecp_aem *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_MESSAGE_TYPE(&resp->aecp),
+				AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_SUCCESS);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Milan LOCK_ENTITY — lock, verify locked, unlock.
+ * Tests lock semantics and the reply_status pointer fix.
+ */
+PWTEST(avb_aecp_lock_entity_milan)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x48 };
+	uint64_t controller_id = 0x020000fffe000048ULL;
+	uint64_t other_controller = 0x020000fffe000049ULL;
+	struct avb_packet_aecp_aem_lock lock_payload;
+
+	impl = test_impl_new();
+	server = avb_test_server_new_milan(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Lock the entity */
+	memset(&lock_payload, 0, sizeof(lock_payload));
+	lock_payload.descriptor_type = htons(AVB_AEM_DESC_ENTITY);
+	lock_payload.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_LOCK_ENTITY,
+			&lock_payload, sizeof(lock_payload));
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* Should get SUCCESS for the lock */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		struct avb_packet_aecp_aem *resp;
+
+		avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_SUCCESS);
+	}
+
+	/* Another controller tries to lock — should get ENTITY_LOCKED */
+	avb_loopback_clear_packets(server);
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, other_controller, 2,
+			AVB_AECP_AEM_CMD_LOCK_ENTITY,
+			&lock_payload, sizeof(lock_payload));
+	avb_test_inject_packet(server, 2 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		struct avb_packet_aecp_aem *resp;
+
+		avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_ENTITY_LOCKED);
+	}
+
+	/* Original controller unlocks */
+	avb_loopback_clear_packets(server);
+	lock_payload.flags = htonl(AECP_AEM_LOCK_ENTITY_FLAG_UNLOCK);
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 3,
+			AVB_AECP_AEM_CMD_LOCK_ENTITY,
+			&lock_payload, sizeof(lock_payload));
+	avb_test_inject_packet(server, 3 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		struct avb_packet_aecp_aem *resp;
+
+		avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_SUCCESS);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Milan LOCK_ENTITY for non-entity descriptor returns NOT_SUPPORTED.
+ */
+PWTEST(avb_aecp_lock_non_entity_milan)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x4A };
+	uint64_t controller_id = 0x020000fffe00004AULL;
+	struct avb_packet_aecp_aem_lock lock_payload;
+
+	impl = test_impl_new();
+	server = avb_test_server_new_milan(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Try to lock AUDIO_UNIT descriptor (not entity) */
+	memset(&lock_payload, 0, sizeof(lock_payload));
+	lock_payload.descriptor_type = htons(AVB_AEM_DESC_AUDIO_UNIT);
+	lock_payload.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_LOCK_ENTITY,
+			&lock_payload, sizeof(lock_payload));
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* Should get NO_SUCH_DESCRIPTOR (audio_unit doesn't exist) */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		struct avb_packet_aecp_aem *resp;
+
+		avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		/* Bug fix verified: reply_status now gets the full frame pointer,
+		 * so the response is correctly formed */
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_MESSAGE_TYPE(&resp->aecp),
+				AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Milan ACQUIRE_ENTITY returns NOT_SUPPORTED.
+ * Milan v1.2 does not implement acquire.
+ */
+PWTEST(avb_aecp_acquire_entity_milan)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x4B };
+	uint64_t controller_id = 0x020000fffe00004BULL;
+	struct avb_packet_aecp_aem_acquire acq;
+
+	impl = test_impl_new();
+	server = avb_test_server_new_milan(impl);
+	pwtest_ptr_notnull(server);
+
+	memset(&acq, 0, sizeof(acq));
+	acq.descriptor_type = htons(AVB_AEM_DESC_ENTITY);
+	acq.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_ACQUIRE_ENTITY,
+			&acq, sizeof(acq));
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		struct avb_packet_aecp_aem *resp;
+
+		avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_NOT_SUPPORTED);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Milan READ_DESCRIPTOR works the same as legacy.
+ */
+PWTEST(avb_aecp_read_descriptor_milan)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[512];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x4C };
+	uint64_t controller_id = 0x020000fffe00004CULL;
+	struct avb_packet_aecp_aem_read_descriptor rd;
+
+	impl = test_impl_new();
+	server = avb_test_server_new_milan(impl);
+	pwtest_ptr_notnull(server);
+
+	memset(&rd, 0, sizeof(rd));
+	rd.descriptor_type = htons(AVB_AEM_DESC_ENTITY);
+	rd.descriptor_id = htons(0);
+
+	len = avb_test_build_aecp_aem(pkt, sizeof(pkt), controller_mac,
+			server->entity_id, controller_id, 1,
+			AVB_AECP_AEM_CMD_READ_DESCRIPTOR,
+			&rd, sizeof(rd));
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[2048];
+		struct avb_packet_aecp_aem *resp;
+
+		avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		resp = SPA_PTROFF(rbuf, sizeof(struct avb_ethernet_header), void);
+		pwtest_int_eq((int)AVB_PACKET_AECP_GET_STATUS(&resp->aecp),
+				AVB_AECP_AEM_STATUS_SUCCESS);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(avb)
 {
 	/* Phase 2: ADP and basic tests */
@@ -1430,6 +2095,20 @@ PWTEST_SUITE(avb)
 	pwtest_add(avb_acmp_connect_rx_forward, PWTEST_NOARG);
 	pwtest_add(avb_acmp_pending_timeout, PWTEST_NOARG);
 	pwtest_add(avb_acmp_packet_filtering, PWTEST_NOARG);
+
+	/* Phase 5: AECP/AEM entity model tests */
+	pwtest_add(avb_aecp_read_descriptor_entity, PWTEST_NOARG);
+	pwtest_add(avb_aecp_read_descriptor_not_found, PWTEST_NOARG);
+	pwtest_add(avb_aecp_packet_filtering, PWTEST_NOARG);
+	pwtest_add(avb_aecp_unsupported_message_types, PWTEST_NOARG);
+	pwtest_add(avb_aecp_aem_not_implemented, PWTEST_NOARG);
+	pwtest_add(avb_aecp_acquire_entity_legacy, PWTEST_NOARG);
+	pwtest_add(avb_aecp_lock_entity_legacy, PWTEST_NOARG);
+	pwtest_add(avb_aecp_entity_available_milan, PWTEST_NOARG);
+	pwtest_add(avb_aecp_lock_entity_milan, PWTEST_NOARG);
+	pwtest_add(avb_aecp_lock_non_entity_milan, PWTEST_NOARG);
+	pwtest_add(avb_aecp_acquire_entity_milan, PWTEST_NOARG);
+	pwtest_add(avb_aecp_read_descriptor_milan, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

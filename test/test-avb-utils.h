@@ -17,7 +17,9 @@
 #include "module-avb/mmrp.h"
 #include "module-avb/maap.h"
 #include "module-avb/aecp.h"
+#include "module-avb/aecp-aem.h"
 #include "module-avb/aecp-aem-descriptors.h"
+#include "module-avb/aecp-aem-state.h"
 #include "module-avb/descriptors.h"
 #include "module-avb/avb-transport-loopback.h"
 
@@ -225,6 +227,125 @@ static inline int avb_test_build_adp_entity_discover(
 	p->entity_id = htobe64(entity_id);
 
 	return len;
+}
+
+/**
+ * Build an AECP AEM command packet for injection.
+ * Returns packet size, or -1 on error.
+ */
+static inline int avb_test_build_aecp_aem(
+		uint8_t *buf, size_t bufsize,
+		const uint8_t src_mac[6],
+		uint64_t target_guid,
+		uint64_t controller_guid,
+		uint16_t sequence_id,
+		uint16_t command_type,
+		const void *payload, size_t payload_size)
+{
+	struct avb_ethernet_header *h;
+	struct avb_packet_aecp_aem *p;
+	size_t len = sizeof(*h) + sizeof(*p) + payload_size;
+
+	if (bufsize < len)
+		return -1;
+
+	memset(buf, 0, len);
+
+	h = (struct avb_ethernet_header *)buf;
+	memcpy(h->dest, (uint8_t[]){ 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 }, 6);
+	memcpy(h->src, src_mac, 6);
+	h->type = htons(AVB_TSN_ETH);
+
+	p = SPA_PTROFF(h, sizeof(*h), void);
+	AVB_PACKET_SET_SUBTYPE(&p->aecp.hdr, AVB_SUBTYPE_AECP);
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp, AVB_AECP_MESSAGE_TYPE_AEM_COMMAND);
+	AVB_PACKET_AECP_SET_STATUS(&p->aecp, 0);
+	AVB_PACKET_SET_LENGTH(&p->aecp.hdr, payload_size + 12);
+	p->aecp.target_guid = htobe64(target_guid);
+	p->aecp.controller_guid = htobe64(controller_guid);
+	p->aecp.sequence_id = htons(sequence_id);
+	AVB_PACKET_AEM_SET_COMMAND_TYPE(p, command_type);
+
+	if (payload && payload_size > 0)
+		memcpy(p->payload, payload, payload_size);
+
+	return len;
+}
+
+/**
+ * Create a test AVB server in Milan v1.2 mode with loopback transport.
+ * The entity descriptor is properly sized for Milan state (lock, unsol).
+ */
+static inline struct server *avb_test_server_new_milan(struct impl *impl)
+{
+	struct server *server;
+
+	server = calloc(1, sizeof(*server));
+	if (server == NULL)
+		return NULL;
+
+	server->impl = impl;
+	server->ifname = strdup("test0");
+	server->avb_mode = AVB_MODE_MILAN_V12;
+	server->transport = &avb_transport_loopback;
+
+	spa_list_append(&impl->servers, &server->link);
+	spa_hook_list_init(&server->listener_list);
+	spa_list_init(&server->descriptors);
+
+	if (server->transport->setup(server) < 0)
+		goto error;
+
+	server->mrp = avb_mrp_new(server);
+	if (server->mrp == NULL)
+		goto error;
+
+	avb_aecp_register(server);
+	server->maap = avb_maap_register(server);
+	server->mmrp = avb_mmrp_register(server);
+	server->msrp = avb_msrp_register(server);
+	server->mvrp = avb_mvrp_register(server);
+	avb_adp_register(server);
+	avb_acmp_register(server);
+
+	server->domain_attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+	server->domain_attr->attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
+	server->domain_attr->attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
+	server->domain_attr->attr.domain.sr_class_vid = htons(AVB_DEFAULT_VLAN);
+
+	avb_mrp_attribute_begin(server->domain_attr->mrp, 0);
+	avb_mrp_attribute_join(server->domain_attr->mrp, 0, true);
+
+	/* Add Milan-sized entity descriptor with lock/unsol state */
+	{
+		struct aecp_aem_entity_milan_state entity_state;
+		memset(&entity_state, 0, sizeof(entity_state));
+		entity_state.state.desc.entity_id = htobe64(server->entity_id);
+		entity_state.state.desc.entity_model_id = htobe64(0x0001000000000001ULL);
+		entity_state.state.desc.entity_capabilities = htonl(
+				AVB_ADP_ENTITY_CAPABILITY_AEM_SUPPORTED |
+				AVB_ADP_ENTITY_CAPABILITY_CLASS_A_SUPPORTED |
+				AVB_ADP_ENTITY_CAPABILITY_GPTP_SUPPORTED);
+		entity_state.state.desc.talker_stream_sources = htons(1);
+		entity_state.state.desc.talker_capabilities = htons(
+				AVB_ADP_TALKER_CAPABILITY_IMPLEMENTED |
+				AVB_ADP_TALKER_CAPABILITY_AUDIO_SOURCE);
+		entity_state.state.desc.listener_stream_sinks = htons(1);
+		entity_state.state.desc.listener_capabilities = htons(
+				AVB_ADP_LISTENER_CAPABILITY_IMPLEMENTED |
+				AVB_ADP_LISTENER_CAPABILITY_AUDIO_SINK);
+		entity_state.state.desc.configurations_count = htons(1);
+		server_add_descriptor(server, AVB_AEM_DESC_ENTITY, 0,
+				sizeof(entity_state), &entity_state);
+	}
+
+	return server;
+
+error:
+	free(server->ifname);
+	free(server);
+	return NULL;
 }
 
 #endif /* TEST_AVB_UTILS_H */

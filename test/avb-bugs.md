@@ -87,3 +87,57 @@ as a response to its command and would eventually time out.
 shutdown.
 
 **Fix:** Change `<` to `<=` to include the controller list.
+
+## 6. Legacy AECP handlers read payload at wrong offset
+
+**File:** `src/modules/module-avb/aecp-aem.c`
+
+`handle_acquire_entity_avb_legacy()` and `handle_lock_entity_avb_legacy()`
+assign `const struct avb_packet_aecp_aem *p = m;` where `m` is the full
+ethernet frame (starting with `struct avb_ethernet_header`). The handlers
+then access `p->payload` to read the acquire/lock fields, but this reads
+from `m + offsetof(avb_packet_aecp_aem, payload)` instead of the correct
+`m + sizeof(avb_ethernet_header) + offsetof(avb_packet_aecp_aem, payload)`.
+This causes `descriptor_type` and `descriptor_id` to be read from the
+wrong position, leading to incorrect descriptor lookups.
+
+All other AEM command handlers (e.g., `handle_read_descriptor_common`)
+correctly derive `p` via `SPA_PTROFF(h, sizeof(*h), void)`.
+
+**Fix:** Change `const struct avb_packet_aecp_aem *p = m;` to properly
+skip the ethernet header:
+```c
+const struct avb_ethernet_header *h = m;
+const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
+```
+
+## 7. Milan LOCK_ENTITY error response uses wrong packet pointer
+
+**File:** `src/modules/module-avb/aecp-aem-cmds-resps/cmd-lock-entity.c`
+
+In `handle_cmd_lock_entity_milan_v12()`, when `server_find_descriptor()`
+returns NULL, `reply_status()` is called with `p` (the AEM packet pointer
+past the ethernet header) instead of `m` (the full ethernet frame).
+`reply_status()` assumes its third argument is the full frame and casts
+it as `struct avb_ethernet_header *`. With the wrong pointer, the
+response ethernet header (including destination MAC) is corrupted.
+
+**Fix:** Change `reply_status(aecp, ..., p, len)` to
+`reply_status(aecp, ..., m, len)`.
+
+## 8. Lock entity re-lock timeout uses wrong units
+
+**File:** `src/modules/module-avb/aecp-aem-cmds-resps/cmd-lock-entity.c`
+
+When a controller that already holds the lock sends another lock request
+(to refresh it), the expire timeout is extended by:
+```c
+lock->base_info.expire_timeout +=
+    AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND;
+```
+`AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND` is `60` (raw seconds),
+but `expire_timeout` is in nanoseconds. This adds only 60 nanoseconds
+instead of 60 seconds. The initial lock correctly uses
+`AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND * SPA_NSEC_PER_SEC`.
+
+**Fix:** Multiply by `SPA_NSEC_PER_SEC` to match the nanosecond units.

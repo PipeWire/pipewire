@@ -1860,15 +1860,14 @@ static int setup_encodedfile(struct data *data)
 	int num_channels;
 	unsigned int stream_index;
 	const AVCodecParameters *codecpar;
-	char path[256] = { 0 };
+	char path[PATH_MAX];
 
 	/* We do not support record with encoded media */
 	if (data->mode == mode_record) {
 		return -EINVAL;
 	}
 
-	strcpy(path, "file:");
-	strcat(path, data->filename);
+	spa_scnprintf(path, sizeof(path), "file:%s", data->filename);
 
 	data->encoded.format_context = NULL;
 	if ((ret = avformat_open_input(&data->encoded.format_context, path, NULL, NULL)) < 0) {

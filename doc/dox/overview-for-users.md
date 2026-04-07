@@ -24,7 +24,7 @@ they just use the PulseAudio API provided by PipeWire. Therefore, PulseAudio too
 
 ## PipeWire overview
 
-Normally, a system with PipeWire also runs WirePlumber.
+Normally, a system with PipeWire also runs **WirePlumber.**
 
 **PipeWire** only *provides* the functionality for transporting and transforming audio and video. It is *used* by a session manager.
 
@@ -60,7 +60,7 @@ Some specific properties:
 
 Relationships between different object types (`type` property):
 
-![Object type relationship](pipewire-object-types-relationship.drawio.png)
+![Object type relationship](pipewire-object-types-relationship.drawio.svg)
 
 ```mermaid
 flowchart LR

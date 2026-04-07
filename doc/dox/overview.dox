@@ -1,5 +1,38 @@
 /** \page page_overview Overview
 
+# The role of PipeWire
+
+Today’s Linux systems use ALSA (Advanced Linux Sound Architecture) to play and record sound and video.
+ALSA is built directly into the Linux Kernel including drivers for sound cards, and applications can use ALSA to play sound.
+However, each sound card can only be used by one application at a time – which is one reason why another layer like PipeWire is required:
+It mixes multiple audio streams together and sends that to ALSA directly.
+
+\image html SoundMixing.drawio.svg
+
+There are a number of popular sound servers for Linux like JACK for low latency or PulseAudio.
+PipeWire is the newest one, combining the advantages of its predecessors.
+
+Applications are programmed to support a certain backend, or sometimes they support more than one.
+PipeWire provides API interfaces that look like e.g. ALSA or PulseAudio, so an application only supporting PulseAudio actually works with PipeWire because it looks like PulseAudio to the application.
+Therefore, tools like `pavucontrol` *also* work for PipeWire!
+
+\image html LinuxSoundStack.drawio.svg
+
+# What do I need?
+
+Normally, a system with PipeWire also runs **WirePlumber.**
+
+While **PipeWire** *provides* the functionality for transporting and transforming audio and video, it does not actively react to events like connecting Bluetooth earbuds.
+This is the task of the session manager which *uses* PipeWire.
+
+There is one PipeWire *server* which is used by a number of PipeWire *clients* (the processes that produce/consume multimedia).
+PipeWire, as well as WirePlumber, run in *userspace,* so interfacing with them with `systemd` (and `journald` etc.)
+happens in *user context* with the `--user` flag, for example
+`systemctl --user status pipewire.service` or `journalctl --user -fu wireplumber.service`.
+
+**WirePlumber** provides [Session Management](https://pipewire.pages.freedesktop.org/wireplumber/design/understanding_session_management.html): It enables new devices when they appear on ALSA, creates and configures nodes,
+create links between nodes to route sound from an application to a consumer, etc.
+
 # Concepts
 
 ## The PipeWire Server
@@ -48,9 +81,9 @@ A recommended pattern that is often used is a single client be a daemon that dea
   It provides another, higher-level API compared to the PipeWire one, and runs Lua scripts that implement the management logic using the said API.
   It ships with default scripts and configuration that handle linking policies as well as monitoring and automatic spawning of ALSA, bluez, libcamera and v4l2 devices.
   The API is available for any process, not only from WirePlumber’s Lua scripts.
- 
-### Node implementation 
- 
+
+### Node implementation
+
 With the nodes which they implement, clients can send multimedia data into the graph or obtain multimedia data from the graph.
 A client can create multiple PipeWire nodes.
 That allows one to create more complex applications;

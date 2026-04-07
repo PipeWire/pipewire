@@ -1,0 +1,360 @@
+/** \page page_running Node running
+
+This document tries to explain how the Nodes in a PipeWire graph become
+runnable so that they can be scheduled later.
+
+It also describes how nodes are grouped together and scheduled together.
+
+# Runnable Nodes
+
+A runnable node is a node that will participate in the dataflow in the
+PipeWire graph.
+
+Not all nodes should participate by default. For example, filters or device
+nodes that are not linked to any runnable nodes should not do useless
+processing.
+
+Nodes form one or more groups depending on properties and how they are
+linked. For each group, one driver is selected to run the group. Inside the
+group, all runnable nodes are scheduled by the group driver. If there are no
+runnable nodes in a group, the driver is not started.
+
+PipeWire provides mechanisms to precisely describe how and when nodes should
+be scheduled and grouped using:
+
+ - port properties to control how port links control runnable state
+ - node properties to control processing
+ - grouping of nodes and internal links between nodes
+
+# Port passive modes
+
+A Port has 4 passive modes, this depends on the value of the `port.passive` property:
+
+* `false`, the port will make the peer active and an active peer will make this port
+            active.
+* `true`, the port will not make the peer active and an active peer will not make this
+           port active.
+* `follow`, the port will not make the peer active but an active peer will make this
+           port active.
+* `follow-suspend`, the port will only make another follow-suspend peer active but any
+           active peer will make this port active.
+
+The combination of these 4 modes on the output and input ports of a link results in a
+wide range of use cases.
+
+# Node passive modes
+
+A Node can have 8 passive modes, `node.passive` can be set to a comma separated list
+of the following values:
+
+* `false`, both input and output ports have `port.passive = false`
+* `in`, input ports have `port.passive = true`
+* `out`, output ports have `port.passive = true`
+* `true`, both input and output ports have `port.passive = true`. This is the same
+          as `in,out`.
+* `in-follow`, input ports have `port.passive = follow`
+* `out-follow`, output ports have `port.passive = follow`
+* `follow`, input and output ports have `port.passive = follow`. This is the same
+          as `in-follow,out-follow`.
+* `follow-suspend`, input and output ports have `port.passive = follow-suspend`
+
+Node by default have the `false` mode but nodes with the `media.class` property
+containing `Sink` or `Source` receive the `follow-suspend` mode by default.
+
+Unless explicitly configured, ports inherit the mode from their parent node.
+
+# Updating the node runnable state
+
+We iterate all nodes A in the graph and look at its peers B.
+
+Based on the port passive modes of the port links we can decide if the nodes are
+runnable or not. A link will always make both nodes runnable or none.
+
+The following table decides the runnability of the 2 nodes based on the port.passive
+mode of the link between the 2 ports:
+
+                     B-false    B-true   B-follow  B-follow-suspend 
+		      
+A-false                  X        X          X          X
+A-true
+A-follow
+A-follow-suspend                                        X
+                             Table 1
+                           
+
+When a node is made runnable, the port passive mode will then decide if the peer ports
+should become active as well with the following table.
+
+                      B-false    B-true   B-follow  B-follow-suspend 
+		      
+A-false                  X                   X          X
+A-true                   X                   X          X
+A-follow                 X                   X          X
+A-follow-suspend         X                   X          X
+                             Table 2
+
+So when A is runnable, all peers are activated except those with `port.passive=true`.
+
+When A is runnable, all the nodes that share the same group or link-group will also
+be made runnable.
+
+# Use cases
+
+Let's check some cases that we want to solve with these node and port properties.
+
+## Device nodes
+
+  +--------+                           +--------+
+  | ALSA   |                           | ALSA   |
+  | Source |                           | Sink   |
+  |        FL                         FL        |
+  |        FR                         FR        |
+  +--------+                           +--------+
+
+Unlinked device nodes are supposed to stay suspended when nothing is linked to
+them.
+
+                 +----------+          +--------+
+                 | playback |          | ALSA   |
+                 |          |          | Sink   |
+                 |          FL ------ FL        |
+                 |          FR ------ FR        |
+                 +----------+          +--------+
+
+An (active) player node linked to a device node should make both nodes runnable.
+
+Device nodes have the `port.passive = follow-suspend` property by default. The
+playback node has the `port.passive = false` by default.
+
+If we look at the playback node as A and the sink as B, both nodes will be made
+runnable according to Table 1.
+
+The two runnable nodes form a group and will be scheduled together. One of the
+nodes of a group with the `node.driver = true` property is selected as the
+driver. In the above case, that will be the ALSA Sink.
+
+Likewise, a capture node linked to an ALSA Source should make both nodes runnable.
+
+  +--------+          +---------+
+  | ALSA   |          | capture |
+  | Source |          |         |
+  |        FL ------ FL         |
+  |        FR ------ FR         |
+  +--------+          +---------+
+
+The ALSA Source is now the driver.
+
+Also, linking 2 device nodes together should make them runnable:
+
+  +--------+                           +--------+
+  | ALSA   |                           | ALSA   |
+  | Source |                           | Sink   |
+  |        FL ----------------------- FL        |
+  |        FR ----------------------- FR        |
+  +--------+                           +--------+
+
+This is the case because in Table 1, the two `port.passive = follow-suspend` ports
+from the Source and Sink activate each other.
+
+## Filter nodes
+
+When there is a filter in front of the ALSA Sink, it should not make the filter and
+sink runnable.
+
+                   +--------+          +--------+
+                   | filter |          | ALSA   |
+                   |        |          | Sink   |
+                  FL        FL ------ FL        |
+                  FR        FR ------ FR        |
+                   +--------+          +--------+
+
+The links between the filter and ALSA Sink are `port.passive = true` and don't make
+the nodes runnable.
+
+The filter needs to be made runnable via some other means to also make the ALSA
+Sink runnable, for example by linking a playback node:
+
+   +----------+          +--------+          +--------+
+   | playback |          | filter |          | ALSA   |
+   |          |          |        |          | Sink   |
+   |          FL ------ FL        FL ------ FL        |
+   |          FR ------ FR        FR ------ FR        |
+   +----------+          +--------+          +--------+
+
+The input port of the filter is `port.passive = follow-suspend' and so it can be
+activated by the playback node.
+
+Likewise, if the ALSA Sink is runnable, it should not automatically make the
+filter runnable. For example:
+
+                         +--------+          +--------+
+                         | filter |          | ALSA   |
+                         |        |          | Sink   |
+                        FL        FL ---+-- FL        |
+                        FR        FR ---|+- FR        |
+                         +--------+     ||   +--------+
+                                        ||
+                       +----------+     ||
+                       | playback |     ||
+                       |          |     ||
+                       |          FL ---+|
+                       |          FR ----+
+                       +----------+
+
+Here the playback node makes the ALSA Sink runnable but the filter
+stays not-runnable because the output port is `port.passive = true`.
+
+## Device node monitor
+
+Consider the case where we have an ALSA Sink and a monitor stream
+connected to the sink monitor ports.
+
+                         +-------+          +--------++
+                         | ALSA  |          | monitor |
+                         | Sink  |          |         |
+                        FL       FL ------ FL         |
+                        FR       FR ------ FR         |
+                         +-------+          +---------+
+
+We would like to keep the monitor stream and the ALSA sink suspended
+unless something else activated the ALSA Sink:
+
+
+   +----------+          +-------+          +---------+
+   | playback |          | ALSA  |          | monitor |
+   |          |          | Sink  |          |         |
+   |          FL ------ FL       FL ------ FL         |
+   |          FR ------ FR       FR ------ FR         |
+   +----------+          +-------+          +---------+
+
+We can do this by making the monitor stream input ports `port.passive = follow`
+and leave the ALSA Sink monitor output ports as `port.passive = follow-suspend`.
+
+According to Table 1, both nodes will not activate each other but when ALSA Sink
+becomes runnable because of playback, according to Table 2, the monitor will
+become runnable as well.
+
+Note how we need the distinction between `follow` and `follow-suspend` for this
+use case.
+
+## Node groups
+
+Normally when an application makes a capture and playback node, both nodes will
+be scheduled in different groups, consider:
+
+
+  +--------+          +---------+
+  | ALSA   |          | capture |
+  | Source |          |         |
+  |        FL ------ FL         |
+  |        FR ------ FR         |
+  +--------+          +---------+
+
+                 +----------+          +--------+
+                 | playback |          | ALSA   |
+                 |          |          | Sink   |
+                 |          FL ------ FL        |
+                 |          FR ------ FR        |
+                 +----------+          +--------+
+
+Here we see 2 groups with the ALSA Source and ALSA Sink respectively as the
+drivers. Depending on the clocks of the nodes, the capture and playback will not
+be in sync. They will each run in their own time domain depending on the rate of
+the drivers.
+
+When we place a node.group property with the same value on the capture and playback
+nodes, they will be grouped together and this whole graph becomes one single group.
+
+Because there are 2 potential drivers in the group, the one with the highest 
+`priority.driver` property is selected as the driver in the group. The other nodes
+in the group (including the other driver) become followers in the group.
+
+When a node becomes runnable, all other nodes with the same node.group property
+become runnable as well.
+
+## Node link groups
+
+When we have a filter that is constructed from two nodes, an input and an output
+node, we could use the `node.group` property to make sure they are both scheduled
+and made runnable together.
+
+  +--------+          +-------+           +--------+          +-------+
+  | ALSA   |          | input |           | output |          | ALSA  |
+  | Source |          |       |           |        |          | Sink  |
+  |        FL ------ FL      -- processing--       FL ------ FL       |
+  |        FR ------ FR       |           |        FR ------ FR       |
+  +--------+          +-------+           +--------+          +-------+
+
+This would work fine but it does not describe that there is an implicit internal
+link between the input and output node. This information is important for the
+session manager to avoid linking the output node to the input node and make a
+loop.
+
+The `node.link-group` property can be used to both group the nodes together and
+descibe that they are internally linked together.
+
+When a node becomes runnable, all other nodes with the same node.link-group property
+become runnable as well.
+
+For the 2 node filters, like loopback and filter-chain, the same `port.passive`
+property rules apply as for the filter nodes. Note that for the virtual devices,
+the Source/Sink nodes will be `follow-suspend` by default and the other node should
+be set to `node.passive = true` to make the ports passive.
+
+## Want driver
+
+When there is no driver node in the group, nothing should be scheduled. This can
+happen when a playback node is linked to a capture node:
+
+              +--------+               +---------+
+              | player |               | capture |
+              |        |               |         |
+              |        FL ----------- FL         |
+              |        FR ----------- FR         |
+              +--------+               +---------+
+
+None of these nodes is a driver so there is no driver in the group and nothing
+will be scheduled.
+
+When one of the nodes has `node.want-driver = true` they are grouped and
+scheduled with a random driver node. This is often the driver node with the
+highest priority (usually the Dummy-Driver) or otherwise a driver that is already
+scheduling some other nodes. 
+
+## Always process nodes
+
+A simple node, unlinked to anything should normally not run.
+
+              +--------+
+              | player |
+              |        |
+              |        FL
+              |        FR
+              +--------+
+
+When the `node.always-process = true` property is set, the node will however be
+made runnable even if unlinked. This is done by adding the node to a random driver.
+
+`node.always-process = true` implies the `node.want-driver = true` property.
+
+## Sync groups
+
+In some cases, you only want to group nodes together depending on some condition.
+
+For example, when the JACK transport is activated, all nodes in the graph should share
+the same driver node, regardless of the grouping or linking of the nodes.
+
+This is done by setting the same node.sync-group property on all nodes (by default all
+nodes have `node.sync-group = group.sync.0`). When a node sets `node.sync = true` all
+the other nodes with the same `node.sync-group` property are grouped together.
+
+This can be used to implement the JACK transport. When the transport is started, the 
+`node.sync=true` property is set and all nodes join one group with a shared driver
+and timing information.
+
+
+
+
+*/
+
+

@@ -23,6 +23,9 @@ node is scheduled to run.
 This document describes the processing that happens in the data processing
 thread after the main thread has configured it.
 
+Before scheduling of the node happens, the scheduler will collect a list of
+nodes that are runnable, see \ref page_running
+
 # Nodes
 
 Nodes are objects with 0 or more input and output ports.

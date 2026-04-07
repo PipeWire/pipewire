@@ -66,6 +66,21 @@ struct node {
 	struct spa_hook object_listener;
 };
 
+struct filter_preset {
+	enum pw_node_state filter_state;
+	enum pw_node_state filter_followers;
+};
+
+struct filter_preset filter_presets[] = {
+	{PW_NODE_STATE_ERROR, PW_NODE_STATE_ERROR},
+	{PW_NODE_STATE_IDLE, PW_NODE_STATE_ERROR},
+	{PW_NODE_STATE_RUNNING, PW_NODE_STATE_ERROR},
+	{PW_NODE_STATE_RUNNING, PW_NODE_STATE_IDLE},
+};
+
+unsigned int filter_presets_length =
+	sizeof(filter_presets) / sizeof(struct filter_preset);
+
 struct data {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
@@ -91,6 +106,8 @@ struct data {
 
 	unsigned int batch_mode:1;
 	int iterations;
+
+	unsigned int filter_preset;
 };
 
 struct point {
@@ -564,9 +581,31 @@ static void do_refresh(struct data *d, bool force_refresh)
 		return;
 
 	if (!d->batch_mode) {
+		char statusbar[COLS] = {};
+		if (!((filter_presets[d->filter_preset].filter_state == PW_NODE_STATE_ERROR) &&
+			(filter_presets[d->filter_preset].filter_followers == PW_NODE_STATE_ERROR))) {
+
+			strcpy(statusbar, "FILTER: ");
+			if (filter_presets[d->filter_preset].filter_state == PW_NODE_STATE_ERROR)
+				strcat(statusbar, "ALL");
+			else for (enum pw_node_state showstate = PW_NODE_STATE_RUNNING; showstate >= PW_NODE_STATE_ERROR; showstate--) {
+				if (showstate >= filter_presets[d->filter_preset].filter_state)
+					strcat(statusbar, state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
+			}
+			strcat(statusbar, "+");
+			if (filter_presets[d->filter_preset].filter_followers == PW_NODE_STATE_ERROR)
+				strcat(statusbar, "ALL");
+			else for (enum pw_node_state showstate = PW_NODE_STATE_RUNNING; showstate >= PW_NODE_STATE_ERROR; showstate--) {
+				if (showstate >= filter_presets[d->filter_preset].filter_followers)
+					strcat(statusbar, state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
+			}
+		}
+
 		werase(d->win);
 		wattron(d->win, A_REVERSE);
 		wprintw(d->win, "%-*.*s", COLS, COLS, HEADER);
+		if ((size_t)COLS >= strlen(HEADER) + strlen(statusbar))
+			mvwprintw(d->win, 0, COLS - strlen(statusbar), "%s", statusbar);
 		wattroff(d->win, A_REVERSE);
 		wprintw(d->win, "\n");
 	} else
@@ -574,6 +613,8 @@ static void do_refresh(struct data *d, bool force_refresh)
 
 	spa_list_for_each_safe(n, t, &d->node_list, link) {
 		if (n->driver != n)
+			continue;
+		if (n->state < filter_presets[d->filter_preset].filter_state)
 			continue;
 
 		print_node(d, n, n, y++);
@@ -585,6 +626,9 @@ static void do_refresh(struct data *d, bool force_refresh)
 				clear_node(f);
 
 			if (f->driver != n || f == n)
+				continue;
+
+			if (f->state < filter_presets[d->filter_preset].filter_followers)
 				continue;
 
 			print_node(d, n, f, y++);
@@ -771,8 +815,9 @@ static void show_help(const char *name, bool error)
 {
 	fprintf(error ? stderr : stdout, "Usage:\n%s [options]\n\n"
 		"Options:\n"
-		"  -b, --batch-mode		         run in non-interactive batch mode\n"
+		"  -b, --batch-mode                      run in non-interactive batch mode\n"
 		"  -n, --iterations = NUMBER             exit after NUMBER batch iterations\n"
+		"  -f, --filter = NUMBER                 start with filter preset NUMBER selected\n"
 		"  -r, --remote                          Remote daemon name\n"
 		"\n"
 		"  -h, --help                            Show this help\n"
@@ -807,6 +852,14 @@ static void do_handle_io(void *data, int fd, uint32_t mask)
 		case 'c':
 			reset_xruns(d);
 			break;
+		case 'f':
+			d->filter_preset = ((d->filter_preset + 1) % filter_presets_length);
+			do_refresh(d, !d->batch_mode);
+			break;
+		case 'F':
+			d->filter_preset = ((d->filter_preset - 1 + filter_presets_length) % filter_presets_length);
+			do_refresh(d, !d->batch_mode);
+			break;
 		default:
 			do_refresh(d, !d->batch_mode);
 			break;
@@ -822,6 +875,7 @@ int main(int argc, char *argv[])
 	static const struct option long_options[] = {
 		{ "batch-mode",	no_argument,		NULL, 'b' },
 		{ "iterations",	required_argument,	NULL, 'n' },
+		{ "filter",	required_argument,	NULL, 'f' },
 		{ "remote",	required_argument,	NULL, 'r' },
 		{ "help",	no_argument,		NULL, 'h' },
 		{ "version",	no_argument,		NULL, 'V' },
@@ -835,10 +889,11 @@ int main(int argc, char *argv[])
 	pw_init(&argc, &argv);
 
 	data.iterations = -1;
+	data.filter_preset = 0;
 
 	spa_list_init(&data.node_list);
 
-	while ((c = getopt_long(argc, argv, "hVr:o:bn:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:o:bn:f:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(argv[0], false);
@@ -856,6 +911,10 @@ int main(int argc, char *argv[])
 			break;
 		case 'b':
 			data.batch_mode = 1;
+			break;
+		case 'f':
+			spa_atoi32(optarg, &data.filter_preset, 10);
+			data.filter_preset = ((data.filter_preset) % filter_presets_length);
 			break;
 		case 'n':
 			spa_atoi32(optarg, &data.iterations, 10);

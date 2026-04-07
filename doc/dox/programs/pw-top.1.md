@@ -188,6 +188,11 @@ Quit
 Clear the ERR counters. This does *not* clear the counters globally,
 it will only reset the counters in this instance of *pw-top*.
 
+\par [f|F]
+Cycle through filter presets. If any nodes are filtered from view,
+the current preset will be indicated in the header bar. Only nodes
+with the indicated state or higher, will be printed.
+
 # OPTIONS
 
 \par -h | \--help
@@ -198,6 +203,9 @@ Run in non-interactive batch mode, similar to top\'s batch mode.
 
 \par -n | \--iterations=NUMBER
 Exit after NUMBER of batch iterations. Only used in batch mode.
+
+\par -f | \--filter=NUMBER
+Start with filter preset NUMBER selected.
 
 \par -r | \--remote=NAME
 The name the *remote* instance to monitor. If left unspecified, a

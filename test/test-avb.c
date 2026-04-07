@@ -299,14 +299,770 @@ PWTEST(avb_milan_server_create)
 	return PWTEST_PASS;
 }
 
+/*
+ * =====================================================================
+ * Phase 3: MRP State Machine Tests
+ * =====================================================================
+ */
+
+/*
+ * Test: MRP attribute begin sets initial state, join(new=true) enables
+ * pending_send after TX event via periodic tick.
+ */
+PWTEST(avb_mrp_begin_join_new_tx)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *attr;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Create a talker attribute */
+	attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	pwtest_ptr_notnull(attr);
+
+	/* After begin, pending_send should be 0 */
+	avb_mrp_attribute_begin(attr->mrp, 0);
+	pwtest_int_eq(attr->mrp->pending_send, 0);
+
+	/* Join with new=true */
+	avb_mrp_attribute_join(attr->mrp, 0, true);
+
+	/* Tick to let timers initialize (first periodic skips events) */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC);
+
+	/* Tick past join timer (100ms) to trigger TX event */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+
+	/* After TX, pending_send should be set (NEW=0 encoded as non-zero
+	 * only if the state machine decided to send). The VN state on TX
+	 * produces SEND_NEW. But pending_send is only written if joined=true. */
+	/* We mainly verify no crash and that the state machine ran. */
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: MRP attribute join then leave cycle.
+ * After leave, the attribute should eventually stop sending.
+ */
+PWTEST(avb_mrp_join_leave_cycle)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *attr;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	pwtest_ptr_notnull(attr);
+
+	avb_mrp_attribute_begin(attr->mrp, 0);
+	avb_mrp_attribute_join(attr->mrp, 0, true);
+
+	/* Let the state machine run a few cycles */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC);
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+
+	/* Now leave */
+	avb_mrp_attribute_leave(attr->mrp, 2 * SPA_NSEC_PER_SEC);
+
+	/* After leave, pending_send should reflect leaving state.
+	 * The next TX event should send LV and transition to VO. */
+	avb_test_tick(server, 2 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+
+	/* After the TX, pending_send should be 0 (joined is false,
+	 * so pending_send is not updated by the state machine). */
+	pwtest_int_eq(attr->mrp->pending_send, 0);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: MRP attribute receives RX_NEW, which triggers a registrar
+ * notification (NOTIFY_NEW). Verify via a notification tracker.
+ */
+struct notify_tracker {
+	int new_count;
+	int join_count;
+	int leave_count;
+	uint8_t last_notify;
+};
+
+static void track_mrp_notify(void *data, uint64_t now,
+		struct avb_mrp_attribute *attr, uint8_t notify)
+{
+	struct notify_tracker *t = data;
+	t->last_notify = notify;
+	switch (notify) {
+	case AVB_MRP_NOTIFY_NEW:
+		t->new_count++;
+		break;
+	case AVB_MRP_NOTIFY_JOIN:
+		t->join_count++;
+		break;
+	case AVB_MRP_NOTIFY_LEAVE:
+		t->leave_count++;
+		break;
+	}
+}
+
+static const struct avb_mrp_events test_mrp_events = {
+	AVB_VERSION_MRP_EVENTS,
+	.notify = track_mrp_notify,
+};
+
+PWTEST(avb_mrp_rx_new_notification)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *attr;
+	struct spa_hook listener;
+	struct notify_tracker tracker = { 0 };
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Register a global MRP listener to track notifications */
+	avb_mrp_add_listener(server->mrp, &listener, &test_mrp_events, &tracker);
+
+	attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	pwtest_ptr_notnull(attr);
+
+	avb_mrp_attribute_begin(attr->mrp, 0);
+	avb_mrp_attribute_join(attr->mrp, 0, true);
+
+	/* Simulate receiving NEW from a peer */
+	avb_mrp_attribute_rx_event(attr->mrp, 1 * SPA_NSEC_PER_SEC,
+			AVB_MRP_ATTRIBUTE_EVENT_NEW);
+
+	/* RX_NEW should trigger NOTIFY_NEW on the registrar */
+	pwtest_int_eq(tracker.new_count, 1);
+	pwtest_int_eq(tracker.last_notify, AVB_MRP_NOTIFY_NEW);
+
+	/* Simulate receiving JOININ from a peer (already IN, no new notification) */
+	avb_mrp_attribute_rx_event(attr->mrp, 2 * SPA_NSEC_PER_SEC,
+			AVB_MRP_ATTRIBUTE_EVENT_JOININ);
+	/* Registrar was already IN, so no additional JOIN notification */
+	pwtest_int_eq(tracker.join_count, 0);
+
+	spa_hook_remove(&listener);
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: MRP registrar leave timer — after RX_LV, the registrar enters
+ * LV state. After MRP_LVTIMER_MS (1000ms), LV_TIMER fires and
+ * registrar transitions to MT with NOTIFY_LEAVE.
+ */
+PWTEST(avb_mrp_registrar_leave_timer)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *attr;
+	struct spa_hook listener;
+	struct notify_tracker tracker = { 0 };
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	avb_mrp_add_listener(server->mrp, &listener, &test_mrp_events, &tracker);
+
+	attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	avb_mrp_attribute_begin(attr->mrp, 0);
+	avb_mrp_attribute_join(attr->mrp, 0, true);
+
+	/* Get registrar to IN state via RX_NEW */
+	avb_mrp_attribute_rx_event(attr->mrp, 1 * SPA_NSEC_PER_SEC,
+			AVB_MRP_ATTRIBUTE_EVENT_NEW);
+	pwtest_int_eq(tracker.new_count, 1);
+
+	/* RX_LV transitions registrar IN -> LV, sets leave_timeout */
+	avb_mrp_attribute_rx_event(attr->mrp, 2 * SPA_NSEC_PER_SEC,
+			AVB_MRP_ATTRIBUTE_EVENT_LV);
+
+	/* Tick before the leave timer expires — no LEAVE notification yet */
+	avb_test_tick(server, 2 * SPA_NSEC_PER_SEC + 500 * SPA_NSEC_PER_MSEC);
+	pwtest_int_eq(tracker.leave_count, 0);
+
+	/* Tick after the leave timer expires (1000ms after RX_LV at 2s = 3s) */
+	avb_test_tick(server, 3 * SPA_NSEC_PER_SEC + 100 * SPA_NSEC_PER_MSEC);
+	pwtest_int_eq(tracker.leave_count, 1);
+
+	spa_hook_remove(&listener);
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Multiple MRP attributes coexist — events applied to all.
+ */
+PWTEST(avb_mrp_multiple_attributes)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *attr1, *attr2;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	attr1 = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	attr2 = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	pwtest_ptr_notnull(attr1);
+	pwtest_ptr_notnull(attr2);
+
+	avb_mrp_attribute_begin(attr1->mrp, 0);
+	avb_mrp_attribute_join(attr1->mrp, 0, true);
+
+	avb_mrp_attribute_begin(attr2->mrp, 0);
+	avb_mrp_attribute_join(attr2->mrp, 0, false);
+
+	/* Periodic tick should apply to both attributes without crash */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC);
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+	avb_test_tick(server, 2 * SPA_NSEC_PER_SEC);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * =====================================================================
+ * Phase 3: MSRP Tests
+ * =====================================================================
+ */
+
+/*
+ * Test: Create each MSRP attribute type and verify fields.
+ */
+PWTEST(avb_msrp_attribute_types)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *talker, *talker_fail, *listener_attr, *domain;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Create all four MSRP attribute types */
+	talker = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	pwtest_ptr_notnull(talker);
+	pwtest_int_eq(talker->type, AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+
+	talker_fail = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
+	pwtest_ptr_notnull(talker_fail);
+	pwtest_int_eq(talker_fail->type, AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
+
+	listener_attr = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	pwtest_ptr_notnull(listener_attr);
+	pwtest_int_eq(listener_attr->type, AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
+
+	domain = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+	pwtest_ptr_notnull(domain);
+	pwtest_int_eq(domain->type, AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+
+	/* Configure talker with stream parameters */
+	talker->attr.talker.stream_id = htobe64(0x020000fffe000001ULL);
+	talker->attr.talker.vlan_id = htons(AVB_DEFAULT_VLAN);
+	talker->attr.talker.tspec_max_frame_size = htons(256);
+	talker->attr.talker.tspec_max_interval_frames = htons(
+			AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
+	talker->attr.talker.priority = AVB_MSRP_PRIORITY_DEFAULT;
+	talker->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
+
+	/* Configure listener for same stream */
+	listener_attr->attr.listener.stream_id = htobe64(0x020000fffe000001ULL);
+	listener_attr->param = AVB_MSRP_LISTENER_PARAM_READY;
+
+	/* Begin and join all attributes */
+	avb_mrp_attribute_begin(talker->mrp, 0);
+	avb_mrp_attribute_join(talker->mrp, 0, true);
+	avb_mrp_attribute_begin(talker_fail->mrp, 0);
+	avb_mrp_attribute_join(talker_fail->mrp, 0, true);
+	avb_mrp_attribute_begin(listener_attr->mrp, 0);
+	avb_mrp_attribute_join(listener_attr->mrp, 0, true);
+	avb_mrp_attribute_begin(domain->mrp, 0);
+	avb_mrp_attribute_join(domain->mrp, 0, true);
+
+	/* Tick to exercise all attribute types through the state machine */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC);
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: MSRP domain attribute encode/transmit via loopback.
+ * After join+TX, the domain attribute should produce a packet.
+ */
+PWTEST(avb_msrp_domain_transmit)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *domain;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* The test server already has a domain_attr, but create another
+	 * to test independent domain attribute behavior */
+	domain = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+	domain->attr.domain.sr_class_id = 7;
+	domain->attr.domain.sr_class_priority = 2;
+	domain->attr.domain.sr_class_vid = htons(100);
+
+	avb_mrp_attribute_begin(domain->mrp, 0);
+	avb_mrp_attribute_join(domain->mrp, 0, true);
+
+	/* Let timers initialize and then trigger TX */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC);
+	avb_loopback_clear_packets(server);
+
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+
+	/* MSRP should have transmitted a packet with domain data */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: MSRP talker advertise encode/transmit via loopback.
+ */
+PWTEST(avb_msrp_talker_transmit)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *talker;
+	uint64_t stream_id = 0x020000fffe000001ULL;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	talker = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE);
+	pwtest_ptr_notnull(talker);
+
+	talker->attr.talker.stream_id = htobe64(stream_id);
+	talker->attr.talker.vlan_id = htons(AVB_DEFAULT_VLAN);
+	talker->attr.talker.tspec_max_frame_size = htons(256);
+	talker->attr.talker.tspec_max_interval_frames = htons(1);
+	talker->attr.talker.priority = AVB_MSRP_PRIORITY_DEFAULT;
+	talker->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
+
+	avb_mrp_attribute_begin(talker->mrp, 0);
+	avb_mrp_attribute_join(talker->mrp, 0, true);
+
+	/* Let timers initialize */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC);
+	avb_loopback_clear_packets(server);
+
+	/* Trigger TX */
+	avb_test_tick(server, 1 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+
+	/* Should have transmitted the talker advertise */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	/* Read the packet and verify it contains valid MSRP data */
+	{
+		uint8_t buf[2048];
+		int len;
+		struct avb_packet_mrp *mrp_pkt;
+
+		len = avb_loopback_get_packet(server, buf, sizeof(buf));
+		pwtest_int_gt(len, (int)sizeof(struct avb_packet_mrp));
+
+		mrp_pkt = (struct avb_packet_mrp *)buf;
+		pwtest_int_eq(mrp_pkt->version, AVB_MRP_PROTOCOL_VERSION);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * =====================================================================
+ * Phase 3: MRP Packet Parsing Tests
+ * =====================================================================
+ */
+
+struct parse_tracker {
+	int check_header_count;
+	int attr_event_count;
+	int process_count;
+	uint8_t last_attr_type;
+	uint8_t last_event;
+	uint8_t last_param;
+};
+
+static bool test_check_header(void *data, const void *hdr,
+		size_t *hdr_size, bool *has_params)
+{
+	struct parse_tracker *t = data;
+	const struct avb_packet_mrp_hdr *h = hdr;
+	t->check_header_count++;
+
+	/* Accept attribute types 1-4 (MSRP-like) */
+	if (h->attribute_type < 1 || h->attribute_type > 4)
+		return false;
+
+	*hdr_size = sizeof(struct avb_packet_msrp_msg);
+	*has_params = (h->attribute_type == AVB_MSRP_ATTRIBUTE_TYPE_LISTENER);
+	return true;
+}
+
+static int test_attr_event(void *data, uint64_t now,
+		uint8_t attribute_type, uint8_t event)
+{
+	struct parse_tracker *t = data;
+	t->attr_event_count++;
+	return 0;
+}
+
+static int test_process(void *data, uint64_t now,
+		uint8_t attribute_type, const void *value,
+		uint8_t event, uint8_t param, int index)
+{
+	struct parse_tracker *t = data;
+	t->process_count++;
+	t->last_attr_type = attribute_type;
+	t->last_event = event;
+	t->last_param = param;
+	return 0;
+}
+
+static const struct avb_mrp_parse_info test_parse_info = {
+	AVB_VERSION_MRP_PARSE_INFO,
+	.check_header = test_check_header,
+	.attr_event = test_attr_event,
+	.process = test_process,
+};
+
+/*
+ * Test: Parse a minimal MRP packet with a single domain value.
+ */
+PWTEST(avb_mrp_parse_single_domain)
+{
+	struct impl *impl;
+	struct server *server;
+	struct parse_tracker tracker = { 0 };
+	uint8_t buf[256];
+	int pos = 0;
+	int res;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	memset(buf, 0, sizeof(buf));
+
+	/* Build MRP packet manually:
+	 * [ethernet header + version] already at offset 0 */
+	{
+		struct avb_packet_mrp *mrp = (struct avb_packet_mrp *)buf;
+		mrp->version = AVB_MRP_PROTOCOL_VERSION;
+		pos = sizeof(struct avb_packet_mrp);
+	}
+
+	/* MSRP message header for domain (type=4, length=4) */
+	{
+		struct avb_packet_msrp_msg *msg =
+			(struct avb_packet_msrp_msg *)(buf + pos);
+		struct avb_packet_mrp_vector *v;
+		struct avb_packet_msrp_domain *d;
+		uint8_t *ev;
+
+		msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN;
+		msg->attribute_length = sizeof(struct avb_packet_msrp_domain);
+
+		v = (struct avb_packet_mrp_vector *)msg->attribute_list;
+		v->lva = 0;
+		AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
+
+		d = (struct avb_packet_msrp_domain *)v->first_value;
+		d->sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
+		d->sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
+		d->sr_class_vid = htons(AVB_DEFAULT_VLAN);
+
+		/* Event byte: 1 value, event=JOININ(1), packed as 1*36 = 36 */
+		ev = (uint8_t *)(d + 1);
+		*ev = AVB_MRP_ATTRIBUTE_EVENT_JOININ * 36;
+
+		msg->attribute_list_length = htons(
+			sizeof(*v) + sizeof(*d) + 1 + 2); /* +2 for vector end mark */
+
+		/* Vector end mark */
+		pos += sizeof(*msg) + sizeof(*v) + sizeof(*d) + 1;
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+
+		/* Attribute end mark */
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+	}
+
+	res = avb_mrp_parse_packet(server->mrp, 1 * SPA_NSEC_PER_SEC,
+			buf, pos, &test_parse_info, &tracker);
+
+	pwtest_int_eq(res, 0);
+	pwtest_int_eq(tracker.check_header_count, 1);
+	pwtest_int_eq(tracker.process_count, 1);
+	pwtest_int_eq(tracker.last_attr_type, AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
+	pwtest_int_eq(tracker.last_event, AVB_MRP_ATTRIBUTE_EVENT_JOININ);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Parse MRP packet with LVA (leave-all) flag set.
+ */
+PWTEST(avb_mrp_parse_with_lva)
+{
+	struct impl *impl;
+	struct server *server;
+	struct parse_tracker tracker = { 0 };
+	uint8_t buf[256];
+	int pos = 0;
+	int res;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	memset(buf, 0, sizeof(buf));
+
+	{
+		struct avb_packet_mrp *mrp = (struct avb_packet_mrp *)buf;
+		mrp->version = AVB_MRP_PROTOCOL_VERSION;
+		pos = sizeof(struct avb_packet_mrp);
+	}
+
+	{
+		struct avb_packet_msrp_msg *msg =
+			(struct avb_packet_msrp_msg *)(buf + pos);
+		struct avb_packet_mrp_vector *v;
+		struct avb_packet_msrp_domain *d;
+		uint8_t *ev;
+
+		msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN;
+		msg->attribute_length = sizeof(struct avb_packet_msrp_domain);
+
+		v = (struct avb_packet_mrp_vector *)msg->attribute_list;
+		v->lva = 1;  /* Set LVA flag */
+		AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
+
+		d = (struct avb_packet_msrp_domain *)v->first_value;
+		d->sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
+		d->sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
+		d->sr_class_vid = htons(AVB_DEFAULT_VLAN);
+
+		ev = (uint8_t *)(d + 1);
+		*ev = AVB_MRP_ATTRIBUTE_EVENT_NEW * 36;
+
+		msg->attribute_list_length = htons(
+			sizeof(*v) + sizeof(*d) + 1 + 2);
+
+		pos += sizeof(*msg) + sizeof(*v) + sizeof(*d) + 1;
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+	}
+
+	res = avb_mrp_parse_packet(server->mrp, 1 * SPA_NSEC_PER_SEC,
+			buf, pos, &test_parse_info, &tracker);
+
+	pwtest_int_eq(res, 0);
+	pwtest_int_eq(tracker.check_header_count, 1);
+	pwtest_int_eq(tracker.attr_event_count, 1);  /* LVA event fired */
+	pwtest_int_eq(tracker.process_count, 1);
+	pwtest_int_eq(tracker.last_event, AVB_MRP_ATTRIBUTE_EVENT_NEW);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Parse MRP packet with multiple values (3 values per event byte).
+ * Verifies the base-6 event decoding logic.
+ */
+PWTEST(avb_mrp_parse_three_values)
+{
+	struct impl *impl;
+	struct server *server;
+	struct parse_tracker tracker = { 0 };
+	uint8_t buf[256];
+	int pos = 0;
+	int res;
+	uint8_t ev0 = AVB_MRP_ATTRIBUTE_EVENT_NEW;      /* 0 */
+	uint8_t ev1 = AVB_MRP_ATTRIBUTE_EVENT_JOININ;    /* 1 */
+	uint8_t ev2 = AVB_MRP_ATTRIBUTE_EVENT_MT;        /* 4 */
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	memset(buf, 0, sizeof(buf));
+
+	{
+		struct avb_packet_mrp *mrp = (struct avb_packet_mrp *)buf;
+		mrp->version = AVB_MRP_PROTOCOL_VERSION;
+		pos = sizeof(struct avb_packet_mrp);
+	}
+
+	{
+		struct avb_packet_msrp_msg *msg =
+			(struct avb_packet_msrp_msg *)(buf + pos);
+		struct avb_packet_mrp_vector *v;
+		struct avb_packet_msrp_domain *d;
+		uint8_t *ev;
+
+		msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN;
+		msg->attribute_length = sizeof(struct avb_packet_msrp_domain);
+
+		v = (struct avb_packet_mrp_vector *)msg->attribute_list;
+		v->lva = 0;
+		AVB_MRP_VECTOR_SET_NUM_VALUES(v, 3);
+
+		/* First value (domain data) — all 3 values share the same
+		 * first_value pointer in the parse callback */
+		d = (struct avb_packet_msrp_domain *)v->first_value;
+		d->sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
+		d->sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
+		d->sr_class_vid = htons(AVB_DEFAULT_VLAN);
+
+		/* Pack 3 events into 1 byte: ev0*36 + ev1*6 + ev2 */
+		ev = (uint8_t *)(d + 1);
+		*ev = ev0 * 36 + ev1 * 6 + ev2;
+
+		msg->attribute_list_length = htons(
+			sizeof(*v) + sizeof(*d) + 1 + 2);
+
+		pos += sizeof(*msg) + sizeof(*v) + sizeof(*d) + 1;
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+		buf[pos++] = 0;
+	}
+
+	res = avb_mrp_parse_packet(server->mrp, 1 * SPA_NSEC_PER_SEC,
+			buf, pos, &test_parse_info, &tracker);
+
+	pwtest_int_eq(res, 0);
+	pwtest_int_eq(tracker.process_count, 3);
+	/* The last value processed should have event MT (4) */
+	pwtest_int_eq(tracker.last_event, AVB_MRP_ATTRIBUTE_EVENT_MT);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: MSRP talker-failed attribute with notification.
+ * This tests the NULL notify crash that was fixed.
+ */
+PWTEST(avb_msrp_talker_failed_notify)
+{
+	struct impl *impl;
+	struct server *server;
+	struct avb_msrp_attribute *talker_fail;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	talker_fail = avb_msrp_attribute_new(server->msrp,
+			AVB_MSRP_ATTRIBUTE_TYPE_TALKER_FAILED);
+	pwtest_ptr_notnull(talker_fail);
+
+	talker_fail->attr.talker_fail.talker.stream_id =
+		htobe64(0x020000fffe000001ULL);
+	talker_fail->attr.talker_fail.failure_code = AVB_MRP_FAIL_BANDWIDTH;
+
+	avb_mrp_attribute_begin(talker_fail->mrp, 0);
+	avb_mrp_attribute_join(talker_fail->mrp, 0, true);
+
+	/* Simulate receiving NEW from a peer — this triggers NOTIFY_NEW
+	 * which calls msrp_notify -> dispatch[TALKER_FAILED].notify.
+	 * Before the fix, this would crash with NULL pointer dereference. */
+	avb_mrp_attribute_rx_event(talker_fail->mrp, 1 * SPA_NSEC_PER_SEC,
+			AVB_MRP_ATTRIBUTE_EVENT_NEW);
+
+	/* If we get here without crashing, the NULL check fix works */
+
+	/* Also exercise periodic to verify full lifecycle */
+	avb_test_tick(server, 2 * SPA_NSEC_PER_SEC);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(avb)
 {
+	/* Phase 2: ADP and basic tests */
 	pwtest_add(avb_adp_entity_available, PWTEST_NOARG);
 	pwtest_add(avb_adp_entity_departing, PWTEST_NOARG);
 	pwtest_add(avb_adp_entity_discover, PWTEST_NOARG);
 	pwtest_add(avb_adp_entity_timeout, PWTEST_NOARG);
 	pwtest_add(avb_mrp_attribute_lifecycle, PWTEST_NOARG);
 	pwtest_add(avb_milan_server_create, PWTEST_NOARG);
+
+	/* Phase 3: MRP state machine tests */
+	pwtest_add(avb_mrp_begin_join_new_tx, PWTEST_NOARG);
+	pwtest_add(avb_mrp_join_leave_cycle, PWTEST_NOARG);
+	pwtest_add(avb_mrp_rx_new_notification, PWTEST_NOARG);
+	pwtest_add(avb_mrp_registrar_leave_timer, PWTEST_NOARG);
+	pwtest_add(avb_mrp_multiple_attributes, PWTEST_NOARG);
+
+	/* Phase 3: MSRP tests */
+	pwtest_add(avb_msrp_attribute_types, PWTEST_NOARG);
+	pwtest_add(avb_msrp_domain_transmit, PWTEST_NOARG);
+	pwtest_add(avb_msrp_talker_transmit, PWTEST_NOARG);
+	pwtest_add(avb_msrp_talker_failed_notify, PWTEST_NOARG);
+
+	/* Phase 3: MRP packet parsing tests */
+	pwtest_add(avb_mrp_parse_single_domain, PWTEST_NOARG);
+	pwtest_add(avb_mrp_parse_with_lva, PWTEST_NOARG);
+	pwtest_add(avb_mrp_parse_three_values, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

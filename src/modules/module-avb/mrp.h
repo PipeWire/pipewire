@@ -88,13 +88,13 @@ struct avb_packet_mrp_footer {
 #define AVB_MRP_ATTRIBUTE_EVENT_LV	5
 #define AVB_MRP_ATTRIBUTE_EVENT_LVA	6
 
-#define AVB_MRP_SEND_NEW		0
-#define AVB_MRP_SEND_JOININ		1
-#define AVB_MRP_SEND_IN		2
-#define AVB_MRP_SEND_JOINMT		3
-#define AVB_MRP_SEND_MT		4
-#define AVB_MRP_SEND_LV		5
-#define AVB_MRP_SEND_LVA		6
+#define AVB_MRP_SEND_NEW		1
+#define AVB_MRP_SEND_JOININ		2
+#define AVB_MRP_SEND_IN		3
+#define AVB_MRP_SEND_JOINMT		4
+#define AVB_MRP_SEND_MT		5
+#define AVB_MRP_SEND_LV		6
+#define AVB_MRP_SEND_LVA		7
 
 #define AVB_MRP_NOTIFY_NEW		1
 #define AVB_MRP_NOTIFY_JOIN		2

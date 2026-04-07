@@ -302,6 +302,8 @@ const char *avb_mrp_notify_name(uint8_t notify)
 const char *avb_mrp_send_name(uint8_t send)
 {
 	switch(send) {
+	case 0:
+		return "none";
 	case AVB_MRP_SEND_NEW:
 		return "new";
 	case AVB_MRP_SEND_JOININ:

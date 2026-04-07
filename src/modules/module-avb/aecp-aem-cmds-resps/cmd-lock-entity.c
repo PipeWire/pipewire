@@ -99,7 +99,7 @@ int handle_cmd_lock_entity_milan_v12(struct aecp *aecp, int64_t now, const void 
 
 	desc = server_find_descriptor(server, desc_type, desc_id);
 	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
 	entity_state = desc->ptr;
 	lock = &entity_state->state.lock_state;
@@ -148,7 +148,7 @@ int handle_cmd_lock_entity_milan_v12(struct aecp *aecp, int64_t now, const void 
 			// If the lock is taken again by device
 			if (ctrler_id == lock->locked_id) {
 				lock->base_info.expire_timeout +=
-					AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND;
+					AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND * SPA_NSEC_PER_SEC;
 
 				lock->is_locked = true;
 			} else {

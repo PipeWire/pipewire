@@ -332,7 +332,8 @@ static void msrp_notify(void *data, uint64_t now, uint8_t notify)
 {
 	struct attr *a = data;
 	struct msrp *msrp = a->msrp;
-	return dispatch[a->attr.type].notify(msrp, now, a, notify);
+	if (dispatch[a->attr.type].notify)
+		dispatch[a->attr.type].notify(msrp, now, a, notify);
 }
 
 static const struct avb_mrp_attribute_events mrp_attr_events = {

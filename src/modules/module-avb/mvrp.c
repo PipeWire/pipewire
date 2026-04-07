@@ -171,7 +171,8 @@ static void mvrp_notify(void *data, uint64_t now, uint8_t notify)
 {
 	struct attr *a = data;
 	struct mvrp *mvrp = a->mvrp;
-	return dispatch[a->attr.type].notify(mvrp, now, a, notify);
+	if (dispatch[a->attr.type].notify)
+		dispatch[a->attr.type].notify(mvrp, now, a, notify);
 }
 
 static const struct avb_mrp_attribute_events mrp_attr_events = {

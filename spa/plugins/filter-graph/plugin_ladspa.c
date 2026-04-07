@@ -265,7 +265,11 @@ static int load_ladspa_plugin(struct plugin *impl, const char *path, const char 
 		if (len >= sizeof(filename))
 			continue;
 
-		namelen = snprintf(filename, sizeof(filename), "%.*s/%s.so", (int) len, p, path);
+		if (strncmp(path, p, len) == 0)
+			namelen = snprintf(filename, sizeof(filename), "%s", path);
+		else
+			namelen = snprintf(filename, sizeof(filename), "%.*s/%s.so", (int) len, p, path);
+
 		if (namelen < 0 || (size_t) namelen >= sizeof(filename))
 			continue;
 
@@ -340,7 +344,7 @@ impl_init(const struct spa_handle_factory *factory,
 	make_search_paths(&path, &search_dirs);
 
 	if ((res = load_ladspa_plugin(impl, path, search_dirs)) < 0) {
-		spa_log_error(impl->log, "failed to load plugin '%s.so' in '%s': %s",
+		spa_log_error(impl->log, "failed to load plugin '%s' in '%s': %s",
 				path, search_dirs, spa_strerror(res));
 		return res;
 	}

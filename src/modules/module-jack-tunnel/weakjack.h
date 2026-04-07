@@ -170,18 +170,22 @@ static inline int weakjack_load(struct weakjack *jack, const char *lib)
 		search_dirs = PREFIX "/lib64/:" PREFIX "/lib/:"
 			"/usr/lib64/:/usr/lib/:" LIBDIR;
 
+	res = -ENAMETOOLONG;
+
 	while ((p = pw_split_walk(search_dirs, ":", &len, &state))) {
 		int pathlen;
 
-		if (len >= sizeof(path)) {
-			res = -ENAMETOOLONG;
+		if (len >= sizeof(path))
 			continue;
-		}
-		pathlen = snprintf(path, sizeof(path), "%.*s/%s", (int) len, p, lib);
-		if (pathlen < 0 || (size_t) pathlen >= sizeof(path)) {
-			res = -ENAMETOOLONG;
+
+		if (strncmp(lib, p, len) == 0)
+			pathlen = snprintf(path, sizeof(path), "%s", lib);
+		else
+			pathlen = snprintf(path, sizeof(path), "%.*s/%s", (int) len, p, lib);
+
+		if (pathlen < 0 || (size_t) pathlen >= sizeof(path))
 			continue;
-		}
+
 		if ((res = weakjack_load_by_path(jack, path)) == 0)
 			break;
 	}

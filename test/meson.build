@@ -163,3 +163,42 @@ if valgrind.found()
                  env :  valgrind_env,
                  timeout_multiplier : 3)
 endif
+
+if build_module_avb
+  avb_test_inc = [pwtest_inc, include_directories('../src/modules')]
+  avb_module_sources = [
+    '../src/modules/module-avb/avb.c',
+    '../src/modules/module-avb/adp.c',
+    '../src/modules/module-avb/acmp.c',
+    '../src/modules/module-avb/aecp.c',
+    '../src/modules/module-avb/aecp-aem.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-available.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-control.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-name.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-clock-source.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-sampling-rate.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-stream-format.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-lock-entity.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-configuration.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/reply-unsol-helpers.c',
+    '../src/modules/module-avb/es-builder.c',
+    '../src/modules/module-avb/avdecc.c',
+    '../src/modules/module-avb/descriptors.c',
+    '../src/modules/module-avb/maap.c',
+    '../src/modules/module-avb/mmrp.c',
+    '../src/modules/module-avb/mrp.c',
+    '../src/modules/module-avb/msrp.c',
+    '../src/modules/module-avb/mvrp.c',
+    '../src/modules/module-avb/srp.c',
+    '../src/modules/module-avb/stream.c',
+  ]
+  test('test-avb',
+      executable('test-avb',
+                 ['test-avb.c'] + avb_module_sources,
+                 include_directories: avb_test_inc,
+                 dependencies: [spa_dep, pipewire_dep, mathlib, dl_lib, rt_lib],
+                 link_with: pwtest_lib)
+  )
+endif

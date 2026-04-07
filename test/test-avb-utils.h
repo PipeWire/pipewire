@@ -20,6 +20,9 @@
 #include "module-avb/aecp-aem.h"
 #include "module-avb/aecp-aem-descriptors.h"
 #include "module-avb/aecp-aem-state.h"
+#include "module-avb/iec61883.h"
+#include "module-avb/aaf.h"
+#include "module-avb/stream.h"
 #include "module-avb/descriptors.h"
 #include "module-avb/avb-transport-loopback.h"
 

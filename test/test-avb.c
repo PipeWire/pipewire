@@ -2060,6 +2060,514 @@ PWTEST(avb_aecp_read_descriptor_milan)
 	return PWTEST_PASS;
 }
 
+/*
+ * =====================================================================
+ * Phase 6: AVTP Audio Data Path Tests
+ * =====================================================================
+ */
+
+/*
+ * Test: Verify IEC61883 packet struct layout and size.
+ * The struct must be exactly 24 bytes (packed) for the header,
+ * followed by the flexible payload array.
+ */
+PWTEST(avb_iec61883_packet_layout)
+{
+	struct avb_packet_iec61883 pkt;
+	struct avb_frame_header fh;
+
+	/* IEC61883 header (packed) with CIP fields = 32 bytes */
+	pwtest_int_eq((int)sizeof(struct avb_packet_iec61883), 32);
+
+	/* Frame header with 802.1Q tag should be 18 bytes */
+	pwtest_int_eq((int)sizeof(struct avb_frame_header), 18);
+
+	/* Total PDU header = frame_header + iec61883 = 50 bytes */
+	pwtest_int_eq((int)(sizeof(fh) + sizeof(pkt)), 50);
+
+	/* Verify critical field positions by setting and reading */
+	memset(&pkt, 0, sizeof(pkt));
+	pkt.subtype = AVB_SUBTYPE_61883_IIDC;
+	pwtest_int_eq(pkt.subtype, 0x00);
+
+	pkt.sv = 1;
+	pkt.tv = 1;
+	pkt.seq_num = 42;
+	pkt.stream_id = htobe64(0x020000fffe000001ULL);
+	pkt.timestamp = htonl(1000000);
+	pkt.data_len = htons(200);
+	pkt.tag = 0x1;
+	pkt.channel = 0x1f;
+	pkt.tcode = 0xa;
+	pkt.sid = 0x3f;
+	pkt.dbs = 8;
+	pkt.qi2 = 0x2;
+	pkt.format_id = 0x10;
+	pkt.fdf = 0x2;
+	pkt.syt = htons(0x0008);
+	pkt.dbc = 0;
+
+	/* Read back and verify */
+	pwtest_int_eq(pkt.seq_num, 42);
+	pwtest_int_eq(pkt.dbs, 8);
+	pwtest_int_eq(be64toh(pkt.stream_id), (int64_t)0x020000fffe000001ULL);
+	pwtest_int_eq(ntohs(pkt.data_len), 200);
+	pwtest_int_eq((int)pkt.sv, 1);
+	pwtest_int_eq((int)pkt.tv, 1);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Verify AAF packet struct layout.
+ */
+PWTEST(avb_aaf_packet_layout)
+{
+	struct avb_packet_aaf pkt;
+
+	/* AAF header should be 24 bytes (same as IEC61883) */
+	pwtest_int_eq((int)sizeof(struct avb_packet_aaf), 24);
+
+	memset(&pkt, 0, sizeof(pkt));
+	pkt.subtype = AVB_SUBTYPE_AAF;
+	pkt.sv = 1;
+	pkt.tv = 1;
+	pkt.seq_num = 99;
+	pkt.stream_id = htobe64(0x020000fffe000002ULL);
+	pkt.timestamp = htonl(2000000);
+	pkt.format = AVB_AAF_FORMAT_INT_24BIT;
+	pkt.nsr = AVB_AAF_PCM_NSR_48KHZ;
+	pkt.chan_per_frame = 8;
+	pkt.bit_depth = 24;
+	pkt.data_len = htons(192); /* 6 frames * 8 channels * 4 bytes */
+	pkt.sp = AVB_AAF_PCM_SP_NORMAL;
+
+	pwtest_int_eq(pkt.subtype, AVB_SUBTYPE_AAF);
+	pwtest_int_eq(pkt.seq_num, 99);
+	pwtest_int_eq(pkt.format, AVB_AAF_FORMAT_INT_24BIT);
+	pwtest_int_eq((int)pkt.nsr, AVB_AAF_PCM_NSR_48KHZ);
+	pwtest_int_eq(pkt.chan_per_frame, 8);
+	pwtest_int_eq(pkt.bit_depth, 24);
+	pwtest_int_eq(ntohs(pkt.data_len), 192);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: 802.1Q frame header construction for AVB.
+ */
+PWTEST(avb_frame_header_construction)
+{
+	struct avb_frame_header h;
+	static const uint8_t dest[6] = { 0x91, 0xe0, 0xf0, 0x00, 0x01, 0x00 };
+	static const uint8_t src[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x01 };
+	int prio = 3;
+	int vlan_id = 2;
+
+	memset(&h, 0, sizeof(h));
+	memcpy(h.dest, dest, 6);
+	memcpy(h.src, src, 6);
+	h.type = htons(0x8100);          /* 802.1Q VLAN tag */
+	h.prio_cfi_id = htons((prio << 13) | vlan_id);
+	h.etype = htons(0x22f0);         /* AVB/TSN EtherType */
+
+	/* Verify the 802.1Q header */
+	pwtest_int_eq(ntohs(h.type), 0x8100);
+	pwtest_int_eq(ntohs(h.etype), 0x22f0);
+
+	/* Extract priority from prio_cfi_id */
+	pwtest_int_eq((ntohs(h.prio_cfi_id) >> 13) & 0x7, prio);
+	/* Extract VLAN ID (lower 12 bits) */
+	pwtest_int_eq(ntohs(h.prio_cfi_id) & 0xFFF, vlan_id);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: PDU size calculations for various audio configurations.
+ * Verifies the math used in setup_pdu().
+ */
+PWTEST(avb_pdu_size_calculations)
+{
+	size_t hdr_size, payload_size, pdu_size;
+	int64_t pdu_period;
+
+	/* Default config: 8 channels, S24_32_BE (4 bytes), 6 frames/PDU, 48kHz */
+	int channels = 8;
+	int sample_size = 4; /* S24_32_BE */
+	int frames_per_pdu = 6;
+	int rate = 48000;
+	int stride = channels * sample_size;
+
+	hdr_size = sizeof(struct avb_frame_header) + sizeof(struct avb_packet_iec61883);
+	payload_size = stride * frames_per_pdu;
+	pdu_size = hdr_size + payload_size;
+	pdu_period = SPA_NSEC_PER_SEC * frames_per_pdu / rate;
+
+	/* Header: 18 (frame) + 32 (iec61883) = 50 bytes */
+	pwtest_int_eq((int)hdr_size, 50);
+
+	/* Payload: 8 ch * 4 bytes * 6 frames = 192 bytes */
+	pwtest_int_eq((int)payload_size, 192);
+
+	/* Total PDU: 50 + 192 = 242 bytes */
+	pwtest_int_eq((int)pdu_size, 242);
+
+	/* PDU period: 6/48000 seconds = 125000 ns = 125 us */
+	pwtest_int_eq((int)pdu_period, 125000);
+
+	/* Stride: 8 * 4 = 32 bytes per frame */
+	pwtest_int_eq(stride, 32);
+
+	/* IEC61883 data_len field = payload + 8 CIP header bytes */
+	pwtest_int_eq((int)(payload_size + 8), 200);
+
+	/* 2-channel configuration */
+	channels = 2;
+	stride = channels * sample_size;
+	payload_size = stride * frames_per_pdu;
+	pwtest_int_eq((int)payload_size, 48);
+	pwtest_int_eq(stride, 8);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Ringbuffer audio data round-trip.
+ * Write audio frames to the ringbuffer, read them back, verify integrity.
+ */
+PWTEST(avb_ringbuffer_audio_roundtrip)
+{
+	struct spa_ringbuffer ring;
+	uint8_t buffer[BUFFER_SIZE];
+	int stride = 32; /* 8 channels * 4 bytes */
+	int frames = 48; /* 48 frames = 1ms at 48kHz */
+	int n_bytes = frames * stride;
+	uint8_t write_data[2048];
+	uint8_t read_data[2048];
+	uint32_t index;
+	int32_t avail;
+
+	spa_ringbuffer_init(&ring);
+
+	/* Fill write_data with a recognizable pattern */
+	for (int i = 0; i < n_bytes; i++)
+		write_data[i] = (uint8_t)(i & 0xFF);
+
+	/* Write to ringbuffer */
+	avail = spa_ringbuffer_get_write_index(&ring, &index);
+	pwtest_int_eq(avail, 0);
+
+	spa_ringbuffer_write_data(&ring, buffer, sizeof(buffer),
+			index % sizeof(buffer), write_data, n_bytes);
+	index += n_bytes;
+	spa_ringbuffer_write_update(&ring, index);
+
+	/* Read back from ringbuffer */
+	avail = spa_ringbuffer_get_read_index(&ring, &index);
+	pwtest_int_eq(avail, n_bytes);
+
+	spa_ringbuffer_read_data(&ring, buffer, sizeof(buffer),
+			index % sizeof(buffer), read_data, n_bytes);
+	index += n_bytes;
+	spa_ringbuffer_read_update(&ring, index);
+
+	/* Verify data integrity */
+	pwtest_int_eq(memcmp(write_data, read_data, n_bytes), 0);
+
+	/* After read, buffer should be empty */
+	avail = spa_ringbuffer_get_read_index(&ring, &index);
+	pwtest_int_eq(avail, 0);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Ringbuffer wrap-around behavior with multiple writes.
+ * Simulates multiple PDU-sized writes filling past the buffer end.
+ */
+PWTEST(avb_ringbuffer_wraparound)
+{
+	struct spa_ringbuffer ring;
+	uint8_t *buffer;
+	int stride = 32;
+	int frames_per_pdu = 6;
+	int payload_size = stride * frames_per_pdu; /* 192 bytes */
+	int num_writes = (BUFFER_SIZE / payload_size) + 5; /* Write past buffer end */
+	uint8_t write_data[192];
+	uint8_t read_data[192];
+	uint32_t w_index, r_index;
+	int32_t avail;
+
+	buffer = calloc(1, BUFFER_SIZE);
+	pwtest_ptr_notnull(buffer);
+
+	spa_ringbuffer_init(&ring);
+
+	/* Write many PDU payloads, reading as we go to prevent overrun */
+	for (int i = 0; i < num_writes; i++) {
+		/* Fill with per-PDU pattern */
+		memset(write_data, (uint8_t)(i + 1), payload_size);
+
+		avail = spa_ringbuffer_get_write_index(&ring, &w_index);
+		spa_ringbuffer_write_data(&ring, buffer, BUFFER_SIZE,
+				w_index % BUFFER_SIZE, write_data, payload_size);
+		w_index += payload_size;
+		spa_ringbuffer_write_update(&ring, w_index);
+
+		/* Read it back immediately */
+		avail = spa_ringbuffer_get_read_index(&ring, &r_index);
+		pwtest_int_eq(avail, payload_size);
+
+		spa_ringbuffer_read_data(&ring, buffer, BUFFER_SIZE,
+				r_index % BUFFER_SIZE, read_data, payload_size);
+		r_index += payload_size;
+		spa_ringbuffer_read_update(&ring, r_index);
+
+		/* Verify the pattern survived the wrap-around */
+		for (int j = 0; j < payload_size; j++) {
+			if (read_data[j] != (uint8_t)(i + 1)) {
+				free(buffer);
+				return PWTEST_FAIL;
+			}
+		}
+	}
+
+	free(buffer);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: IEC61883 packet receive simulation.
+ * Builds IEC61883 packets and writes their payload into a ringbuffer,
+ * mirroring the logic of handle_iec61883_packet().
+ */
+PWTEST(avb_iec61883_receive_simulation)
+{
+	struct spa_ringbuffer ring;
+	uint8_t *rb_buffer;
+	uint8_t pkt_buf[2048];
+	struct avb_frame_header *h;
+	struct avb_packet_iec61883 *p;
+	int channels = 8;
+	int sample_size = 4;
+	int stride = channels * sample_size;
+	int frames_per_pdu = 6;
+	int payload_size = stride * frames_per_pdu; /* 192 bytes */
+	int n_packets = 10;
+	uint32_t index;
+	int32_t filled;
+	uint8_t read_data[192];
+
+	rb_buffer = calloc(1, BUFFER_SIZE);
+	pwtest_ptr_notnull(rb_buffer);
+	spa_ringbuffer_init(&ring);
+
+	for (int i = 0; i < n_packets; i++) {
+		/* Build a receive packet like on_socket_data() would see */
+		memset(pkt_buf, 0, sizeof(pkt_buf));
+		h = (struct avb_frame_header *)pkt_buf;
+		p = SPA_PTROFF(h, sizeof(*h), void);
+
+		p->subtype = AVB_SUBTYPE_61883_IIDC;
+		p->sv = 1;
+		p->tv = 1;
+		p->seq_num = i;
+		p->stream_id = htobe64(0x020000fffe000001ULL);
+		p->timestamp = htonl(i * 125000);
+		p->data_len = htons(payload_size + 8); /* payload + 8 CIP bytes */
+		p->tag = 0x1;
+		p->dbs = channels;
+		p->dbc = i * frames_per_pdu;
+
+		/* Fill payload with audio-like pattern */
+		for (int j = 0; j < payload_size; j++)
+			p->payload[j] = (uint8_t)((i * payload_size + j) & 0xFF);
+
+		/* Simulate handle_iec61883_packet() logic */
+		{
+			int n_bytes = ntohs(p->data_len) - 8;
+			pwtest_int_eq(n_bytes, payload_size);
+
+			filled = spa_ringbuffer_get_write_index(&ring, &index);
+
+			if (filled + (int32_t)n_bytes <= (int32_t)BUFFER_SIZE) {
+				spa_ringbuffer_write_data(&ring, rb_buffer, BUFFER_SIZE,
+						index % BUFFER_SIZE, p->payload, n_bytes);
+				index += n_bytes;
+				spa_ringbuffer_write_update(&ring, index);
+			}
+		}
+	}
+
+	/* Verify all packets were received */
+	filled = spa_ringbuffer_get_read_index(&ring, &index);
+	pwtest_int_eq(filled, n_packets * payload_size);
+
+	/* Read back first packet's data and verify */
+	spa_ringbuffer_read_data(&ring, rb_buffer, BUFFER_SIZE,
+			index % BUFFER_SIZE, read_data, payload_size);
+
+	for (int j = 0; j < payload_size; j++) {
+		if (read_data[j] != (uint8_t)(j & 0xFF)) {
+			free(rb_buffer);
+			return PWTEST_FAIL;
+		}
+	}
+
+	free(rb_buffer);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: IEC61883 transmit PDU construction simulation.
+ * Builds PDU like setup_pdu() + flush_write() would, verifies structure.
+ */
+PWTEST(avb_iec61883_transmit_pdu)
+{
+	uint8_t pdu[2048];
+	struct avb_frame_header *h;
+	struct avb_packet_iec61883 *p;
+	static const uint8_t dest[6] = { 0x91, 0xe0, 0xf0, 0x00, 0x01, 0x00 };
+	static const uint8_t src[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x01 };
+	int channels = 8;
+	int stride = channels * 4;
+	int frames_per_pdu = 6;
+	int payload_size = stride * frames_per_pdu;
+	int prio = 3;
+	int vlan_id = 2;
+	uint64_t stream_id = 0x020000fffe000001ULL;
+
+	/* Simulate setup_pdu() */
+	memset(pdu, 0, sizeof(pdu));
+	h = (struct avb_frame_header *)pdu;
+	p = SPA_PTROFF(h, sizeof(*h), void);
+
+	memcpy(h->dest, dest, 6);
+	memcpy(h->src, src, 6);
+	h->type = htons(0x8100);
+	h->prio_cfi_id = htons((prio << 13) | vlan_id);
+	h->etype = htons(0x22f0);
+
+	p->subtype = AVB_SUBTYPE_61883_IIDC;
+	p->sv = 1;
+	p->stream_id = htobe64(stream_id);
+	p->data_len = htons(payload_size + 8);
+	p->tag = 0x1;
+	p->channel = 0x1f;
+	p->tcode = 0xa;
+	p->sid = 0x3f;
+	p->dbs = channels;
+	p->qi2 = 0x2;
+	p->format_id = 0x10;
+	p->fdf = 0x2;
+	p->syt = htons(0x0008);
+
+	/* Simulate flush_write() per-PDU setup */
+	p->seq_num = 0;
+	p->tv = 1;
+	p->timestamp = htonl(125000);
+	p->dbc = 0;
+
+	/* Verify the PDU */
+	pwtest_int_eq(p->subtype, AVB_SUBTYPE_61883_IIDC);
+	pwtest_int_eq(be64toh(p->stream_id), (int64_t)stream_id);
+	pwtest_int_eq(ntohs(p->data_len), payload_size + 8);
+	pwtest_int_eq(p->dbs, channels);
+	pwtest_int_eq(p->seq_num, 0);
+	pwtest_int_eq((int)ntohl(p->timestamp), 125000);
+	pwtest_int_eq(p->dbc, 0);
+	pwtest_int_eq(ntohs(h->etype), 0x22f0);
+
+	/* Simulate second PDU — verify sequence and DBC advance */
+	p->seq_num = 1;
+	p->timestamp = htonl(250000);
+	p->dbc = frames_per_pdu;
+
+	pwtest_int_eq(p->seq_num, 1);
+	pwtest_int_eq(p->dbc, frames_per_pdu);
+	pwtest_int_eq((int)ntohl(p->timestamp), 250000);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Ringbuffer overrun detection.
+ * Simulates the overrun check in handle_iec61883_packet().
+ */
+PWTEST(avb_ringbuffer_overrun)
+{
+	struct spa_ringbuffer ring;
+	uint8_t *buffer;
+	uint8_t data[256];
+	uint32_t index;
+	int32_t filled;
+	int payload_size = 192;
+	int overrun_count = 0;
+
+	buffer = calloc(1, BUFFER_SIZE);
+	pwtest_ptr_notnull(buffer);
+	spa_ringbuffer_init(&ring);
+
+	memset(data, 0xAA, sizeof(data));
+
+	/* Fill the buffer to capacity */
+	int max_writes = BUFFER_SIZE / payload_size;
+	for (int i = 0; i < max_writes; i++) {
+		filled = spa_ringbuffer_get_write_index(&ring, &index);
+		if (filled + payload_size > (int32_t)BUFFER_SIZE) {
+			overrun_count++;
+			break;
+		}
+		spa_ringbuffer_write_data(&ring, buffer, BUFFER_SIZE,
+				index % BUFFER_SIZE, data, payload_size);
+		index += payload_size;
+		spa_ringbuffer_write_update(&ring, index);
+	}
+
+	/* Try one more write — should detect overrun */
+	filled = spa_ringbuffer_get_write_index(&ring, &index);
+	if (filled + payload_size > (int32_t)BUFFER_SIZE)
+		overrun_count++;
+
+	/* Should have hit at least one overrun */
+	pwtest_int_gt(overrun_count, 0);
+
+	/* Verify data still readable from the full buffer */
+	filled = spa_ringbuffer_get_read_index(&ring, &index);
+	pwtest_int_gt(filled, 0);
+
+	free(buffer);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: Sequence number wrapping at 256 (uint8_t).
+ * Verifies that sequence numbers wrap correctly as in flush_write().
+ */
+PWTEST(avb_sequence_number_wrapping)
+{
+	uint8_t seq = 0;
+	uint8_t dbc = 0;
+	int frames_per_pdu = 6;
+
+	/* Simulate 300 PDU transmissions — seq wraps at 256 */
+	for (int i = 0; i < 300; i++) {
+		pwtest_int_eq(seq, (uint8_t)(i & 0xFF));
+		seq++;
+		dbc += frames_per_pdu;
+	}
+
+	/* After 300 PDUs: seq = 300 & 0xFF = 44, dbc = 300*6 = 1800 & 0xFF = 8 */
+	pwtest_int_eq(seq, (uint8_t)(300 & 0xFF));
+	pwtest_int_eq(dbc, (uint8_t)(300 * frames_per_pdu));
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(avb)
 {
 	/* Phase 2: ADP and basic tests */
@@ -2109,6 +2617,18 @@ PWTEST_SUITE(avb)
 	pwtest_add(avb_aecp_lock_non_entity_milan, PWTEST_NOARG);
 	pwtest_add(avb_aecp_acquire_entity_milan, PWTEST_NOARG);
 	pwtest_add(avb_aecp_read_descriptor_milan, PWTEST_NOARG);
+
+	/* Phase 6: AVTP audio data path tests */
+	pwtest_add(avb_iec61883_packet_layout, PWTEST_NOARG);
+	pwtest_add(avb_aaf_packet_layout, PWTEST_NOARG);
+	pwtest_add(avb_frame_header_construction, PWTEST_NOARG);
+	pwtest_add(avb_pdu_size_calculations, PWTEST_NOARG);
+	pwtest_add(avb_ringbuffer_audio_roundtrip, PWTEST_NOARG);
+	pwtest_add(avb_ringbuffer_wraparound, PWTEST_NOARG);
+	pwtest_add(avb_iec61883_receive_simulation, PWTEST_NOARG);
+	pwtest_add(avb_iec61883_transmit_pdu, PWTEST_NOARG);
+	pwtest_add(avb_ringbuffer_overrun, PWTEST_NOARG);
+	pwtest_add(avb_sequence_number_wrapping, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

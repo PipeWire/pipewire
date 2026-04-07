@@ -84,7 +84,7 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
-int avb_server_send_packet(struct server *server, const uint8_t dest[6],
+static int raw_send_packet(struct server *server, const uint8_t dest[6],
 		uint16_t type, void *data, size_t size)
 {
 	struct avb_ethernet_header *hdr = (struct avb_ethernet_header*)data;
@@ -99,6 +99,12 @@ int avb_server_send_packet(struct server *server, const uint8_t dest[6],
 		pw_log_warn("got send error: %m");
 	}
 	return res;
+}
+
+int avb_server_send_packet(struct server *server, const uint8_t dest[6],
+		uint16_t type, void *data, size_t size)
+{
+	return server->transport->send_packet(server, dest, type, data, size);
 }
 
 static int load_filter(int fd, uint16_t eth, const uint8_t dest[6], const uint8_t mac[6])
@@ -136,7 +142,7 @@ static int load_filter(int fd, uint16_t eth, const uint8_t dest[6], const uint8_
 	return 0;
 }
 
-int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t mac[6])
+static int raw_make_socket(struct server *server, uint16_t type, const uint8_t mac[6])
 {
 	int fd, res;
 	struct ifreq req;
@@ -209,13 +215,20 @@ error_close:
 	return res;
 }
 
-static int setup_socket(struct server *server)
+int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t mac[6])
+{
+	if (server->transport && server->transport->make_socket)
+		return server->transport->make_socket(server, type, mac);
+	return raw_make_socket(server, type, mac);
+}
+
+static int raw_transport_setup(struct server *server)
 {
 	struct impl *impl = server->impl;
 	int fd, res;
 	static const uint8_t bmac[6] = AVB_BROADCAST_MAC;
 
-	fd = avb_server_make_socket(server, AVB_TSN_ETH, bmac);
+	fd = raw_make_socket(server, AVB_TSN_ETH, bmac);
 	if (fd < 0)
 		return fd;
 
@@ -244,6 +257,21 @@ error_no_source:
 	return res;
 }
 
+static void raw_transport_destroy(struct server *server)
+{
+	struct impl *impl = server->impl;
+	if (server->source)
+		pw_loop_destroy_source(impl->loop, server->source);
+	server->source = NULL;
+}
+
+const struct avb_transport_ops avb_transport_raw = {
+	.setup = raw_transport_setup,
+	.send_packet = raw_send_packet,
+	.make_socket = raw_make_socket,
+	.destroy = raw_transport_destroy,
+};
+
 struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 {
 	struct server *server;
@@ -269,7 +297,10 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 
 	server->debug_messages = false;
 
-	if ((res = setup_socket(server)) < 0)
+	if (server->transport == NULL)
+		server->transport = &avb_transport_raw;
+
+	if ((res = server->transport->setup(server)) < 0)
 		goto error_free;
 
 
@@ -315,12 +346,10 @@ void avdecc_server_add_listener(struct server *server, struct spa_hook *listener
 
 void avdecc_server_free(struct server *server)
 {
-	struct impl *impl = server->impl;
-
 	server_destroy_descriptors(server);
 	spa_list_remove(&server->link);
-	if (server->source)
-		pw_loop_destroy_source(impl->loop, server->source);
+	if (server->transport)
+		server->transport->destroy(server);
 	pw_timer_queue_cancel(&server->timer);
 	spa_hook_list_clean(&server->listener_list);
 	free(server->ifname);

@@ -17,6 +17,15 @@ struct avb_mrp;
 #define AVB_TSN_ETH 0x22f0
 #define AVB_BROADCAST_MAC { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
 
+struct avb_transport_ops {
+	int (*setup)(struct server *server);
+	int (*send_packet)(struct server *server, const uint8_t dest[6],
+			uint16_t type, void *data, size_t size);
+	int (*make_socket)(struct server *server, uint16_t type,
+			const uint8_t mac[6]);
+	void (*destroy)(struct server *server);
+};
+
 struct impl {
 	struct pw_loop *loop;
 	struct pw_timer_queue *timer_queue;
@@ -76,6 +85,9 @@ struct server {
 	uint8_t mac_addr[6];
 	uint64_t entity_id;
 	int ifindex;
+
+	const struct avb_transport_ops *transport;
+	void *transport_data;
 
 	struct spa_source *source;
 	struct pw_timer timer;
@@ -143,6 +155,8 @@ void avdecc_server_free(struct server *server);
 
 void avdecc_server_add_listener(struct server *server, struct spa_hook *listener,
 		const struct server_events *events, void *data);
+
+extern const struct avb_transport_ops avb_transport_raw;
 
 int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t mac[6]);
 

@@ -27,7 +27,8 @@ static int handle_acquire_entity_avb_legacy(struct aecp *aecp, int64_t now,
 	const void *m, int len)
 {
 	struct server *server = aecp->server;
-	const struct avb_packet_aecp_aem *p = m;
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	const struct avb_packet_aecp_aem_acquire *ae;
 	const struct descriptor *desc;
 	uint16_t desc_type, desc_id;
@@ -53,7 +54,8 @@ static int handle_lock_entity_avb_legacy(struct aecp *aecp, int64_t now,
 	const void *m, int len)
 {
 	struct server *server = aecp->server;
-	const struct avb_packet_aecp_aem *p = m;
+	const struct avb_ethernet_header *h = m;
+	const struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	const struct avb_packet_aecp_aem_acquire *ae;
 	const struct descriptor *desc;
 	uint16_t desc_type, desc_id;

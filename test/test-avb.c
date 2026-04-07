@@ -1036,6 +1036,365 @@ PWTEST(avb_msrp_talker_failed_notify)
 	return PWTEST_PASS;
 }
 
+/*
+ * =====================================================================
+ * Phase 4: ACMP Integration Tests
+ * =====================================================================
+ */
+
+/**
+ * Build an ACMP packet for injection into a server.
+ * Returns packet size, or -1 on error.
+ */
+static int avb_test_build_acmp(uint8_t *buf, size_t bufsize,
+		const uint8_t src_mac[6],
+		uint8_t message_type,
+		uint64_t controller_guid,
+		uint64_t talker_guid,
+		uint64_t listener_guid,
+		uint16_t talker_unique_id,
+		uint16_t listener_unique_id,
+		uint16_t sequence_id)
+{
+	struct avb_ethernet_header *h;
+	struct avb_packet_acmp *p;
+	size_t len = sizeof(*h) + sizeof(*p);
+	static const uint8_t acmp_mac[6] = AVB_BROADCAST_MAC;
+
+	if (bufsize < len)
+		return -1;
+
+	memset(buf, 0, len);
+
+	h = (struct avb_ethernet_header *)buf;
+	memcpy(h->dest, acmp_mac, 6);
+	memcpy(h->src, src_mac, 6);
+	h->type = htons(AVB_TSN_ETH);
+
+	p = (struct avb_packet_acmp *)(buf + sizeof(*h));
+	AVB_PACKET_SET_SUBTYPE(&p->hdr, AVB_SUBTYPE_ACMP);
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(p, message_type);
+	AVB_PACKET_ACMP_SET_STATUS(p, AVB_ACMP_STATUS_SUCCESS);
+	p->controller_guid = htobe64(controller_guid);
+	p->talker_guid = htobe64(talker_guid);
+	p->listener_guid = htobe64(listener_guid);
+	p->talker_unique_id = htons(talker_unique_id);
+	p->listener_unique_id = htons(listener_unique_id);
+	p->sequence_id = htons(sequence_id);
+
+	return len;
+}
+
+/*
+ * Test: ACMP GET_TX_STATE_COMMAND should respond with NOT_SUPPORTED.
+ */
+PWTEST(avb_acmp_not_supported)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[256];
+	int len;
+	static const uint8_t remote_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x10 };
+	uint64_t remote_entity_id = 0x020000fffe000010ULL;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	avb_loopback_clear_packets(server);
+
+	/* Send GET_TX_STATE_COMMAND to our server as talker */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), remote_mac,
+			AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_COMMAND,
+			remote_entity_id,    /* controller */
+			server->entity_id,   /* talker = us */
+			0,                   /* listener */
+			0, 0, 42);
+	pwtest_int_gt(len, 0);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* Server should respond with NOT_SUPPORTED */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	/* Read response and verify it's a GET_TX_STATE_RESPONSE with NOT_SUPPORTED */
+	{
+		uint8_t rbuf[256];
+		int rlen;
+		struct avb_packet_acmp *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = (struct avb_packet_acmp *)(rbuf + sizeof(struct avb_ethernet_header));
+		pwtest_int_eq((int)AVB_PACKET_ACMP_GET_MESSAGE_TYPE(resp),
+				AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_RESPONSE);
+		pwtest_int_eq((int)AVB_PACKET_ACMP_GET_STATUS(resp),
+				AVB_ACMP_STATUS_NOT_SUPPORTED);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: ACMP CONNECT_TX_COMMAND to our server with no streams
+ * should respond with TALKER_NO_STREAM_INDEX.
+ */
+PWTEST(avb_acmp_connect_tx_no_stream)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[256];
+	int len;
+	static const uint8_t remote_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x11 };
+	uint64_t remote_entity_id = 0x020000fffe000011ULL;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	avb_loopback_clear_packets(server);
+
+	/* Send CONNECT_TX_COMMAND — we have no streams configured */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), remote_mac,
+			AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_COMMAND,
+			remote_entity_id,    /* controller */
+			server->entity_id,   /* talker = us */
+			remote_entity_id,    /* listener */
+			0, 0, 1);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* Should respond with CONNECT_TX_RESPONSE + TALKER_NO_STREAM_INDEX */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[256];
+		int rlen;
+		struct avb_packet_acmp *resp;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		resp = (struct avb_packet_acmp *)(rbuf + sizeof(struct avb_ethernet_header));
+		pwtest_int_eq((int)AVB_PACKET_ACMP_GET_MESSAGE_TYPE(resp),
+				AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
+		pwtest_int_eq((int)AVB_PACKET_ACMP_GET_STATUS(resp),
+				AVB_ACMP_STATUS_TALKER_NO_STREAM_INDEX);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: ACMP message addressed to a different entity_id is ignored.
+ */
+PWTEST(avb_acmp_wrong_entity_ignored)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[256];
+	int len;
+	static const uint8_t remote_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x12 };
+	uint64_t other_entity = 0xDEADBEEFCAFE0001ULL;
+	uint64_t controller_entity = 0x020000fffe000012ULL;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	avb_loopback_clear_packets(server);
+
+	/* CONNECT_TX_COMMAND addressed to a different talker — should be ignored */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), remote_mac,
+			AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_COMMAND,
+			controller_entity,
+			other_entity,        /* talker = NOT us */
+			controller_entity,   /* listener */
+			0, 0, 1);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* No response should be sent since the GUID doesn't match */
+	pwtest_int_eq(avb_loopback_get_packet_count(server), 0);
+
+	/* CONNECT_RX_COMMAND addressed to a different listener — also ignored */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), remote_mac,
+			AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_COMMAND,
+			controller_entity,
+			other_entity,        /* talker */
+			other_entity,        /* listener = NOT us */
+			0, 0, 2);
+	avb_test_inject_packet(server, 2 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* Still no response */
+	pwtest_int_eq(avb_loopback_get_packet_count(server), 0);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: ACMP CONNECT_RX_COMMAND to our server as listener.
+ * Should create a pending request and forward CONNECT_TX_COMMAND to talker.
+ */
+PWTEST(avb_acmp_connect_rx_forward)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[256];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x20 };
+	uint64_t controller_entity = 0x020000fffe000020ULL;
+	uint64_t talker_entity = 0x020000fffe000030ULL;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	avb_loopback_clear_packets(server);
+
+	/* Send CONNECT_RX_COMMAND to us as listener */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), controller_mac,
+			AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_COMMAND,
+			controller_entity,
+			talker_entity,       /* talker = remote */
+			server->entity_id,   /* listener = us */
+			0, 0, 100);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* We should have forwarded a CONNECT_TX_COMMAND to the talker */
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+	{
+		uint8_t rbuf[256];
+		int rlen;
+		struct avb_packet_acmp *cmd;
+
+		rlen = avb_loopback_get_packet(server, rbuf, sizeof(rbuf));
+		pwtest_int_gt(rlen, (int)sizeof(struct avb_ethernet_header));
+
+		cmd = (struct avb_packet_acmp *)(rbuf + sizeof(struct avb_ethernet_header));
+		pwtest_int_eq((int)AVB_PACKET_ACMP_GET_MESSAGE_TYPE(cmd),
+				AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_COMMAND);
+	}
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: ACMP pending timeout and retry behavior.
+ * After CONNECT_RX_COMMAND, the listener creates a pending request.
+ * After timeout (2000ms for CONNECT_TX), it should retry once.
+ * After second timeout, it should be cleaned up.
+ */
+PWTEST(avb_acmp_pending_timeout)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[256];
+	int len;
+	static const uint8_t controller_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x21 };
+	uint64_t controller_entity = 0x020000fffe000021ULL;
+	uint64_t talker_entity = 0x020000fffe000031ULL;
+	int pkt_count_after_forward;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	avb_loopback_clear_packets(server);
+
+	/* Create a pending request via CONNECT_RX_COMMAND */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), controller_mac,
+			AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_COMMAND,
+			controller_entity,
+			talker_entity,
+			server->entity_id,
+			0, 0, 200);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+
+	/* Count packets after initial forward */
+	pkt_count_after_forward = avb_loopback_get_packet_count(server);
+	pwtest_int_gt(pkt_count_after_forward, 0);
+
+	/* Drain the packet queue */
+	avb_loopback_clear_packets(server);
+
+	/* Tick before timeout (2000ms) — no retry yet */
+	avb_test_tick(server, 2 * SPA_NSEC_PER_SEC);
+	pwtest_int_eq(avb_loopback_get_packet_count(server), 0);
+
+	/* Tick after timeout (1s + 2000ms = 3s) — should retry */
+	avb_test_tick(server, 3 * SPA_NSEC_PER_SEC + 100 * SPA_NSEC_PER_MSEC);
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	avb_loopback_clear_packets(server);
+
+	/* Tick after second timeout — should give up (no more retries) */
+	avb_test_tick(server, 5 * SPA_NSEC_PER_SEC + 200 * SPA_NSEC_PER_MSEC);
+	/* The pending was freed, no more retries */
+
+	/* Tick again — should be clean, no crashes */
+	avb_test_tick(server, 6 * SPA_NSEC_PER_SEC);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
+/*
+ * Test: ACMP message with wrong EtherType or subtype is filtered.
+ */
+PWTEST(avb_acmp_packet_filtering)
+{
+	struct impl *impl;
+	struct server *server;
+	uint8_t pkt[256];
+	int len;
+	static const uint8_t remote_mac[6] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x13 };
+	struct avb_ethernet_header *h;
+	struct avb_packet_acmp *p;
+
+	impl = test_impl_new();
+	server = avb_test_server_new(impl);
+	pwtest_ptr_notnull(server);
+
+	/* Build a valid-looking ACMP packet but with wrong EtherType */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), remote_mac,
+			AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_COMMAND,
+			0, server->entity_id, 0, 0, 0, 1);
+	h = (struct avb_ethernet_header *)pkt;
+	h->type = htons(0x1234);  /* Wrong EtherType */
+
+	avb_loopback_clear_packets(server);
+	avb_test_inject_packet(server, 1 * SPA_NSEC_PER_SEC, pkt, len);
+	pwtest_int_eq(avb_loopback_get_packet_count(server), 0);
+
+	/* Build packet with wrong subtype */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), remote_mac,
+			AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_COMMAND,
+			0, server->entity_id, 0, 0, 0, 2);
+	p = (struct avb_packet_acmp *)(pkt + sizeof(struct avb_ethernet_header));
+	AVB_PACKET_SET_SUBTYPE(&p->hdr, AVB_SUBTYPE_ADP);  /* Wrong subtype */
+
+	avb_test_inject_packet(server, 2 * SPA_NSEC_PER_SEC, pkt, len);
+	pwtest_int_eq(avb_loopback_get_packet_count(server), 0);
+
+	/* Build packet with correct parameters — should get response */
+	len = avb_test_build_acmp(pkt, sizeof(pkt), remote_mac,
+			AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_COMMAND,
+			0, server->entity_id, 0, 0, 0, 3);
+	avb_test_inject_packet(server, 3 * SPA_NSEC_PER_SEC, pkt, len);
+	pwtest_int_gt(avb_loopback_get_packet_count(server), 0);
+
+	test_impl_free(impl);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(avb)
 {
 	/* Phase 2: ADP and basic tests */
@@ -1063,6 +1422,14 @@ PWTEST_SUITE(avb)
 	pwtest_add(avb_mrp_parse_single_domain, PWTEST_NOARG);
 	pwtest_add(avb_mrp_parse_with_lva, PWTEST_NOARG);
 	pwtest_add(avb_mrp_parse_three_values, PWTEST_NOARG);
+
+	/* Phase 4: ACMP integration tests */
+	pwtest_add(avb_acmp_not_supported, PWTEST_NOARG);
+	pwtest_add(avb_acmp_connect_tx_no_stream, PWTEST_NOARG);
+	pwtest_add(avb_acmp_wrong_entity_ignored, PWTEST_NOARG);
+	pwtest_add(avb_acmp_connect_rx_forward, PWTEST_NOARG);
+	pwtest_add(avb_acmp_pending_timeout, PWTEST_NOARG);
+	pwtest_add(avb_acmp_packet_filtering, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

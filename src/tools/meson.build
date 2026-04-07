@@ -95,6 +95,50 @@ if build_pw_cat
   summary({'Build pw-cat with FFmpeg integration': build_pw_cat_with_ffmpeg}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')
 endif
 
+build_avb_virtual = get_option('avb').require(
+    host_machine.system() == 'linux',
+    error_message: 'AVB support is only available on Linux'
+).allowed()
+
+if build_avb_virtual
+  avb_tool_inc = include_directories('../modules')
+  avb_tool_sources = [
+    'pw-avb-virtual.c',
+    '../modules/module-avb/avb.c',
+    '../modules/module-avb/adp.c',
+    '../modules/module-avb/acmp.c',
+    '../modules/module-avb/aecp.c',
+    '../modules/module-avb/aecp-aem.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-available.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-control.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-name.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-clock-source.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-sampling-rate.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-deregister-unsolicited-notifications.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-stream-format.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-lock-entity.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-configuration.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/reply-unsol-helpers.c',
+    '../modules/module-avb/es-builder.c',
+    '../modules/module-avb/avdecc.c',
+    '../modules/module-avb/descriptors.c',
+    '../modules/module-avb/maap.c',
+    '../modules/module-avb/mmrp.c',
+    '../modules/module-avb/mrp.c',
+    '../modules/module-avb/msrp.c',
+    '../modules/module-avb/mvrp.c',
+    '../modules/module-avb/srp.c',
+    '../modules/module-avb/stream.c',
+  ]
+  executable('pw-avb-virtual',
+    avb_tool_sources,
+    install: true,
+    include_directories: [configinc, avb_tool_inc],
+    dependencies: [mathlib, dl_lib, rt_lib, pipewire_dep],
+  )
+endif
+
 if dbus_dep.found()
   executable('pw-reserve',
     'reserve.h',

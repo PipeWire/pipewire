@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	struct pw_loop *l;
-	const char *opt_remote = NULL;
+	const char *opt_remote = NULL, *remote_name;
 	char cname[256], value[256];
 	char *args;
 	size_t size;
@@ -221,8 +221,12 @@ int main(int argc, char *argv[])
 
 	fprintf(f, "{");
 
-	if (opt_remote != NULL)
-		fprintf(f, " remote.name = \"%s\"", opt_remote);
+	remote_name = "[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]";
+	if (opt_remote)
+		remote_name = opt_remote;
+
+	fprintf(f, " remote.name = \"%s\"", remote_name);
+
 	if (data.latency != 0)
 		fprintf(f, " node.latency = %u/%u", data.latency, DEFAULT_RATE);
 	if (data.delay != 0.0f)

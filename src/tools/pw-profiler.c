@@ -678,7 +678,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	struct pw_loop *l;
-	const char *opt_remote = NULL;
+	const char *opt_remote = NULL, *remote_name;
 	const char *opt_output = DEFAULT_FILENAME;
 	static const struct option long_options[] = {
 		{ "help",	no_argument,		NULL, 'h' },
@@ -743,9 +743,13 @@ int main(int argc, char *argv[])
 
 	pw_context_load_module(data.context, PW_EXTENSION_MODULE_PROFILER, NULL, NULL);
 
+	remote_name = "[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]";
+	if (opt_remote)
+		remote_name = opt_remote;
+
 	data.core = pw_context_connect(data.context,
 			pw_properties_new(
-				PW_KEY_REMOTE_NAME, opt_remote,
+				PW_KEY_REMOTE_NAME, remote_name,
 				NULL),
 			0);
 	if (data.core == NULL) {

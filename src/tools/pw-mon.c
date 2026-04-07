@@ -789,7 +789,7 @@ int main(int argc, char *argv[])
 {
 	struct data data = { 0 };
 	struct pw_loop *l;
-	const char *opt_remote = NULL;
+	const char *opt_remote = NULL, *remote_name;
 	static const struct option long_options[] = {
 		{ "help",		no_argument,		NULL, 'h' },
 		{ "version",		no_argument,		NULL, 'V' },
@@ -884,10 +884,14 @@ int main(int argc, char *argv[])
 	spa_list_init(&data.pending_list);
 	spa_list_init(&data.global_list);
 
+	remote_name = "[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]";
+	if (opt_remote)
+		remote_name = opt_remote;
+
 	data.core = pw_context_connect(data.context,
 			pw_properties_new(
 				PW_KEY_REMOTE_INTENTION, "manager",
-				PW_KEY_REMOTE_NAME, opt_remote,
+				PW_KEY_REMOTE_NAME, remote_name,
 				NULL),
 			0);
 	if (data.core == NULL) {

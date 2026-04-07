@@ -150,6 +150,8 @@ static void do_quit(void *userdata, int signal_number)
 
 static int dump_filter(struct data *data)
 {
+	const char *remote_name;
+
 	data->loop = pw_main_loop_new(NULL);
 	if (data->loop == NULL)
 		return -errno;
@@ -157,11 +159,15 @@ static int dump_filter(struct data *data)
 	pw_loop_add_signal(pw_main_loop_get_loop(data->loop), SIGINT, do_quit, data);
 	pw_loop_add_signal(pw_main_loop_get_loop(data->loop), SIGTERM, do_quit, data);
 
+	remote_name = "[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]";
+	if (data->opt_remote)
+		remote_name = data->opt_remote;
+
 	data->filter = pw_filter_new_simple(
 			pw_main_loop_get_loop(data->loop),
 			"midi-dump",
 			pw_properties_new(
-				PW_KEY_REMOTE_NAME, data->opt_remote,
+				PW_KEY_REMOTE_NAME, remote_name,
 				PW_KEY_MEDIA_TYPE, "Midi",
 				PW_KEY_MEDIA_CATEGORY, "Filter",
 				PW_KEY_MEDIA_ROLE, "DSP",

@@ -1025,6 +1025,7 @@ static int get_data_from_pipewire(struct data *data, const char *opt_remote)
 {
 	struct pw_loop *l;
 	struct global *g;
+	const char *remote_name;
 
 	data->loop = pw_main_loop_new(NULL);
 	if (data->loop == NULL) {
@@ -1043,9 +1044,13 @@ static int get_data_from_pipewire(struct data *data, const char *opt_remote)
 		return -1;
 	}
 
+	remote_name = "[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]";
+	if (opt_remote)
+		remote_name = opt_remote;
+
 	data->core = pw_context_connect(data->context,
 			pw_properties_new(
-				PW_KEY_REMOTE_NAME, opt_remote,
+				PW_KEY_REMOTE_NAME, remote_name,
 				NULL),
 			0);
 	if (data->core == NULL) {

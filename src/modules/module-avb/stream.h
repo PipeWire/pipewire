@@ -78,5 +78,6 @@ void stream_destroy(struct stream *stream);
 
 int stream_activate(struct stream *stream, uint16_t index, uint64_t now);
 int stream_deactivate(struct stream *stream, uint64_t now);
+int stream_activate_virtual(struct stream *stream, uint16_t index);
 
 #endif /* AVB_STREAM_H */

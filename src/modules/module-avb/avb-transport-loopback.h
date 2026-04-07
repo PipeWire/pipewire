@@ -10,6 +10,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
 
 #include "internal.h"
 #include "packets.h"
@@ -104,11 +106,44 @@ static inline void avb_loopback_destroy(struct server *server)
 	server->transport_data = NULL;
 }
 
+/**
+ * Create a dummy stream socket using eventfd.
+ * No AF_PACKET, no ioctls, no privileges needed.
+ */
+static inline int avb_loopback_stream_setup_socket(struct server *server,
+		struct stream *stream)
+{
+	int fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+	if (fd < 0)
+		return -errno;
+
+	spa_zero(stream->sock_addr);
+	stream->sock_addr.sll_family = AF_PACKET;
+	stream->sock_addr.sll_halen = ETH_ALEN;
+
+	return fd;
+}
+
+/**
+ * No-op stream send — pretend the send succeeded.
+ * Audio data is consumed from the ringbuffer but goes nowhere.
+ */
+static inline ssize_t avb_loopback_stream_send(struct server *server,
+		struct stream *stream, struct msghdr *msg, int flags)
+{
+	ssize_t total = 0;
+	for (size_t i = 0; i < msg->msg_iovlen; i++)
+		total += msg->msg_iov[i].iov_len;
+	return total;
+}
+
 static const struct avb_transport_ops avb_transport_loopback = {
 	.setup = avb_loopback_setup,
 	.send_packet = avb_loopback_send_packet,
 	.make_socket = avb_loopback_make_socket,
 	.destroy = avb_loopback_destroy,
+	.stream_setup_socket = avb_loopback_stream_setup_socket,
+	.stream_send = avb_loopback_stream_send,
 };
 
 /** Get the number of captured sent packets */

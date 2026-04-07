@@ -5,6 +5,8 @@
 #ifndef AVB_INTERNAL_H
 #define AVB_INTERNAL_H
 
+#include <sys/socket.h>
+
 #include <pipewire/pipewire.h>
 
 #ifdef __cplusplus
@@ -17,6 +19,8 @@ struct avb_mrp;
 #define AVB_TSN_ETH 0x22f0
 #define AVB_BROADCAST_MAC { 0x91, 0xe0, 0xf0, 0x01, 0x00, 0x00 };
 
+struct stream;
+
 struct avb_transport_ops {
 	int (*setup)(struct server *server);
 	int (*send_packet)(struct server *server, const uint8_t dest[6],
@@ -24,6 +28,11 @@ struct avb_transport_ops {
 	int (*make_socket)(struct server *server, uint16_t type,
 			const uint8_t mac[6]);
 	void (*destroy)(struct server *server);
+
+	/* stream data plane ops */
+	int (*stream_setup_socket)(struct server *server, struct stream *stream);
+	ssize_t (*stream_send)(struct server *server, struct stream *stream,
+			struct msghdr *msg, int flags);
 };
 
 struct impl {
@@ -95,6 +104,7 @@ struct server {
 	struct spa_hook_list listener_list;
 
 	struct spa_list descriptors;
+	struct spa_list streams;
 
 	unsigned debug_messages:1;
 
@@ -162,6 +172,10 @@ int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t m
 
 int avb_server_send_packet(struct server *server, const uint8_t dest[6],
 		uint16_t type, void *data, size_t size);
+
+int avb_server_stream_setup_socket(struct server *server, struct stream *stream);
+ssize_t avb_server_stream_send(struct server *server, struct stream *stream,
+		struct msghdr *msg, int flags);
 
 struct aecp {
 	struct server *server;

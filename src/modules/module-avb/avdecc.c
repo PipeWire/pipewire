@@ -257,6 +257,102 @@ error_no_source:
 	return res;
 }
 
+static int raw_stream_setup_socket(struct server *server, struct stream *stream)
+{
+	int fd, res;
+	char buf[128];
+	struct ifreq req;
+
+	fd = socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, htons(ETH_P_ALL));
+	if (fd < 0) {
+		pw_log_error("socket() failed: %m");
+		return -errno;
+	}
+
+	spa_zero(req);
+	snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", server->ifname);
+	res = ioctl(fd, SIOCGIFINDEX, &req);
+	if (res < 0) {
+		pw_log_error("SIOCGIFINDEX %s failed: %m", server->ifname);
+		res = -errno;
+		goto error_close;
+	}
+
+	spa_zero(stream->sock_addr);
+	stream->sock_addr.sll_family = AF_PACKET;
+	stream->sock_addr.sll_protocol = htons(ETH_P_TSN);
+	stream->sock_addr.sll_ifindex = req.ifr_ifindex;
+
+	if (stream->direction == SPA_DIRECTION_OUTPUT) {
+		struct sock_txtime txtime_cfg;
+
+		res = setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &stream->prio,
+				sizeof(stream->prio));
+		if (res < 0) {
+			pw_log_error("setsockopt(SO_PRIORITY %d) failed: %m", stream->prio);
+			res = -errno;
+			goto error_close;
+		}
+
+		txtime_cfg.clockid = CLOCK_TAI;
+		txtime_cfg.flags = 0;
+		res = setsockopt(fd, SOL_SOCKET, SO_TXTIME, &txtime_cfg,
+				sizeof(txtime_cfg));
+		if (res < 0) {
+			pw_log_error("setsockopt(SO_TXTIME) failed: %m");
+			res = -errno;
+			goto error_close;
+		}
+	} else {
+		struct packet_mreq mreq;
+
+		res = bind(fd, (struct sockaddr *) &stream->sock_addr, sizeof(stream->sock_addr));
+		if (res < 0) {
+			pw_log_error("bind() failed: %m");
+			res = -errno;
+			goto error_close;
+		}
+
+		spa_zero(mreq);
+		mreq.mr_ifindex = req.ifr_ifindex;
+		mreq.mr_type = PACKET_MR_MULTICAST;
+		mreq.mr_alen = ETH_ALEN;
+		memcpy(&mreq.mr_address, stream->addr, ETH_ALEN);
+		res = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
+				&mreq, sizeof(struct packet_mreq));
+
+		pw_log_info("join %s", avb_utils_format_addr(buf, 128, stream->addr));
+
+		if (res < 0) {
+			pw_log_error("setsockopt(ADD_MEMBERSHIP) failed: %m");
+			res = -errno;
+			goto error_close;
+		}
+	}
+	return fd;
+
+error_close:
+	close(fd);
+	return res;
+}
+
+static ssize_t raw_stream_send(struct server *server, struct stream *stream,
+		struct msghdr *msg, int flags)
+{
+	return sendmsg(stream->source->fd, msg, flags);
+}
+
+int avb_server_stream_setup_socket(struct server *server, struct stream *stream)
+{
+	return server->transport->stream_setup_socket(server, stream);
+}
+
+ssize_t avb_server_stream_send(struct server *server, struct stream *stream,
+		struct msghdr *msg, int flags)
+{
+	return server->transport->stream_send(server, stream, msg, flags);
+}
+
 static void raw_transport_destroy(struct server *server)
 {
 	struct impl *impl = server->impl;
@@ -270,6 +366,8 @@ const struct avb_transport_ops avb_transport_raw = {
 	.send_packet = raw_send_packet,
 	.make_socket = raw_make_socket,
 	.destroy = raw_transport_destroy,
+	.stream_setup_socket = raw_stream_setup_socket,
+	.stream_send = raw_stream_send,
 };
 
 struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
@@ -294,6 +392,7 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
+	spa_list_init(&server->streams);
 
 	server->debug_messages = false;
 

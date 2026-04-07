@@ -116,9 +116,10 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 		p->timestamp = ptime;
 		p->dbc = dbc;
 
-		n = sendmsg(stream->source->fd, &stream->msg, MSG_NOSIGNAL);
+		n = avb_server_stream_send(stream->server, stream,
+				&stream->msg, MSG_NOSIGNAL);
 		if (n < 0 || n != (ssize_t)stream->pdu_size) {
-			pw_log_error("sendmsg() failed %zd != %zd: %m",
+			pw_log_error("stream send failed %zd != %zd: %m",
 					n, stream->pdu_size);
 		}
 		txtime += stream->pdu_period;
@@ -331,6 +332,8 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 	stream->talker_attr->attr.talker.rank = AVB_MSRP_RANK_DEFAULT;
 	stream->talker_attr->attr.talker.accumulated_latency = htonl(95);
 
+	spa_list_append(&server->streams, &stream->link);
+
 	return stream;
 
 error_free_stream:
@@ -348,82 +351,7 @@ void stream_destroy(struct stream *stream)
 
 static int setup_socket(struct stream *stream)
 {
-	struct server *server = stream->server;
-	int fd, res;
-	char buf[128];
-	struct ifreq req;
-
-	fd = socket(AF_PACKET, SOCK_RAW | SOCK_NONBLOCK, htons(ETH_P_ALL));
-	if (fd < 0) {
-		pw_log_error("socket() failed: %m");
-		return -errno;
-	}
-
-	spa_zero(req);
-	snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", server->ifname);
-	res = ioctl(fd, SIOCGIFINDEX, &req);
-	if (res < 0) {
-		pw_log_error("SIOCGIFINDEX %s failed: %m", server->ifname);
-		res = -errno;
-		goto error_close;
-	}
-
-	spa_zero(stream->sock_addr);
-	stream->sock_addr.sll_family = AF_PACKET;
-	stream->sock_addr.sll_protocol = htons(ETH_P_TSN);
-	stream->sock_addr.sll_ifindex = req.ifr_ifindex;
-
-	if (stream->direction == SPA_DIRECTION_OUTPUT) {
-		struct sock_txtime txtime_cfg;
-
-		res = setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &stream->prio,
-				sizeof(stream->prio));
-		if (res < 0) {
-			pw_log_error("setsockopt(SO_PRIORITY %d) failed: %m", stream->prio);
-			res = -errno;
-			goto error_close;
-		}
-
-		txtime_cfg.clockid = CLOCK_TAI;
-		txtime_cfg.flags = 0;
-		res = setsockopt(fd, SOL_SOCKET, SO_TXTIME, &txtime_cfg,
-				sizeof(txtime_cfg));
-		if (res < 0) {
-			pw_log_error("setsockopt(SO_TXTIME) failed: %m");
-			res = -errno;
-			goto error_close;
-		}
-	} else {
-		struct packet_mreq mreq;
-
-		res = bind(fd, (struct sockaddr *) &stream->sock_addr, sizeof(stream->sock_addr));
-		if (res < 0) {
-			pw_log_error("bind() failed: %m");
-			res = -errno;
-			goto error_close;
-		}
-
-		spa_zero(mreq);
-		mreq.mr_ifindex = req.ifr_ifindex;
-		mreq.mr_type = PACKET_MR_MULTICAST;
-		mreq.mr_alen = ETH_ALEN;
-		memcpy(&mreq.mr_address, stream->addr, ETH_ALEN);
-		res = setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP,
-				&mreq, sizeof(struct packet_mreq));
-
-		pw_log_info("join %s", avb_utils_format_addr(buf, 128, stream->addr));
-
-		if (res < 0) {
-			pw_log_error("setsockopt(ADD_MEMBERSHIP) failed: %m");
-			res = -errno;
-			goto error_close;
-		}
-	}
-	return fd;
-
-error_close:
-	close(fd);
-	return res;
+	return avb_server_stream_setup_socket(stream->server, stream);
 }
 
 static void handle_iec61883_packet(struct stream *stream,
@@ -546,5 +474,26 @@ int stream_deactivate(struct stream *stream, uint64_t now)
 	} else {
 		avb_mrp_attribute_leave(stream->talker_attr->mrp, now);
 	}
+	return 0;
+}
+
+int stream_activate_virtual(struct stream *stream, uint16_t index)
+{
+	struct server *server = stream->server;
+	int fd;
+
+	if (stream->source == NULL) {
+		fd = setup_socket(stream);
+		if (fd < 0)
+			return fd;
+
+		stream->source = pw_loop_add_io(server->impl->loop, fd,
+				SPA_IO_IN, true, on_socket_data, stream);
+		if (stream->source == NULL) {
+			close(fd);
+			return -errno;
+		}
+	}
+	pw_stream_set_active(stream->stream, true);
 	return 0;
 }

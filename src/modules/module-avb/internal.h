@@ -102,7 +102,6 @@ static inline void server_destroy_descriptors(struct server *server)
 	struct descriptor *d, *t;
 
         spa_list_for_each_safe(d, t, &server->descriptors, link) {
-		free(d->ptr);
 		spa_list_remove(&d->link);
 		free(d);
         }

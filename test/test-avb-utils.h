@@ -51,6 +51,7 @@ static inline struct server *avb_test_server_new(struct impl *impl)
 	spa_list_append(&impl->servers, &server->link);
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
+	spa_list_init(&server->streams);
 
 	if (server->transport->setup(server) < 0)
 		goto error;
@@ -295,6 +296,7 @@ static inline struct server *avb_test_server_new_milan(struct impl *impl)
 	spa_list_append(&impl->servers, &server->link);
 	spa_hook_list_init(&server->listener_list);
 	spa_list_init(&server->descriptors);
+	spa_list_init(&server->streams);
 
 	if (server->transport->setup(server) < 0)
 		goto error;

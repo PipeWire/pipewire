@@ -1702,6 +1702,19 @@ static int setup_streams(struct impl *impl)
 	spa_process_latency_build(&b.b,
 			SPA_PARAM_ProcessLatency, &impl->process_latency);
 
+
+	if (impl->capture || impl->playback) {
+		if ((offs = pw_array_add(&offsets, sizeof(uint32_t))) != NULL)
+			*offs = b.b.state.offset;
+
+		if (impl->capture)
+			spa_format_audio_raw_build(&b.b,
+					SPA_PARAM_EnumFormat, &impl->capture_info);
+		else
+			spa_format_audio_raw_build(&b.b,
+					SPA_PARAM_EnumFormat, &impl->playback_info);
+	}
+
 	n_params = pw_array_get_len(&offsets, uint32_t);
 	if (n_params == 0) {
 		res = -ENOMEM;
@@ -1717,8 +1730,6 @@ static int setup_streams(struct impl *impl)
 		params[i] = spa_pod_builder_deref(&b.b, offs[i]);
 
 	if (impl->capture) {
-		params[n_params++] = spa_format_audio_raw_build(&b.b,
-				SPA_PARAM_EnumFormat, &impl->capture_info);
 		flags = PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |
 			PW_STREAM_FLAG_RT_PROCESS;
@@ -1739,8 +1750,9 @@ static int setup_streams(struct impl *impl)
 		spa_pod_dynamic_builder_init(&b, NULL, 0, 4096);
 	}
 	if (impl->playback) {
-		params[n_params++] = spa_format_audio_raw_build(&b.b,
-				SPA_PARAM_EnumFormat, &impl->playback_info);
+		if (n_params == 0)
+			params[n_params++] = spa_format_audio_raw_build(&b.b,
+					SPA_PARAM_EnumFormat, &impl->playback_info);
 
 		flags = PW_STREAM_FLAG_AUTOCONNECT |
 			PW_STREAM_FLAG_MAP_BUFFERS |

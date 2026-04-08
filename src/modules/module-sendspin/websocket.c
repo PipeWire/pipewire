@@ -963,7 +963,7 @@ int pw_websocket_connect(struct pw_websocket *ws, void *user,
 {
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
-	int res, fd;
+	int res, fd = -1;
 	struct pw_websocket_connection *conn = NULL;
 
 	memset(&hints, 0, sizeof(hints));

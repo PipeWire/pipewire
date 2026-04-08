@@ -416,7 +416,7 @@ static int snapcast_connect(struct tunnel *t)
 {
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
-	int res, fd;
+	int res, fd = -1;
 	char port_str[12];
 
 	if (t->server_address == NULL)

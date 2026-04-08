@@ -4750,7 +4750,6 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 static int do_set_default(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
-	struct pw_manager_object *o;
 	const char *name, *str;
 	int res;
 	bool sink = command == COMMAND_SET_DEFAULT_SINK;
@@ -4767,10 +4766,10 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 	if (spa_streq(name, "@NONE@"))
 		name = NULL;
 
-	if (name != NULL && (o = find_device(client, SPA_ID_INVALID, name, sink, NULL)) == NULL)
-		return -ENOENT;
-
 	if (name != NULL) {
+		struct pw_manager_object *o;
+		if ((o = find_device(client, SPA_ID_INVALID, name, sink, NULL)) == NULL)
+			return -ENOENT;
 		if (o->props && (str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) != NULL)
 			name = str;
 		else if (spa_strendswith(name, ".monitor"))

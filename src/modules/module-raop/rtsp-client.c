@@ -481,7 +481,7 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 {
 	struct addrinfo hints;
 	struct addrinfo *result, *rp;
-	int res, fd;
+	int res, fd = -1;
 	char port_str[12];
 
 	if (client->source != NULL)

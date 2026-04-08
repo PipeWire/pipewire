@@ -1651,7 +1651,7 @@ static const struct pw_stream_events out_stream_events = {
 
 static int setup_streams(struct impl *impl)
 {
-	int res;
+	int res = 0;
 	uint32_t i, n_params, *offs, flags;
 	struct pw_array offsets;
 	const struct spa_pod **params = NULL;

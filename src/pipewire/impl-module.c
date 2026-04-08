@@ -141,7 +141,7 @@ pw_context_load_module(struct pw_context *context,
 {
 	struct pw_impl_module *this;
 	struct impl *impl;
-	void *hnd;
+	void *hnd = NULL;
 	char *filename = NULL;
 	const char *module_dir;
 	int res;

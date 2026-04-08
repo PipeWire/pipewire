@@ -2570,7 +2570,10 @@ static void *v4l2_mmap(void *addr, size_t length, int prot,
 	buf = &file->buffers[id];
 	data = &buf->buf->buffer->datas[0];
 
-        pw_map_range_init(&range, data->mapoffset, data->maxsize, 1024);
+        if (pw_map_range_init(&range, data->mapoffset, data->maxsize, 1024) < 0) {
+		res = MAP_FAILED;
+		goto error_unlock;
+	}
 
 	if (!SPA_FLAG_IS_SET(data->flags, SPA_DATA_FLAG_READABLE))
 		prot &= ~PROT_READ;

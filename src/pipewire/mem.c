@@ -421,7 +421,10 @@ struct pw_memmap * pw_memblock_map(struct pw_memblock *block,
 	m = memblock_find_mapping(b, flags, offset, size);
 	if (m == NULL) {
 		struct pw_map_range range;
-		pw_map_range_init(&range, offset, size, p->pagesize);
+		if (pw_map_range_init(&range, offset, size, p->pagesize) < 0) {
+			errno = EOVERFLOW;
+			return NULL;
+		}
 
 		m = memblock_map(b, flags, range.offset, range.size);
 		if (m == NULL)

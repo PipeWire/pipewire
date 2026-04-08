@@ -807,7 +807,10 @@ static int map_data(struct stream *impl, struct spa_data *data, int prot)
 	void *ptr;
 	struct pw_map_range range;
 
-	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
+	if (pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize) < 0) {
+		pw_log_error("%p: invalid buffer map range", impl);
+		return -EOVERFLOW;
+	}
 
 	ptr = mmap(NULL, range.size, prot, MAP_SHARED, data->fd, range.offset);
 	if (ptr == MAP_FAILED) {
@@ -837,7 +840,8 @@ static int unmap_data(struct stream *impl, struct spa_data *data)
 {
 	struct pw_map_range range;
 
-	pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize);
+	if (pw_map_range_init(&range, data->mapoffset, data->maxsize, impl->context->sc_pagesize) < 0)
+		return -EOVERFLOW;
 
 	if (munmap(SPA_PTROFF(data->data, -range.start, void), range.size) < 0)
 		pw_log_warn("%p: failed to unmap: %m", impl);

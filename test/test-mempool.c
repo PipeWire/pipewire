@@ -41,9 +41,74 @@ PWTEST(mempool_issue4884)
 	return PWTEST_PASS;
 }
 
+PWTEST(map_range_overflow)
+{
+	/*
+	 * Test that pw_map_range_init rejects offset + size combinations
+	 * that would overflow uint32_t, which could cause mmap with a
+	 * truncated size and subsequent out-of-bounds access.
+	 */
+	struct pw_map_range range;
+	uint32_t page_size = 4096;
+	int res;
+
+	/* Normal case: should succeed */
+	res = pw_map_range_init(&range, 0, 4096, page_size);
+	pwtest_int_eq(res, 0);
+	pwtest_int_eq(range.offset, 0u);
+	pwtest_int_eq(range.start, 0u);
+	pwtest_int_eq(range.size, 4096u);
+
+	/* Page-aligned offset: should succeed */
+	res = pw_map_range_init(&range, 4096, 4096, page_size);
+	pwtest_int_eq(res, 0);
+	pwtest_int_eq(range.offset, 4096u);
+	pwtest_int_eq(range.start, 0u);
+	pwtest_int_eq(range.size, 4096u);
+
+	/* Non-aligned offset: start gets the remainder */
+	res = pw_map_range_init(&range, 100, 4096, page_size);
+	pwtest_int_eq(res, 0);
+	pwtest_int_eq(range.offset, 0u);
+	pwtest_int_eq(range.start, 100u);
+
+	/* size=0: should succeed */
+	res = pw_map_range_init(&range, 0, 0, page_size);
+	pwtest_int_eq(res, 0);
+
+	/* Overflow: non-aligned offset causes start > 0, then start + size wraps */
+	res = pw_map_range_init(&range, 4095, 0xFFFFF002, page_size);
+	pwtest_int_lt(res, 0);
+
+	/* Overflow: max size with any non-zero start */
+	res = pw_map_range_init(&range, 1, UINT32_MAX, page_size);
+	pwtest_int_lt(res, 0);
+
+	/* Both large but page-aligned: start=0, start+size=0x80000000,
+	 * round-up doesn't overflow, so this should succeed */
+	res = pw_map_range_init(&range, 0x80000000, 0x80000000, page_size);
+	pwtest_int_eq(res, 0);
+
+	/* Non-aligned offset but still fits: start=1, start+size=0x80000001 */
+	res = pw_map_range_init(&range, 0x80000001, 0x80000000, page_size);
+	pwtest_int_eq(res, 0);
+
+	/* Overflow: round-up of start+size would exceed uint32 */
+	res = pw_map_range_init(&range, 1, UINT32_MAX - 1, page_size);
+	pwtest_int_lt(res, 0);
+
+	/* start=0, size=UINT32_MAX: start + size doesn't wrap, but
+	 * SPA_ROUND_UP_N to page_size would overflow, so must fail */
+	res = pw_map_range_init(&range, 0, UINT32_MAX, page_size);
+	pwtest_int_lt(res, 0);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(pw_mempool)
 {
 	pwtest_add(mempool_issue4884, PWTEST_NOARG);
+	pwtest_add(map_range_overflow, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

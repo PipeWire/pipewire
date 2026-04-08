@@ -178,14 +178,21 @@ struct pw_map_range {
 #define PW_MAP_RANGE_INIT (struct pw_map_range){ 0, }
 
 /** Calculate parameters to mmap() memory into \a range so that
- * \a size bytes at \a offset can be mapped with mmap().  */
-PW_API_MEM void pw_map_range_init(struct pw_map_range *range,
+ * \a size bytes at \a offset can be mapped with mmap().
+ * Returns 0 on success, -EOVERFLOW if offset + size overflows. */
+PW_API_MEM int pw_map_range_init(struct pw_map_range *range,
 				     uint32_t offset, uint32_t size,
 				     uint32_t page_size)
 {
 	range->offset = SPA_ROUND_DOWN_N(offset, page_size);
 	range->start = offset - range->offset;
+	if (size > UINT32_MAX - range->start)
+		return -EOVERFLOW;
+	/* Check that rounding up to page_size won't overflow */
+	if (range->start + size > UINT32_MAX - (page_size - 1))
+		return -EOVERFLOW;
 	range->size = SPA_ROUND_UP_N(range->start + size, page_size);
+	return 0;
 }
 
 /**

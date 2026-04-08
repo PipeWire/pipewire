@@ -67,8 +67,8 @@ struct node {
 };
 
 struct filter_preset {
-	enum pw_node_state filter_state;
-	enum pw_node_state filter_followers;
+	enum pw_node_state state;
+	enum pw_node_state followers;
 };
 
 struct filter_preset filter_presets[] = {
@@ -78,8 +78,7 @@ struct filter_preset filter_presets[] = {
 	{PW_NODE_STATE_RUNNING, PW_NODE_STATE_IDLE},
 };
 
-unsigned int filter_presets_length =
-	sizeof(filter_presets) / sizeof(struct filter_preset);
+#define N_FILTER_PRESETS SPA_N_ELEMENTS(filter_presets)
 
 struct data {
 	struct pw_main_loop *loop;
@@ -107,7 +106,7 @@ struct data {
 	unsigned int batch_mode:1;
 	int iterations;
 
-	unsigned int filter_preset;
+	int32_t filter_preset;
 };
 
 struct point {
@@ -576,27 +575,28 @@ static void do_refresh(struct data *d, bool force_refresh)
 {
 	struct node *n, *t, *f;
 	int y = 1;
+	struct filter_preset *filter = &filter_presets[d->filter_preset];
 
 	if (!d->pending_refresh && !force_refresh)
 		return;
 
 	if (!d->batch_mode) {
 		char statusbar[COLS] = {};
-		if (!((filter_presets[d->filter_preset].filter_state == PW_NODE_STATE_ERROR) &&
-			(filter_presets[d->filter_preset].filter_followers == PW_NODE_STATE_ERROR))) {
+		if (!((filter->state == PW_NODE_STATE_ERROR) &&
+			(filter->followers == PW_NODE_STATE_ERROR))) {
 
 			strcpy(statusbar, "FILTER: ");
-			if (filter_presets[d->filter_preset].filter_state == PW_NODE_STATE_ERROR)
+			if (filter->state == PW_NODE_STATE_ERROR)
 				strcat(statusbar, "ALL");
 			else for (enum pw_node_state showstate = PW_NODE_STATE_RUNNING; showstate >= PW_NODE_STATE_ERROR; showstate--) {
-				if (showstate >= filter_presets[d->filter_preset].filter_state)
+				if (showstate >= filter->state)
 					strcat(statusbar, state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
 			}
 			strcat(statusbar, "+");
-			if (filter_presets[d->filter_preset].filter_followers == PW_NODE_STATE_ERROR)
+			if (filter->followers == PW_NODE_STATE_ERROR)
 				strcat(statusbar, "ALL");
 			else for (enum pw_node_state showstate = PW_NODE_STATE_RUNNING; showstate >= PW_NODE_STATE_ERROR; showstate--) {
-				if (showstate >= filter_presets[d->filter_preset].filter_followers)
+				if (showstate >= filter->followers)
 					strcat(statusbar, state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
 			}
 		}
@@ -614,7 +614,7 @@ static void do_refresh(struct data *d, bool force_refresh)
 	spa_list_for_each_safe(n, t, &d->node_list, link) {
 		if (n->driver != n)
 			continue;
-		if (n->state < filter_presets[d->filter_preset].filter_state)
+		if (n->state < filter->state)
 			continue;
 
 		print_node(d, n, n, y++);
@@ -628,7 +628,7 @@ static void do_refresh(struct data *d, bool force_refresh)
 			if (f->driver != n || f == n)
 				continue;
 
-			if (f->state < filter_presets[d->filter_preset].filter_followers)
+			if (f->state < filter->followers)
 				continue;
 
 			print_node(d, n, f, y++);
@@ -853,11 +853,11 @@ static void do_handle_io(void *data, int fd, uint32_t mask)
 			reset_xruns(d);
 			break;
 		case 'f':
-			d->filter_preset = ((d->filter_preset + 1) % filter_presets_length);
+			d->filter_preset = (d->filter_preset + 1) % N_FILTER_PRESETS;
 			do_refresh(d, !d->batch_mode);
 			break;
 		case 'F':
-			d->filter_preset = ((d->filter_preset - 1 + filter_presets_length) % filter_presets_length);
+			d->filter_preset = (d->filter_preset - 1 + N_FILTER_PRESETS) % N_FILTER_PRESETS;
 			do_refresh(d, !d->batch_mode);
 			break;
 		default:
@@ -914,7 +914,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			spa_atoi32(optarg, &data.filter_preset, 10);
-			data.filter_preset = ((data.filter_preset) % filter_presets_length);
+			data.filter_preset %= N_FILTER_PRESETS;
 			break;
 		case 'n':
 			spa_atoi32(optarg, &data.iterations, 10);

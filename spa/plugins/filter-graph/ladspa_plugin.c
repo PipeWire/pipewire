@@ -247,10 +247,10 @@ static int load_ladspa_plugin(struct plugin *impl, const char *path, const char 
 	while ((p = split_walk(search_dirs, ":", &len, &state))) {
 		int namelen;
 
-		if (len >= sizeof(filename))
+		if (len == 0 || len >= sizeof(filename))
 			continue;
 
-		if (strncmp(path, p, len) == 0)
+		if (strncmp(path, p, len) == 0 && path[len] == '/')
 			namelen = snprintf(filename, sizeof(filename), "%s", path);
 		else
 			namelen = snprintf(filename, sizeof(filename), "%.*s/%s.so", (int) len, p, path);

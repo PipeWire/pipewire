@@ -175,10 +175,10 @@ static inline int weakjack_load(struct weakjack *jack, const char *lib)
 	while ((p = pw_split_walk(search_dirs, ":", &len, &state))) {
 		int pathlen;
 
-		if (len >= sizeof(path))
+		if (len == 0 || len >= sizeof(path))
 			continue;
 
-		if (strncmp(lib, p, len) == 0)
+		if (strncmp(lib, p, len) == 0 && lib[len] == '/')
 			pathlen = snprintf(path, sizeof(path), "%s", lib);
 		else
 			pathlen = snprintf(path, sizeof(path), "%.*s/%s", (int) len, p, lib);

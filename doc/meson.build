@@ -67,6 +67,7 @@ extra_docs = [
   'dox/internals/session-manager.dox',
   'dox/internals/objects.dox',
   'dox/internals/audio.dox',
+  'dox/internals/running.dox',
   'dox/internals/scheduling.dox',
   'dox/internals/driver.dox',
   'dox/internals/protocol.dox',

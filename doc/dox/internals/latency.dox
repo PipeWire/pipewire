@@ -103,7 +103,7 @@ down and upstream.
 # Async nodes
 
 When a node has the node.async property set to true, it will be considered an async
-node and will be scheduled differently, see scheduling.dox.
+node and will be scheduled differently, see \ref page_scheduling .
 
 A link between a port of an async node and another port (async or not) is called an
 async link and will have the link.async=true property.

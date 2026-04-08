@@ -411,7 +411,7 @@ static void group_on_timeout(struct spa_source *source)
 	/* Ensure controller fill level */
 	fill_count = UINT_MAX;
 	spa_list_for_each(stream, &group->streams, link) {
-		if (!stream->sink || !group->started)
+		if (!stream->sink || !group->started || !stream->tx_latency.enabled)
 			continue;
 		if (stream->tx_latency.queue < MIN_FILL)
 			fill_count = SPA_MIN(fill_count, MIN_FILL - stream->tx_latency.queue);

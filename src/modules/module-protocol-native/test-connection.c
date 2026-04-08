@@ -211,7 +211,7 @@ static void test_spoofed_fds(struct pw_protocol_native_connection *in,
 	 */
 	{
 		/* Build a tiny SPA pod: struct { Int(0) } */
-		uint8_t payload[16];
+		uint8_t payload[32];
 		struct spa_pod_builder pb;
 
 		spa_pod_builder_init(&pb, payload, sizeof(payload));
@@ -219,6 +219,8 @@ static void test_spoofed_fds(struct pw_protocol_native_connection *in,
 
 		uint32_t payload_size = pb.state.offset;
 		uint32_t header[4];
+
+		spa_assert_se(payload_size <= sizeof(payload));
 
 		header[0] = 1;					/* id */
 		header[1] = (5u << 24) | (payload_size & 0xffffff);	/* opcode=5, size */

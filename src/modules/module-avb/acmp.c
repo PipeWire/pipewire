@@ -174,13 +174,14 @@ static int handle_connect_tx_command(struct acmp *acmp, uint64_t now, const void
 		return 0;
 
 	memcpy(buf, m, len);
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
+
 	stream = find_stream(server, SPA_DIRECTION_OUTPUT, ntohs(reply->talker_unique_id));
 	if (stream == NULL) {
 		status = AVB_ACMP_STATUS_TALKER_NO_STREAM_INDEX;
 		goto done;
 	}
 
-	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
 	reply->stream_id = htobe64(stream->id);
 
 	stream_activate(stream, ntohs(reply->talker_unique_id), now);
@@ -251,13 +252,13 @@ static int handle_disconnect_tx_command(struct acmp *acmp, uint64_t now, const v
 		return 0;
 
 	memcpy(buf, m, len);
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE);
+
 	stream = find_stream(server, SPA_DIRECTION_OUTPUT, ntohs(reply->talker_unique_id));
 	if (stream == NULL) {
 		status = AVB_ACMP_STATUS_TALKER_NO_STREAM_INDEX;
 		goto done;
 	}
-
-	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE);
 
 	stream_deactivate(stream, now);
 

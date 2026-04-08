@@ -1251,36 +1251,26 @@ static void check_properties(struct pw_impl_node *node)
 
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL) {
 		if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
-		    (strstr(str, "/Sink") != NULL || strstr(str, "/Source") != NULL))
+		    (strstr(str, "/Duplex") || strstr(str, "/Sink") || strstr(str, "/Source")))
 			str = "follow-suspend";
 		else
 			str = "false";
 	}
 	while ((s = pw_split_walk(str, ",\0", &len, &state))) {
-		char v[16] = { 0 };
+		char v[32] = { 0 };
 		snprintf(v, sizeof(v), "%.*s", (int)len, s);
 
 		if (spa_streq(v, "out"))
 			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_TRUE;
-		else if (spa_streq(v, "out-follow"))
-			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW;
-		else if (spa_streq(v, "in-follow"))
-			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW;
 		else if (spa_streq(v, "in"))
 			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_TRUE;
-		else if (spa_streq(v, "follow-suspend")) {
-			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
-			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW_SUSPEND;
-		}
-		else if (spa_streq(v, "follow")) {
-			node->passive_mode[SPA_DIRECTION_INPUT] = PASSIVE_MODE_FOLLOW;
-			node->passive_mode[SPA_DIRECTION_OUTPUT] = PASSIVE_MODE_FOLLOW;
-		}
-		else {
-			node->passive_mode[SPA_DIRECTION_OUTPUT] =
-				node->passive_mode[SPA_DIRECTION_INPUT] =
-				spa_atob(v) ? PASSIVE_MODE_TRUE : PASSIVE_MODE_FALSE;
-		}
+		else if (spa_strstartswith(v, "out-"))
+			node->passive_mode[SPA_DIRECTION_OUTPUT] = passive_mode_from_string(v+4);
+		else if (spa_strstartswith(v, "in-"))
+			node->passive_mode[SPA_DIRECTION_INPUT] = passive_mode_from_string(v+3);
+		else
+			node->passive_mode[SPA_DIRECTION_INPUT] =
+				node->passive_mode[SPA_DIRECTION_OUTPUT] = passive_mode_from_string(v);
 	}
 
 	node->want_driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_WANT_DRIVER, false);

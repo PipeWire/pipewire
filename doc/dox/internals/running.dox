@@ -44,7 +44,7 @@ wide range of use cases.
 
 # Node passive modes
 
-A Node can have 8 passive modes, `node.passive` can be set to a comma separated list
+A Node can have 10 passive modes, `node.passive` can be set to a comma separated list
 of the following values:
 
  - `false`, both input and output ports have `port.passive = false`
@@ -56,10 +56,13 @@ of the following values:
  - `out-follow`, output ports have `port.passive = follow`
  - `follow`, input and output ports have `port.passive = follow`. This is the same
           as `in-follow,out-follow`.
- - `follow-suspend`, input and output ports have `port.passive = follow-suspend`
+ - `in-follow-suspend`, input ports have `port.passive = follow-suspend`
+ - `out-follow-suspend`, output ports have `port.passive = follow-suspend`
+ - `follow-suspend`, input and output ports have `port.passive = follow-suspend`.
+          This is the same as `in-follow-suspend,out-follow-suspend`.
 
-Node by default have the `false` mode but nodes with the `media.class` property
-containing `Sink` or `Source` receive the `follow-suspend` mode by default.
+Nodes by default have the `false` mode but nodes with the `media.class` property
+containing `Sink`, `Source` or `Duplex` receive the `follow-suspend` mode by default.
 
 Unless explicitly configured, ports inherit the mode from their parent node.
 
@@ -237,7 +240,7 @@ connected to the sink monitor ports.
 ```
 
 We would like to keep the monitor stream and the ALSA sink suspended
-unless something else activated the ALSA Sink:
+unless something else activates the ALSA Sink:
 
 
 ```

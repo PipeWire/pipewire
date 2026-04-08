@@ -541,12 +541,7 @@ static int check_properties(struct pw_impl_port *port)
 		/* inherit passive state from parent node */
 		port->passive_mode = node->passive_mode[port->direction];
 	} else {
-		if (spa_streq(str, "follow")) {
-			port->passive_mode = PASSIVE_MODE_FOLLOW;
-		} else {
-			port->passive_mode = spa_atob(str) ?
-				PASSIVE_MODE_TRUE : PASSIVE_MODE_FALSE;
-		}
+		port->passive_mode = passive_mode_from_string(str);
 	}
 
 	if (media_class != NULL &&

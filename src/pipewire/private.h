@@ -1000,9 +1000,17 @@ static inline const char* passive_mode_to_string(uint32_t passive_mode)
 		return "follow";
 	case PASSIVE_MODE_FOLLOW_SUSPEND:
 		return "follow";
-	default:
-		return "unknown";
 	}
+	return "unknown";
+}
+
+static inline uint32_t passive_mode_from_string(const char *str)
+{
+	if (spa_streq(str, "follow"))
+		return PASSIVE_MODE_FOLLOW;
+	else if (spa_streq(str, "follow-suspend"))
+		return PASSIVE_MODE_FOLLOW_SUSPEND;
+	return spa_atob(str);
 }
 
 struct pw_control_link {

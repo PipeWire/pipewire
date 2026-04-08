@@ -989,6 +989,22 @@ struct pw_impl_port {
 	void *user_data;                /**< extra user data */
 };
 
+static inline const char* passive_mode_to_string(uint32_t passive_mode)
+{
+	switch (passive_mode) {
+	case PASSIVE_MODE_FALSE:
+		return "false";
+	case PASSIVE_MODE_TRUE:
+		return "true";
+	case PASSIVE_MODE_FOLLOW:
+		return "follow";
+	case PASSIVE_MODE_FOLLOW_SUSPEND:
+		return "follow";
+	default:
+		return "unknown";
+	}
+}
+
 struct pw_control_link {
 	struct spa_list out_link;
 	struct spa_list in_link;

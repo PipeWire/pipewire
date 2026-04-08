@@ -1346,8 +1346,10 @@ static void check_properties(struct pw_impl_node *node)
 		recalc_reason = "force rate changed";
 	}
 
-	pw_log_debug("%p: driver:%d recalc:%s active:%d passive:%d:%d", node, node->driver,
-			recalc_reason, node->active, node->passive_mode[0], node->passive_mode[1]);
+	pw_log_debug("%p: driver:%d recalc:%s active:%d passive:%s:%s", node, node->driver,
+			recalc_reason, node->active,
+			passive_mode_to_string(node->passive_mode[0]),
+			passive_mode_to_string(node->passive_mode[1]));
 
 	if (recalc_reason != NULL && node->active)
 		pw_context_recalc_graph(context, recalc_reason);

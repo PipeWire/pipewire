@@ -30,13 +30,13 @@ be scheduled and grouped using:
 
 A Port has 4 passive modes, this depends on the value of the `port.passive` property:
 
-* `false`, the port will make the peer active and an active peer will make this port
+ - `false`, the port will make the peer active and an active peer will make this port
             active.
-* `true`, the port will not make the peer active and an active peer will not make this
+ - `true`, the port will not make the peer active and an active peer will not make this
            port active.
-* `follow`, the port will not make the peer active but an active peer will make this
+ - `follow`, the port will not make the peer active but an active peer will make this
            port active.
-* `follow-suspend`, the port will only make another follow-suspend peer active but any
+ - `follow-suspend`, the port will only make another follow-suspend peer active but any
            active peer will make this port active.
 
 The combination of these 4 modes on the output and input ports of a link results in a
@@ -47,16 +47,16 @@ wide range of use cases.
 A Node can have 8 passive modes, `node.passive` can be set to a comma separated list
 of the following values:
 
-* `false`, both input and output ports have `port.passive = false`
-* `in`, input ports have `port.passive = true`
-* `out`, output ports have `port.passive = true`
-* `true`, both input and output ports have `port.passive = true`. This is the same
+ - `false`, both input and output ports have `port.passive = false`
+ - `in`, input ports have `port.passive = true`
+ - `out`, output ports have `port.passive = true`
+ - `true`, both input and output ports have `port.passive = true`. This is the same
           as `in,out`.
-* `in-follow`, input ports have `port.passive = follow`
-* `out-follow`, output ports have `port.passive = follow`
-* `follow`, input and output ports have `port.passive = follow`. This is the same
+ - `in-follow`, input ports have `port.passive = follow`
+ - `out-follow`, output ports have `port.passive = follow`
+ - `follow`, input and output ports have `port.passive = follow`. This is the same
           as `in-follow,out-follow`.
-* `follow-suspend`, input and output ports have `port.passive = follow-suspend`
+ - `follow-suspend`, input and output ports have `port.passive = follow-suspend`
 
 Node by default have the `false` mode but nodes with the `media.class` property
 containing `Sink` or `Source` receive the `follow-suspend` mode by default.
@@ -73,6 +73,7 @@ runnable or not. A link will always make both nodes runnable or none.
 The following table decides the runnability of the 2 nodes based on the port.passive
 mode of the link between the 2 ports:
 
+```
                      B-false    B-true   B-follow  B-follow-suspend 
 		      
 A-false                  X        X          X          X
@@ -80,11 +81,13 @@ A-true
 A-follow
 A-follow-suspend                                        X
                              Table 1
+```
                            
 
 When a node is made runnable, the port passive mode will then decide if the peer ports
 should become active as well with the following table.
 
+```
                       B-false    B-true   B-follow  B-follow-suspend 
 		      
 A-false                  X                   X          X
@@ -92,6 +95,7 @@ A-true                   X                   X          X
 A-follow                 X                   X          X
 A-follow-suspend         X                   X          X
                              Table 2
+```
 
 So when A is runnable, all peers are activated except those with `port.passive=true`.
 
@@ -104,22 +108,26 @@ Let's check some cases that we want to solve with these node and port properties
 
 ## Device nodes
 
+```
   +--------+                           +--------+
   | ALSA   |                           | ALSA   |
   | Source |                           | Sink   |
   |        FL                         FL        |
   |        FR                         FR        |
   +--------+                           +--------+
+```
 
 Unlinked device nodes are supposed to stay suspended when nothing is linked to
 them.
 
+```
                  +----------+          +--------+
                  | playback |          | ALSA   |
                  |          |          | Sink   |
                  |          FL ------ FL        |
                  |          FR ------ FR        |
                  +----------+          +--------+
+```
 
 An (active) player node linked to a device node should make both nodes runnable.
 
@@ -135,23 +143,27 @@ driver. In the above case, that will be the ALSA Sink.
 
 Likewise, a capture node linked to an ALSA Source should make both nodes runnable.
 
+```
   +--------+          +---------+
   | ALSA   |          | capture |
   | Source |          |         |
   |        FL ------ FL         |
   |        FR ------ FR         |
   +--------+          +---------+
+```
 
 The ALSA Source is now the driver.
 
 Also, linking 2 device nodes together should make them runnable:
 
+```
   +--------+                           +--------+
   | ALSA   |                           | ALSA   |
   | Source |                           | Sink   |
   |        FL ----------------------- FL        |
   |        FR ----------------------- FR        |
   +--------+                           +--------+
+```
 
 This is the case because in Table 1, the two `port.passive = follow-suspend` ports
 from the Source and Sink activate each other.
@@ -161,12 +173,14 @@ from the Source and Sink activate each other.
 When there is a filter in front of the ALSA Sink, it should not make the filter and
 sink runnable.
 
+```
                    +--------+          +--------+
                    | filter |          | ALSA   |
                    |        |          | Sink   |
                   FL        FL ------ FL        |
                   FR        FR ------ FR        |
                    +--------+          +--------+
+```
 
 The links between the filter and ALSA Sink are `port.passive = true` and don't make
 the nodes runnable.
@@ -174,12 +188,14 @@ the nodes runnable.
 The filter needs to be made runnable via some other means to also make the ALSA
 Sink runnable, for example by linking a playback node:
 
+```
    +----------+          +--------+          +--------+
    | playback |          | filter |          | ALSA   |
    |          |          |        |          | Sink   |
    |          FL ------ FL        FL ------ FL        |
    |          FR ------ FR        FR ------ FR        |
    +----------+          +--------+          +--------+
+```
 
 The input port of the filter is `port.passive = follow-suspend' and so it can be
 activated by the playback node.
@@ -187,6 +203,7 @@ activated by the playback node.
 Likewise, if the ALSA Sink is runnable, it should not automatically make the
 filter runnable. For example:
 
+```
                          +--------+          +--------+
                          | filter |          | ALSA   |
                          |        |          | Sink   |
@@ -200,6 +217,7 @@ filter runnable. For example:
                        |          FL ---+|
                        |          FR ----+
                        +----------+
+```
 
 Here the playback node makes the ALSA Sink runnable but the filter
 stays not-runnable because the output port is `port.passive = true`.
@@ -209,23 +227,27 @@ stays not-runnable because the output port is `port.passive = true`.
 Consider the case where we have an ALSA Sink and a monitor stream
 connected to the sink monitor ports.
 
+```
                          +-------+          +--------++
                          | ALSA  |          | monitor |
                          | Sink  |          |         |
                         FL       FL ------ FL         |
                         FR       FR ------ FR         |
                          +-------+          +---------+
+```
 
 We would like to keep the monitor stream and the ALSA sink suspended
 unless something else activated the ALSA Sink:
 
 
+```
    +----------+          +-------+          +---------+
    | playback |          | ALSA  |          | monitor |
    |          |          | Sink  |          |         |
    |          FL ------ FL       FL ------ FL         |
    |          FR ------ FR       FR ------ FR         |
    +----------+          +-------+          +---------+
+```
 
 We can do this by making the monitor stream input ports `port.passive = follow`
 and leave the ALSA Sink monitor output ports as `port.passive = follow-suspend`.
@@ -243,6 +265,7 @@ Normally when an application makes a capture and playback node, both nodes will
 be scheduled in different groups, consider:
 
 
+```
   +--------+          +---------+
   | ALSA   |          | capture |
   | Source |          |         |
@@ -256,6 +279,7 @@ be scheduled in different groups, consider:
                  |          FL ------ FL        |
                  |          FR ------ FR        |
                  +----------+          +--------+
+```
 
 Here we see 2 groups with the ALSA Source and ALSA Sink respectively as the
 drivers. Depending on the clocks of the nodes, the capture and playback will not
@@ -278,12 +302,14 @@ When we have a filter that is constructed from two nodes, an input and an output
 node, we could use the `node.group` property to make sure they are both scheduled
 and made runnable together.
 
+```
   +--------+          +-------+           +--------+          +-------+
   | ALSA   |          | input |           | output |          | ALSA  |
   | Source |          |       |           |        |          | Sink  |
   |        FL ------ FL      -- processing--       FL ------ FL       |
   |        FR ------ FR       |           |        FR ------ FR       |
   +--------+          +-------+           +--------+          +-------+
+```
 
 This would work fine but it does not describe that there is an implicit internal
 link between the input and output node. This information is important for the
@@ -306,12 +332,14 @@ be set to `node.passive = true` to make the ports passive.
 When there is no driver node in the group, nothing should be scheduled. This can
 happen when a playback node is linked to a capture node:
 
+```
               +--------+               +---------+
               | player |               | capture |
               |        |               |         |
               |        FL ----------- FL         |
               |        FR ----------- FR         |
               +--------+               +---------+
+```
 
 None of these nodes is a driver so there is no driver in the group and nothing
 will be scheduled.
@@ -325,12 +353,14 @@ scheduling some other nodes.
 
 A simple node, unlinked to anything should normally not run.
 
+```
               +--------+
               | player |
               |        |
               |        FL
               |        FR
               +--------+
+```
 
 When the `node.always-process = true` property is set, the node will however be
 made runnable even if unlinked. This is done by adding the node to a random driver.

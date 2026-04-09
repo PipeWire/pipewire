@@ -398,10 +398,10 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *               between 64 and 256. When not specified, this value is
  *               computed automatically from the number of samples in the file.
  * - `tailsize` specifies the size of the tail blocks to use in the FFT.
- * - `gain`     the overall gain to apply to the IR file.
+ * - `gain`     the overall gain to apply to the IR file. Default 1.0
  * - `delay`    The extra delay to add to the IR. A float number will be interpreted as seconds,
  *              and integer as samples. Using the delay in seconds is independent of the graph
- *              and IR rate and is recommended.
+ *              and IR rate and is recommended. Default 0
  * - `filename` The IR to load or create. Possible values are:
  *     - `/hilbert` creates a [hilbert function](https://en.wikipedia.org/wiki/Hilbert_transform)
  *                that can be used to phase shift the signal by +/-90 degrees. The

@@ -581,7 +581,8 @@ static void do_refresh(struct data *d, bool force_refresh)
 		return;
 
 	if (!d->batch_mode) {
-		char statusbar[COLS] = {};
+		char statusbar[255] = { 0 };
+
 		if (!((filter->state == PW_NODE_STATE_ERROR) &&
 			(filter->followers == PW_NODE_STATE_ERROR))) {
 

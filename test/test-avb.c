@@ -2503,9 +2503,9 @@ PWTEST(avb_aecp_get_avb_info)
 
 		/* Verify the response payload */
 		info = (struct avb_packet_aecp_aem_get_avb_info *)resp->payload;
-		pwtest_int_eq(be64toh(info->gptp_grandmaster_id), (int64_t)test_clock_id);
+		pwtest_int_eq(be64toh(info->gptp_grandmaster_id), test_clock_id);
 		pwtest_int_eq(info->gptp_domain_number, test_domain);
-		pwtest_int_eq(ntohl(info->propagation_delay), 0);
+		pwtest_int_eq(ntohl(info->propagation_delay), 0u);
 		pwtest_int_eq(ntohs(info->msrp_mappings_count), 0);
 	}
 
@@ -3130,7 +3130,7 @@ PWTEST(avb_descriptor_data_integrity)
 	pwtest_int_eq((int)desc->size, (int)sizeof(entity));
 
 	retrieved = desc->ptr;
-	pwtest_int_eq(be64toh(retrieved->entity_id), (int64_t)test_entity_id);
+	pwtest_int_eq(be64toh(retrieved->entity_id), test_entity_id);
 	pwtest_int_eq(ntohs(retrieved->configurations_count), 2);
 	pwtest_int_eq(strncmp(retrieved->entity_name, "Test Entity", 11), 0);
 
@@ -3463,7 +3463,7 @@ PWTEST(avb_iec61883_packet_layout)
 	/* Read back and verify */
 	pwtest_int_eq(pkt.seq_num, 42);
 	pwtest_int_eq(pkt.dbs, 8);
-	pwtest_int_eq(be64toh(pkt.stream_id), (int64_t)0x020000fffe000001ULL);
+	pwtest_int_eq(be64toh(pkt.stream_id), 0x020000fffe000001ULL);
 	pwtest_int_eq(ntohs(pkt.data_len), 200);
 	pwtest_int_eq((int)pkt.sv, 1);
 	pwtest_int_eq((int)pkt.tv, 1);
@@ -3826,7 +3826,7 @@ PWTEST(avb_iec61883_transmit_pdu)
 
 	/* Verify the PDU */
 	pwtest_int_eq(p->subtype, AVB_SUBTYPE_61883_IIDC);
-	pwtest_int_eq(be64toh(p->stream_id), (int64_t)stream_id);
+	pwtest_int_eq(be64toh(p->stream_id), stream_id);
 	pwtest_int_eq(ntohs(p->data_len), payload_size + 8);
 	pwtest_int_eq(p->dbs, channels);
 	pwtest_int_eq(p->seq_num, 0);

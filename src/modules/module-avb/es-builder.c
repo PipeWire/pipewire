@@ -50,7 +50,7 @@ static void *es_builder_desc_entity_milan_v12(struct server *server,
         &entity_state);
 
     if (!ptr_alloc) {
-        pw_log_error("Error durring allocation\n");
+        pw_log_error("Error during allocation\n");
         spa_assert(0);
     }
 

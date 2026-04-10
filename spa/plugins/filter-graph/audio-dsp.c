@@ -24,7 +24,7 @@ struct dsp_info {
 static const struct dsp_info dsp_table[] =
 {
 #if defined (HAVE_AVX2)
-	{ SPA_CPU_FLAG_AVX2,
+	{ SPA_CPU_FLAG_AVX2 | SPA_CPU_FLAG_FMA3,
 		.funcs.clear = dsp_clear_c,
 		.funcs.copy = dsp_copy_c,
 		.funcs.mix_gain = dsp_mix_gain_avx2,

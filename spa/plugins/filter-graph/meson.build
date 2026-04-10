@@ -18,16 +18,16 @@ if have_sse
   simd_cargs += ['-DHAVE_SSE']
   simd_dependencies += filter_graph_sse
 endif
-if have_avx2
-  filter_graph_avx2 = static_library('filter_graph_avx2',
+if have_avx2 and have_fma
+  filter_graph_avx2_fma = static_library('filter_graph_avx2_fma',
     ['audio-dsp-avx2.c' ],
     include_directories : [configinc],
-    c_args : [avx2_args, fma_args,'-O3', '-DHAVE_AVX2'],
+    c_args : [avx2_args, fma_args, '-O3', '-DHAVE_AVX2', '-DHAVE_FMA'],
     dependencies : [ spa_dep ],
     install : false
     )
-  simd_cargs += ['-DHAVE_AVX2']
-  simd_dependencies += filter_graph_avx2
+  simd_cargs += ['-DHAVE_AVX2', '-DHAVE_FMA']
+  simd_dependencies += filter_graph_avx2_fma
 endif
 if have_neon
   filter_graph_neon = static_library('filter_graph_neon',

@@ -171,7 +171,10 @@ static int convolver1_run(struct spa_fga_dsp *dsp, struct convolver1 *conv, cons
 
 		if (conv->segCount > 1) {
 			if (inputBufferFill == 0) {
-				int indexAudio = (conv->current + 1) % conv->segCount;
+				int indexAudio = conv->current;
+
+				if (++indexAudio == conv->segCount)
+					indexAudio = 0;
 
 				spa_fga_dsp_fft_cmul(dsp, conv->fft, conv->pre_mult,
 						conv->segmentsIr[1],
@@ -179,7 +182,8 @@ static int convolver1_run(struct spa_fga_dsp *dsp, struct convolver1 *conv, cons
 						conv->fftComplexSize, conv->scale);
 
 				for (i = 2; i < conv->segCount; i++) {
-					indexAudio = (conv->current + i) % conv->segCount;
+					if (++indexAudio == conv->segCount)
+						indexAudio = 0;
 
 					spa_fga_dsp_fft_cmuladd(dsp, conv->fft,
 							conv->pre_mult,
@@ -214,9 +218,10 @@ static int convolver1_run(struct spa_fga_dsp *dsp, struct convolver1 *conv, cons
 
 			SPA_SWAP(conv->fft_buffer[0], conv->fft_buffer[1]);
 
-			conv->current = (conv->current > 0) ? (conv->current - 1) : (conv->segCount - 1);
+			if (conv->current == 0)
+				conv->current = conv->segCount;
+			conv->current--;
 		}
-
 		processed += processing;
 	}
 	conv->inputBufferFill = inputBufferFill;

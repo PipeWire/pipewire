@@ -140,10 +140,10 @@ static void dsp_add_n_gain_avx2(void *obj, float *dst,
 
 		for (i = 1; i < n_src; i++) {
 			g = _mm256_set1_ps(gain[i]);
-			in[0] = _mm256_add_ps(in[0], _mm256_mul_ps(g, _mm256_load_ps(&s[i][n+ 0])));
-			in[1] = _mm256_add_ps(in[1], _mm256_mul_ps(g, _mm256_load_ps(&s[i][n+ 8])));
-			in[2] = _mm256_add_ps(in[2], _mm256_mul_ps(g, _mm256_load_ps(&s[i][n+16])));
-			in[3] = _mm256_add_ps(in[3], _mm256_mul_ps(g, _mm256_load_ps(&s[i][n+24])));
+			in[0] = _mm256_fmadd_ps(g, _mm256_load_ps(&s[i][n+ 0]), in[0]);
+			in[1] = _mm256_fmadd_ps(g, _mm256_load_ps(&s[i][n+ 8]), in[1]);
+			in[2] = _mm256_fmadd_ps(g, _mm256_load_ps(&s[i][n+16]), in[2]);
+			in[3] = _mm256_fmadd_ps(g, _mm256_load_ps(&s[i][n+24]), in[3]);
 		}
 		_mm256_store_ps(&d[n+ 0], in[0]);
 		_mm256_store_ps(&d[n+ 8], in[1]);
@@ -237,13 +237,12 @@ void dsp_sum_avx2(void *obj, float *r, const float *a, const float *b, uint32_t 
 
 inline static __m256 _mm256_mul_pz(__m256 ab, __m256 cd)
 {
-	__m256 aa, bb, dc, x0, x1;
+	__m256 aa, bb, dc, x1;
 	aa = _mm256_moveldup_ps(ab);
 	bb = _mm256_movehdup_ps(ab);
-	x0 = _mm256_mul_ps(aa, cd);
 	dc = _mm256_shuffle_ps(cd, cd, _MM_SHUFFLE(2,3,0,1));
 	x1 = _mm256_mul_ps(bb, dc);
-	return _mm256_addsub_ps(x0, x1);
+	return _mm256_fmaddsub_ps(aa, cd, x1);
 }
 
 void dsp_fft_cmul_avx2(void *obj, void *fft,
@@ -308,12 +307,10 @@ void dsp_fft_cmuladd_avx2(void *obj, void *fft,
 		bb[1] = _mm256_load_ps(&b[2*i+8]);	/* br2 bi2 br3 bi3 */
 		dd[0] = _mm256_mul_pz(aa[0], bb[0]);
 		dd[1] = _mm256_mul_pz(aa[1], bb[1]);
-		dd[0] = _mm256_mul_ps(dd[0], s);
-		dd[1] = _mm256_mul_ps(dd[1], s);
 		t[0] = _mm256_load_ps(&src[2*i]);
 		t[1] = _mm256_load_ps(&src[2*i+8]);
-		t[0] = _mm256_add_ps(t[0], dd[0]);
-		t[1] = _mm256_add_ps(t[1], dd[1]);
+		t[0] = _mm256_fmadd_ps(dd[0], s, t[0]);
+		t[1] = _mm256_fmadd_ps(dd[1], s, t[1]);
 		_mm256_store_ps(&dst[2*i], t[0]);
 		_mm256_store_ps(&dst[2*i+8], t[1]);
 	}

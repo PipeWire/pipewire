@@ -95,12 +95,14 @@ struct impl {
 	struct spa_hook module_listener;
 };
 
-static int ensure_state(struct pw_impl_node *node, bool running)
+static int ensure_state(struct pw_impl_node *node, bool running, bool idle)
 {
 	enum pw_node_state state = node->info.state;
-	if (node->active && node->runnable &&
-	    !SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_NEED_CONFIGURE) && running)
+	bool need_config = SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_NEED_CONFIGURE);
+	if (node->active && node->runnable && !need_config & running)
 		state = PW_NODE_STATE_RUNNING;
+	else if (!node->active && !need_config & idle)
+		state = PW_NODE_STATE_IDLE;
 	else if (state > PW_NODE_STATE_IDLE)
 		state = PW_NODE_STATE_IDLE;
 	return pw_impl_node_set_state(node, state);
@@ -362,7 +364,7 @@ static void remove_from_driver(struct pw_context *context, struct spa_list *node
 	spa_list_consume(n, nodes, sort_link) {
 		spa_list_remove(&n->sort_link);
 		pw_impl_node_set_driver(n, NULL);
-		ensure_state(n, false);
+		ensure_state(n, false, false);
 	}
 }
 
@@ -957,7 +959,7 @@ again:
 				continue;
 			pw_log_debug("%p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
-			ensure_state(s, running);
+			ensure_state(s, running, true);
 		}
 
 		if (transport != PW_NODE_ACTIVATION_COMMAND_NONE) {
@@ -966,7 +968,7 @@ again:
 		}
 
 		/* now that all the followers are ready, start the driver */
-		ensure_state(n, running);
+		ensure_state(n, running, false);
 	}
 }
 

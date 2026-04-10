@@ -1086,6 +1086,8 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		spa_log_debug(this->log, "%p: suspending", this);
 		break;
 	case SPA_NODE_COMMAND_Pause:
+		if ((res = negotiate_format(this)) < 0)
+			return res;
 		spa_log_debug(this->log, "%p: pausing", this);
 		break;
 	case SPA_NODE_COMMAND_Flush:

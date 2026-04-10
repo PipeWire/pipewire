@@ -306,7 +306,7 @@ static int idle_node(struct pw_impl_node *this)
 			pw_node_state_as_string(impl->pending_state),
 			this->pause_on_idle);
 
-	if (impl->pending_state <= PW_NODE_STATE_IDLE)
+	if (impl->pending_state == PW_NODE_STATE_IDLE)
 		return 0;
 
 	if (!this->pause_on_idle)

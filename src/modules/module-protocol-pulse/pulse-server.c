@@ -1258,8 +1258,6 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 			pw_stream_set_control(stream->stream,
 				SPA_PROP_mute, 1, &val, 0);
 		}
-		if (stream->corked)
-			stream_set_paused(stream, true, "cork after create");
 
 		/* if peer exists, reply immediately, otherwise reply when the link is created */
 		peer = find_linked(stream->client->manager, stream->id, stream->direction);
@@ -1805,6 +1803,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	flags = 0;
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
+	if (corked)
+		flags |= PW_STREAM_FLAG_INACTIVE;
 
 	if (sink_name != NULL) {
 		if (o != NULL)
@@ -2086,6 +2086,8 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	flags = 0;
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
+	if (corked)
+		flags |= PW_STREAM_FLAG_INACTIVE;
 
 	if (direct_on_input_idx != SPA_ID_INVALID) {
 		dont_inhibit_auto_suspend = false;

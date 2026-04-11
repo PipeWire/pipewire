@@ -782,7 +782,7 @@ static int process_capability_param(void *data, int seq,
 	if (spa_param_dict_compare(old, param) == 0)
 		return 0;
 
-	pw_log_debug("port %p: got %s capabilty %p", this,
+	pw_log_debug("port %p: got %s capability %p", this,
 			pw_direction_as_string(this->direction), param);
 	if (param)
 		pw_log_pod(SPA_LOG_LEVEL_DEBUG, param);

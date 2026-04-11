@@ -7,9 +7,10 @@ bn_IN
 ca
 cs
 da
-de_CH
 de
+de_CH
 el
+eo
 es
 fi
 fr
@@ -36,14 +37,15 @@ oc
 or
 pa
 pl
-pt_BR
 pt
+pt_BR
 ro
 ru
+si
 sk
 sl
-sr@latin
 sr
+sr@latin
 sv
 ta
 te
@@ -51,5 +53,3 @@ tr
 uk
 zh_CN
 zh_TW
-eo
-si

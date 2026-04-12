@@ -332,6 +332,26 @@ int handle_evt_tk_unregistered(struct avb_acmp *avb_acmp,
 	return -1;
 }
 
+int handle_evt_tk_registration_failed(struct avb_acmp *avb_acmp,
+		struct avb_msrp_attribute *msrp_attr, uint64_t now)
+{
+	struct acmp *acmp = (struct acmp*)avb_acmp;
+
+	switch (acmp->server->avb_mode) {
+	case AVB_MODE_MILAN_V12:
+		return handle_evt_tk_registration_failed_milan_v12(acmp, msrp_attr, now);
+	break;
+	case AVB_MODE_LEGACY:
+		pw_log_warn("not implemented for legacy avb");
+	break;
+	default:
+		pw_log_warn("Unknown avb_mode");
+	break;
+	}
+
+	return -1;
+}
+
 static const struct server_events server_events = {
 	AVB_VERSION_SERVER_EVENTS,
 	.destroy = acmp_destroy,

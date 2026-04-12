@@ -69,6 +69,8 @@ static void notify_talker_failed(struct msrp *msrp, uint64_t now, struct attr *a
 	pw_log_info("> notify talker failed: %s", avb_mrp_notify_name(notify));
 
 	if (msrp->server->avb_mode == AVB_MODE_MILAN_V12) {
+		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
+			handle_evt_tk_registration_failed(msrp->server->acmp, attr->attr, now);
 	}
 }
 
@@ -409,6 +411,7 @@ int avb_msrp_attribute_new(struct avb_msrp *m, struct avb_msrp_attribute *msrp_a
 	a->attr = msrp_attr;
 	a->attr->mrp = attr;
 	a->attr->type = type;
+	a->attr->mrp = attr;
 	attr->name = "MSRP";
 	spa_list_append(&msrp->attributes, &a->link);
 	avb_mrp_attribute_add_listener(attr, &a->listener, &mrp_attr_events, a);

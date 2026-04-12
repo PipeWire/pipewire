@@ -60,10 +60,8 @@ int handle_evt_tk_registered_milan_v12(struct acmp *acmp,
 int handle_evt_tk_unregistered_milan_v12(struct acmp *acmp,
 	struct avb_msrp_attribute *msrp_attr, uint64_t now);
 
-int acmp_tmr_no_resp_milan_v12(struct acmp *acmp, uint64_t now);
-int acmp_tmr_retry_milan_v12(struct acmp *acmp, uint64_t now);
-int acmp_tmr_delay_milan_v12(struct acmp *acmp, uint64_t now);
-int acmp_tmr_no_tk_milan_v12(struct acmp *acmp, uint64_t now);
+int handle_evt_tk_registration_failed_milan_v12(struct acmp *acmp,
+	struct avb_msrp_attribute *msrp_attr, uint64_t now);
 
 int handle_acmp_cli_cmd_milan_v12(struct acmp *acmp, const char *args, FILE *out);
 

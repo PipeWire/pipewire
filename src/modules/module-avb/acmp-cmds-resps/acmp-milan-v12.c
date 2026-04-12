@@ -1124,54 +1124,6 @@ int handle_fsm_prb_w_resp2_tmr_no_resp_evt(struct acmp *acmp,
 	return 0;
 }
 
-/** Milan v1.2 5.5.3.5.24 */
-int handle_fsm_prb_w_resp2_rcv_bind_rx_cmd_evt(struct acmp *acmp,
-	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
-	size_t len, uint64_t now)
-{
-	return handle_fsm_prb_w_resp_rcv_bind_rx_cmd_evt(acmp, stream, m, len, now);
-}
-
-/** Milan v1.2 5.5.3.5.25 */
-int handle_fsm_prb_w_resp2_rcv_probe_tx_resp_evt(struct acmp *acmp,
-	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
-	size_t len, uint64_t now)
-{
-	return handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(acmp, stream, m, len, now);
-}
-
-/** Milan v1.2 5.5.3.5.26 */
-int handle_fsm_prb_w_resp2_rcv_get_rx_state_evt(struct acmp *acmp,
-	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
-	size_t len, uint64_t now)
-{
-	return handle_fsm_prb_w_resp_rcv_get_rx_state_evt(acmp, stream, m, len, now);
-}
-
-/** Milan v1.2 5.5.3.5.27 */
-int handle_fsm_prb_w_resp2_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
-	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
-	size_t len, uint64_t now)
-{
-	return handle_fsm_prb_w_resp_rcv_unbind_rx_cmd_evt(acmp, stream, m, len, now);
-}
-
-/** Milan v1.2 5.5.3.5.28 */
-int handle_fsm_prb_w_resp2_evt_tk_discovered_evt(struct acmp *acmp,
-	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
-	size_t len, uint64_t now)
-{
-	return handle_fsm_prb_w_resp_evt_tk_discovered_evt(acmp, stream, m, len, now);
-}
-
-/** Milan v1.2 5.5.3.5.29 */
-int handle_fsm_prb_w_resp2_evt_tk_departed_evt(struct acmp *acmp,
-	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
-	size_t len, uint64_t now)
-{
-	return handle_fsm_prb_w_resp_evt_tk_departed_evt(acmp, stream, m, len, now);
-}
-
 /** Milan v1.2 5.5.3.5.30 */
 int handle_fsm_prb_w_retry_tmr_retry_evt(struct acmp *acmp,
 	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
@@ -1765,6 +1717,19 @@ int handle_fsm_settled_rsv_ok_evt_tk_unregistered_evt(struct acmp *acmp,
 	return 0;
 }
 
+/** Milan v1.2 5.5.3 — TK_REGISTERED in SETTLED_RSV_OK.
+ *  Fired via acmp_generic_srp_failed_evt_lt_handler_milan_v12 when the SRP
+ *  reservation is lost (handle_evt_tk_registration_failed reuses TK_REGISTERED
+ *  per design; no separate TK_REGISTRATION_FAILED event exists).
+ *  Transition back to SETTLED_NO_RSV so the reservation can be re-established. */
+static int handle_fsm_settled_rsv_ok_evt_tk_registered_evt(struct acmp *acmp,
+	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
+	size_t len, uint64_t now)
+{
+	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_NO_RSV;
+	return 0;
+}
+
 static const struct listener_fsm_cmd listener_unbound[FSM_ACMP_EVT_MILAN_V12_MAX] = {
 	/* Milan v1.2, Sec. 5.5.3.5.3 */
 	[FSM_ACMP_EVT_MILAN_V12_RCV_BIND_RX_CMD] = {
@@ -1836,22 +1801,22 @@ static const struct listener_fsm_cmd listener_prb_w_resp2[FSM_ACMP_EVT_MILAN_V12
 		.state_handler = handle_fsm_prb_w_resp2_tmr_no_resp_evt},
 
 	[FSM_ACMP_EVT_MILAN_V12_RCV_BIND_RX_CMD]{
-		.state_handler = handle_fsm_prb_w_resp2_rcv_bind_rx_cmd_evt},
+		.state_handler = handle_fsm_prb_w_resp_rcv_bind_rx_cmd_evt},
 
 	[FSM_ACMP_EVT_MILAN_V12_RCV_PROBE_TX_RESP]{
-		.state_handler = handle_fsm_prb_w_resp2_rcv_probe_tx_resp_evt},
+		.state_handler = handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt},
 
 	[FSM_ACMP_EVT_MILAN_V12_RCV_GET_RX_STATE]{
-		.state_handler = handle_fsm_prb_w_resp2_rcv_get_rx_state_evt},
+		.state_handler = handle_fsm_prb_w_resp_rcv_get_rx_state_evt},
 
 	[FSM_ACMP_EVT_MILAN_V12_RCV_UNBIND_RX_CMD]{
-		.state_handler = handle_fsm_prb_w_resp2_rcv_unbind_rx_cmd_evt},
+		.state_handler = handle_fsm_prb_w_resp_rcv_unbind_rx_cmd_evt},
 
 	[FSM_ACMP_EVT_MILAN_V12_TK_DISCOVERED]{
-		.state_handler = handle_fsm_prb_w_resp2_evt_tk_discovered_evt},
+		.state_handler = handle_fsm_prb_w_resp_evt_tk_discovered_evt},
 
 	[FSM_ACMP_EVT_MILAN_V12_TK_DEPARTED]{
-		.state_handler = handle_fsm_prb_w_resp2_evt_tk_departed_evt},
+		.state_handler = handle_fsm_prb_w_resp_evt_tk_departed_evt},
 };
 
 static const struct listener_fsm_cmd listener_prb_w_retry[FSM_ACMP_EVT_MILAN_V12_MAX] = {
@@ -1913,6 +1878,9 @@ static const struct listener_fsm_cmd listener_settled_rsv_ok[FSM_ACMP_EVT_MILAN_
 
 	[FSM_ACMP_EVT_MILAN_V12_TK_DEPARTED]{
 		.state_handler = handle_fsm_settled_rsv_ok_evt_tk_departed_evt},
+
+	[FSM_ACMP_EVT_MILAN_V12_TK_REGISTERED]{
+		.state_handler = handle_fsm_settled_rsv_ok_evt_tk_registered_evt},
 
 	[FSM_ACMP_EVT_MILAN_V12_TK_UNREGISTERED]{
 		.state_handler = handle_fsm_settled_rsv_ok_evt_tk_unregistered_evt},
@@ -2002,6 +1970,31 @@ static int acmp_generic_srp_evt_lt_handler_milan_v12(struct acmp *acmp,
 	return cmd->state_handler(acmp, si_state, NULL, 0, now);
 }
 
+static int acmp_generic_srp_failed_evt_lt_handler_milan_v12(struct acmp *acmp,
+	struct avb_msrp_attribute *msrp_attr,
+	enum fsm_acmp_evt_milan_v12 event, uint64_t now)
+{
+	struct stream_common *sc;
+	struct aecp_aem_stream_input_state *stream_in;
+	struct aecp_aem_stream_input_state_milan_v12 *si_state;
+	const struct listener_fsm_cmd *cmd;
+
+	sc        = SPA_CONTAINER_OF(msrp_attr, struct stream_common, tfstream_attr);
+	stream_in = SPA_CONTAINER_OF(sc, struct aecp_aem_stream_input_state, common);
+	si_state  = SPA_CONTAINER_OF(stream_in,
+			struct aecp_aem_stream_input_state_milan_v12, stream_in_sta);
+
+	cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+	if (!cmd->state_handler) {
+		pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
+				fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
+				fsm_acmp_evt_milan_v12_str[event]);
+		return 0;
+	}
+
+	return cmd->state_handler(acmp, si_state, NULL, 0, now);
+}
+
 static int acmp_generic_adp_evt_lt_handler_milan_v12(struct acmp *acmp,
 	uint64_t entity_id, enum fsm_acmp_evt_milan_v12 event, uint64_t now)
 {
@@ -2011,14 +2004,16 @@ static int acmp_generic_adp_evt_lt_handler_milan_v12(struct acmp *acmp,
 	uint16_t desc_type = AVB_AEM_DESC_STREAM_INPUT;
 	int rc = 0;
 
-	(void)entity_id;
-
 	for (uint16_t desc_index = 0; desc_index < UINT16_MAX; desc_index++) {
 		desc = server_find_descriptor(acmp->server, desc_type, desc_index);
 		if (desc == NULL)
 			break;
 
 		si_state = (struct aecp_aem_stream_input_state_milan_v12 *)desc->ptr;
+
+		if (si_state->acmp_status.common.saved_bindings.talker_guid != entity_id)
+			continue;
+
 		cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
 		if (!cmd->state_handler) {
 			pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
@@ -2102,6 +2097,13 @@ int handle_evt_tk_unregistered_milan_v12(struct acmp *acmp,
 {
 	return acmp_generic_srp_evt_lt_handler_milan_v12(acmp, msrp_attr,
 			FSM_ACMP_EVT_MILAN_V12_TK_UNREGISTERED, now);
+}
+
+int handle_evt_tk_registration_failed_milan_v12(struct acmp *acmp,
+		struct avb_msrp_attribute *msrp_attr, uint64_t now)
+{
+	return acmp_generic_srp_failed_evt_lt_handler_milan_v12(acmp, msrp_attr,
+			FSM_ACMP_EVT_MILAN_V12_TK_REGISTERED, now);
 }
 
 int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,

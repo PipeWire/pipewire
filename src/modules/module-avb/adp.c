@@ -132,7 +132,7 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 
 			if (server->avb_mode == AVB_MODE_MILAN_V12) {
 				//Milan V1.2 Section 5.6.4.5.1
-				if (handle_evt_tk_discovered(server->acmp, entity_id)) {
+				if (handle_evt_tk_discovered(server->acmp, entity_id, now)) {
 					pw_log_info("handling available event");
 					return -1;
 				}
@@ -146,7 +146,7 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 				       	SPA_PTROFF(h_saved, sizeof(*h_saved), void);
 
 				if (p_saved->available_index != p->available_index) {
-					if (handle_evt_tk_departed(server->acmp, entity_id)) {
+					if (handle_evt_tk_departed(server->acmp, entity_id, now)) {
 						pw_log_info("handling departing event");
 						return -1;
 					}
@@ -162,7 +162,7 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 						return 0;
 					}
 
-					if (handle_evt_tk_discovered(server->acmp, entity_id)) {
+					if (handle_evt_tk_discovered(server->acmp, entity_id, now)) {
 						pw_log_warn("handling available event");
 						return -1;
 					}
@@ -178,7 +178,7 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 		if (e != NULL) {
 			if (server->avb_mode == AVB_MODE_MILAN_V12) {
 				// Milan v1.2 Section 5.6.4.5.3
-				handle_evt_tk_departed(server->acmp, entity_id);
+				handle_evt_tk_departed(server->acmp, entity_id, now);
 			}
 
 			pw_log_info("entity %s departing",
@@ -232,7 +232,7 @@ static void check_timeout(struct adp *adp, uint64_t now)
 		pw_log_info("entity %s timeout",
 			avb_utils_format_id(buf, sizeof(buf), e->entity_id));
 
-		handle_evt_tk_departed(avb_acmp, e->entity_id);
+		handle_evt_tk_departed(avb_acmp, e->entity_id, now);
 
 		if (e->advertise)
 			send_departing(adp, now, e);

@@ -12,6 +12,7 @@
 
 #include "utils.h"
 #include "msrp.h"
+#include "acmp.h"
 
 static const uint8_t msrp_mac[6] = AVB_MSRP_MAC;
 
@@ -55,6 +56,11 @@ static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, ui
 {
 	pw_log_info("> notify talker advertise: %s", avb_mrp_notify_name(notify));
 	if (msrp->server->avb_mode == AVB_MODE_MILAN_V12) {
+		uint64_t stream_id = be64toh(attr->attr->attr.talker.stream_id);
+		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
+			handle_evt_tk_discovered(msrp->server->acmp, stream_id, now);
+		else if (notify == AVB_MRP_NOTIFY_LEAVE)
+			handle_evt_tk_departed(msrp->server->acmp, stream_id, now);
 	}
 }
 
@@ -71,12 +77,14 @@ static int process_talker(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 {
 	const struct avb_packet_msrp_talker *t = m;
 	struct attr *a;
-	spa_list_for_each(a, &msrp->attributes, link)
+	spa_list_for_each(a, &msrp->attributes, link) {
 		if (a->attr->type == attr_type &&
 		    a->attr->attr.talker.stream_id == t->stream_id) {
 			a->attr->attr.talker = *t;
 			avb_mrp_attribute_rx_event(a->attr->mrp, now, event);
 		}
+	}
+
 	return 0;
 }
 static int encode_talker(struct msrp *msrp, struct attr *a, void *m)
@@ -146,6 +154,12 @@ static void notify_listener(struct msrp *msrp, uint64_t now, struct attr *attr, 
 	pw_log_info("> notify listener: %s", avb_mrp_notify_name(notify));
 	debug_msrp_listener(&attr->attr->attr.listener, attr->attr->param);
 
+	if (msrp->server->avb_mode == AVB_MODE_MILAN_V12) {
+		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
+			handle_evt_tk_registered(msrp->server->acmp, attr->attr, now);
+		else if (notify == AVB_MRP_NOTIFY_LEAVE)
+			handle_evt_tk_unregistered(msrp->server->acmp, attr->attr, now);
+	}
 }
 
 static int process_listener(struct msrp *msrp, uint64_t now, uint8_t attr_type,

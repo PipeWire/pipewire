@@ -1977,15 +1977,41 @@ static int acmp_generic_timer_handler_milan_v12(struct acmp *acmp, uint64_t now,
 	return cmd->state_handler(acmp, si_state, tmr->saved_packet, tmr->saved_packet_len, now);
 }
 
-static int acmp_generic_adp_srp_evt_lt_handler_milan_v12(struct acmp *acmp,
-	uint64_t entity_id, enum fsm_acmp_evt_milan_v12 event)
+static int acmp_generic_srp_evt_lt_handler_milan_v12(struct acmp *acmp,
+	struct avb_msrp_attribute *msrp_attr,
+	enum fsm_acmp_evt_milan_v12 event, uint64_t now)
 {
-	const struct listener_fsm_cmd *cmd;
+	struct stream_common *sc;
+	struct aecp_aem_stream_input_state *stream_in;
 	struct aecp_aem_stream_input_state_milan_v12 *si_state;
+	const struct listener_fsm_cmd *cmd;
+
+	sc        = SPA_CONTAINER_OF(msrp_attr, struct stream_common, lstream_attr);
+	stream_in = SPA_CONTAINER_OF(sc, struct aecp_aem_stream_input_state, common);
+	si_state  = SPA_CONTAINER_OF(stream_in,
+			struct aecp_aem_stream_input_state_milan_v12, stream_in_sta);
+
+	cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+	if (!cmd->state_handler) {
+		pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
+				fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
+				fsm_acmp_evt_milan_v12_str[event]);
+		return 0;
+	}
+
+	return cmd->state_handler(acmp, si_state, NULL, 0, now);
+}
+
+static int acmp_generic_adp_evt_lt_handler_milan_v12(struct acmp *acmp,
+	uint64_t entity_id, enum fsm_acmp_evt_milan_v12 event, uint64_t now)
+{
+	struct aecp_aem_stream_input_state_milan_v12 *si_state;
+	const struct listener_fsm_cmd *cmd;
 	struct descriptor *desc;
-	enum fsm_acmp_state_milan_v12 fsm_state;
 	uint16_t desc_type = AVB_AEM_DESC_STREAM_INPUT;
-	int rc;
+	int rc = 0;
+
+	(void)entity_id;
 
 	for (uint16_t desc_index = 0; desc_index < UINT16_MAX; desc_index++) {
 		desc = server_find_descriptor(acmp->server, desc_type, desc_index);
@@ -1993,32 +2019,21 @@ static int acmp_generic_adp_srp_evt_lt_handler_milan_v12(struct acmp *acmp,
 			break;
 
 		si_state = (struct aecp_aem_stream_input_state_milan_v12 *)desc->ptr;
-		fsm_state = si_state->acmp_status.fsm_acmp_state;
-		cmd = &cmd_listeners_states[fsm_state][event];
-
-		if (!cmd) {
-			pw_log_warn("Invalid transition STATE:%s EVT:%s - ignoring",
-					fsm_acmp_state_milan_v12_str[fsm_state],
+		cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+		if (!cmd->state_handler) {
+			pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
+					fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
 					fsm_acmp_evt_milan_v12_str[event]);
 			continue;
 		}
 
-		rc = cmd->state_handler(acmp, si_state, NULL, 0, 0);
-		if (rc){
+		rc = cmd->state_handler(acmp, si_state, NULL, 0, now);
+		if (rc)
 			pw_log_error("cmd failed for stream %p", si_state);
-		}
 	}
 
-	return 0;
+	return rc;
 }
-
-#if 0
-static int acmp_generic_srp_evt_handler_milan_v12(struct acmp *acmp, uint64_t now,
-	uint64_t entity_id, enum fsm_acmp_evt_milan_v12 event)
-{
-	return 0;
-}
-#endif
 
 int acmp_init_talker_stream_milan_v12(struct acmp *acmp, void *acmp_status)
 {
@@ -2061,28 +2076,32 @@ int handle_get_rx_state_command_milan_v12(struct acmp *acmp, uint64_t now,
 			FSM_ACMP_EVT_MILAN_V12_RCV_GET_RX_STATE);
 }
 
-int handle_evt_tk_discovered_milan_v12(struct acmp *acmp, uint64_t talker_guid)
+int handle_evt_tk_discovered_milan_v12(struct acmp *acmp, uint64_t talker_guid,
+		uint64_t now)
 {
-	return acmp_generic_adp_srp_evt_lt_handler_milan_v12(acmp, talker_guid,
-		FSM_ACMP_EVT_MILAN_V12_TK_DISCOVERED);
+	return acmp_generic_adp_evt_lt_handler_milan_v12(acmp, talker_guid,
+		FSM_ACMP_EVT_MILAN_V12_TK_DISCOVERED, now);
 }
 
-int handle_evt_tk_departed_milan_v12(struct acmp *acmp, uint64_t talker_guid)
+int handle_evt_tk_departed_milan_v12(struct acmp *acmp, uint64_t talker_guid,
+		uint64_t now)
 {
-	return acmp_generic_adp_srp_evt_lt_handler_milan_v12(acmp, talker_guid,
-			FSM_ACMP_EVT_MILAN_V12_TK_DEPARTED);
+	return acmp_generic_adp_evt_lt_handler_milan_v12(acmp, talker_guid,
+			FSM_ACMP_EVT_MILAN_V12_TK_DEPARTED, now);
 }
 
-int handle_evt_tk_registered_milan_v12(struct acmp *acmp, uint64_t talker_guid)
+int handle_evt_tk_registered_milan_v12(struct acmp *acmp,
+		struct avb_msrp_attribute *msrp_attr, uint64_t now)
 {
-	return acmp_generic_adp_srp_evt_lt_handler_milan_v12(acmp, talker_guid,
-			FSM_ACMP_EVT_MILAN_V12_TK_REGISTERED);
+	return acmp_generic_srp_evt_lt_handler_milan_v12(acmp, msrp_attr,
+			FSM_ACMP_EVT_MILAN_V12_TK_REGISTERED, now);
 }
 
-int handle_evt_tk_unregistered_milan_v12(struct acmp *acmp, uint64_t talker_guid)
+int handle_evt_tk_unregistered_milan_v12(struct acmp *acmp,
+		struct avb_msrp_attribute *msrp_attr, uint64_t now)
 {
-	return acmp_generic_adp_srp_evt_lt_handler_milan_v12(acmp, talker_guid,
-			FSM_ACMP_EVT_MILAN_V12_TK_UNREGISTERED);
+	return acmp_generic_srp_evt_lt_handler_milan_v12(acmp, msrp_attr,
+			FSM_ACMP_EVT_MILAN_V12_TK_UNREGISTERED, now);
 }
 
 int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,

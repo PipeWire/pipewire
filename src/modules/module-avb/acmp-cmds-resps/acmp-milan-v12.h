@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include "acmp-common.h"
+#include "../msrp.h"
 
 /** Milan v1.2 ACMP */
 enum fsm_acmp_state_milan_v12 {
@@ -51,11 +52,13 @@ int handle_probe_tx_response_milan_v12(struct acmp *acmp, uint64_t now,
 int handle_get_rx_state_command_milan_v12(struct acmp *acmp, uint64_t now,
 	const void *m, int len);
 
-int handle_evt_tk_discovered_milan_v12(struct acmp *acmp, uint64_t entity);
-int handle_evt_tk_departed_milan_v12(struct acmp *acmp, uint64_t entity);
+int handle_evt_tk_discovered_milan_v12(struct acmp *acmp, uint64_t entity, uint64_t now);
+int handle_evt_tk_departed_milan_v12(struct acmp *acmp, uint64_t entity, uint64_t now);
 
-int handle_evt_tk_registered_milan_v12(struct acmp *acmp, uint64_t talker_guid);
-int handle_evt_tk_unregistered_milan_v12(struct acmp *acmp, uint64_t talker_guid);
+int handle_evt_tk_registered_milan_v12(struct acmp *acmp,
+	struct avb_msrp_attribute *msrp_attr, uint64_t now);
+int handle_evt_tk_unregistered_milan_v12(struct acmp *acmp,
+	struct avb_msrp_attribute *msrp_attr, uint64_t now);
 
 int acmp_tmr_no_resp_milan_v12(struct acmp *acmp, uint64_t now);
 int acmp_tmr_retry_milan_v12(struct acmp *acmp, uint64_t now);

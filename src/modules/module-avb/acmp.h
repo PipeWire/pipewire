@@ -105,10 +105,12 @@ int acmp_fini_listener_stream(struct avb_acmp *avb_acmp,
 struct avb_acmp *avb_acmp_register(struct server *server);
 void avb_acmp_unregister(struct avb_acmp *acmp);
 
-int handle_evt_tk_discovered(struct avb_acmp *avb_acmp, uint64_t entity);
-int handle_evt_tk_departed(struct avb_acmp *avb_acmp, uint64_t entity);
+int handle_evt_tk_discovered(struct avb_acmp *avb_acmp, uint64_t entity, uint64_t now);
+int handle_evt_tk_departed(struct avb_acmp *avb_acmp, uint64_t entity, uint64_t now);
 
-int handle_evt_tk_registered(struct avb_acmp *avb_acmp, uint64_t entity);
-int handle_evt_tk_unregistered(struct avb_acmp *avb_acmp, uint64_t entity);
+int handle_evt_tk_registered(struct avb_acmp *avb_acmp,
+	struct avb_msrp_attribute *msrp_attr, uint64_t now);
+int handle_evt_tk_unregistered(struct avb_acmp *avb_acmp,
+	struct avb_msrp_attribute *msrp_attr, uint64_t now);
 
 #endif /* AVB_ACMP_H */

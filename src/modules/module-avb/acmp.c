@@ -254,13 +254,13 @@ static void acmp_periodic(void *data, uint64_t now)
 
 }
 
-int handle_evt_tk_discovered(struct avb_acmp *avb_acmp, uint64_t entity)
+int handle_evt_tk_discovered(struct avb_acmp *avb_acmp, uint64_t entity, uint64_t now)
 {
 	struct acmp *acmp = (struct acmp*)avb_acmp;
 
 	switch (acmp->server->avb_mode) {
 	case AVB_MODE_MILAN_V12:
-		return 	handle_evt_tk_discovered_milan_v12(acmp, entity);
+		return handle_evt_tk_discovered_milan_v12(acmp, entity, now);
 	break;
 	case AVB_MODE_LEGACY:
 		pw_log_warn("not implemented for legacy avb");
@@ -273,13 +273,13 @@ int handle_evt_tk_discovered(struct avb_acmp *avb_acmp, uint64_t entity)
 	return -1;
 }
 
-int handle_evt_tk_departed(struct avb_acmp *avb_acmp, uint64_t entity)
+int handle_evt_tk_departed(struct avb_acmp *avb_acmp, uint64_t entity, uint64_t now)
 {
 	struct acmp *acmp = (struct acmp*)avb_acmp;
 
 	switch (acmp->server->avb_mode) {
 	case AVB_MODE_MILAN_V12:
-		return handle_evt_tk_departed_milan_v12(acmp, entity);
+		return handle_evt_tk_departed_milan_v12(acmp, entity, now);
 	break;
 	case AVB_MODE_LEGACY:
 		pw_log_warn("not implemented for legacy avb");
@@ -292,13 +292,14 @@ int handle_evt_tk_departed(struct avb_acmp *avb_acmp, uint64_t entity)
 	return 0;
 }
 
-int handle_evt_tk_registered(struct avb_acmp *avb_acmp, uint64_t entity)
+int handle_evt_tk_registered(struct avb_acmp *avb_acmp,
+		struct avb_msrp_attribute *msrp_attr, uint64_t now)
 {
 	struct acmp *acmp = (struct acmp*)avb_acmp;
 
 	switch (acmp->server->avb_mode) {
 	case AVB_MODE_MILAN_V12:
-		return handle_evt_tk_registered_milan_v12(acmp, entity);
+		return handle_evt_tk_registered_milan_v12(acmp, msrp_attr, now);
 	break;
 	case AVB_MODE_LEGACY:
 		pw_log_warn("not implemented for legacy avb");
@@ -311,13 +312,14 @@ int handle_evt_tk_registered(struct avb_acmp *avb_acmp, uint64_t entity)
 	return -1;
 }
 
-int handle_evt_tk_unregistered(struct avb_acmp *avb_acmp, uint64_t entity)
+int handle_evt_tk_unregistered(struct avb_acmp *avb_acmp,
+		struct avb_msrp_attribute *msrp_attr, uint64_t now)
 {
 	struct acmp *acmp = (struct acmp*)avb_acmp;
 
 	switch (acmp->server->avb_mode) {
 	case AVB_MODE_MILAN_V12:
-		return handle_evt_tk_unregistered_milan_v12(acmp, entity);
+		return handle_evt_tk_unregistered_milan_v12(acmp, msrp_attr, now);
 	break;
 	case AVB_MODE_LEGACY:
 		pw_log_warn("not implemented for legacy avb");

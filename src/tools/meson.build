@@ -95,7 +95,7 @@ if build_pw_cat
   summary({'Build pw-cat with FFmpeg integration': build_pw_cat_with_ffmpeg}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')
 endif
 
-build_avb_virtual = get_option('avb').require(
+build_avb_virtual = get_option('avb-virtual').require(
     host_machine.system() == 'linux',
     error_message: 'AVB support is only available on Linux'
 ).allowed()

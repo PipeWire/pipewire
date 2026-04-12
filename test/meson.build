@@ -164,7 +164,7 @@ if valgrind.found()
                  timeout_multiplier : 3)
 endif
 
-if build_module_avb
+if build_avb_virtual
   avb_test_inc = [pwtest_inc, include_directories('../src/modules')]
   avb_module_sources = [
     '../src/modules/module-avb/avb.c',

@@ -209,9 +209,34 @@ static int process_domain(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
 	struct attr *a;
-	spa_list_for_each(a, &msrp->attributes, link)
-		if (a->attr->type == attr_type)
-			avb_mrp_attribute_rx_event(a->attr->mrp, now, event);
+	const struct avb_packet_msrp_domain *d = m;
+
+	spa_list_for_each(a, &msrp->attributes, link) {
+		if (a->attr->type != attr_type) {
+			continue;
+		}
+
+		if (msrp->server->avb_mode == AVB_MODE_MILAN_V12)
+		{
+			/** Milan V1.2 Section 4.2.7.2.1:
+			    The endstation shall re-adjust the domain according
+			    to the from the MSRPDU received on its interface */
+			bool mismatch = (a->attr->attr.domain.sr_class_id != d->sr_class_id
+				|| a->attr->attr.domain.sr_class_priority != d->sr_class_priority
+				|| a->attr->attr.domain.sr_class_vid  != d->sr_class_vid);
+
+			if (mismatch) {
+				pw_log_info("Domain mismatch re-adjusting");
+				a->attr->attr.domain = *d;
+				avb_mrp_attribute_leave(a->attr->mrp, now);
+				avb_mrp_attribute_begin(a->attr->mrp, now);
+				avb_mrp_attribute_join(a->attr->mrp, now, true);
+			}
+		}
+
+		avb_mrp_attribute_rx_event(a->attr->mrp, now, event);
+	}
+
 	return 0;
 }
 

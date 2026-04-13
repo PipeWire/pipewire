@@ -246,6 +246,7 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 	struct impl *impl;
 	struct gptp *gptp;
 	const char *str;
+	int ret;
 
 	gptp = calloc(1, sizeof(*gptp));
 	if (gptp == NULL)
@@ -263,7 +264,11 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 	gptp->ptp_mgmt_socket_path = str ? strdup(str) : NULL;
 
 	if(gptp->ptp_mgmt_socket_path) {
-		gptp->ptp_fd = make_unix_ptp_mgmt_socket(gptp->ptp_mgmt_socket_path);
+		ret = make_unix_ptp_mgmt_socket(gptp->ptp_mgmt_socket_path);
+		if (ret == -1)
+			goto error_free;
+		else
+			gptp->ptp_fd = ret;
 	} else {
 		pw_log_error("server %p: ptp.management-socket not set", impl);
 		goto error_free;

@@ -33,36 +33,24 @@ int handle_cmd_deregister_unsol_notif_milan_v12(struct aecp *aecp, int64_t now,
 	entity_state = (struct aecp_aem_entity_milan_state *) desc->ptr;
 	unsol = entity_state->unsol_notif_state;
 
-	/** First check if the controller was already registered */
+	/** Clear the slot matching this controller, if any */
 	for (index = 0; index < ctrler_max; index++)  {
 		uint64_t ctrl_eid = unsol[index].ctrler_entity_id;
 		bool ctrler_reged = unsol[index].is_registered;
 
 		if ((ctrl_eid == controller_id) && ctrler_reged) {
-			pw_log_debug("controller 0x%"PRIx64", already registered",
-				       	controller_id);
+			unsol[index].is_registered = false;
+			unsol[index].ctrler_entity_id = 0;
+			unsol[index].next_seq_id = 0;
+			unsol[index].port_id = 0;
+			memset(unsol[index].ctrler_mac_addr, 0,
+				sizeof(unsol[index].ctrler_mac_addr));
+			pw_log_info("Unsol deregistration for 0x%"PRIx64,
+					controller_id);
 			return reply_success(aecp, m, len);
 		}
 	}
 
-	/** When one slot is in the array is available use it */
-	for (index = 0; index < ctrler_max; index++)  {
-		if (!unsol[index].is_registered) {
-			break;
-		}
-	}
-
-	/** Reach the maximum controller allocated */
-	if (index == ctrler_max) {
-		return reply_no_resources(aecp, m, len);
-	}
-
-	unsol[index].ctrler_entity_id = controller_id;
-	memcpy(unsol[index].ctrler_mac_addr, h->src, sizeof(h->src));
-	unsol[index].is_registered = true;
-	unsol[index].port_id = 0;
-	unsol[index].next_seq_id = 0;
-
-	pw_log_info("Unsol registration for 0x%"PRIx64, controller_id);
+	pw_log_debug("controller 0x%"PRIx64" was not registered", controller_id);
 	return reply_success(aecp, m, len);
 }

@@ -265,7 +265,7 @@ static int load_ladspa_plugin(struct plugin *impl, const char *path, const char 
 		if (len == 0 || len >= sizeof(filename))
 			continue;
 
-		if (strncmp(path, p, len) == 0 && path[len] == '/')
+		if (strncmp(path, p, len) == 0 && (path[len-1] == '/' || path[len] == '/'))
 			namelen = snprintf(filename, sizeof(filename), "%s", path);
 		else
 			namelen = snprintf(filename, sizeof(filename), "%.*s/%s.so", (int) len, p, path);

@@ -407,6 +407,8 @@ struct server *avdecc_server_new(struct impl *impl, struct spa_dict *props)
 		goto error_free;
 
 	server->gptp = avb_gptp_new(server);
+	if (server->gptp == NULL)
+		goto error_free;
 
 	init_descriptors(server);
 

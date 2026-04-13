@@ -262,8 +262,12 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 	str = pw_properties_get(impl->props, "ptp.management-socket");
 	gptp->ptp_mgmt_socket_path = str ? strdup(str) : NULL;
 
-	if(gptp->ptp_mgmt_socket_path)
+	if(gptp->ptp_mgmt_socket_path) {
 		gptp->ptp_fd = make_unix_ptp_mgmt_socket(gptp->ptp_mgmt_socket_path);
+	} else {
+		pw_log_error("server %p: ptp.management-socket not set", impl);
+		goto error_free;
+	}
 
 	spa_list_init(&gptp->attributes);
 	spa_hook_list_init(&gptp->listener_list);
@@ -271,5 +275,9 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 	avdecc_server_add_listener(server, &gptp->server_listener, &server_events, gptp);
 
 	return (struct avb_gptp*)gptp;
+
+error_free:
+	gptp_destroy(gptp);
+	return NULL;
 }
 

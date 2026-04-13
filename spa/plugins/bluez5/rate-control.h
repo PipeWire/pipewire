@@ -128,7 +128,7 @@ static inline bool spa_bt_ptp_valid(struct spa_bt_ptp *p)
  * in 1/z expansion. This guarantees f(z) is causal, and G(z) = (z-1) q(z) / p(z).
  * We can choose p(z) and q(z) to improve low-pass properties of F(z).
  *
- * Simplest choice is p(z)=(z-1)^2 and q(z)=1, but that does not supress
+ * Simplest choice is p(z)=(z-1)^2 and q(z)=1, but that does not suppress
  * high frequency response in F(z). Better choice is p(z) = (z-u)*(z-v)*(z-w)
  * and q(z) = z - r. Causality requires r = u + v + w - 2.
  * Then,

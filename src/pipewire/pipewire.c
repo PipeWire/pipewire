@@ -300,10 +300,18 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 		const struct spa_support support[])
 {
 	struct spa_handle *handle;
+	struct support *sup = &global_support;
 	pthread_mutex_lock(&support_lock);
+	if (sup->init_count == 0)
+		goto error;
 	handle = load_spa_handle(lib, factory_name, info, n_support, support);
 	pthread_mutex_unlock(&support_lock);
 	return handle;
+error:
+	pw_log_error("load lib: pw_init() was not called");
+	pthread_mutex_unlock(&support_lock);
+	errno = EBADFD;
+	return NULL;
 }
 
 static struct handle *find_handle(struct spa_handle *handle)

@@ -388,13 +388,29 @@ static struct seq_port *alloc_port(struct seq_state *state, struct seq_stream *s
 	return port;
 }
 
+static int do_port_clear(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct seq_port *port = user_data;
+	port->io = NULL;
+	if (port->mixing) {
+		spa_list_remove(&port->mix_link);
+		port->mixing = false;
+	}
+	return 0;
+}
+
 static void free_port(struct seq_state *state, struct seq_stream *stream, struct seq_port *port)
 {
 	stream->ports[port->id] = NULL;
 	spa_list_remove(&port->link);
 
+	spa_loop_locked(state->data_loop,
+			do_port_clear, SPA_ID_INVALID, NULL, 0, port);
+
 	spa_node_emit_port_info(&state->hooks,
 			port->direction, port->id, NULL);
+
 	spa_zero(*port);
 	spa_list_append(&state->free_list, &port->link);
 }
@@ -441,7 +457,7 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 	struct seq_port *port = find_port(state, stream, addr);
 
 	if (info == NULL) {
-		spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);
+		spa_log_debug(state->log, "free port %d.%d %p", addr->client, addr->port, port);
 		if (port)
 			free_port(state, stream, port);
 	} else {
@@ -453,7 +469,7 @@ static void update_stream_port(struct seq_state *state, struct seq_stream *strea
 			init_port(state, port, addr, snd_seq_port_info_get_type(info));
 		} else if (port != NULL) {
 			if ((caps & stream->caps) != stream->caps) {
-				spa_log_debug(state->log, "free port %d.%d", addr->client, addr->port);
+				spa_log_debug(state->log, "free port %d.%d %p", addr->client, addr->port, port);
 				free_port(state, stream, port);
 			}
 			else {
@@ -470,8 +486,8 @@ static int on_port_info(void *data, const snd_seq_addr_t *addr, const snd_seq_po
 	struct seq_state *state = data;
 
 	if (info == NULL) {
-		update_stream_port(state, &state->streams[SPA_DIRECTION_INPUT], addr, 0, info);
-		update_stream_port(state, &state->streams[SPA_DIRECTION_OUTPUT], addr, 0, info);
+		update_stream_port(state, &state->streams[SPA_DIRECTION_INPUT], addr, 0, NULL);
+		update_stream_port(state, &state->streams[SPA_DIRECTION_OUTPUT], addr, 0, NULL);
 	} else {
 		unsigned int caps = snd_seq_port_info_get_capability(info);
 
@@ -820,7 +836,7 @@ impl_node_port_set_io(void *object,
 	info.data = data;
 	info.size = size;
 
-	spa_log_debug(this->log, "%p: io %d.%d %d %p %zd", this,
+	spa_log_debug(this->log, "%p: %p: io %d.%d %d %p %zd", this, port,
 			direction, port_id, id, data, size);
 
 	switch (id) {

@@ -71,8 +71,8 @@ int handle_cmd_get_clock_source_milan_v12(struct aecp *aecp, int64_t now,
 	sclk_source =
 		(struct avb_packet_aecp_aem_setget_clock_source *) p->payload;
 
-	desc_index = htons(sclk_source->descriptor_id);
-	desc_type = htons(sclk_source->descriptor_id);
+	desc_type = ntohs(sclk_source->descriptor_type);
+	desc_index = ntohs(sclk_source->descriptor_id);
 
 	desc = server_find_descriptor(aecp->server, desc_type, desc_index);
 	if (desc == NULL)
@@ -84,8 +84,7 @@ int handle_cmd_get_clock_source_milan_v12(struct aecp *aecp, int64_t now,
 	/** Descriptors always keep the network endianness */
 	sclk_source->clock_source_index = dclk_domain->clock_source_index;
 
-	len = sizeof(*p) + sizeof(*sclk_source) + sizeof(*h);
-	return reply_success(aecp, m, len);
+	return reply_success(aecp, buf, len);
 }
 
 /**

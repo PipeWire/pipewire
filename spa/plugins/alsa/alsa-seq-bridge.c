@@ -261,7 +261,7 @@ static void emit_port_info(struct seq_state *this, struct seq_port *port, bool f
 		if (spa_strstartswith(pn, client_name))
 			pn += strlen(client_name);
 
-		snprintf(name, sizeof(name), "%s%s%s (%s)", prefix,
+		snprintf(name, sizeof(name), "%s%s:%s (%s)", prefix,
 				client_name, pn, dir);
 		clean_name(name);
 

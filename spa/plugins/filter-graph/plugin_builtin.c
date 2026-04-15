@@ -201,42 +201,42 @@ static struct spa_fga_port mixer_ports[] = {
 	{ .index = 9,
 	  .name = "Gain 1",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 10,
 	  .name = "Gain 2",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 11,
 	  .name = "Gain 3",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 12,
 	  .name = "Gain 4",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 13,
 	  .name = "Gain 5",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 14,
 	  .name = "Gain 6",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 15,
 	  .name = "Gain 7",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 	{ .index = 16,
 	  .name = "Gain 8",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = 0.0f, .max = 10.0f
+	  .def = 1.0f, .min = -10.0f, .max = 10.0f
 	},
 };
 

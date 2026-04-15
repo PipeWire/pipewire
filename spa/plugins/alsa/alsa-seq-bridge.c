@@ -857,7 +857,7 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
-	spa_return_val_if_fail(!CHECK_PORT(this, SPA_DIRECTION_OUTPUT, port_id), -EINVAL);
+	spa_return_val_if_fail(CHECK_PORT(this, SPA_DIRECTION_OUTPUT, port_id), -EINVAL);
 
 	port = GET_PORT(this, SPA_DIRECTION_OUTPUT, port_id);
 

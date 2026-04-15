@@ -1779,6 +1779,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		goto error_errno;
 
 	stream->corked = corked;
+	stream->is_paused = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->early_requests = early_requests;
 	stream->volume = volume;
@@ -2059,6 +2060,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 		goto error_errno;
 
 	stream->corked = corked;
+	stream->is_paused = corked;
 	stream->adjust_latency = adjust_latency;
 	stream->early_requests = early_requests;
 	stream->volume = volume;

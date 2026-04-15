@@ -2642,7 +2642,8 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 	case SPA_NODE_COMMAND_Suspend:
 		reset_node(this);
-		SPA_FALLTHROUGH;
+		this->started = false;
+		break;
 	case SPA_NODE_COMMAND_Pause:
 		if ((res = setup_convert(this)) < 0)
 			return res;

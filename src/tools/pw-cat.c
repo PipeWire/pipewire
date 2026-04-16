@@ -389,7 +389,7 @@ static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_fram
 				break;
 		}
 
-		memcpy(dest_ptr, packet->data, packet->size);
+		spa_memcpy(dest_ptr, packet->data, packet->size);
 
 		accumulated_duration += packet->duration;
 		dest_ptr += packet->size;
@@ -1823,6 +1823,7 @@ static void format_from_filename(SF_INFO *info, const char *filename, const char
 	case SF_FORMAT_FLAC:
 	case SF_FORMAT_MPEG:
 	case SF_FORMAT_AIFF:
+	case SF_FORMAT_WAVEX:
 		info->format |= SF_ENDIAN_FILE;
 		break;
 	default:

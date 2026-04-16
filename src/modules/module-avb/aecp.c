@@ -86,6 +86,12 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	return info->handle(aecp, message, len);
 }
 
+static void aecp_periodic(void *data, uint64_t now)
+{
+	struct aecp *aecp = data;
+	avb_aecp_aem_periodic(aecp, (int64_t)now);
+}
+
 static void aecp_destroy(void *data)
 {
 	struct aecp *aecp = data;
@@ -124,6 +130,7 @@ static const struct server_events server_events = {
 	AVB_VERSION_SERVER_EVENTS,
 	.destroy = aecp_destroy,
 	.message = aecp_message,
+	.periodic = aecp_periodic,
 	.command = aecp_command
 };
 

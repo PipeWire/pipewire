@@ -5,6 +5,7 @@
 
 #include "aecp-aem.h"
 #include "aecp-aem-descriptors.h"
+#include "aecp-aem-state.h"
 #include "aecp-aem-cmds-resps/cmd-resp-helpers.h"
 #include "utils.h"
 
@@ -370,6 +371,44 @@ static const struct {
 	},
 };
 
+/**
+ * \brief Stub that queries the AECP entity lock state.
+ *
+ * Returns true when the entity is currently locked by a *different* controller
+ * than the one sending the command, meaning the command must be rejected with
+ * ENTITY_LOCKED.  Returns false in all other cases (not locked, lock expired,
+ * or requester is the lock owner).
+ *
+ * Only Milan V1.2 entities maintain a lock state; legacy AVB entities always
+ * return false (unlocked).
+ */
+static bool check_locked(struct aecp *aecp, int64_t now,
+		const struct avb_packet_aecp_aem *p)
+{
+	struct server *server = aecp->server;
+	const struct descriptor *desc;
+	const struct aecp_aem_entity_milan_state *entity_state;
+	const struct aecp_aem_lock_state *lock;
+
+	if (server->avb_mode != AVB_MODE_MILAN_V12)
+		return false;
+
+	desc = server_find_descriptor(server, AVB_AEM_DESC_ENTITY, 0);
+	if (desc == NULL)
+		return false;
+
+	entity_state = desc->ptr;
+	lock = &entity_state->state.lock_state;
+
+	/* A lock that has expired is treated as if the entity is unlocked. */
+	if (lock->base_info.expire_timeout < now)
+		return false;
+
+	/* Locked by a different controller → reject. */
+	return lock->is_locked &&
+		(lock->locked_id != htobe64(p->aecp.controller_guid));
+}
+
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 {
 	const struct avb_ethernet_header *h = m;
@@ -402,7 +441,28 @@ int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 
 	now = SPA_TIMESPEC_TO_NSEC(&ts_now);
 
+	/*
+	 * For write (non-readonly) commands, check whether the entity is locked
+	 * by a different controller before dispatching the handler.  Readonly
+	 * commands are always allowed regardless of lock state.
+	 */
+	if (!info->is_readonly && check_locked(aecp, now, p)) {
+		pw_log_info("aem command %s rejected: entity locked",
+			cmd_names[cmd_type]);
+		return reply_entity_locked(aecp, m, len);
+	}
+
 	return info->handle_command(aecp, now, m, len);
+}
+
+void avb_aecp_aem_periodic(struct aecp *aecp, int64_t now)
+{
+	struct server *server = aecp->server;
+
+	if (server->avb_mode != AVB_MODE_MILAN_V12)
+		return;
+
+	handle_cmd_lock_entity_expired_milan_v12(aecp, now);
 }
 
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len)

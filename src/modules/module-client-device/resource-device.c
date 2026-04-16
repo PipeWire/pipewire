@@ -108,7 +108,7 @@ struct pw_impl_device *pw_client_device_new(struct pw_resource *resource,
 	if (properties == NULL)
 		return NULL;
 
-	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%u",
 			pw_impl_client_get_info(client)->id);
 
 	device = pw_context_create_device(context, properties, sizeof(struct impl));

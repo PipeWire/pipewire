@@ -73,7 +73,6 @@ PW_LOG_TOPIC_STATIC(jack_log_topic, "jack");
 
 #define TYPE_ID_IS_EVENT(t)	((t) >= TYPE_ID_MIDI && (t) <= TYPE_ID_UMP)
 #define TYPE_ID_CAN_OSC(t)	((t) == TYPE_ID_MIDI || (t) == TYPE_ID_OSC)
-#define TYPE_ID_IS_HIDDEN(t)	((t) >= TYPE_ID_OTHER)
 #define TYPE_ID_IS_COMPATIBLE(a,b)(((a) == (b)) || (TYPE_ID_IS_EVENT(a) && TYPE_ID_IS_EVENT(b)))
 
 #define SELF_CONNECT_ALLOW	0
@@ -1800,7 +1799,7 @@ static inline void process_empty(struct port *p, uint32_t frames)
 	case TYPE_ID_AUDIO:
 		ptr = get_buffer_output(p, frames, sizeof(float), NULL);
 		if (SPA_LIKELY(ptr != NULL))
-			memcpy(ptr, src, frames * sizeof(float));
+			spa_memcpy(ptr, src, frames * sizeof(float));
 		break;
 	case TYPE_ID_MIDI:
 	case TYPE_ID_OSC:
@@ -1814,7 +1813,7 @@ static inline void process_empty(struct port *p, uint32_t frames)
 			 * to do this concurrently */
 			b->datas[0].chunk->size = convert_from_event(src, midi_scratch,
 					MIDI_SCRATCH_FRAMES * sizeof(float), type);
-			memcpy(ptr, midi_scratch, b->datas[0].chunk->size);
+			spa_memcpy(ptr, midi_scratch, b->datas[0].chunk->size);
 		}
 		break;
 	}
@@ -3928,8 +3927,9 @@ static void registry_event_global(void *data, uint32_t id,
 		const char *name;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
-			str = "other";
-		if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
+			goto exit;
+		if ((type_id = string_to_type(str)) == SPA_ID_INVALID ||
+		    !type_is_dsp(type_id))
 			goto exit;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
@@ -5571,7 +5571,8 @@ jack_port_t * jack_port_register (jack_client_t *client,
 		return NULL;
 	}
 
-	if ((type_id = string_to_type(port_type)) == SPA_ID_INVALID) {
+	if ((type_id = string_to_type(port_type)) == SPA_ID_INVALID ||
+	    !type_is_dsp(type_id)) {
 		pw_log_warn("unknown port type %s", port_type);
 		return NULL;
 	}
@@ -5890,11 +5891,11 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 	 * the per port buffer. This makes it possible to call this function concurrently
 	 * but also have different pointers per port */
 	convert_to_event(mix_info, n_mix_info, mb, p->client->fix_midi_events, p->object->port.type_id);
-	memcpy(ptr, mb, sizeof(struct midi_buffer) + (mb->event_count
+	spa_memcpy(ptr, mb, sizeof(struct midi_buffer) + (mb->event_count
                               * sizeof(struct midi_event)));
 	if (mb->write_pos > 0) {
 		size_t offs = mb->buffer_size - mb->write_pos;
-		memcpy(SPA_PTROFF(ptr, offs, void), SPA_PTROFF(mb, offs, void), mb->write_pos);
+		spa_memcpy(SPA_PTROFF(ptr, offs, void), SPA_PTROFF(mb, offs, void), mb->write_pos);
 	}
 	return ptr;
 }
@@ -6553,10 +6554,10 @@ int jack_connect (jack_client_t *client,
 	if ((res = check_connect(c, src, dst)) != 1)
 		goto exit;
 
-	snprintf(val[0], sizeof(val[0]), "%d", src->port.node_id);
-	snprintf(val[1], sizeof(val[1]), "%d", src->id);
-	snprintf(val[2], sizeof(val[2]), "%d", dst->port.node_id);
-	snprintf(val[3], sizeof(val[3]), "%d", dst->id);
+	snprintf(val[0], sizeof(val[0]), "%u", src->port.node_id);
+	snprintf(val[1], sizeof(val[1]), "%u", src->id);
+	snprintf(val[2], sizeof(val[2]), "%u", dst->port.node_id);
+	snprintf(val[3], sizeof(val[3]), "%u", dst->id);
 
 	props = SPA_DICT_INIT(items, 0);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_OUTPUT_NODE, val[0]);
@@ -6975,8 +6976,6 @@ const char ** jack_get_ports (jack_client_t *client,
 			continue;
 		pw_log_debug("%p: check port type:%d flags:%08lx name:\"%s\"", c,
 				o->port.type_id, o->port.flags, o->port.name);
-		if (TYPE_ID_IS_HIDDEN(o->port.type_id))
-			continue;
 		if (!SPA_FLAG_IS_SET(o->port.flags, flags))
 			continue;
 		if (str != NULL && o->port.node != NULL) {

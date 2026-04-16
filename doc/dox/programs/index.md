@@ -4,6 +4,7 @@ Manual pages:
 
 - \subpage page_man_pipewire_1
 - \subpage page_man_pipewire-pulse_1
+- \subpage page_man_pw-audioconvert_1
 - \subpage page_man_pw-cat_1
 - \subpage page_man_pw-cli_1
 - \subpage page_man_pw-config_1

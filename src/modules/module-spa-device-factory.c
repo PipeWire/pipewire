@@ -104,13 +104,13 @@ static void *create_object(void *_data,
 	if ((factory_name = strdup(str)) == NULL)
 		goto error_properties;
 
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%u",
 			pw_global_get_id(pw_impl_factory_get_global(data->factory)));
 
 	client = resource ? pw_resource_get_client(resource) : NULL;
 
 	if (client) {
-		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%u",
 			pw_global_get_id(pw_impl_client_get_global(client)));
 	}
 

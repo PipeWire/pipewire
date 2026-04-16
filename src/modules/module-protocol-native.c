@@ -663,7 +663,7 @@ static struct client_data *client_new(struct server *s, int fd)
 	}
 #endif
 
-	pw_properties_setf(props, PW_KEY_MODULE_ID, "%d", d->module->global->id);
+	pw_properties_setf(props, PW_KEY_MODULE_ID, "%u", d->module->global->id);
 
 	client = pw_context_create_client(s->this.core,
 			protocol, props, sizeof(struct client_data));

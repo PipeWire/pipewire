@@ -249,5 +249,6 @@ struct avb_packet_aecp_aem {
 
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len);
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len);
+void avb_aecp_aem_periodic(struct aecp *aecp, int64_t now);
 
 #endif /* AVB_AEM_H */

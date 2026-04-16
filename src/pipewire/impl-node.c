@@ -988,7 +988,7 @@ int pw_impl_node_register(struct pw_impl_node *this,
 	this->from_driver_peer = pw_node_peer_ref(this, this);
 	this->to_driver_peer = pw_node_peer_ref(this, this);
 
-	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->global->id);
+	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%u", this->global->id);
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(this->global));
 

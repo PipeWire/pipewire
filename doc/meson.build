@@ -100,6 +100,7 @@ manpage_docs = [
   'dox/config/libpipewire-modules.7.md',
   'dox/programs/pipewire-pulse.1.md',
   'dox/programs/pipewire.1.md',
+  'dox/programs/pw-audioconvert.1.md',
   'dox/programs/pw-cat.1.md',
   'dox/programs/pw-cli.1.md',
   'dox/programs/pw-config.1.md',

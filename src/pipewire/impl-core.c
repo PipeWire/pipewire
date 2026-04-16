@@ -600,7 +600,7 @@ int pw_impl_core_register(struct pw_impl_core *core,
 	core->registered = true;
 
 	core->info.id = core->global->id;
-	pw_properties_setf(core->properties, PW_KEY_OBJECT_ID, "%d", core->info.id);
+	pw_properties_setf(core->properties, PW_KEY_OBJECT_ID, "%u", core->info.id);
 	pw_properties_setf(core->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(core->global));
 

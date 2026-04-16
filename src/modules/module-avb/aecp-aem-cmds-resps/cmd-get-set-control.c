@@ -3,6 +3,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2026 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <errno.h>
 #include <limits.h>
 #include <inttypes.h>
 #include <stdbool.h>
@@ -44,6 +45,9 @@ static int send_unsol_control_milan_v12(struct aecp *aecp,
 	struct aecp_aem_base_info info = { 0 };
 	int rc = 0;
 
+	if (len > sizeof(unsol_buf))
+		return -EINVAL;
+
 	memcpy(unsol_buf, m, len);
 	/* Prepare a template packet */
 	info.controller_entity_id = htobe64(ctrler_id);
@@ -78,6 +82,10 @@ static int reply_control_badargs(struct aecp *aecp, const void *m, int len,
 			m, len);
 	}
 
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS,
+			m, len);
+
 	memcpy(buf, m, len);
 	ae_reply = (struct avb_packet_aecp_aem_setget_control *)p_reply->payload;
 
@@ -101,6 +109,10 @@ static int handle_cmd_get_control_identify(struct aecp *aecp, struct descriptor 
 
 	ctrl_desc = desc->ptr;
 	desc_formats = ctrl_desc->value_format;
+
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS,
+			m, len);
 
 	memcpy(buf, m, len);
         ae_reply = (struct avb_packet_aecp_aem_setget_control *)p_reply->payload;

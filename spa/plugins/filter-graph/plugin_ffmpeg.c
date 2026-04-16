@@ -243,7 +243,7 @@ static void ffmpeg_run(void *instance, unsigned long SampleCount)
 				delay);
 
 		for (j = 0; j < desc->layout[c].nb_channels; j++)
-			memcpy(i->data[d++], i->frame->data[j], SampleCount * sizeof(float));
+			spa_memcpy(i->data[d++], i->frame->data[j], SampleCount * sizeof(float));
 
 		av_frame_unref(i->frame);
 	}

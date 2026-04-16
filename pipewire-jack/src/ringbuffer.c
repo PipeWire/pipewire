@@ -132,10 +132,10 @@ size_t jack_ringbuffer_read(jack_ringbuffer_t *rb, char *dest, size_t cnt)
 		n2 = 0;
 	}
 
-	memcpy (dest, &(rb->buf[rb->read_ptr]), n1);
+	spa_memcpy (dest, &(rb->buf[rb->read_ptr]), n1);
 	rb->read_ptr = (rb->read_ptr + n1) & rb->size_mask;
 	if (n2) {
-		memcpy (dest + n1, &(rb->buf[rb->read_ptr]), n2);
+		spa_memcpy (dest + n1, &(rb->buf[rb->read_ptr]), n2);
 		rb->read_ptr = (rb->read_ptr + n2) & rb->size_mask;
 	}
 	return to_read;
@@ -167,11 +167,11 @@ size_t jack_ringbuffer_peek(jack_ringbuffer_t *rb, char *dest, size_t cnt)
 		n2 = 0;
 	}
 
-	memcpy (dest, &(rb->buf[tmp_read_ptr]), n1);
+	spa_memcpy (dest, &(rb->buf[tmp_read_ptr]), n1);
 	tmp_read_ptr = (tmp_read_ptr + n1) & rb->size_mask;
 
 	if (n2)
-		memcpy (dest + n1, &(rb->buf[tmp_read_ptr]), n2);
+		spa_memcpy (dest + n1, &(rb->buf[tmp_read_ptr]), n2);
 
 	return to_read;
 }
@@ -249,10 +249,10 @@ size_t jack_ringbuffer_write(jack_ringbuffer_t *rb, const char *src,
 		n2 = 0;
 	}
 
-	memcpy (&(rb->buf[rb->write_ptr]), src, n1);
+	spa_memcpy (&(rb->buf[rb->write_ptr]), src, n1);
 	rb->write_ptr = (rb->write_ptr + n1) & rb->size_mask;
 	if (n2) {
-		memcpy (&(rb->buf[rb->write_ptr]), src + n1, n2);
+		spa_memcpy (&(rb->buf[rb->write_ptr]), src + n1, n2);
 		rb->write_ptr = (rb->write_ptr + n2) & rb->size_mask;
 	}
 	return to_write;

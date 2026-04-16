@@ -1767,7 +1767,7 @@ static inline void process_empty(struct port *p, uint32_t frames)
 	case TYPE_ID_AUDIO:
 		ptr = get_buffer_output(p, frames, sizeof(float), NULL);
 		if (SPA_LIKELY(ptr != NULL))
-			memcpy(ptr, src, frames * sizeof(float));
+			spa_memcpy(ptr, src, frames * sizeof(float));
 		break;
 	case TYPE_ID_MIDI:
 	case TYPE_ID_OSC:
@@ -1781,7 +1781,7 @@ static inline void process_empty(struct port *p, uint32_t frames)
 			 * to do this concurrently */
 			b->datas[0].chunk->size = convert_from_event(src, midi_scratch,
 					MIDI_SCRATCH_FRAMES * sizeof(float), type);
-			memcpy(ptr, midi_scratch, b->datas[0].chunk->size);
+			spa_memcpy(ptr, midi_scratch, b->datas[0].chunk->size);
 		}
 		break;
 	}
@@ -5850,11 +5850,11 @@ static void *get_buffer_input_midi(struct port *p, jack_nframes_t frames)
 	 * the per port buffer. This makes it possible to call this function concurrently
 	 * but also have different pointers per port */
 	convert_to_event(mix_info, n_mix_info, mb, p->client->fix_midi_events, p->object->port.type_id);
-	memcpy(ptr, mb, sizeof(struct midi_buffer) + (mb->event_count
+	spa_memcpy(ptr, mb, sizeof(struct midi_buffer) + (mb->event_count
                               * sizeof(struct midi_event)));
 	if (mb->write_pos > 0) {
 		size_t offs = mb->buffer_size - mb->write_pos;
-		memcpy(SPA_PTROFF(ptr, offs, void), SPA_PTROFF(mb, offs, void), mb->write_pos);
+		spa_memcpy(SPA_PTROFF(ptr, offs, void), SPA_PTROFF(mb, offs, void), mb->write_pos);
 	}
 	return ptr;
 }

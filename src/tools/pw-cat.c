@@ -389,7 +389,7 @@ static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_fram
 				break;
 		}
 
-		memcpy(dest_ptr, packet->data, packet->size);
+		spa_memcpy(dest_ptr, packet->data, packet->size);
 
 		accumulated_duration += packet->duration;
 		dest_ptr += packet->size;

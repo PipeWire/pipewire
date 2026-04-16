@@ -3894,7 +3894,7 @@ static void registry_event_global(void *data, uint32_t id,
 		const char *name;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
-			str = "other";
+			goto exit;
 		if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
 			goto exit;
 

@@ -1821,6 +1821,7 @@ static void format_from_filename(SF_INFO *info, const char *filename, const char
 	case SF_FORMAT_FLAC:
 	case SF_FORMAT_MPEG:
 	case SF_FORMAT_AIFF:
+	case SF_FORMAT_WAVEX:
 		info->format |= SF_ENDIAN_FILE;
 		break;
 	default:

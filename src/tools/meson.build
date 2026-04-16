@@ -95,6 +95,14 @@ if build_pw_cat
   summary({'Build pw-cat with FFmpeg integration': build_pw_cat_with_ffmpeg}, bool_yn: true, section: 'pw-cat/pw-play/pw-dump tool')
 endif
 
+if sndfile_dep.found()
+  executable('pw-audioconvert',
+    'pw-audioconvert.c',
+    install: true,
+    dependencies : [pipewire_dep, sndfile_dep, mathlib],
+  )
+endif
+
 build_avb_virtual = get_option('avb-virtual').require(
     host_machine.system() == 'linux',
     error_message: 'AVB support is only available on Linux'

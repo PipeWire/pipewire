@@ -930,6 +930,39 @@ static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
 	return NULL;
 }
 
+static inline bool port_is_jack_graph_relevant(struct client *c, struct object *o)
+{
+	if (o == NULL || o->type != INTERFACE_Port || o->removed)
+		return false;
+	if (!client_port_visible(c, o))
+		return false;
+	if (TYPE_ID_IS_HIDDEN(o->port.type_id))
+		return false;
+	return true;
+}
+
+static bool link_is_jack_graph_relevant(struct client *c,
+		struct object *src_port,
+		struct object *dst_port)
+{
+	return port_is_jack_graph_relevant(c, src_port) &&
+		port_is_jack_graph_relevant(c, dst_port) &&
+		TYPE_ID_IS_COMPATIBLE(src_port->port.type_id, dst_port->port.type_id);
+}
+
+static bool link_object_is_jack_graph_relevant(struct client *c, struct object *link)
+{
+	struct object *src_port, *dst_port;
+
+	if (link == NULL || link->type != INTERFACE_Link || link->removed)
+		return false;
+
+	src_port = find_type(c, link->port_link.src, INTERFACE_Port, true);
+	dst_port = find_type(c, link->port_link.dst, INTERFACE_Port, true);
+
+	return link_is_jack_graph_relevant(c, src_port, dst_port);
+}
+
 #if defined (__SSE__)
 #include <xmmintrin.h>
 static void mix_sse(float *dst, float *src[], uint32_t n_src, bool aligned, uint32_t n_samples)
@@ -3663,7 +3696,8 @@ static void node_info(void *data, const struct pw_node_info *info)
 					    (l->port_link.src_serial != p->serial &&
 					     l->port_link.dst_serial != p->serial))
 						continue;
-					queue_notify(c, NOTIFY_TYPE_CONNECT, l, 0, NULL);
+					if (link_object_is_jack_graph_relevant(c, l))
+						queue_notify(c, NOTIFY_TYPE_CONNECT, l, 0, NULL);
 				}
 				queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, p, 0, NULL);
 			}
@@ -4011,7 +4045,7 @@ static void registry_event_global(void *data, uint32_t id,
 				o->port.name, type_id);
 	}
 	else if (spa_streq(type, PW_TYPE_INTERFACE_Link)) {
-		struct object *p;
+		struct object *p, *src_port, *dst_port;
 
 		o = alloc_object(c, INTERFACE_Link);
 		if (o == NULL)
@@ -4027,6 +4061,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((p = find_type(c, o->port_link.src, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
+		src_port = p;
 		o->port_link.src_serial = p->serial;
 
 		o->port_link.src_ours = p->port.port != NULL &&
@@ -4040,6 +4075,7 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((p = find_type(c, o->port_link.dst, INTERFACE_Port, true)) == NULL)
 			goto exit_free;
+		dst_port = p;
 		o->port_link.dst_serial = p->serial;
 
 		o->port_link.dst_ours = p->port.port != NULL &&
@@ -4060,6 +4096,7 @@ static void registry_event_global(void *data, uint32_t id,
 		pw_log_debug("%p: add link %d %u/%u->%u/%u", c, id,
 				o->port_link.src, o->port_link.src_serial,
 				o->port_link.dst, o->port_link.dst_serial);
+		do_emit = link_is_jack_graph_relevant(c, src_port, dst_port);
 	}
 	else if (spa_streq(type, PW_TYPE_INTERFACE_Metadata)) {
 		struct pw_proxy *proxy;
@@ -4182,7 +4219,10 @@ static void registry_event_global_remove(void *data, uint32_t id)
 			pw_log_info("%p: link %u %u/%u -> %u/%u removed", c, o->id,
 					o->port_link.src, o->port_link.src_serial,
 					o->port_link.dst, o->port_link.dst_serial);
-			queue_notify(c, NOTIFY_TYPE_CONNECT, o, 0, NULL);
+			if (link_object_is_jack_graph_relevant(c, o))
+				queue_notify(c, NOTIFY_TYPE_CONNECT, o, 0, NULL);
+			else
+				free_object(c, o);
 		} else {
 			pw_log_warn("unlink between unknown ports %d and %d",
 					o->port_link.src, o->port_link.dst);

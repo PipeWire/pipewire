@@ -135,9 +135,9 @@ static void *create_object(void *_data,
 		goto error_properties;
 	}
 
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%u",
 			pw_global_get_id(pw_impl_factory_get_global(factory)));
-	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%u",
 			pw_global_get_id(pw_impl_client_get_global(client)));
 
 	result = pw_client_device_new(device_resource, properties);

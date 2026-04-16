@@ -1687,7 +1687,7 @@ int pw_impl_link_register(struct pw_impl_link *link,
 	link->registered = true;
 
 	link->info.id = link->global->id;
-	pw_properties_setf(link->properties, PW_KEY_OBJECT_ID, "%d", link->info.id);
+	pw_properties_setf(link->properties, PW_KEY_OBJECT_ID, "%u", link->info.id);
 	pw_properties_setf(link->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(link->global));
 	pw_properties_setf(link->properties, PW_KEY_LINK_OUTPUT_NODE, "%u", link->info.output_node_id);

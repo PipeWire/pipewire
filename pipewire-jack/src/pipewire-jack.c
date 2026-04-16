@@ -6513,10 +6513,10 @@ int jack_connect (jack_client_t *client,
 	if ((res = check_connect(c, src, dst)) != 1)
 		goto exit;
 
-	snprintf(val[0], sizeof(val[0]), "%d", src->port.node_id);
-	snprintf(val[1], sizeof(val[1]), "%d", src->id);
-	snprintf(val[2], sizeof(val[2]), "%d", dst->port.node_id);
-	snprintf(val[3], sizeof(val[3]), "%d", dst->id);
+	snprintf(val[0], sizeof(val[0]), "%u", src->port.node_id);
+	snprintf(val[1], sizeof(val[1]), "%u", src->id);
+	snprintf(val[2], sizeof(val[2]), "%u", dst->port.node_id);
+	snprintf(val[3], sizeof(val[3]), "%u", dst->id);
 
 	props = SPA_DICT_INIT(items, 0);
 	items[props.n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_LINK_OUTPUT_NODE, val[0]);

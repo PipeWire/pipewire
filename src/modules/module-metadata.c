@@ -203,9 +203,9 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		return NULL;
 
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%u",
 			pw_impl_factory_get_info(data->factory)->id);
-	pw_properties_setf(properties, PW_KEY_MODULE_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_MODULE_ID, "%u",
 			pw_impl_module_get_info(data->module)->id);
 
 	if (pw_properties_get(properties, PW_KEY_METADATA_NAME) == NULL)
@@ -218,7 +218,7 @@ static void *create_object(void *_data,
 			goto error_resource;
 		}
 
-		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%u",
 				pw_impl_client_get_info(client)->id);
 
 		result = pw_metadata_new(context, metadata_resource, properties);

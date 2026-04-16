@@ -557,7 +557,7 @@ int pw_impl_client_register(struct pw_impl_client *client,
 	client->registered = true;
 
 	client->info.id = client->global->id;
-	pw_properties_setf(client->properties, PW_KEY_OBJECT_ID, "%d", client->info.id);
+	pw_properties_setf(client->properties, PW_KEY_OBJECT_ID, "%u", client->info.id);
 	pw_properties_setf(client->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(client->global));
 	pw_global_add_listener(client->global, &client->global_listener, &global_events, client);

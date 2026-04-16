@@ -485,12 +485,12 @@ static void *create_object(void *_data,
 
 	linger = pw_properties_get_bool(properties, PW_KEY_OBJECT_LINGER, false);
 
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%u",
 			pw_impl_factory_get_info(d->factory)->id);
 
 	client = resource ? pw_resource_get_client(resource) : NULL;
 	if (client && !linger)
-		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%u",
 				pw_impl_client_get_info(client)->id);
 
 	if (!d->allow_passive)

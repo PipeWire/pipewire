@@ -1760,8 +1760,8 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 			if (!global_port_out || !global_port_in)
 				continue;
 
-			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", global_port_out->id);
-			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", global_port_in->id);
+			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%u", global_port_out->id);
+			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%u", global_port_in->id);
 
 			create_link_with_properties(data, props);
 		}

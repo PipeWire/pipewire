@@ -559,7 +559,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		free(impl);
 		return -errno;
 	}
-	pw_properties_setf(impl->properties, PW_KEY_OBJECT_ID, "%d", pw_global_get_id(impl->global));
+	pw_properties_setf(impl->properties, PW_KEY_OBJECT_ID, "%u", pw_global_get_id(impl->global));
 	pw_properties_setf(impl->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(impl->global));
 

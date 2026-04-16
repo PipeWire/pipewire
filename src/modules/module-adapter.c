@@ -184,7 +184,7 @@ static void *create_object(void *_data,
 	if (properties == NULL)
 		goto error_properties;
 
-	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%d",
+	pw_properties_setf(properties, PW_KEY_FACTORY_ID, "%u",
 			pw_impl_factory_get_info(d->factory)->id);
 
 	linger = pw_properties_get_bool(properties, PW_KEY_OBJECT_LINGER, false);
@@ -196,7 +196,7 @@ static void *create_object(void *_data,
 
 	client = resource ? pw_resource_get_client(resource): NULL;
 	if (client && !linger) {
-		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%d",
+		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%u",
 				pw_impl_client_get_info(client)->id);
 	}
 
@@ -343,7 +343,7 @@ static void module_registered(void *data)
 	char id[16];
 	int res;
 
-	snprintf(id, sizeof(id), "%d", pw_impl_module_get_info(module)->id);
+	snprintf(id, sizeof(id), "%u", pw_impl_module_get_info(module)->id);
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MODULE_ID, id);
 	pw_impl_factory_update_properties(factory, &SPA_DICT_INIT(items, 1));
 

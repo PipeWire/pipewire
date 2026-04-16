@@ -1395,8 +1395,8 @@ int pw_impl_port_register(struct pw_impl_port *port,
 	pw_global_add_listener(port->global, &port->global_listener, &global_events, port);
 
 	port->info.id = port->global->id;
-	pw_properties_setf(port->properties, PW_KEY_NODE_ID, "%d", node->global->id);
-	pw_properties_setf(port->properties, PW_KEY_OBJECT_ID, "%d", port->info.id);
+	pw_properties_setf(port->properties, PW_KEY_NODE_ID, "%u", node->global->id);
+	pw_properties_setf(port->properties, PW_KEY_OBJECT_ID, "%u", port->info.id);
 	pw_properties_setf(port->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(port->global));
 

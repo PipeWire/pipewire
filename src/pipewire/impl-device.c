@@ -612,7 +612,7 @@ int pw_impl_device_register(struct pw_impl_device *device,
 	device->registered = true;
 
 	device->info.id = device->global->id;
-	pw_properties_setf(device->properties, PW_KEY_OBJECT_ID, "%d", device->info.id);
+	pw_properties_setf(device->properties, PW_KEY_OBJECT_ID, "%u", device->info.id);
 	pw_properties_setf(device->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(device->global));
 

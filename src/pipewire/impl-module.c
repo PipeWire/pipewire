@@ -235,7 +235,7 @@ pw_context_load_module(struct pw_context *context,
 		goto error_no_global;
 
 	this->info.id = this->global->id;
-	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%d", this->info.id);
+	pw_properties_setf(this->properties, PW_KEY_OBJECT_ID, "%u", this->info.id);
 	pw_properties_setf(this->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(this->global));
 

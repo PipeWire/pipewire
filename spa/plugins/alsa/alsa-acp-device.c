@@ -990,9 +990,20 @@ static void card_port_available(void *data, uint32_t index,
 
 		for (i = 0; i < p->n_devices; i++) {
 			struct acp_device *d = p->devices[i];
+			struct acp_port *active_port = NULL;
+			uint32_t j;
 			uint32_t best;
 
 			if (!(d->flags & ACP_DEVICE_ACTIVE))
+				continue;
+
+			for (j = 0; j < d->n_ports; j++) {
+				if (d->ports[j]->flags & ACP_PORT_ACTIVE) {
+					active_port = d->ports[j];
+					break;
+				}
+			}
+			if (active_port != NULL && active_port->available != ACP_AVAILABLE_NO)
 				continue;
 
 			best = acp_device_find_best_port_index(d, NULL);

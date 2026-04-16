@@ -73,7 +73,6 @@ PW_LOG_TOPIC_STATIC(jack_log_topic, "jack");
 
 #define TYPE_ID_IS_EVENT(t)	((t) >= TYPE_ID_MIDI && (t) <= TYPE_ID_UMP)
 #define TYPE_ID_CAN_OSC(t)	((t) == TYPE_ID_MIDI || (t) == TYPE_ID_OSC)
-#define TYPE_ID_IS_HIDDEN(t)	((t) >= TYPE_ID_OTHER)
 #define TYPE_ID_IS_COMPATIBLE(a,b)(((a) == (b)) || (TYPE_ID_IS_EVENT(a) && TYPE_ID_IS_EVENT(b)))
 
 #define SELF_CONNECT_ALLOW	0
@@ -3895,7 +3894,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 		if ((str = spa_dict_lookup(props, PW_KEY_FORMAT_DSP)) == NULL)
 			goto exit;
-		if ((type_id = string_to_type(str)) == SPA_ID_INVALID)
+		if ((type_id = string_to_type(str)) == SPA_ID_INVALID ||
+		    !type_is_dsp(type_id))
 			goto exit;
 
 		if ((str = spa_dict_lookup(props, PW_KEY_NODE_ID)) == NULL)
@@ -5531,7 +5531,8 @@ jack_port_t * jack_port_register (jack_client_t *client,
 		return NULL;
 	}
 
-	if ((type_id = string_to_type(port_type)) == SPA_ID_INVALID) {
+	if ((type_id = string_to_type(port_type)) == SPA_ID_INVALID ||
+	    !type_is_dsp(type_id)) {
 		pw_log_warn("unknown port type %s", port_type);
 		return NULL;
 	}
@@ -6935,8 +6936,6 @@ const char ** jack_get_ports (jack_client_t *client,
 			continue;
 		pw_log_debug("%p: check port type:%d flags:%08lx name:\"%s\"", c,
 				o->port.type_id, o->port.flags, o->port.name);
-		if (TYPE_ID_IS_HIDDEN(o->port.type_id))
-			continue;
 		if (!SPA_FLAG_IS_SET(o->port.flags, flags))
 			continue;
 		if (str != NULL && o->port.node != NULL) {

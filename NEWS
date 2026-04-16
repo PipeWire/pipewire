@@ -1,4 +1,43 @@
+# PipeWire 1.6.4 (2026-04-22)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Small improvements and seqfault fixes.
+  - Try to not emit ports that JACK doesn't understand. Fixes glitches in
+    ardour and other JACK apps.
+
+
+## PipeWire
+  - Refuse to load plugins and crash when pw_init() was not called. (!2784)
+
+## SPA
+  - Fix LADSPA plugin loading, support LADSPA_PATH ending with /
+  - Fix segfault in alsa-seq when removing devices in some cases. (#5221)
+  - Allow negative gain in mixer. (#5228)
+  - Improve alsa-seq port names, add : between client and port. (#5229)
+  - ACP: don’t override user-selected port on availability changes.
+
+## Bluetooth
+  - Backport some important fixes and minor improvements.
+
+## JACK
+  - Ignore non DSP ports to avoid emitting extra callbacks.
+
+## GStreamer
+  - Fix crop metadata.
+
+## Tools
+  - Fix WAVEX saving in pw-cat. (#5233)
+
+
+Older versions:
+
 # PipeWire 1.6.3 (2026-04-09)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
 
 ## Highlights
   - Fix some RAOP compatibility regressions.
@@ -33,9 +72,6 @@
 ## JACK
   - Make sure timebase callback is never called with 0 frames.
   - Increase the notify queue to avoid losing notifications.
-
-
-Older versions:
 
 # PipeWire 1.6.2 (2026-03-16)
 

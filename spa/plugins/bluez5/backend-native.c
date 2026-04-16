@@ -904,7 +904,7 @@ static bool device_supports_codec(struct impl *backend, struct spa_bt_device *de
 {
 	int res;
 	bool alt6_ok = true, alt1_ok = true;
-	bool msbc_alt6_ok = true, msbc_alt1_ok = true;
+	bool msbc_alt6_ok = true, msbc_alt1_ok = true, lc3_a127_ok = true;
 	uint32_t bt_features;
 
 	if (device->adapter == NULL)
@@ -913,6 +913,7 @@ static bool device_supports_codec(struct impl *backend, struct spa_bt_device *de
 	if (backend->quirks && spa_bt_quirks_get_features(backend->quirks, device->adapter, device, &bt_features) == 0) {
 		msbc_alt1_ok = (bt_features & (SPA_BT_FEATURE_MSBC_ALT1 | SPA_BT_FEATURE_MSBC_ALT1_RTL));
 		msbc_alt6_ok = (bt_features & SPA_BT_FEATURE_MSBC);
+		lc3_a127_ok = (bt_features & SPA_BT_FEATURE_LC3_A127);
 	}
 
 	switch (codec) {
@@ -921,6 +922,10 @@ static bool device_supports_codec(struct impl *backend, struct spa_bt_device *de
 	case SPA_BLUETOOTH_AUDIO_CODEC_MSBC:
 		alt1_ok = msbc_alt1_ok;
 		alt6_ok = msbc_alt6_ok;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_LC3_A127:
+		alt1_ok = false;
+		alt6_ok = lc3_a127_ok;
 		break;
 	case SPA_BLUETOOTH_AUDIO_CODEC_LC3_SWB:
 	default:

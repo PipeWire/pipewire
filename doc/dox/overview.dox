@@ -6,17 +6,72 @@ Today’s Linux systems use ALSA (Advanced Linux Sound Architecture) to play and
 ALSA is built directly into the Linux Kernel including drivers for sound cards, and applications can use ALSA to play sound.
 However, each sound card can only be used by one application at a time – which is one reason why another layer like PipeWire is required:
 It mixes multiple audio streams together and sends that to ALSA directly.
+In addition, PipeWire also supports video and MIDI streams.
 
 \image html SoundMixing.drawio.svg
+
+# Strengths of PipeWire
+
+PipeWire has 3 core strengths that make it so popular today:
+
+- Backwards compatibility with older sound servers – your favourite application just runs
+- Low latency audio processing – important for audio professionals
+- Powerful routing – define where streams go
+
+## Compatibility
 
 There are a number of popular sound servers for Linux like JACK for low latency or PulseAudio.
 PipeWire is the newest one, combining the advantages of its predecessors.
 
 Applications are programmed to support a certain backend, or sometimes they support more than one.
-PipeWire provides API interfaces that look like e.g. ALSA or PulseAudio, so an application only supporting PulseAudio actually works with PipeWire because it looks like PulseAudio to the application.
-Therefore, tools like `pavucontrol` *also* work for PipeWire!
+Even if they do not support PipeWire, they still work with PipeWire because it provides interfaces
+that look like e.g. ALSA or PulseAudio.
+Even configuration tools like `pavucontrol`, which configures audio devices like volume, profile (Stereo or 7.1 etc.), and so on, work for PipeWire!
 
 \image html LinuxSoundStack.drawio.svg
+
+## Routing
+
+Routing choices are made whenever you play back audio.
+(Same for recording and video/MIDI, but for simplicity we will focus on audio for now.)
+
+When you play back an mp3 file with `vlc`, does it play on your laptop speakers or on your HDMI screen?
+What happens when you plug in your USB headphones, or connect your wireless earbuds?
+Every time a decision needs to be made where the audio stream goes after it leaves `vlc`.
+This is called *routing,* and it works a bit like connecting parts with cables, for example `vlc` and the earbuds.
+
+PipeWire can do that, but it can do much more.
+
+- Equalise audio before sending it to the speaker? The \ref page_module_filter_chain "Filter Chain" module
+  does this – or you can use it to run any LADSPA/ffmpeg/… filter live over your audio stream.
+- Play back on a different PC? Route audio to the \ref page_module_pulse_tunnel "Pulse Tunnel" module.
+- Pretend your 6-channel audio interface is 3 different stereo sound cards, or your 10-channel interface
+  is a 7.1 Surround interface? The \ref page_module_loopback "Loopback" module does that.
+- Cancel an echo in a video call? Use the \ref page_module_echo_cancel "Echo Cancel" module.
+
+### Routing Examples
+
+To illustrate routing, let’s start with a simple setup:
+VLC plays sound directly on the Jack output of your device.
+
+\image html Routing-Direct.drawio.svg
+
+Now we can place an equaliser in-between to lift some frequencies.
+
+\image html Routing-FilterChain.drawio.svg
+
+Actually, let’s lift the frequencies of the left speaker differently,
+and then add a reverb filter from LADSPA.
+
+\image html Routing-FilterChainDouble.drawio.svg
+
+Or, we want to use the first 6 channels of an 8-channel interface as 5.1
+and the remaining two channels as stereo output.
+
+\image html Routing-Remap.drawio.svg
+
+Most of these settings need configuration files, there is no GUI yet.
+To unlock the full power of PipeWire, you will have to dive into the deeper areas of Lake Audio!
 
 # What do I need?
 

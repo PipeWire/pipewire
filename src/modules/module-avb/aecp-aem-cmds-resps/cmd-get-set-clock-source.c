@@ -3,6 +3,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT  */
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -23,6 +24,9 @@ static int reply_invalid_clock_source(struct aecp *aecp,
 	struct avb_packet_aecp_aem *p = SPA_PTROFF(h, sizeof(*h), void);
 	struct avb_packet_aecp_aem_setget_clock_source *sclk_source;
 
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+
 	memcpy(buf, m, len);
 	sclk_source =
 		(struct avb_packet_aecp_aem_setget_clock_source *) p->payload;
@@ -40,6 +44,9 @@ static int handle_unsol_set_clock_source(struct aecp *aecp, struct descriptor *d
 	uint8_t buf[128];
 	struct aecp_aem_base_info bi = { 0 };
 	int rc;
+
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return -EINVAL;
 
 	memcpy(buf, m, len);
 	bi.controller_entity_id = htobe64(ctrler_id);
@@ -66,6 +73,9 @@ int handle_cmd_get_clock_source_milan_v12(struct aecp *aecp, int64_t now,
 	struct descriptor *desc;
 	uint16_t desc_index;
 	uint16_t desc_type;
+
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
 	memcpy(buf, m, len);
 	sclk_source =

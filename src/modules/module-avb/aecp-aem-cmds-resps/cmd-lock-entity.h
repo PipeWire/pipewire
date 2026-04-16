@@ -13,6 +13,15 @@
 #include <stdint.h>
 
 /**
+ * @brief Checks whether the Milan entity lock has expired and releases it.
+ *
+ * Called once per second from the AECP periodic handler.  If the lock is
+ * active and its timeout (set at lock time) is earlier than @p now, the
+ * lock is cleared.
+ */
+void handle_cmd_lock_entity_expired_milan_v12(struct aecp *aecp, int64_t now);
+
+/**
  * @brief Command handling will generate the response for the lock command
  */
 int handle_cmd_lock_entity_milan_v12(struct aecp *aecp, int64_t now,

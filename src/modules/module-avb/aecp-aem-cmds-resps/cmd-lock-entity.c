@@ -71,6 +71,41 @@ static int handle_unsol_lock_entity_milanv12(struct aecp *aecp, struct descripto
 }
 
 
+void handle_cmd_lock_entity_expired_milan_v12(struct aecp *aecp, int64_t now)
+{
+	struct server *server = aecp->server;
+	struct descriptor *desc;
+	struct aecp_aem_entity_milan_state *entity_state;
+	struct aecp_aem_lock_state *lock;
+
+	desc = server_find_descriptor(server, AVB_AEM_DESC_ENTITY, 0);
+	if (desc == NULL)
+		return;
+
+	entity_state = desc->ptr;
+	lock = &entity_state->state.lock_state;
+
+	if (!lock->is_locked)
+		return;
+
+	if (lock->base_info.expire_timeout >= now)
+		return;
+
+	pw_log_info("entity lock held by %" PRIx64 " expired after %lus, releasing",
+		lock->locked_id, AECP_AEM_LOCK_ENTITY_EXPIRE_TIMEOUT_SECOND);
+
+	lock->is_locked = false;
+	lock->locked_id = 0;
+	/*
+	 * No specific triggering controller (this is a timeout, not a command).
+	 * Setting controller_entity_id to 0 combined with internal=true ensures
+	 * reply_unsol_send notifies ALL registered controllers, including the
+	 * one whose lock just expired.
+	 */
+	lock->base_info.controller_entity_id = 0;
+	handle_unsol_lock_common(aecp, lock, true);
+}
+
 /* LOCK_ENTITY */
 /* Milan v1.2, Sec. 5.4.2.2; IEEE 1722.1-2021, Sec. 7.4.2*/
 int handle_cmd_lock_entity_milan_v12(struct aecp *aecp, int64_t now, const void *m, int len)

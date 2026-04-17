@@ -27,7 +27,6 @@ struct partition {
 	float *pre_mult;
 	float *conv;
 
-	float *inputBuffer;
 	int inputBufferFill;
 
 	int current;
@@ -49,7 +48,6 @@ static void partition_reset(struct spa_fga_dsp *dsp, struct partition *part)
 		spa_fga_dsp_fft_memclear(dsp, part->segments[i], part->fftComplexSize, false);
 	spa_fga_dsp_fft_memclear(dsp, part->fft_buffer[0], part->segSize, true);
 	spa_fga_dsp_fft_memclear(dsp, part->fft_buffer[1], part->segSize, true);
-	spa_fga_dsp_fft_memclear(dsp, part->inputBuffer, part->segSize, true);
 	spa_fga_dsp_fft_memclear(dsp, part->pre_mult, part->fftComplexSize, false);
 	spa_fga_dsp_fft_memclear(dsp, part->conv, part->fftComplexSize, false);
 	part->inputBufferFill = 0;
@@ -77,7 +75,6 @@ static void partition_free(struct spa_fga_dsp *dsp, struct partition *part)
 	free(part->segmentsIr);
 	spa_fga_dsp_fft_memfree(dsp, part->pre_mult);
 	spa_fga_dsp_fft_memfree(dsp, part->conv);
-	spa_fga_dsp_fft_memfree(dsp, part->inputBuffer);
 	free(part);
 }
 
@@ -138,8 +135,7 @@ static struct partition *partition_new(struct spa_fga_dsp *dsp, int block, const
 	}
 	part->pre_mult = spa_fga_dsp_fft_memalloc(dsp, part->fftComplexSize, false);
 	part->conv = spa_fga_dsp_fft_memalloc(dsp, part->fftComplexSize, false);
-	part->inputBuffer = spa_fga_dsp_fft_memalloc(dsp, part->segSize, true);
-	if (part->pre_mult == NULL || part->conv == NULL || part->inputBuffer == NULL)
+	if (part->pre_mult == NULL || part->conv == NULL)
 			goto error;
 	part->scale = 1.0f / part->segSize;
 	partition_reset(dsp, part);
@@ -152,7 +148,7 @@ error:
 
 static int partition_run(struct spa_fga_dsp *dsp, struct partition *part, const float *input, float *output, int len)
 {
-	int i, processed = 0;
+	int i;
 
 	if (part == NULL || part->segCount == 0) {
 		spa_fga_dsp_fft_memclear(dsp, output, len, true);
@@ -160,69 +156,61 @@ static int partition_run(struct spa_fga_dsp *dsp, struct partition *part, const 
 	}
 
 	int inputBufferFill = part->inputBufferFill;
-	while (processed < len) {
-		const int processing = SPA_MIN(len - processed, part->blockSize - inputBufferFill);
 
-		spa_fga_dsp_copy(dsp, part->inputBuffer + inputBufferFill, input + processed, processing);
-		if (inputBufferFill == 0 && processing < part->blockSize)
-			spa_fga_dsp_fft_memclear(dsp, part->inputBuffer + processing,
-						part->blockSize - processing, true);
-		spa_fga_dsp_fft_run(dsp, part->fft, 1, part->inputBuffer, part->segments[part->current]);
+	spa_fga_dsp_fft_run(dsp, part->fft, 1, input, part->segments[part->current]);
 
-		if (part->segCount > 1) {
-			if (inputBufferFill == 0) {
-				int indexAudio = part->current;
+	if (part->segCount > 1) {
+		if (inputBufferFill == 0) {
+			int indexAudio = part->current;
 
+			if (++indexAudio == part->segCount)
+				indexAudio = 0;
+
+			spa_fga_dsp_fft_cmul(dsp, part->fft, part->pre_mult,
+					part->segmentsIr[1],
+					part->segments[indexAudio],
+					part->fftComplexSize, part->scale);
+
+			for (i = 2; i < part->segCount; i++) {
 				if (++indexAudio == part->segCount)
 					indexAudio = 0;
 
-				spa_fga_dsp_fft_cmul(dsp, part->fft, part->pre_mult,
-						part->segmentsIr[1],
+				spa_fga_dsp_fft_cmuladd(dsp, part->fft,
+						part->pre_mult,
+						part->pre_mult,
+						part->segmentsIr[i],
 						part->segments[indexAudio],
 						part->fftComplexSize, part->scale);
-
-				for (i = 2; i < part->segCount; i++) {
-					if (++indexAudio == part->segCount)
-						indexAudio = 0;
-
-					spa_fga_dsp_fft_cmuladd(dsp, part->fft,
-							part->pre_mult,
-							part->pre_mult,
-							part->segmentsIr[i],
-							part->segments[indexAudio],
-							part->fftComplexSize, part->scale);
-				}
 			}
-			spa_fga_dsp_fft_cmuladd(dsp, part->fft,
-					part->conv,
-					part->pre_mult,
-					part->segments[part->current],
-					part->segmentsIr[0],
-					part->fftComplexSize, part->scale);
-		} else {
-			spa_fga_dsp_fft_cmul(dsp, part->fft,
-					part->conv,
-					part->segments[part->current],
-					part->segmentsIr[0],
-					part->fftComplexSize, part->scale);
 		}
+		spa_fga_dsp_fft_cmuladd(dsp, part->fft,
+				part->conv,
+				part->pre_mult,
+				part->segments[part->current],
+				part->segmentsIr[0],
+				part->fftComplexSize, part->scale);
+	} else {
+		spa_fga_dsp_fft_cmul(dsp, part->fft,
+				part->conv,
+				part->segments[part->current],
+				part->segmentsIr[0],
+				part->fftComplexSize, part->scale);
+	}
 
-		spa_fga_dsp_fft_run(dsp, part->ifft, -1, part->conv, part->fft_buffer[0]);
+	spa_fga_dsp_fft_run(dsp, part->ifft, -1, part->conv, part->fft_buffer[0]);
 
-		spa_fga_dsp_sum(dsp, output + processed, part->fft_buffer[0] + inputBufferFill,
-				part->fft_buffer[1] + part->blockSize + inputBufferFill, processing);
+	spa_fga_dsp_sum(dsp, output, part->fft_buffer[0] + inputBufferFill,
+			part->fft_buffer[1] + part->blockSize + inputBufferFill, len);
 
-		inputBufferFill += processing;
-		if (inputBufferFill == part->blockSize) {
-			inputBufferFill = 0;
+	inputBufferFill += len;
+	if (inputBufferFill == part->blockSize) {
+		inputBufferFill = 0;
 
-			SPA_SWAP(part->fft_buffer[0], part->fft_buffer[1]);
+		SPA_SWAP(part->fft_buffer[0], part->fft_buffer[1]);
 
-			if (part->current == 0)
-				part->current = part->segCount;
-			part->current--;
-		}
-		processed += processing;
+		if (part->current == 0)
+			part->current = part->segCount;
+		part->current--;
 	}
 	part->inputBufferFill = inputBufferFill;
 	return len;
@@ -316,7 +304,7 @@ struct convolver *convolver_new(struct spa_fga_dsp *dsp, int head_block, int tai
 	}
 
 	if (conv->tailPartition0 || conv->tailPartition) {
-		conv->tailInput = spa_fga_dsp_fft_memalloc(dsp, conv->tailBlockSize, true);
+		conv->tailInput = spa_fga_dsp_fft_memalloc(dsp, 2 * conv->tailBlockSize, true);
 		if (conv->tailInput == NULL)
 			goto error;
 	}
@@ -349,50 +337,50 @@ void convolver_free(struct convolver *conv)
 
 int convolver_run(struct convolver *conv, const float *input, float *output, int length)
 {
+	int processed = 0;
 	struct spa_fga_dsp *dsp = conv->dsp;
 
-	partition_run(dsp, conv->headPartition, input, output, length);
+	while (processed < length) {
+		int remaining = length - processed;
+		int blockRemain = conv->tailInputFill % conv->headBlockSize;
+		int processing = SPA_MIN(remaining, conv->headBlockSize - blockRemain);
 
-	if (conv->tailInput) {
-		int processed = 0;
+		spa_memcpy(conv->tailInput + conv->tailInputFill, input + processed, processing * sizeof(float));
+		memset(conv->tailInput + conv->tailInputFill + processing, 0,
+						(2 * conv->headBlockSize - processing) * sizeof(float));
 
-		while (processed < length) {
-			int remaining = length - processed;
-			int processing = SPA_MIN(remaining, conv->headBlockSize - (conv->tailInputFill % conv->headBlockSize));
+		partition_run(dsp, conv->headPartition, conv->tailInput + conv->tailInputFill,
+				&output[processed], processing);
 
+		if (conv->tailPrecalculated0)
+			spa_fga_dsp_sum(dsp, &output[processed], &output[processed],
+					&conv->tailPrecalculated0[conv->tailInputFill],
+					processing);
+		if (conv->tailPrecalculated)
+			spa_fga_dsp_sum(dsp, &output[processed], &output[processed],
+					&conv->tailPrecalculated[conv->tailInputFill],
+					processing);
+
+		conv->tailInputFill += processing;
+
+		if (conv->tailPrecalculated0 && (conv->tailInputFill % conv->headBlockSize == 0)) {
+			int blockOffset = conv->tailInputFill - conv->headBlockSize;
+			partition_run(dsp, conv->tailPartition0,
+					conv->tailInput + blockOffset,
+					conv->tailOutput0 + blockOffset,
+					conv->headBlockSize);
+		}
+		if (conv->tailInputFill == conv->tailBlockSize) {
 			if (conv->tailPrecalculated0)
-				spa_fga_dsp_sum(dsp, &output[processed], &output[processed],
-						&conv->tailPrecalculated0[conv->tailInputFill],
-						processing);
-			if (conv->tailPrecalculated)
-				spa_fga_dsp_sum(dsp, &output[processed], &output[processed],
-						&conv->tailPrecalculated[conv->tailInputFill],
-						processing);
-
-			spa_fga_dsp_copy(dsp, conv->tailInput + conv->tailInputFill, input + processed, processing);
-			conv->tailInputFill += processing;
-
-			if (conv->tailPrecalculated0 && (conv->tailInputFill % conv->headBlockSize == 0)) {
-				int blockOffset = conv->tailInputFill - conv->headBlockSize;
-				partition_run(dsp, conv->tailPartition0,
-						conv->tailInput + blockOffset,
-						conv->tailOutput0 + blockOffset,
-						conv->headBlockSize);
-				if (conv->tailInputFill == conv->tailBlockSize)
-					SPA_SWAP(conv->tailPrecalculated0, conv->tailOutput0);
-			}
-
-			if (conv->tailPrecalculated &&
-			    conv->tailInputFill == conv->tailBlockSize) {
+				SPA_SWAP(conv->tailPrecalculated0, conv->tailOutput0);
+			if (conv->tailPrecalculated) {
 				SPA_SWAP(conv->tailPrecalculated, conv->tailOutput);
 				partition_run(dsp, conv->tailPartition, conv->tailInput,
 						conv->tailOutput, conv->tailBlockSize);
 			}
-			if (conv->tailInputFill == conv->tailBlockSize)
-				conv->tailInputFill = 0;
-
-			processed += processing;
+			conv->tailInputFill = 0;
 		}
+		processed += processing;
 	}
 	return 0;
 }

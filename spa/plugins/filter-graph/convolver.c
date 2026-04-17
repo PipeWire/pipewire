@@ -222,9 +222,6 @@ struct convolver
 	int headBlockSize;
 	int tailBlockSize;
 	struct partition *headPartition;
-	struct partition *tailPartition0;
-	float *tailOutput0;
-	float *tailPrecalculated0;
 	struct partition *tailPartition;
 	float *tailOutput;
 	float *tailPrecalculated;
@@ -238,11 +235,6 @@ void convolver_reset(struct convolver *conv)
 
 	if (conv->headPartition)
 		partition_reset(dsp, conv->headPartition);
-	if (conv->tailPartition0) {
-		partition_reset(dsp, conv->tailPartition0);
-		spa_fga_dsp_fft_memclear(dsp, conv->tailOutput0, conv->tailBlockSize, true);
-		spa_fga_dsp_fft_memclear(dsp, conv->tailPrecalculated0, conv->tailBlockSize, true);
-	}
 	if (conv->tailPartition) {
 		partition_reset(dsp, conv->tailPartition);
 		spa_fga_dsp_fft_memclear(dsp, conv->tailOutput, conv->tailBlockSize, true);
@@ -278,34 +270,19 @@ struct convolver *convolver_new(struct spa_fga_dsp *dsp, int head_block, int tai
 	conv->headBlockSize = next_power_of_two(head_block);
 	conv->tailBlockSize = next_power_of_two(tail_block);
 
-	head_ir_len = SPA_MIN(irlen, conv->tailBlockSize);
+	head_ir_len = SPA_MIN(irlen, 2 * conv->tailBlockSize);
 	conv->headPartition = partition_new(dsp, conv->headBlockSize, ir, head_ir_len);
 	if (conv->headPartition == NULL)
 		goto error;
-
-	if (irlen > conv->tailBlockSize) {
-		int conv1IrLen = SPA_MIN(irlen - conv->tailBlockSize, conv->tailBlockSize);
-		conv->tailPartition0 = partition_new(dsp, conv->headBlockSize, ir + conv->tailBlockSize, conv1IrLen);
-		conv->tailOutput0 = spa_fga_dsp_fft_memalloc(dsp, conv->tailBlockSize, true);
-		conv->tailPrecalculated0 = spa_fga_dsp_fft_memalloc(dsp, conv->tailBlockSize, true);
-		if (conv->tailPartition0 == NULL || conv->tailOutput0 == NULL ||
-				conv->tailPrecalculated0 == NULL)
-			goto error;
-	}
 
 	if (irlen > 2 * conv->tailBlockSize) {
 		int tailIrLen = irlen - (2 * conv->tailBlockSize);
 		conv->tailPartition = partition_new(dsp, conv->tailBlockSize, ir + (2 * conv->tailBlockSize), tailIrLen);
 		conv->tailOutput = spa_fga_dsp_fft_memalloc(dsp, conv->tailBlockSize, true);
 		conv->tailPrecalculated = spa_fga_dsp_fft_memalloc(dsp, conv->tailBlockSize, true);
-		if (conv->tailPartition == NULL || conv->tailOutput == NULL ||
-				conv->tailPrecalculated == NULL)
-			goto error;
-	}
-
-	if (conv->tailPartition0 || conv->tailPartition) {
 		conv->tailInput = spa_fga_dsp_fft_memalloc(dsp, 2 * conv->tailBlockSize, true);
-		if (conv->tailInput == NULL)
+		if (conv->tailPartition == NULL || conv->tailOutput == NULL ||
+				conv->tailPrecalculated == NULL || conv->tailInput == NULL)
 			goto error;
 	}
 
@@ -323,12 +300,8 @@ void convolver_free(struct convolver *conv)
 
 	if (conv->headPartition)
 		partition_free(dsp, conv->headPartition);
-	if (conv->tailPartition0)
-		partition_free(dsp, conv->tailPartition0);
 	if (conv->tailPartition)
 		partition_free(dsp, conv->tailPartition);
-	spa_fga_dsp_fft_memfree(dsp, conv->tailOutput0);
-	spa_fga_dsp_fft_memfree(dsp, conv->tailPrecalculated0);
 	spa_fga_dsp_fft_memfree(dsp, conv->tailOutput);
 	spa_fga_dsp_fft_memfree(dsp, conv->tailPrecalculated);
 	spa_fga_dsp_fft_memfree(dsp, conv->tailInput);
@@ -352,10 +325,6 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 		partition_run(dsp, conv->headPartition, conv->tailInput + conv->tailInputFill,
 				&output[processed], processing);
 
-		if (conv->tailPrecalculated0)
-			spa_fga_dsp_sum(dsp, &output[processed], &output[processed],
-					&conv->tailPrecalculated0[conv->tailInputFill],
-					processing);
 		if (conv->tailPrecalculated)
 			spa_fga_dsp_sum(dsp, &output[processed], &output[processed],
 					&conv->tailPrecalculated[conv->tailInputFill],
@@ -363,16 +332,7 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 
 		conv->tailInputFill += processing;
 
-		if (conv->tailPrecalculated0 && (conv->tailInputFill % conv->headBlockSize == 0)) {
-			int blockOffset = conv->tailInputFill - conv->headBlockSize;
-			partition_run(dsp, conv->tailPartition0,
-					conv->tailInput + blockOffset,
-					conv->tailOutput0 + blockOffset,
-					conv->headBlockSize);
-		}
 		if (conv->tailInputFill == conv->tailBlockSize) {
-			if (conv->tailPrecalculated0)
-				SPA_SWAP(conv->tailPrecalculated0, conv->tailOutput0);
 			if (conv->tailPrecalculated) {
 				SPA_SWAP(conv->tailPrecalculated, conv->tailOutput);
 				partition_run(dsp, conv->tailPartition, conv->tailInput,

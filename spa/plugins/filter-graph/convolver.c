@@ -237,6 +237,7 @@ void convolver_reset(struct convolver *conv)
 		partition_reset(dsp, conv->headPartition);
 	if (conv->tailPartition) {
 		partition_reset(dsp, conv->tailPartition);
+		spa_fga_dsp_fft_memclear(dsp, conv->tailInput, 2 * conv->tailBlockSize, true);
 		spa_fga_dsp_fft_memclear(dsp, conv->tailOutput, conv->tailBlockSize, true);
 		spa_fga_dsp_fft_memclear(dsp, conv->tailPrecalculated, conv->tailBlockSize, true);
 	}

@@ -152,7 +152,12 @@ static uint8_t *ensure_buffer(struct midi_file *mf, struct midi_track *tr, size_
 		return tr->event;
 
 	if (size > mf->buffer_size) {
-		mf->buffer = realloc(mf->buffer, size);
+		uint8_t *newbuf = realloc(mf->buffer, size);
+
+		if (newbuf == NULL)
+			return NULL;
+
+		mf->buffer = newbuf;
 		mf->buffer_size = size;
 	}
 	return mf->buffer;

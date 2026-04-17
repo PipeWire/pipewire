@@ -6,12 +6,18 @@
 
 #include "convolver.h"
 
+#include <math.h>
+#include <math.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <limits.h>
+
 #include <spa/utils/defs.h>
 
-#include <math.h>
-
 struct partition {
-	int blockSize;
+	struct convolver *conv;
+
+	int block_size;
 	int segSize;
 	int segCount;
 	int fftComplexSize;
@@ -25,12 +31,34 @@ struct partition {
 	void *ifft;
 
 	float *pre_mult;
-	float *conv;
+	float *freq;
+	float *precalc[2];
 
 	int inputBufferFill;
 
 	int current;
 	float scale;
+};
+
+struct convolver
+{
+	struct spa_fga_dsp *dsp;
+	struct convolver *conv;
+
+	int min_size;
+	int max_size;
+
+	float *delay[2];
+	int delay_fill;
+
+	struct partition *partition[16];
+	int n_partition;
+
+	bool threaded;
+	bool running;
+	pthread_t thread;
+	sem_t semStart;
+	sem_t semFinish;
 };
 
 static int next_power_of_two(int val)
@@ -49,7 +77,9 @@ static void partition_reset(struct spa_fga_dsp *dsp, struct partition *part)
 	spa_fga_dsp_fft_memclear(dsp, part->fft_buffer[0], part->segSize, true);
 	spa_fga_dsp_fft_memclear(dsp, part->fft_buffer[1], part->segSize, true);
 	spa_fga_dsp_fft_memclear(dsp, part->pre_mult, part->fftComplexSize, false);
-	spa_fga_dsp_fft_memclear(dsp, part->conv, part->fftComplexSize, false);
+	spa_fga_dsp_fft_memclear(dsp, part->freq, part->fftComplexSize, false);
+	spa_fga_dsp_fft_memclear(dsp, part->precalc[0], part->segSize, true);
+	spa_fga_dsp_fft_memclear(dsp, part->precalc[1], part->segSize, true);
 	part->inputBufferFill = 0;
 	part->current = 0;
 }
@@ -74,13 +104,16 @@ static void partition_free(struct spa_fga_dsp *dsp, struct partition *part)
 	free(part->segments);
 	free(part->segmentsIr);
 	spa_fga_dsp_fft_memfree(dsp, part->pre_mult);
-	spa_fga_dsp_fft_memfree(dsp, part->conv);
+	spa_fga_dsp_fft_memfree(dsp, part->freq);
+	spa_fga_dsp_fft_memfree(dsp, part->precalc[0]);
+	spa_fga_dsp_fft_memfree(dsp, part->precalc[1]);
 	free(part);
 }
 
-static struct partition *partition_new(struct spa_fga_dsp *dsp, int block, const float *ir, int irlen)
+static struct partition *partition_new(struct convolver *conv, int block, const float *ir, int irlen)
 {
 	struct partition *part;
+	struct spa_fga_dsp *dsp = conv->dsp;
 	int i;
 
 	if (block == 0)
@@ -93,12 +126,15 @@ static struct partition *partition_new(struct spa_fga_dsp *dsp, int block, const
 	if (part == NULL)
 		return NULL;
 
+	part->conv = conv;
+
 	if (irlen == 0)
 		return part;
 
-	part->blockSize = next_power_of_two(block);
-	part->segSize = 2 * part->blockSize;
-	part->segCount = (irlen + part->blockSize-1) / part->blockSize;
+
+	part->block_size = next_power_of_two(block);
+	part->segSize = 2 * part->block_size;
+	part->segCount = (irlen + part->block_size-1) / part->block_size;
 	part->fftComplexSize = (part->segSize / 2) + 1;
 
 	part->fft = spa_fga_dsp_fft_new(dsp, part->segSize, true);
@@ -119,23 +155,25 @@ static struct partition *partition_new(struct spa_fga_dsp *dsp, int block, const
 		goto error;
 
 	for (i = 0; i < part->segCount; i++) {
-		int left = irlen - (i * part->blockSize);
-		int copy = SPA_MIN(part->blockSize, left);
+		int left = irlen - (i * part->block_size);
+		int copy = SPA_MIN(part->block_size, left);
 
 		part->segments[i] = spa_fga_dsp_fft_memalloc(dsp, part->fftComplexSize, false);
 		part->segmentsIr[i] = spa_fga_dsp_fft_memalloc(dsp, part->fftComplexSize, false);
 		if (part->segments[i] == NULL || part->segmentsIr[i] == NULL)
 			goto error;
 
-		spa_fga_dsp_copy(dsp, part->fft_buffer[0], &ir[i * part->blockSize], copy);
+		spa_fga_dsp_copy(dsp, part->fft_buffer[0], &ir[i * part->block_size], copy);
 		if (copy < part->segSize)
 			spa_fga_dsp_fft_memclear(dsp, part->fft_buffer[0] + copy, part->segSize - copy, true);
 
 	        spa_fga_dsp_fft_run(dsp, part->fft, 1, part->fft_buffer[0], part->segmentsIr[i]);
 	}
 	part->pre_mult = spa_fga_dsp_fft_memalloc(dsp, part->fftComplexSize, false);
-	part->conv = spa_fga_dsp_fft_memalloc(dsp, part->fftComplexSize, false);
-	if (part->pre_mult == NULL || part->conv == NULL)
+	part->freq = spa_fga_dsp_fft_memalloc(dsp, part->fftComplexSize, false);
+	part->precalc[0] = spa_fga_dsp_fft_memalloc(dsp, part->block_size, false);
+	part->precalc[1] = spa_fga_dsp_fft_memalloc(dsp, part->block_size, false);
+	if (part->pre_mult == NULL || part->freq == NULL)
 			goto error;
 	part->scale = 1.0f / part->segSize;
 	partition_reset(dsp, part);
@@ -184,26 +222,26 @@ static int partition_run(struct spa_fga_dsp *dsp, struct partition *part, const 
 			}
 		}
 		spa_fga_dsp_fft_cmuladd(dsp, part->fft,
-				part->conv,
+				part->freq,
 				part->pre_mult,
 				part->segments[part->current],
 				part->segmentsIr[0],
 				part->fftComplexSize, part->scale);
 	} else {
 		spa_fga_dsp_fft_cmul(dsp, part->fft,
-				part->conv,
+				part->freq,
 				part->segments[part->current],
 				part->segmentsIr[0],
 				part->fftComplexSize, part->scale);
 	}
 
-	spa_fga_dsp_fft_run(dsp, part->ifft, -1, part->conv, part->fft_buffer[0]);
+	spa_fga_dsp_fft_run(dsp, part->ifft, -1, part->freq, part->fft_buffer[0]);
 
 	spa_fga_dsp_sum(dsp, output, part->fft_buffer[0] + inputBufferFill,
-			part->fft_buffer[1] + part->blockSize + inputBufferFill, len);
+			part->fft_buffer[1] + part->block_size + inputBufferFill, len);
 
 	inputBufferFill += len;
-	if (inputBufferFill == part->blockSize) {
+	if (inputBufferFill == part->block_size) {
 		inputBufferFill = 0;
 
 		SPA_SWAP(part->fft_buffer[0], part->fft_buffer[1]);
@@ -216,38 +254,41 @@ static int partition_run(struct spa_fga_dsp *dsp, struct partition *part, const 
 	return len;
 }
 
-struct convolver
+static void *do_background_process(void *data)
 {
-	struct spa_fga_dsp *dsp;
-	int headBlockSize;
-	int tailBlockSize;
-	struct partition *headPartition;
-	struct partition *tailPartition;
-	float *tailOutput;
-	float *tailPrecalculated;
-	float *tailInput;
-	int tailInputFill;
-};
+	struct partition *part = data;
+	struct convolver *conv = part->conv;
+
+	while (conv->running) {
+		sem_wait(&conv->semStart);
+
+		if (!conv->running)
+			break;
+
+		partition_run(conv->dsp, part, conv->delay[1], part->precalc[1], part->block_size);
+
+		sem_post(&conv->semFinish);
+	}
+	return NULL;
+}
 
 void convolver_reset(struct convolver *conv)
 {
 	struct spa_fga_dsp *dsp = conv->dsp;
+	int i;
 
-	if (conv->headPartition)
-		partition_reset(dsp, conv->headPartition);
-	if (conv->tailPartition) {
-		partition_reset(dsp, conv->tailPartition);
-		spa_fga_dsp_fft_memclear(dsp, conv->tailInput, 2 * conv->tailBlockSize, true);
-		spa_fga_dsp_fft_memclear(dsp, conv->tailOutput, conv->tailBlockSize, true);
-		spa_fga_dsp_fft_memclear(dsp, conv->tailPrecalculated, conv->tailBlockSize, true);
-	}
-	conv->tailInputFill = 0;
+	for (i = 0; i < conv->n_partition; i++)
+		partition_reset(dsp, conv->partition[i]);
+
+	spa_fga_dsp_fft_memclear(dsp, conv->delay[0], 2 * conv->max_size, true);
+	spa_fga_dsp_fft_memclear(dsp, conv->delay[1], 2 * conv->max_size, true);
+	conv->delay_fill = 0;
 }
 
 struct convolver *convolver_new(struct spa_fga_dsp *dsp, int head_block, int tail_block, const float *ir, int irlen)
 {
 	struct convolver *conv;
-	int head_ir_len;
+	int head_ir_len, min_size, max_size, ir_consumed = 0;
 
 	if (head_block == 0 || tail_block == 0)
 		return NULL;
@@ -268,27 +309,50 @@ struct convolver *convolver_new(struct spa_fga_dsp *dsp, int head_block, int tai
 	if (irlen == 0)
 		return conv;
 
-	conv->headBlockSize = next_power_of_two(head_block);
-	conv->tailBlockSize = next_power_of_two(tail_block);
+	conv->min_size = next_power_of_two(head_block);
+	conv->max_size = next_power_of_two(tail_block);
 
-	head_ir_len = SPA_MIN(irlen, 2 * conv->tailBlockSize);
-	conv->headPartition = partition_new(dsp, conv->headBlockSize, ir, head_ir_len);
-	if (conv->headPartition == NULL)
-		goto error;
+	min_size = conv->min_size;
+	max_size = conv->max_size;
 
-	if (irlen > 2 * conv->tailBlockSize) {
-		int tailIrLen = irlen - (2 * conv->tailBlockSize);
-		conv->tailPartition = partition_new(dsp, conv->tailBlockSize, ir + (2 * conv->tailBlockSize), tailIrLen);
-		conv->tailOutput = spa_fga_dsp_fft_memalloc(dsp, conv->tailBlockSize, true);
-		conv->tailPrecalculated = spa_fga_dsp_fft_memalloc(dsp, conv->tailBlockSize, true);
-		conv->tailInput = spa_fga_dsp_fft_memalloc(dsp, 2 * conv->tailBlockSize, true);
-		if (conv->tailPartition == NULL || conv->tailOutput == NULL ||
-				conv->tailPrecalculated == NULL || conv->tailInput == NULL)
+	while (ir_consumed < irlen) {
+		head_ir_len = SPA_MIN(irlen - ir_consumed, 2 * max_size);
+		conv->partition[conv->n_partition] = partition_new(conv, min_size, ir + ir_consumed, head_ir_len);
+		if (conv->partition[conv->n_partition] == NULL)
 			goto error;
+		conv->n_partition++;
+
+		ir_consumed += head_ir_len;
+		min_size = max_size;
+		max_size = min_size * 2;
+		if (max_size > conv->max_size)
+			max_size = irlen;
 	}
+
+	conv->delay[0] = spa_fga_dsp_fft_memalloc(dsp, 2 * conv->max_size, true);
+	conv->delay[1] = spa_fga_dsp_fft_memalloc(dsp, 2 * conv->max_size, true);
+	if (conv->delay[0] == NULL || conv->delay[1] == NULL)
+		goto error;
 
 	convolver_reset(conv);
 
+	conv->threaded = false;
+
+	if (conv->threaded) {
+		int res;
+
+		sem_init(&conv->semStart, 0, 1);
+		sem_init(&conv->semFinish, 0, 0);
+		conv->running = true;
+
+		res = pthread_create(&conv->thread, NULL,
+				do_background_process, conv);
+		if (res != 0) {
+			conv->threaded = false;
+			sem_destroy(&conv->semStart);
+			sem_destroy(&conv->semFinish);
+		}
+	}
 	return conv;
 error:
 	convolver_free(conv);
@@ -298,48 +362,58 @@ error:
 void convolver_free(struct convolver *conv)
 {
 	struct spa_fga_dsp *dsp = conv->dsp;
+	int i;
 
-	if (conv->headPartition)
-		partition_free(dsp, conv->headPartition);
-	if (conv->tailPartition)
-		partition_free(dsp, conv->tailPartition);
-	spa_fga_dsp_fft_memfree(dsp, conv->tailOutput);
-	spa_fga_dsp_fft_memfree(dsp, conv->tailPrecalculated);
-	spa_fga_dsp_fft_memfree(dsp, conv->tailInput);
+	if (conv->threaded) {
+		conv->running = false;
+	        sem_post(&conv->semStart);
+		pthread_join(conv->thread, NULL);
+		sem_destroy(&conv->semStart);
+		sem_destroy(&conv->semFinish);
+	}
+	for (i = 0; i < conv->n_partition; i++)
+		partition_free(dsp, conv->partition[i]);
+
+	spa_fga_dsp_fft_memfree(dsp, conv->delay[0]);
+	spa_fga_dsp_fft_memfree(dsp, conv->delay[1]);
 	free(conv);
 }
 
 int convolver_run(struct convolver *conv, const float *input, float *output, int length)
 {
-	int processed = 0;
+	int processed = 0, i;
 	struct spa_fga_dsp *dsp = conv->dsp;
 
 	while (processed < length) {
 		int remaining = length - processed;
-		int blockRemain = conv->tailInputFill % conv->headBlockSize;
-		int processing = SPA_MIN(remaining, conv->headBlockSize - blockRemain);
+		int blockRemain = conv->delay_fill % conv->min_size;
+		int processing = SPA_MIN(remaining, conv->min_size - blockRemain);
+		int delay_fill = conv->delay_fill;
+		float *delay = conv->delay[0];
+		struct partition *part = conv->partition[0];
 
-		spa_memcpy(conv->tailInput + conv->tailInputFill, input + processed, processing * sizeof(float));
-		memset(conv->tailInput + conv->tailInputFill + processing, 0,
-						(2 * conv->headBlockSize - processing) * sizeof(float));
+		spa_memcpy(delay + delay_fill, input + processed, processing * sizeof(float));
+		conv->delay_fill += processing;
 
-		partition_run(dsp, conv->headPartition, conv->tailInput + conv->tailInputFill - blockRemain,
-				&output[processed], processing);
+		partition_run(dsp, part, delay + delay_fill - blockRemain, &output[processed], processing);
 
-		if (conv->tailPrecalculated)
+		for (i = 1; i < conv->n_partition; i++) {
+			part = conv->partition[i];
+			int fill = delay_fill % part->block_size;
+
 			spa_fga_dsp_sum(dsp, &output[processed], &output[processed],
-					&conv->tailPrecalculated[conv->tailInputFill],
-					processing);
+					&part->precalc[0][fill], processing);
 
-		conv->tailInputFill += processing;
-
-		if (conv->tailInputFill == conv->tailBlockSize) {
-			if (conv->tailPrecalculated) {
-				SPA_SWAP(conv->tailPrecalculated, conv->tailOutput);
-				partition_run(dsp, conv->tailPartition, conv->tailInput,
-						conv->tailOutput, conv->tailBlockSize);
+			if (fill + processing == part->block_size) {
+				SPA_SWAP(part->precalc[0], part->precalc[1]);
+				partition_run(dsp, part, delay + conv->delay_fill - part->block_size,
+						part->precalc[0], part->block_size);
 			}
-			conv->tailInputFill = 0;
+		}
+		if (conv->delay_fill == conv->max_size) {
+			SPA_SWAP(conv->delay[0], conv->delay[1]);
+			memset(conv->delay[0], 0, conv->max_size * sizeof(float));
+			conv->delay_fill = 0;
 		}
 		processed += processing;
 	}

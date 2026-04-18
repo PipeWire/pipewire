@@ -179,6 +179,10 @@ struct aecp_aem_stream_output_state {
 
 	struct aecp_aem_stream_output_counters counters;
 	struct stream_common common;
+
+	/** Milan v1.2 Section 4.3.3.1: absolute time of last PROBE_TX_COMMAND received.
+	 *  0 = never received. Reset to 0 when SRP is deactivated. */
+	int64_t last_probe_rx_time;
 };
 
 struct aecp_aem_stream_output_state_milan_v12 {

@@ -13,6 +13,7 @@
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 
+#include "aaf.h"
 #include "iec61883.h"
 #include "stream.h"
 #include "aecp-aem-state.h"
@@ -88,12 +89,11 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 {
 	int32_t avail;
 	uint32_t index;
-        uint64_t ptime, txtime;
+	uint64_t ptime, txtime;
 	int pdu_count;
 	ssize_t n;
 	struct avb_frame_header *h = (void*)stream->pdu;
-	struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
-	uint8_t dbc;
+	bool is_milan = stream->server->avb_mode == AVB_MODE_MILAN_V12;
 
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
@@ -101,34 +101,63 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 
 	txtime = current_time + stream->t_uncertainty;
 	ptime = txtime + stream->mtt;
-	dbc = stream->dbc;
 
-	while (pdu_count--) {
-		*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
+	if (is_milan) {
+		struct avb_packet_aaf *p = SPA_PTROFF(h, sizeof(*h), void);
 
-		set_iovec(&stream->ring,
-			stream->buffer_data,
-			stream->buffer_size,
-			index % stream->buffer_size,
-			&stream->iov[1], stream->payload_size);
+		while (pdu_count--) {
+			*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
 
-		p->seq_num = stream->pdu_seq++;
-		p->tv = 1;
-		p->timestamp = ptime;
-		p->dbc = dbc;
+			set_iovec(&stream->ring,
+				stream->buffer_data,
+				stream->buffer_size,
+				index % stream->buffer_size,
+				&stream->iov[1], stream->payload_size);
 
-		n = avb_server_stream_send(stream->server, stream,
-				&stream->msg, MSG_NOSIGNAL);
-		if (n < 0 || n != (ssize_t)stream->pdu_size) {
-			pw_log_error("stream send failed %zd != %zd: %m",
-					n, stream->pdu_size);
+			p->seq_num = stream->pdu_seq++;
+			p->tv = 1;
+			p->timestamp = htonl((uint32_t)ptime);
+
+			n = avb_server_stream_send(stream->server, stream,
+					&stream->msg, MSG_NOSIGNAL);
+			if (n < 0 || n != (ssize_t)stream->pdu_size)
+				pw_log_error("stream send failed %zd != %zd: %m",
+						n, stream->pdu_size);
+			txtime += stream->pdu_period;
+			ptime += stream->pdu_period;
+			index += stream->payload_size;
 		}
-		txtime += stream->pdu_period;
-		ptime += stream->pdu_period;
-		index += stream->payload_size;
-		dbc += stream->frames_per_pdu;
+	} else {
+		struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
+		uint8_t dbc = stream->dbc;
+
+		while (pdu_count--) {
+			*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
+
+			set_iovec(&stream->ring,
+				stream->buffer_data,
+				stream->buffer_size,
+				index % stream->buffer_size,
+				&stream->iov[1], stream->payload_size);
+
+			p->seq_num = stream->pdu_seq++;
+			p->tv = 1;
+			p->timestamp = ptime;
+			p->dbc = dbc;
+
+			n = avb_server_stream_send(stream->server, stream,
+					&stream->msg, MSG_NOSIGNAL);
+			if (n < 0 || n != (ssize_t)stream->pdu_size)
+				pw_log_error("stream send failed %zd != %zd: %m",
+						n, stream->pdu_size);
+			txtime += stream->pdu_period;
+			ptime += stream->pdu_period;
+			index += stream->payload_size;
+			dbc += stream->frames_per_pdu;
+		}
+		stream->dbc = dbc;
 	}
-	stream->dbc = dbc;
+
 	spa_ringbuffer_read_update(&stream->ring, index);
 	return 0;
 }
@@ -175,36 +204,64 @@ static void on_sink_stream_process(void *data)
 static void setup_pdu(struct stream *stream)
 {
 	struct avb_frame_header *h;
-	struct avb_packet_iec61883 *p;
 	ssize_t payload_size, hdr_size, pdu_size;
+	bool is_milan = stream->server->avb_mode == AVB_MODE_MILAN_V12;
 
 	spa_memzero(stream->pdu, sizeof(stream->pdu));
 	h = (struct avb_frame_header*)stream->pdu;
-	p = SPA_PTROFF(h, sizeof(*h), void);
 
-	hdr_size = sizeof(*h) + sizeof(*p);
 	payload_size = stream->stride * stream->frames_per_pdu;
-	pdu_size = hdr_size + payload_size;
 
-	h->type = htons(0x8100);
-	h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
-	h->etype = htons(0x22f0);
+	if (is_milan) {
+		struct avb_packet_aaf *p = SPA_PTROFF(h, sizeof(*h), void);
 
-	if (stream->direction == SPA_DIRECTION_OUTPUT) {
-		p->subtype = AVB_SUBTYPE_61883_IIDC;
-		p->sv = 1;
-		p->stream_id = htobe64(stream->id);
-		p->data_len = htons(payload_size+8);
-		p->tag = 0x1;
-		p->channel = 0x1f;
-		p->tcode = 0xa;
-		p->sid = 0x3f;
-		p->dbs = stream->info.info.raw.channels;
-		p->qi2 = 0x2;
-		p->format_id = 0x10;
-		p->fdf = 0x2;
-		p->syt = htons(0x0008);
+		hdr_size = sizeof(*h) + sizeof(*p);
+		pdu_size = hdr_size + payload_size;
+
+		h->type = htons(0x8100);
+		h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
+		h->etype = htons(0x22f0);
+
+		if (stream->direction == SPA_DIRECTION_OUTPUT) {
+			p->subtype = AVB_SUBTYPE_AAF;
+			p->sv = 1;
+			p->stream_id = htobe64(stream->id);
+			p->format = AVB_AAF_FORMAT_INT_32BIT;
+			p->nsr = AVB_AAF_PCM_NSR_48KHZ;
+			p->bit_depth = 32;
+			p->chan_per_frame = stream->info.info.raw.channels;
+			p->sp = AVB_AAF_PCM_SP_NORMAL;
+			p->event = 0;
+			p->seq_num = 0;
+			p->data_len = htons(payload_size);
+		}
+	} else {
+		struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
+
+		hdr_size = sizeof(*h) + sizeof(*p);
+		pdu_size = hdr_size + payload_size;
+
+		h->type = htons(0x8100);
+		h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
+		h->etype = htons(0x22f0);
+
+		if (stream->direction == SPA_DIRECTION_OUTPUT) {
+			p->subtype = AVB_SUBTYPE_61883_IIDC;
+			p->sv = 1;
+			p->stream_id = htobe64(stream->id);
+			p->data_len = htons(payload_size + 8);
+			p->tag = 0x1;
+			p->channel = 0x1f;
+			p->tcode = 0xa;
+			p->sid = 0x3f;
+			p->dbs = stream->info.info.raw.channels;
+			p->qi2 = 0x2;
+			p->format_id = 0x10;
+			p->fdf = 0x2;
+			p->syt = htons(0x0008);
+		}
 	}
+
 	stream->hdr_size = hdr_size;
 	stream->payload_size = payload_size;
 	stream->pdu_size = pdu_size;
@@ -342,7 +399,9 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 
 		common->tastream_attr.attr.talker.vlan_id = htons(stream->vlan_id);
 		common->tastream_attr.attr.talker.tspec_max_frame_size =
-			htons(32 + stream->frames_per_pdu * stream->stride);
+			htons(stream->server->avb_mode == AVB_MODE_MILAN_V12
+				? (uint16_t)stream->pdu_size
+				: (uint16_t)(32 + stream->frames_per_pdu * stream->stride));
 		common->tastream_attr.attr.talker.tspec_max_interval_frames =
 			htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
 		common->tastream_attr.attr.talker.priority = stream->prio;
@@ -377,6 +436,28 @@ void stream_destroy(struct stream *stream)
 static int setup_socket(struct stream *stream)
 {
 	return avb_server_stream_setup_socket(stream->server, stream);
+}
+
+static void handle_aaf_packet(struct stream *stream,
+		struct avb_packet_aaf *p, int len)
+{
+	uint32_t index, n_bytes;
+	int32_t filled;
+
+	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
+	n_bytes = ntohs(p->data_len);
+
+	if (filled + (int32_t)n_bytes > (int32_t)stream->buffer_size) {
+		pw_log_debug("capture overrun");
+	} else {
+		spa_ringbuffer_write_data(&stream->ring,
+				stream->buffer_data,
+				stream->buffer_size,
+				index % stream->buffer_size,
+				p->payload, n_bytes);
+		index += n_bytes;
+		spa_ringbuffer_write_update(&stream->ring, index);
+	}
 }
 
 static void handle_iec61883_packet(struct stream *stream,
@@ -427,13 +508,26 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 					sizeof(struct avb_packet_iec61883)));
 		} else {
 			struct avb_ethernet_header *h = (void*)buffer;
-			struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
+			struct avb_packet_header *ph = SPA_PTROFF(h, sizeof(*h), void);
 
-			if (memcmp(h->dest, stream->addr, 6) != 0 ||
-			    p->subtype != AVB_SUBTYPE_61883_IIDC)
+			if (memcmp(h->dest, stream->addr, 6) != 0)
 				return;
 
-			handle_iec61883_packet(stream, p, len - sizeof(*h));
+			switch (ph->subtype) {
+			case AVB_SUBTYPE_AAF:
+				handle_aaf_packet(stream,
+						(struct avb_packet_aaf *)ph,
+						len - (int)sizeof(*h));
+				break;
+			case AVB_SUBTYPE_61883_IIDC:
+				handle_iec61883_packet(stream,
+						(struct avb_packet_iec61883 *)ph,
+						len - (int)sizeof(*h));
+				break;
+			default:
+				pw_log_warn("unsupported subtype 0x%02x", ph->subtype);
+				break;
+			}
 		}
 	}
 }

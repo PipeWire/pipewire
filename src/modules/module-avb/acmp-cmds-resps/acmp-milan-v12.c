@@ -2078,8 +2078,6 @@ int acmp_init_listener_stream_milan_v12(struct acmp *acmp, void *acmp_status)
 	return 0;
 }
 
-
-
 int handle_probe_tx_response_milan_v12(struct acmp *acmp, uint64_t now,
 		const void *m, int len)
 {
@@ -2144,28 +2142,162 @@ int handle_evt_tk_registration_failed_milan_v12(struct acmp *acmp,
 			FSM_ACMP_EVT_MILAN_V12_TK_REGISTERED, now);
 }
 
+static bool stream_output_on_this_iface(struct server *server,
+		struct aecp_aem_stream_output_state *stream_out)
+{
+	struct descriptor *avb_if_desc;
+	struct aecp_aem_avb_interface_state *avb_if_state;
+	uint16_t avb_if_index = ntohs(stream_out->desc.avb_interface_index);
+
+	avb_if_desc = server_find_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, avb_if_index);
+	if (avb_if_desc == NULL)
+		return false;
+
+	avb_if_state = avb_if_desc->ptr;
+	return memcmp(avb_if_state->desc.mac_address, server->mac_addr,
+			sizeof(server->mac_addr)) == 0;
+}
+
+/** Milan v1.2 Section 5.5.4.1 — talker responds to PROBE_TX_COMMAND (CONNECT_TX_COMMAND) */
 int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 		const void *m, int len)
 {
-	return 0;
+	uint8_t buf[512];
+	struct server *server = acmp->server;
+	const struct avb_ethernet_header *h = (const struct avb_ethernet_header *)m;
+	const struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
+	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
+	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
+	struct descriptor *desc;
+	struct aecp_aem_stream_output_state *stream_out;
+	int status = AVB_ACMP_STATUS_SUCCESS;
+	const uint8_t zero_addr[6] = {0};
+
+	if (be64toh(p->talker_guid) != server->entity_id)
+		return 0;
+
+	memcpy(buf, m, len);
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
+
+	desc = server_find_descriptor(server, AVB_AEM_DESC_STREAM_OUTPUT,
+			ntohs(p->talker_unique_id));
+	if (desc == NULL) {
+		status = AVB_ACMP_STATUS_TALKER_UNKNOWN_ID;
+		goto done;
+	}
+
+	stream_out = desc->ptr;
+	if (!stream_output_on_this_iface(server, stream_out))
+		return 0;
+
+	if (memcmp(stream_out->common.stream.addr, zero_addr, 6) == 0) {
+		status = AVB_ACMP_STATUS_TALKER_DEST_MAC_FAIL;
+		goto done;
+	}
+
+	reply->stream_id = stream_out->common.tastream_attr.attr.talker.stream_id;
+	memcpy(reply->stream_dest_mac, stream_out->common.stream.addr,
+			sizeof(reply->stream_dest_mac));
+	reply->stream_vlan_id = stream_out->common.tastream_attr.attr.talker.vlan_id;
+	reply->connection_count = htons(0);
+	reply->flags &= ~htons(AVB_ACMP_FLAG_FAST_CONNECT | AVB_ACMP_FLAG_STREAMING_WAIT);
+
+done:
+	AVB_PACKET_ACMP_SET_STATUS(reply, status);
+	return avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
 }
 
-int handle_get_tx_state_command_milan_v12(struct acmp *acmp, uint64_t now,
-		const void *m, int len)
-{
-	return 0;
-}
-
-int handle_get_tx_connection_command_milan_v12(struct acmp *acmp, uint64_t now,
-		const void *m, int len)
-{
-	return 0;
-}
-
+/** Milan v1.2 Section 5.5.4.2 — talker responds to DISCONNECT_TX_COMMAND (always SUCCESS) */
 int handle_disconnect_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 		const void *m, int len)
 {
-	return 0;
+	struct server *server = acmp->server;
+	const struct avb_ethernet_header *h = (const struct avb_ethernet_header *)m;
+	const struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
+	uint8_t buf[512];
+	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
+	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
+	struct descriptor *desc;
+	struct aecp_aem_stream_output_state *stream_out;
+	int status = AVB_ACMP_STATUS_SUCCESS;
+
+	if (be64toh(p->talker_guid) != server->entity_id)
+		return 0;
+
+	memcpy(buf, m, len);
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_RESPONSE);
+
+	desc = server_find_descriptor(server, AVB_AEM_DESC_STREAM_OUTPUT,
+			ntohs(p->talker_unique_id));
+	if (desc == NULL) {
+		status = AVB_ACMP_STATUS_TALKER_UNKNOWN_ID;
+		goto done;
+	}
+
+	stream_out = desc->ptr;
+	if (!stream_output_on_this_iface(server, stream_out))
+		return 0;
+
+	reply->stream_id = 0;
+	memset(reply->stream_dest_mac, 0, sizeof(reply->stream_dest_mac));
+	reply->stream_vlan_id = 0;
+	reply->connection_count = htons(0);
+
+done:
+	AVB_PACKET_ACMP_SET_STATUS(reply, status);
+	return avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
+}
+
+/** Milan v1.2 Section 5.5.4.3 — talker responds to GET_TX_STATE_COMMAND */
+int handle_get_tx_state_command_milan_v12(struct acmp *acmp, uint64_t now,
+		const void *m, int len)
+{
+	struct server *server = acmp->server;
+	const struct avb_ethernet_header *h = (const struct avb_ethernet_header *)m;
+	const struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
+	uint8_t buf[512];
+	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
+	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
+	struct descriptor *desc;
+	struct aecp_aem_stream_output_state *stream_out;
+	int status = AVB_ACMP_STATUS_SUCCESS;
+
+	if (be64toh(p->talker_guid) != server->entity_id)
+		return 0;
+
+	memcpy(buf, m, len);
+	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_RESPONSE);
+
+	desc = server_find_descriptor(server, AVB_AEM_DESC_STREAM_OUTPUT,
+			ntohs(p->talker_unique_id));
+	if (desc == NULL) {
+		status = AVB_ACMP_STATUS_TALKER_UNKNOWN_ID;
+		goto done;
+	}
+
+	stream_out = desc->ptr;
+	if (!stream_output_on_this_iface(server, stream_out))
+		return 0;
+
+	reply->stream_id = stream_out->common.tastream_attr.attr.talker.stream_id;
+	memcpy(reply->stream_dest_mac, stream_out->common.stream.addr,
+			sizeof(reply->stream_dest_mac));
+	reply->stream_vlan_id = stream_out->common.tastream_attr.attr.talker.vlan_id;
+	reply->connection_count = htons(0);
+	reply->flags &= ~htons(AVB_ACMP_FLAG_FAST_CONNECT | AVB_ACMP_FLAG_STREAMING_WAIT
+			| AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED);
+
+done:
+	AVB_PACKET_ACMP_SET_STATUS(reply, status);
+	return avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
+}
+
+/** Milan v1.2 Section 5.5.4.4 — GET_TX_CONNECTION is not supported by talkers */
+int handle_get_tx_connection_command_milan_v12(struct acmp *acmp, uint64_t now,
+		const void *m, int len)
+{
+	return acmp_reply_not_supported(acmp,
+			AVB_ACMP_MESSAGE_TYPE_GET_TX_CONNECTION_RESPONSE, m, len);
 }
 
 void acmp_periodic_milan_v12(struct acmp *acmp, uint64_t now)

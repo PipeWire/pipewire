@@ -87,6 +87,8 @@ static int reply_control_badargs(struct aecp *aecp, const void *m, int len,
 			m, len);
 
 	memcpy(buf, m, len);
+	if (pkt_size > len)
+		memset(buf + len, 0, pkt_size - len);
 	ae_reply = (struct avb_packet_aecp_aem_setget_control *)p_reply->payload;
 
 	control_copy_payload(format, ae_reply->payload, type_sz, count);
@@ -119,6 +121,9 @@ static int handle_cmd_get_control_identify(struct aecp *aecp, struct descriptor 
 
 	// Idenfity only has one value element
 	pkt_size = sizeof(*h) + sizeof(*p_reply)+ CONTROL_LINEAR_UINT8_SIZE;
+
+	if (pkt_size > len)
+		memset(buf + len, 0, pkt_size - len);
 
 	control_copy_payload(desc_formats, ae_reply->payload,
 					CONTROL_LINEAR_UINT8_SIZE, 1);

@@ -2169,13 +2169,12 @@ int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	struct descriptor *desc;
+	struct aecp_aem_stream_output_state_milan_v12 *stream_out_m;
 	struct aecp_aem_stream_output_state *stream_out;
 	int status = AVB_ACMP_STATUS_SUCCESS;
-	const uint8_t zero_addr[6] = {0};
 
-	if (be64toh(p->talker_guid) != server->entity_id) {
+	if (be64toh(p->talker_guid) != server->entity_id)
 		return 0;
-	}
 
 	memcpy(buf, m, len);
 	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);
@@ -2187,16 +2186,26 @@ int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 		goto done;
 	}
 
-	stream_out = desc->ptr;
+	stream_out_m = desc->ptr;
+	stream_out = &stream_out_m->stream_out_sta;
+
 	if (!stream_output_on_this_iface(server, stream_out)) {
 		status = AVB_ACMP_STATUS_INCOMPATIBLE_REQUEST;
 		goto done;
 	}
 
-	if (memcmp(stream_out->common.stream.addr, zero_addr, 6) == 0) {
-		status = AVB_ACMP_STATUS_TALKER_DEST_MAC_FAIL;
-		goto done;
+	/* Milan Section 4.3.3.1: activate SRP on first PROBE_TX_COMMAND; keep active
+	 * as long as probes arrive within 15 s (see acmp_periodic_milan_v12).
+	 * stream_activate returns -EAGAIN until MAAP reaches STATE_ANNOUNCE. */
+	if (stream_out->common.stream.source == NULL) {
+		if (stream_activate(&stream_out->common.stream,
+				ntohs(p->talker_unique_id), now) < 0) {
+			status = AVB_ACMP_STATUS_TALKER_DEST_MAC_FAIL;
+			goto done;
+		}
 	}
+
+	stream_out_m->acmp_sta.last_probe_rx_time = (int64_t)now;
 
 	reply->stream_id = stream_out->common.tastream_attr.attr.talker.stream_id;
 	memcpy(reply->stream_dest_mac, stream_out->common.stream.addr,
@@ -2221,7 +2230,7 @@ int handle_disconnect_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	struct descriptor *desc;
-	struct aecp_aem_stream_output_state *stream_out;
+	struct aecp_aem_stream_output_state_milan_v12 *stream_out_m;
 	int status = AVB_ACMP_STATUS_SUCCESS;
 
 	if (be64toh(p->talker_guid) != server->entity_id)
@@ -2237,8 +2246,8 @@ int handle_disconnect_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 		goto done;
 	}
 
-	stream_out = desc->ptr;
-	if (!stream_output_on_this_iface(server, stream_out))
+	stream_out_m = desc->ptr;
+	if (!stream_output_on_this_iface(server, &stream_out_m->stream_out_sta))
 		return 0;
 
 	reply->stream_id = 0;
@@ -2262,6 +2271,7 @@ int handle_get_tx_state_command_milan_v12(struct acmp *acmp, uint64_t now,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	struct descriptor *desc;
+	struct aecp_aem_stream_output_state_milan_v12 *stream_out_m;
 	struct aecp_aem_stream_output_state *stream_out;
 	int status = AVB_ACMP_STATUS_SUCCESS;
 
@@ -2278,7 +2288,9 @@ int handle_get_tx_state_command_milan_v12(struct acmp *acmp, uint64_t now,
 		goto done;
 	}
 
-	stream_out = desc->ptr;
+	stream_out_m = desc->ptr;
+	stream_out = &stream_out_m->stream_out_sta;
+
 	if (!stream_output_on_this_iface(server, stream_out))
 		return 0;
 
@@ -2316,6 +2328,34 @@ void acmp_periodic_milan_v12(struct acmp *acmp, uint64_t now)
 			pw_log_error("while executing timer handler");
 		}
 		free(p);
+	}
+
+	/* Milan Section 4.3.3.1: deactivate talker SRP if no PROBE_TX_COMMAND received
+	 * within 15 s and no listener attribute is registered. */
+	for (uint16_t desc_index = 0; desc_index < UINT16_MAX; desc_index++) {
+		struct descriptor *desc;
+		struct aecp_aem_stream_output_state_milan_v12 *stream_out_m;
+		struct stream *stream;
+
+		desc = server_find_descriptor(acmp->server, AVB_AEM_DESC_STREAM_OUTPUT,
+				desc_index);
+		if (desc == NULL)
+			break;
+
+		stream_out_m = desc->ptr;
+		stream = &stream_out_m->stream_out_sta.common.stream;
+
+		if (stream_out_m->acmp_sta.last_probe_rx_time == 0)
+			continue;
+		if (stream->source == NULL)
+			continue;
+		if (now - (uint64_t)stream_out_m->acmp_sta.last_probe_rx_time
+				> 15 * SPA_NSEC_PER_SEC) {
+			pw_log_info("talker stream %u: no probe in 15 s, deactivating SRP",
+					desc_index);
+			stream_deactivate(stream, now);
+			stream_out_m->acmp_sta.last_probe_rx_time = 0;
+		}
 	}
 }
 

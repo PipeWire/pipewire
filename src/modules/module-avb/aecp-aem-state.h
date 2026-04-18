@@ -153,6 +153,7 @@ struct acmp_stream_status_milan_v12 {
 	uint8_t probing_status;
 	uint8_t acmp_status;
 	uint32_t fsm_acmp_state;
+	int64_t last_probe_rx_time;
 };
 
 /**
@@ -178,6 +179,11 @@ struct aecp_aem_stream_output_state {
 
 	struct aecp_aem_stream_output_counters counters;
 	struct stream_common common;
+};
+
+struct aecp_aem_stream_output_state_milan_v12 {
+	struct aecp_aem_stream_output_state stream_out_sta;
+	struct acmp_stream_status_milan_v12 acmp_sta;
 };
 
 #endif // AVB_AECP_AEM_STATE_H

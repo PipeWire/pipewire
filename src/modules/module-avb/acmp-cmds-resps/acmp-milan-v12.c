@@ -2173,8 +2173,9 @@ int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 	int status = AVB_ACMP_STATUS_SUCCESS;
 	const uint8_t zero_addr[6] = {0};
 
-	if (be64toh(p->talker_guid) != server->entity_id)
+	if (be64toh(p->talker_guid) != server->entity_id) {
 		return 0;
+	}
 
 	memcpy(buf, m, len);
 	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply, AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_RESPONSE);

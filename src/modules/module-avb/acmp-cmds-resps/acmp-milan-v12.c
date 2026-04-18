@@ -51,6 +51,10 @@ static inline uint64_t peer_id_from_entity_id(uint64_t entity_id, uint16_t uniqu
 static inline void clear_stream_binding(struct aecp_aem_stream_input_state_milan_v12 *stream)
 {
 	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = 0;
+	stream->stream_in_sta.common.tastream_attr.attr.talker.stream_id = 0;
+	stream->stream_in_sta.common.tastream_attr.attr.talker.vlan_id = 0;
+	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.stream_id = 0;
+	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.vlan_id = 0;
 	memset(stream->stream_in_sta.common.stream.addr, 0,
 	       sizeof(stream->stream_in_sta.common.stream.addr));
 	stream->stream_in_sta.common.stream.vlan_id = AVB_DEFAULT_VLAN;
@@ -417,8 +421,12 @@ static void binding_save_parameters(struct acmp *acmp,
 	const struct avb_ethernet_header *h = (struct avb_ethernet_header *)m;
 	const struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
 
+	uint64_t stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
+
 	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
-	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = stream_id;
+	stream->stream_in_sta.common.tastream_attr.attr.talker.stream_id = stream_id;
+	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.stream_id = stream_id;
 	stream->acmp_sta.acmp_flags = ntohs(p->flags);
 }
 
@@ -1034,6 +1042,10 @@ int handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(struct acmp *acmp,
 			sizeof(p->stream_dest_mac));
 	stream_generic->vlan_id = ntohs(p->stream_vlan_id);
 	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = p->stream_id;
+	stream->stream_in_sta.common.tastream_attr.attr.talker.stream_id = p->stream_id;
+	stream->stream_in_sta.common.tastream_attr.attr.talker.vlan_id = p->stream_vlan_id;
+	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.stream_id = p->stream_id;
+	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.vlan_id = p->stream_vlan_id;
 
 
 

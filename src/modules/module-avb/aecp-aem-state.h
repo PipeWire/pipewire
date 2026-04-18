@@ -147,24 +147,11 @@ struct aecp_aem_stream_input_state {
 	struct avb_mvrp_attribute mvrp_attr;
 };
 
-struct stream_input_saved_binding_param {
-	uint64_t controller_guid;
-	uint64_t talker_guid;
-	uint64_t listener_guid;
-	uint16_t talker_unique_id;
-	uint16_t listener_unique_id;
-	/** 1722.1-2021 Table 7.145 use the same as in the aecp packet*/
-	uint32_t aem_flags;
-};
-
-struct acmp_stream_status_common {
-	struct stream_input_saved_binding_param saved_bindings;
+struct acmp_stream_status_milan_v12 {
+	uint64_t controller_entity_id;
+	uint32_t acmp_flags;
 	uint8_t probing_status;
 	uint8_t acmp_status;
-};
-
-struct acmp_stream_status_milan_v12 {
-	struct acmp_stream_status_common common;
 	uint32_t fsm_acmp_state;
 };
 
@@ -173,7 +160,7 @@ struct acmp_stream_status_milan_v12 {
  * about the different protocol*/
 struct aecp_aem_stream_input_state_milan_v12 {
 	struct aecp_aem_stream_input_state stream_in_sta;
-	struct acmp_stream_status_milan_v12 acmp_status;
+	struct acmp_stream_status_milan_v12 acmp_sta;
 };
 
 struct aecp_aem_stream_output_counters {

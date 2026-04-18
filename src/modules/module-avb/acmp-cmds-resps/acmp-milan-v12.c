@@ -22,6 +22,50 @@
 #define ACMP_MILAN_TMR_NO_TK(now)		(now + (10U * SPA_NSEC_PER_SEC))
 #define ACMP_MILAN_TMR_NO_RESP(now)		(now + (200U * SPA_NSEC_PER_MSEC))
 
+/*
+ * MSRP stream_id ↔ AVDECC entity_id conversion helpers.
+ *
+ * IEEE 1722.1 stream_id layout (big-endian 64-bit):
+ *   bits 63-16: talker EUI-48 MAC (6 bytes)
+ *   bits  15-0: talker unique_id  (2 bytes)
+ *
+ * AVDECC entity_id (EUI-64, as used by avdecc.c):
+ *   bits 63-40: MAC[0..2]
+ *   bits 39-24: 0xFF 0xFE  (EUI-64 expansion marker)
+ *   bits  23-0: MAC[3..5]
+ */
+static inline uint64_t entity_id_from_peer_id(uint64_t peer_id)
+{
+	return (peer_id & 0xFFFFFF0000000000ULL) |
+	       (0xFFFEULL << 24) |
+	       ((peer_id >> 16) & 0xFFFFFFULL);
+}
+
+static inline uint64_t peer_id_from_entity_id(uint64_t entity_id, uint16_t unique_id)
+{
+	return (entity_id & 0xFFFFFF0000000000ULL) |
+	       ((entity_id & 0xFFFFFFULL) << 16) |
+	       unique_id;
+}
+
+static inline void clear_stream_binding(struct aecp_aem_stream_input_state_milan_v12 *stream)
+{
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = 0;
+	memset(stream->stream_in_sta.common.stream.addr, 0,
+	       sizeof(stream->stream_in_sta.common.stream.addr));
+	stream->stream_in_sta.common.stream.vlan_id = AVB_DEFAULT_VLAN;
+}
+
+static inline uint64_t stream_talker_entity_id(const struct aecp_aem_stream_input_state_milan_v12 *s)
+{
+	return entity_id_from_peer_id(be64toh(s->stream_in_sta.common.lstream_attr.attr.listener.stream_id));
+}
+
+static inline uint16_t stream_talker_unique_id(const struct aecp_aem_stream_input_state_milan_v12 *s)
+{
+	return (uint16_t)(be64toh(s->stream_in_sta.common.lstream_attr.attr.listener.stream_id) & 0xFFFF);
+}
+
 struct listener_fsm_cmd {
 	int (*state_handler) (struct acmp *,
 			struct aecp_aem_stream_input_state_milan_v12*,
@@ -180,7 +224,7 @@ static struct acmp_lt_timers* acmp_timer_lt_register(struct acmp_milan_v12 *acmp
 static void update_aem_streaming_flags(struct aecp_aem_stream_input_state_milan_v12 *stream,
 	uint32_t flag)
 {
-	uint32_t *flags = &stream->acmp_status.common.saved_bindings.aem_flags;
+	uint32_t *flags = &stream->acmp_sta.acmp_flags;
 	SPA_FLAG_UPDATE(*flags, flag, flag);
 }
 
@@ -257,10 +301,10 @@ static void prepare_probe_tx_command_success(struct acmp *acmp,
 	AVB_PACKET_ACMP_SET_STATUS(reply, AVB_ACMP_STATUS_SUCCESS);
 
 	reply->connection_count = htons(0);
-	reply->controller_guid = htobe64(stream->acmp_status.common.saved_bindings.controller_guid);
-	reply->talker_guid = htobe64(stream->acmp_status.common.saved_bindings.talker_guid);
+	reply->controller_guid = htobe64(stream->acmp_sta.controller_entity_id);
+	reply->talker_guid = htobe64(stream_talker_entity_id(stream));
 	reply->listener_guid = htobe64(server->entity_id);
-	reply->talker_unique_id = htons(stream->acmp_status.common.saved_bindings.talker_unique_id);
+	reply->talker_unique_id = htons(stream_talker_unique_id(stream));
 	reply->sequence_id = htons(acmp_m->sequence_id[0]);
 	acmp_m->sequence_id[0]++;
 
@@ -312,7 +356,7 @@ static void prepare_unbind_rx_response_success(struct acmp *acmp,
 	AVB_PACKET_ACMP_SET_STATUS(reply, AVB_ACMP_STATUS_SUCCESS);
 
 	reply->talker_guid = 0;
-	reply->talker_unique_id = htons(stream->acmp_status.common.saved_bindings.talker_unique_id);
+	reply->talker_unique_id = htons(stream_talker_unique_id(stream));
 
 	reply->connection_count = htons(0);
 
@@ -345,8 +389,8 @@ static void prepare_get_rx_response_success(struct acmp *acmp,
 			AVB_ACMP_MESSAGE_TYPE_GET_RX_STATE_RESPONSE);
 
 	memset(reply->stream_dest_mac, 0, sizeof(reply->stream_dest_mac));
-	reply->talker_guid = htobe64(stream->acmp_status.common.saved_bindings.talker_guid);
-	reply->talker_unique_id = htons(stream->acmp_status.common.saved_bindings.talker_unique_id);
+	reply->talker_guid = htobe64(stream_talker_entity_id(stream));
+	reply->talker_unique_id = htons(stream_talker_unique_id(stream));
 	reply->connection_count = htons(1);
 	reply->flags |= htons(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED
 			| AVB_ACMP_FLAG_STREAMING_WAIT);
@@ -360,8 +404,8 @@ static bool bindings_match_message_talker(struct acmp *acmp,
 	const struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
 	bool bindings_matches;
 
-	bindings_matches = stream->acmp_status.common.saved_bindings.talker_guid == be64toh(p->talker_guid);
-	bindings_matches &= stream->acmp_status.common.saved_bindings.talker_unique_id == ntohs(p->talker_unique_id);
+	bindings_matches = stream_talker_entity_id(stream) == be64toh(p->talker_guid);
+	bindings_matches &= stream_talker_unique_id(stream) == ntohs(p->talker_unique_id);
 
 	return bindings_matches;
 }
@@ -373,12 +417,9 @@ static void binding_save_parameters(struct acmp *acmp,
 	const struct avb_ethernet_header *h = (struct avb_ethernet_header *)m;
 	const struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.listener_guid = be64toh(p->listener_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
-	stream->acmp_status.common.saved_bindings.listener_unique_id = ntohs(p->listener_unique_id);
-	stream->acmp_status.common.saved_bindings.aem_flags = ntohs(p->flags);
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
+	stream->acmp_sta.acmp_flags = ntohs(p->flags);
 }
 
 static bool is_accessible_entity_id(struct acmp *acmp,
@@ -443,9 +484,9 @@ int handle_fsm_unbound_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -524,7 +565,7 @@ int handle_fsm_prb_w_avail_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	}
 
 	if(bindings_match_message_talker(acmp, stream, m) &&
-			(stream->acmp_status.common.saved_bindings.aem_flags & ntohs(p->flags))) {
+			(stream->acmp_sta.acmp_flags & ntohs(p->flags))) {
 
 		prepare_bind_rx_response_success(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
@@ -537,13 +578,12 @@ int handle_fsm_prb_w_avail_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
 
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
 
-	stream->acmp_status.common.saved_bindings.aem_flags =
+	stream->acmp_sta.acmp_flags =
 		(ntohs(p->flags) & AVB_ACMP_FLAG_STREAMING_WAIT)
-		| stream->acmp_status.common.saved_bindings.aem_flags;
+		| stream->acmp_sta.acmp_flags;
 
 
 	prepare_bind_rx_response_success(acmp, stream, m, len, buf);
@@ -562,9 +602,9 @@ int handle_fsm_prb_w_avail_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -610,11 +650,10 @@ int handle_fsm_prb_w_avail_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
 
-	memset(&stream->acmp_status.common.saved_bindings, 0,
-			sizeof(stream->acmp_status.common.saved_bindings));
+	clear_stream_binding(stream);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
+	stream->acmp_sta.acmp_status = 0;
 
 	prepare_unbind_rx_response_success(acmp, stream, m, len, buf);
 	res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
@@ -622,7 +661,7 @@ int handle_fsm_prb_w_avail_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		pw_log_error("Sending no accessible entity");
 	}
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
 
 	return res;
 }
@@ -639,10 +678,10 @@ int handle_fsm_prb_w_avail_evt_tk_discovered_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -671,9 +710,9 @@ int handle_fsm_prb_w_delay_tmr_delay_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -702,7 +741,7 @@ int handle_fsm_prb_w_delay_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	}
 
 	if(bindings_match_message_talker(acmp, stream, m) &&
-		(stream->acmp_status.common.saved_bindings.aem_flags & ntohs(p->flags))) {
+		(stream->acmp_sta.acmp_flags & ntohs(p->flags))) {
 
 		prepare_bind_rx_response_success(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
@@ -717,9 +756,8 @@ int handle_fsm_prb_w_delay_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_DELAY);
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
 
 	update_aem_streaming_flags(stream,
 				ntohs(p->flags) & AVB_ACMP_FLAG_STREAMING_WAIT);
@@ -741,10 +779,10 @@ int handle_fsm_prb_w_delay_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -794,11 +832,10 @@ int handle_fsm_prb_w_delay_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 	}
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
 
-	memset(&stream->acmp_status.common.saved_bindings, 0,
-			sizeof(stream->acmp_status.common.saved_bindings));
+	clear_stream_binding(stream);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
+	stream->acmp_sta.acmp_status = 0;
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_DELAY);
 
@@ -808,7 +845,7 @@ int handle_fsm_prb_w_delay_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		pw_log_error("Sending no accessible entity");
 	}
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
 
 	return 0;
 }
@@ -832,10 +869,10 @@ int handle_fsm_prb_w_delay_evt_tk_departed_evt(struct acmp *acmp,
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream,
 				FSM_ACMP_EVT_MILAN_V12_TMR_DELAY);
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
 
 	return 0;
 }
@@ -862,7 +899,7 @@ int handle_fsm_prb_w_resp_tmr_no_resp_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP2;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP2;
 
 	return res;
 }
@@ -893,7 +930,7 @@ int handle_fsm_prb_w_resp_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	}
 
 	if(bindings_match_message_talker(acmp, stream, m) &&
-			(stream->acmp_status.common.saved_bindings.aem_flags & ntohs(p->flags))) {
+			(stream->acmp_sta.acmp_flags & ntohs(p->flags))) {
 
 		prepare_bind_rx_response_success(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest,
@@ -909,9 +946,8 @@ int handle_fsm_prb_w_resp_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream,
 				FSM_ACMP_EVT_MILAN_V12_TMR_NO_RESP);
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
 
 	update_aem_streaming_flags(stream,
 			ntohs(p->flags) & AVB_ACMP_FLAG_STREAMING_WAIT);
@@ -941,10 +977,10 @@ int handle_fsm_prb_w_resp_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -956,7 +992,7 @@ int handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(struct acmp *acmp,
 {
 	uint8_t buf[512];
 	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)acmp;
-	struct stream *stream_generic = (struct stream *) stream;
+	struct stream *stream_generic = &stream->stream_in_sta.common.stream;
 	struct server *server = acmp->server;
 	struct avb_ethernet_header *h = (struct avb_ethernet_header *)m;
 	struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
@@ -982,8 +1018,8 @@ int handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(struct acmp *acmp,
 			spa_assert(0);
 		}
 
-		stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RETRY;
-		stream->acmp_status.common.acmp_status = AVB_PACKET_ACMP_GET_STATUS(p);
+		stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RETRY;
+		stream->acmp_sta.acmp_status = AVB_PACKET_ACMP_GET_STATUS(p);
 
 		return 0;
 	}
@@ -993,22 +1029,19 @@ int handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
-
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
 	memcpy(stream_generic->addr, p->stream_dest_mac,
 			sizeof(p->stream_dest_mac));
 	stream_generic->vlan_id = ntohs(p->stream_vlan_id);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = p->stream_id;
 
 
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_COMPLETED;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_COMPLETED;
+	stream->acmp_sta.acmp_status = 0;
 
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_NO_RSV;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_NO_RSV;
 
 	return 0;
 }
@@ -1057,11 +1090,10 @@ int handle_fsm_prb_w_resp_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 	}
 
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
-	memset(&stream->acmp_status.common.saved_bindings, 0,
-			sizeof(stream->acmp_status.common.saved_bindings));
+	clear_stream_binding(stream);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
+	stream->acmp_sta.acmp_status = 0;
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream,
 					FSM_ACMP_EVT_MILAN_V12_TMR_NO_RESP);
@@ -1073,7 +1105,7 @@ int handle_fsm_prb_w_resp_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		pw_log_error("Sending no accessible entity");
 	}
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
 
 	return res;
 }
@@ -1097,10 +1129,10 @@ int handle_fsm_prb_w_resp_evt_tk_departed_evt(struct acmp *acmp,
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_NO_RESP);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
 
 	return 0;
 }
@@ -1117,9 +1149,9 @@ int handle_fsm_prb_w_resp2_tmr_no_resp_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.acmp_status = AVB_ACMP_STATUS_LISTENER_TALKER_TIMEOUT;
+	stream->acmp_sta.acmp_status = AVB_ACMP_STATUS_LISTENER_TALKER_TIMEOUT;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RETRY;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RETRY;
 
 	return 0;
 }
@@ -1136,11 +1168,11 @@ int handle_fsm_prb_w_retry_tmr_retry_evt(struct acmp *acmp,
 
 	if (!adp_is_discovered_entity(server, be64toh(p->talker_guid))) {
 
-		stream->acmp_status.common.probing_status =
+		stream->acmp_sta.probing_status =
 						ACMP_MILAN_V12_PBSTA_PASSIVE;
 
-		stream->acmp_status.common.acmp_status = 0;
-		stream->acmp_status.fsm_acmp_state =
+		stream->acmp_sta.acmp_status = 0;
+		stream->acmp_sta.fsm_acmp_state =
 					FSM_ACMP_STATE_MILAN_V12_PRB_W_DELAY;
 
 	} else {
@@ -1177,7 +1209,7 @@ int handle_fsm_prb_w_retry_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	}
 
 	if(bindings_match_message_talker(acmp, stream, m) &&
-		((stream->acmp_status.common.saved_bindings.aem_flags & ntohs(p->flags)
+		((stream->acmp_sta.acmp_flags & ntohs(p->flags)
 			& AVB_ACMP_FLAG_STREAMING_WAIT))) {
 
 		prepare_bind_rx_response_success(acmp, stream, m, len, buf);
@@ -1192,9 +1224,8 @@ int handle_fsm_prb_w_retry_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_RETRY);
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
 	update_aem_streaming_flags(stream,
 			ntohs(p->flags) & AVB_ACMP_FLAG_STREAMING_WAIT);
 
@@ -1222,10 +1253,10 @@ int handle_fsm_prb_w_retry_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -1275,11 +1306,10 @@ int handle_fsm_prb_w_retry_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
 
-	memset(&stream->acmp_status.common.saved_bindings, 0,
-			sizeof(stream->acmp_status.common.saved_bindings));
+	clear_stream_binding(stream);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = 0;
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_RETRY);
 
@@ -1290,7 +1320,7 @@ int handle_fsm_prb_w_retry_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		return -1;
 	}
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
 
 	return 0;
 }
@@ -1315,10 +1345,10 @@ int handle_fsm_prb_w_retry_evt_tk_departed_evt(struct acmp *acmp,
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_RETRY);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
 
 	return 0;
 }
@@ -1332,14 +1362,14 @@ int handle_fsm_settled_no_rsv_tmr_no_tk_evt(struct acmp *acmp,
 	struct avb_packet_acmp *p = SPA_PTROFF(m, sizeof(*h), void);
 
 	if (!adp_is_discovered_entity(acmp->server, be64toh(p->talker_guid))) {
-		stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
-		stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
+		stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
+		stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
 	} else {
-		stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-		stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_DELAY;
+		stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+		stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_DELAY;
 	}
 
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.acmp_status = 0;
 
 	return 0;
 }
@@ -1368,7 +1398,7 @@ int handle_fsm_settled_no_rsv_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	}
 
 	if(bindings_match_message_talker(acmp, stream, m) &&
-		((stream->acmp_status.common.saved_bindings.aem_flags & ntohs(p->flags)
+		((stream->acmp_sta.acmp_flags & ntohs(p->flags)
 			& AVB_ACMP_FLAG_STREAMING_WAIT))) {
 
 		prepare_bind_rx_response_success(acmp, stream, m, len, buf);
@@ -1383,9 +1413,8 @@ int handle_fsm_settled_no_rsv_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_NO_TK);
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
 	update_aem_streaming_flags(stream,
 			ntohs(p->flags) & AVB_ACMP_FLAG_STREAMING_WAIT);
 
@@ -1413,10 +1442,10 @@ int handle_fsm_settled_no_rsv_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 	return 0;
 }
 
@@ -1435,7 +1464,7 @@ int handle_fsm_settled_no_rsv_rcv_get_rx_state_evt(struct acmp *acmp,
 	reply->flags &= htons(~(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED));
 	reply->flags |= htons(AVB_ACMP_FLAG_FAST_CONNECT);
 
-	reply->flags |= htons(stream->acmp_status.common.saved_bindings.aem_flags
+	reply->flags |= htons(stream->acmp_sta.acmp_flags
 				& AVB_ACMP_FLAG_STREAMING_WAIT);
 
 	res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
@@ -1474,11 +1503,10 @@ int handle_fsm_settled_no_rsv_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
 
-	memset(&stream->acmp_status.common.saved_bindings, 0,
-			sizeof(stream->acmp_status.common.saved_bindings));
+	clear_stream_binding(stream);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
+	stream->acmp_sta.acmp_status = 0;
 
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream,
 				FSM_ACMP_EVT_MILAN_V12_TMR_NO_TK);
@@ -1490,7 +1518,7 @@ int handle_fsm_settled_no_rsv_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		return -1;
 	}
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
 
 	return 0;
 }
@@ -1521,7 +1549,7 @@ int handle_fsm_settled_no_rsv_evt_tk_registered_evt(struct acmp *acmp,
 	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)acmp;
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_NO_TK);
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_RSV_OK;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_RSV_OK;
 
 	return 0;
 }
@@ -1552,7 +1580,7 @@ int handle_fsm_settled_rsv_ok_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	}
 
 	if(bindings_match_message_talker(acmp, stream, m) &&
-		((stream->acmp_status.common.saved_bindings.aem_flags
+		((stream->acmp_sta.acmp_flags
 			& ntohs(p->flags) & AVB_ACMP_FLAG_STREAMING_WAIT))) {
 
 		prepare_bind_rx_response_success(acmp, stream, m, len, buf);
@@ -1566,9 +1594,8 @@ int handle_fsm_settled_rsv_ok_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
 
-	stream->acmp_status.common.saved_bindings.controller_guid = be64toh(p->controller_guid);
-	stream->acmp_status.common.saved_bindings.talker_guid = be64toh(p->talker_guid);
-	stream->acmp_status.common.saved_bindings.talker_unique_id = ntohs(p->talker_unique_id);
+	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
 
 
 	prepare_bind_rx_response_success(acmp, stream, m, len, buf);
@@ -1595,10 +1622,10 @@ int handle_fsm_settled_rsv_ok_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 		spa_assert(0);
 	}
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+	stream->acmp_sta.acmp_status = 0;
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_RESP;
 
 	return 0;
 }
@@ -1617,7 +1644,7 @@ int handle_fsm_settled_rsv_ok_rcv_get_rx_state_evt(struct acmp *acmp,
 	prepare_get_rx_response_success(acmp, stream, m, len, buf);
 	reply->flags &= htons(~(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED));
 	reply->flags |= htons(AVB_ACMP_FLAG_FAST_CONNECT);
-	reply->flags |= htons(stream->acmp_status.common.saved_bindings.aem_flags
+	reply->flags |= htons(stream->acmp_sta.acmp_flags
 				& AVB_ACMP_FLAG_STREAMING_WAIT);
 
 	res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
@@ -1655,11 +1682,10 @@ int handle_fsm_settled_rsv_ok_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 
 	adp_stop_discovery_entity(acmp->server, be64toh(p->talker_guid));
 
-	memset(&stream->acmp_status.common.saved_bindings, 0,
-			sizeof(stream->acmp_status.common.saved_bindings));
+	clear_stream_binding(stream);
 
-	stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
-	stream->acmp_status.common.acmp_status = 0;
+	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_DISABLED;
+	stream->acmp_sta.acmp_status = 0;
 
 	prepare_unbind_rx_response_success(acmp, stream, m, len, buf);
 	res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
@@ -1667,7 +1693,7 @@ int handle_fsm_settled_rsv_ok_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		pw_log_error("Sending no accessible entity");
 	}
 
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_UNBOUND;
 
 	return 0;
 }
@@ -1698,15 +1724,15 @@ int handle_fsm_settled_rsv_ok_evt_tk_unregistered_evt(struct acmp *acmp,
 	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)acmp;
 	uint64_t talker_guid;
 
-	talker_guid = stream->acmp_status.common.saved_bindings.talker_guid;
+	talker_guid = stream_talker_entity_id(stream);
 	if (!adp_is_discovered_entity(acmp->server, talker_guid)) {
-		stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
-		stream->acmp_status.common.acmp_status = 0;
-		stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
+		stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_PASSIVE;
+		stream->acmp_sta.acmp_status = 0;
+		stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_AVAIL;
 	} else {
-		stream->acmp_status.common.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
-		stream->acmp_status.common.acmp_status = 0;
-		stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_DELAY;
+		stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_ACTIVE;
+		stream->acmp_sta.acmp_status = 0;
+		stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_PRB_W_DELAY;
 
 		if (!acmp_timer_lt_register(acmp_m, stream,
 					FSM_ACMP_EVT_MILAN_V12_TMR_DELAY, m, len, now)) {
@@ -1726,7 +1752,7 @@ static int handle_fsm_settled_rsv_ok_evt_tk_registered_evt(struct acmp *acmp,
 	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
 	size_t len, uint64_t now)
 {
-	stream->acmp_status.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_NO_RSV;
+	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_NO_RSV;
 	return 0;
 }
 
@@ -1914,10 +1940,10 @@ static int acmp_generic_command_lt_handler_milan_v12(struct acmp *acmp,
 		return -1;
 
 	si_state = (struct aecp_aem_stream_input_state_milan_v12 *)desc->ptr;
-	cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 	if (!cmd) {
 		pw_log_error("transition STATE:%s EVT:%s",
-				fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
+				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
 		return -1;
 	}
@@ -1934,10 +1960,10 @@ static int acmp_generic_timer_handler_milan_v12(struct acmp *acmp, uint64_t now,
 
 
 	si_state = (struct aecp_aem_stream_input_state_milan_v12 *)tmr->stream;
-	cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 	if (!cmd) {
 		pw_log_error("transition STATE:%s EVT:%s",
-				fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
+				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
 		return -1;
 	}
@@ -1959,10 +1985,10 @@ static int acmp_generic_srp_evt_lt_handler_milan_v12(struct acmp *acmp,
 	si_state  = SPA_CONTAINER_OF(stream_in,
 			struct aecp_aem_stream_input_state_milan_v12, stream_in_sta);
 
-	cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 	if (!cmd->state_handler) {
 		pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
-				fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
+				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
 		return 0;
 	}
@@ -1984,10 +2010,10 @@ static int acmp_generic_srp_failed_evt_lt_handler_milan_v12(struct acmp *acmp,
 	si_state  = SPA_CONTAINER_OF(stream_in,
 			struct aecp_aem_stream_input_state_milan_v12, stream_in_sta);
 
-	cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 	if (!cmd->state_handler) {
 		pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
-				fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
+				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
 		return 0;
 	}
@@ -2011,13 +2037,13 @@ static int acmp_generic_adp_evt_lt_handler_milan_v12(struct acmp *acmp,
 
 		si_state = (struct aecp_aem_stream_input_state_milan_v12 *)desc->ptr;
 
-		if (si_state->acmp_status.common.saved_bindings.talker_guid != entity_id)
+		if (stream_talker_entity_id(si_state) != entity_id)
 			continue;
 
-		cmd = &cmd_listeners_states[si_state->acmp_status.fsm_acmp_state][event];
+		cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 		if (!cmd->state_handler) {
 			pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
-					fsm_acmp_state_milan_v12_str[si_state->acmp_status.fsm_acmp_state],
+					fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 					fsm_acmp_evt_milan_v12_str[event]);
 			continue;
 		}

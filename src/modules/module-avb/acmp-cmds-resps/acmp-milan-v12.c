@@ -2188,8 +2188,10 @@ int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 	}
 
 	stream_out = desc->ptr;
-	if (!stream_output_on_this_iface(server, stream_out))
-		return 0;
+	if (!stream_output_on_this_iface(server, stream_out)) {
+		status = AVB_ACMP_STATUS_INCOMPATIBLE_REQUEST;
+		goto done;
+	}
 
 	if (memcmp(stream_out->common.stream.addr, zero_addr, 6) == 0) {
 		status = AVB_ACMP_STATUS_TALKER_DEST_MAC_FAIL;

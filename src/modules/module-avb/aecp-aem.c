@@ -21,6 +21,7 @@
 #include "aecp-aem-cmds-resps/cmd-get-set-stream-format.h"
 #include "aecp-aem-cmds-resps/cmd-get-set-clock-source.h"
 #include "aecp-aem-cmds-resps/cmd-lock-entity.h"
+#include "aecp-aem-cmds-resps/cmd-get-dynamic-info.h"
 
 
 /* ACQUIRE_ENTITY */
@@ -364,6 +365,9 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_SAMPLING_RATE, true,
 		handle_cmd_get_sampling_rate_common),
+
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_DYNAMIC_INFO, true,
+		 handle_cmd_get_dynamic_info_milan_v12),
 };
 
 static const struct {

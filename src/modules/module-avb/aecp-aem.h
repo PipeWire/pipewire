@@ -226,6 +226,44 @@ struct avb_packet_aecp_aem_operation_status {
 	uint16_t percent_complete;
 } __attribute__ ((__packed__));
 
+/* GET_DYNAMIC_INFO (IEEE 1722.1-2021 Section 7.4.76, Milan v1.2 Section 5.4.2.29) */
+struct avb_packet_aecp_aem_get_dynamic_info {
+	uint16_t configuration_index;
+	uint16_t reserved;
+} __attribute__ ((__packed__));
+
+struct avb_aem_dynamic_info_hdr {
+	uint16_t descriptor_type;
+	uint16_t descriptor_index;
+} __attribute__ ((__packed__));
+
+struct avb_aem_dynamic_info_entity {
+	struct avb_aem_dynamic_info_hdr hdr;
+	uint16_t current_configuration;
+	uint16_t reserved;
+} __attribute__ ((__packed__));
+
+struct avb_aem_dynamic_info_audio_unit {
+	struct avb_aem_dynamic_info_hdr hdr;
+	uint32_t current_sampling_rate;
+} __attribute__ ((__packed__));
+
+struct avb_aem_dynamic_info_stream {
+	struct avb_aem_dynamic_info_hdr hdr;
+	uint64_t stream_id;
+	uint64_t stream_format;
+	uint32_t stream_info_flags;
+	uint16_t acmp_connection_count;
+	uint8_t  flags_ex;
+	uint8_t  pbsta;
+} __attribute__ ((__packed__));
+
+struct avb_aem_dynamic_info_clock_domain {
+	struct avb_aem_dynamic_info_hdr hdr;
+	uint16_t clock_source_index;
+	uint16_t reserved;
+} __attribute__ ((__packed__));
+
 struct avb_packet_aecp_aem {
 	struct avb_packet_aecp_header aecp;
 #if __BYTE_ORDER == __BIG_ENDIAN

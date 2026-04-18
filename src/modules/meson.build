@@ -806,6 +806,7 @@ if build_module_avb
       'module-avb/aecp-aem-cmds-resps/cmd-get-set-configuration.c',
       'module-avb/aecp-aem-cmds-resps/cmd-lock-entity.c',
       'module-avb/aecp-aem-cmds-resps/cmd-register-unsolicited-notifications.c',
+      'module-avb/aecp-aem-cmds-resps/cmd-get-dynamic-info.c',
       'module-avb/aecp-aem-cmds-resps/reply-unsol-helpers.c',
       'module-avb/es-builder.c',
       'module-avb/avdecc.c',

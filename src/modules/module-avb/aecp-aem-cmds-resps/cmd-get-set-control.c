@@ -150,6 +150,11 @@ static int handle_cmd_set_control_identify(struct aecp *aecp, struct descriptor 
 	old_value_format = desc_formats;
 	value_req = (uint8_t *)control->payload;
 
+	if (len < 0 || (size_t)len < sizeof(*h) + sizeof(*p) +
+			sizeof(*control) + CONTROL_LINEAR_UINT8_SIZE)
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS,
+			m, len);
+
 	if (*value_req == desc_formats->current_value) {
 		return reply_success(aecp, m, len);
 	}

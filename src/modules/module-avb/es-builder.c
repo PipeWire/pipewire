@@ -168,7 +168,6 @@ static const struct es_builder_st es_builder_legacy_avb[] =
 {
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_OUTPUT, es_buidler_desc_stream_general_prepare),
 	HELPER_ES_BUIDLER(AVB_AEM_DESC_STREAM_INPUT, es_buidler_desc_stream_general_prepare),
-	HELPER_ES_BUIDLER(AVB_AEM_DESC_AVB_INTERFACE, es_buidler_desc_avb_interface),
 };
 
 /**

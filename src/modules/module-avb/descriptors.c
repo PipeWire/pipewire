@@ -29,7 +29,7 @@ static void init_descriptor_legacy_avb(struct server *server)
 			&(struct avb_aem_desc_locale)
 	{
 		.locale_identifier = "en-EN",
-		.number_of_strings = htons(1),
+		.number_of_strings = htons(3),
 		.base_strings = htons(0)
 	});
 
@@ -43,7 +43,6 @@ static void init_descriptor_legacy_avb(struct server *server)
 			AVB_ADP_ENTITY_CAPABILITY_AEM_SUPPORTED |
 			AVB_ADP_ENTITY_CAPABILITY_CLASS_A_SUPPORTED |
 			AVB_ADP_ENTITY_CAPABILITY_GPTP_SUPPORTED |
-			AVB_ADP_ENTITY_CAPABILITY_AEM_IDENTIFY_CONTROL_INDEX_VALID |
 			AVB_ADP_ENTITY_CAPABILITY_AEM_INTERFACE_INDEX_VALID),
 
 		.talker_stream_sources = htons(8),

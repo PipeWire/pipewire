@@ -179,12 +179,33 @@ static int acmp_message(void *data, uint64_t now, const void *message, int len)
 
 	pw_log_info("got ACMP message %s", acmp_cmd_names[mtype]);
 
+	switch (mtype) {
+	case AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_COMMAND:
+	case AVB_ACMP_MESSAGE_TYPE_DISCONNECT_RX_COMMAND:
+	case AVB_ACMP_MESSAGE_TYPE_GET_RX_STATE_COMMAND:
+		if (be64toh(p->listener_guid) != server->entity_id)
+			return 0;
+		break;
+	case AVB_ACMP_MESSAGE_TYPE_CONNECT_TX_COMMAND:
+	case AVB_ACMP_MESSAGE_TYPE_DISCONNECT_TX_COMMAND:
+	case AVB_ACMP_MESSAGE_TYPE_GET_TX_STATE_COMMAND:
+	case AVB_ACMP_MESSAGE_TYPE_GET_TX_CONNECTION_COMMAND:
+		if (be64toh(p->talker_guid) != server->entity_id)
+			return 0;
+		break;
+	}
+
 	if (mtype < 0 || (size_t)mtype >= acmp_cmds_modes[server->avb_mode].count) {
+		if (mtype & 1)
+			return 0;
 		return acmp_reply_not_supported(acmp, mtype | 1, message, len);
 	}
 
-	if (acmp_cmds_modes[server->avb_mode].cmds[mtype].handle == NULL)
+	if (acmp_cmds_modes[server->avb_mode].cmds[mtype].handle == NULL) {
+		if (mtype & 1)
+			return 0;
 		return acmp_reply_not_supported(acmp, mtype | 1, message, len);
+	}
 
 	return acmp_cmds_modes[server->avb_mode].cmds[mtype].handle(acmp, now, message, len);
 }

@@ -314,7 +314,6 @@ static void prepare_probe_tx_command_success(struct acmp *acmp,
 
 	flags = ntohs(reply->flags);
 	flags &= ~AVB_ACMP_FLAG_STREAMING_WAIT;
-	flags |= AVB_ACMP_FLAG_FAST_CONNECT;
 	flags &= ~AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED;
 	reply->flags = htons(flags);
 
@@ -1474,7 +1473,6 @@ int handle_fsm_settled_no_rsv_rcv_get_rx_state_evt(struct acmp *acmp,
 
 	prepare_get_rx_response_success(acmp, stream, m, len, buf);
 	reply->flags &= htons(~(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED));
-	reply->flags |= htons(AVB_ACMP_FLAG_FAST_CONNECT);
 
 	reply->flags |= htons(stream->acmp_sta.acmp_flags
 				& AVB_ACMP_FLAG_STREAMING_WAIT);
@@ -1655,7 +1653,6 @@ int handle_fsm_settled_rsv_ok_rcv_get_rx_state_evt(struct acmp *acmp,
 
 	prepare_get_rx_response_success(acmp, stream, m, len, buf);
 	reply->flags &= htons(~(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED));
-	reply->flags |= htons(AVB_ACMP_FLAG_FAST_CONNECT);
 	reply->flags |= htons(stream->acmp_sta.acmp_flags
 				& AVB_ACMP_FLAG_STREAMING_WAIT);
 

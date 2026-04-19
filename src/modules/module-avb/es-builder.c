@@ -18,7 +18,7 @@
  */
 
 /** The callback type used for the different entity descriptor  */
-typedef void* (*es_builder_cb_t) (struct server *server, uint16_t type,
+typedef struct descriptor *(*es_builder_cb_t) (struct server *server, uint16_t type,
 		uint16_t index, size_t size, void *ptr);
 
 /** Structure holding all necessary cb
@@ -36,33 +36,33 @@ struct es_builder_st {
  *  \brief The Entity keeps track of multiple things, the locks the current
  *  configuration use for instance. That tragets the Milan V1.2 mode only
  */
-static void *es_builder_desc_entity_milan_v12(struct server *server,
+static struct descriptor *es_builder_desc_entity_milan_v12(struct server *server,
 	uint16_t type, uint16_t index, size_t size, void *ptr)
 {
     struct aecp_aem_entity_milan_state entity_state = {0};
-    void *ptr_alloc;
+    struct descriptor *desc;
     struct aecp_aem_entity_state *state =
 	    (struct aecp_aem_entity_state *) &entity_state;
 
     memcpy(&state->desc, ptr, size);
 
-    ptr_alloc = server_add_descriptor(server, type, index, sizeof(entity_state),
+    desc = server_add_descriptor(server, type, index, sizeof(entity_state),
         &entity_state);
 
-    if (!ptr_alloc) {
+    if (!desc) {
         pw_log_error("Error during allocation\n");
         spa_assert(0);
     }
 
-    return ptr_alloc;
+    return desc;
 }
 
 /**
  * \brief A generic function to avoid code duplicate for the streams */
-static void *es_buidler_desc_stream_general_prepare(struct server *server,
-		uint16_t type, uint16_t index, size_t size, void *ptr)
+static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *server,
+	uint16_t type, uint16_t index, size_t size, void *ptr)
 {
-	void *ptr_alloc;
+	struct descriptor *desc;
 	struct stream *stream;
 	enum spa_direction direction;
 
@@ -72,14 +72,14 @@ static void *es_buidler_desc_stream_general_prepare(struct server *server,
 		struct aecp_aem_stream_input_state stream_input = { 0 };
 
 		memcpy(&stream_input.desc, ptr, size);
-		ptr_alloc = server_add_descriptor(server, type, index,
+		desc = server_add_descriptor(server, type, index,
 					sizeof(stream_input), &stream_input);
-		if (!ptr_alloc) {
+		if (!desc) {
 			pw_log_error("Allocation failed\n");
 			return NULL;
 		}
 
-		pstream_input = ptr_alloc;
+		pstream_input = desc->ptr;
 		stream = &pstream_input->stream;
 		direction = SPA_DIRECTION_INPUT;
 		break;
@@ -88,14 +88,14 @@ static void *es_buidler_desc_stream_general_prepare(struct server *server,
 		struct aecp_aem_stream_output_state stream_output = { 0 };
 
 		memcpy(&stream_output.desc, ptr, size);
-		ptr_alloc = server_add_descriptor(server, type, index,
+		desc = server_add_descriptor(server, type, index,
 					sizeof(stream_output), &stream_output);
-		if (!ptr_alloc) {
+		if (!desc) {
 			pw_log_error("Allocation failed\n");
 			return NULL;
 		}
 
-		pstream_output = ptr_alloc;
+		pstream_output = desc->ptr;
 		stream = &pstream_output->stream;
 		direction = SPA_DIRECTION_OUTPUT;
 
@@ -105,14 +105,16 @@ static void *es_buidler_desc_stream_general_prepare(struct server *server,
 		return NULL;
 	}
 
+	/**
+	 * In this place the stream register interanlly  SRP / MVRP state machines
+	 */
 	if (!server_create_stream(server, stream, direction, index)) {
 		pw_log_error("Could not create/initialize a stream");
 		return NULL;
 	}
 
-	return ptr_alloc;
+	return desc;
 }
-
 
 // Assign a ID to an specific builder
 #define HELPER_ES_BUIDLER(type, callback) \
@@ -161,8 +163,7 @@ void es_builder_add_descriptor(struct server *server, uint16_t type,
 		uint16_t index, size_t size, void *ptr_aem)
 {
 	const struct es_builder_st *es_builder;
-	void *desc_ptr;
-	struct descriptor *d;
+	struct descriptor *desc;
 	enum avb_mode avb_mode;
 	bool std_processing = false;
 
@@ -195,9 +196,9 @@ void es_builder_add_descriptor(struct server *server, uint16_t type,
 			spa_assert(0);
 		}
 	} else {
-		desc_ptr = es_builder[type].build_descriptor_cb(server, type,
+		desc = es_builder[type].build_descriptor_cb(server, type,
 				index, size, ptr_aem);
-		if (!desc_ptr) {
+		if (!desc) {
 			pw_log_error("Could not allocate specific descriptr "
 				"%u at  index %u the avb aem type\n",
 				type, index);
@@ -205,7 +206,6 @@ void es_builder_add_descriptor(struct server *server, uint16_t type,
 			spa_assert(0);
 		}
 
-		d = (struct descriptor *) desc_ptr;
-		d->size = size;
+		desc->size = size;
 	}
 }

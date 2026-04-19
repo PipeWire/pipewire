@@ -136,16 +136,14 @@ static struct descriptor *es_buidler_desc_avb_interface(struct server *server,
 
 	if_ptr = desc->ptr;
 
-#if 0
 	avb_msrp_attribute_new(server->msrp, &if_ptr->domain_attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);
-	if_ptr->domain_attr->attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
-	if_ptr->domain_attr->attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
-	if_ptr->domain_attr->attr.domain.sr_class_vid = htons(AVB_DEFAULT_VLAN);
+	if_ptr->domain_attr.attr.domain.sr_class_id = AVB_MSRP_CLASS_ID_DEFAULT;
+	if_ptr->domain_attr.attr.domain.sr_class_priority = AVB_MSRP_PRIORITY_DEFAULT;
+	if_ptr->domain_attr.attr.domain.sr_class_vid = htons(AVB_DEFAULT_VLAN);
 
-	avb_mrp_attribute_begin(if_ptr->domain_attr->mrp, 0);
-	avb_mrp_attribute_join(if_ptr->domain_attr->mrp, 0, true);
-#endif
+	avb_mrp_attribute_begin(if_ptr->domain_attr.mrp, 0);
+	avb_mrp_attribute_join(if_ptr->domain_attr.mrp, 0, true);
 
 	return desc;
 }

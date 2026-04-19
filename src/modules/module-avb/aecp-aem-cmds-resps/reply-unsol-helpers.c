@@ -111,8 +111,11 @@ static void reply_unsol_notifications_prepare(struct aecp *aecp,
 
 	/* Here the value of 12 is the delta between the target_entity_id and
 	   start of the AECP message specific data. */
-	ctrl_data_length = len - (sizeof(*h) + sizeof(*p))
-				+ AVB_PACKET_CONTROL_DATA_OFFSET;
+	if (len < sizeof(*h) + sizeof(*p))
+		ctrl_data_length = AVB_PACKET_CONTROL_DATA_OFFSET;
+	else
+		ctrl_data_length = len - (sizeof(*h) + sizeof(*p))
+					+ AVB_PACKET_CONTROL_DATA_OFFSET;
 
 	h = (struct avb_ethernet_header*) packet;
 	p = SPA_PTROFF(h, sizeof(*h), void);

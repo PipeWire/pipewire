@@ -918,10 +918,7 @@ static char **pw_strv_insert_at(char **strv, int len, int pos, const char *str)
 		while (strv != NULL && strv[len] != NULL)
 			len++;
 	}
-
-	if (pos < 0)
-		pos = 0;
-	else if (pos > len)
+	if (pos < 0 || pos > len)
 		pos = len;
 
 	n = realloc(strv, sizeof(char*) * (len + 2));

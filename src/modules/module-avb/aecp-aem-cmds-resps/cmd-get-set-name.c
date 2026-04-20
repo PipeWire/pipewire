@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2025 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <inttypes.h>
@@ -73,6 +74,9 @@ static int send_unsol_name(struct aecp *aecp,
 	uint8_t unsol_buf[512];
 	struct aecp_aem_base_info info = { 0 };
 
+	if (len < 0 || (size_t)len > sizeof(unsol_buf))
+		return -EINVAL;
+
 	memcpy(unsol_buf, msg, len);
 	info.controller_entity_id = htobe64(p->aecp.controller_guid);
 	info.expire_timeout = INT64_MAX;
@@ -111,6 +115,11 @@ int handle_cmd_get_name_common(struct aecp *aecp, int64_t now,
 
 	name_ptr = get_name_ptr(desc_type, desc->ptr, name_index);
 	if (name_ptr == NULL)
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+
+	if (len < 0 || (size_t)len > sizeof(buf) ||
+	    (size_t)len < sizeof(*h) + sizeof(*p) + sizeof(*cmd))
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
@@ -159,6 +168,10 @@ int handle_cmd_set_name_common(struct aecp *aecp, int64_t now,
 
 	name_ptr = get_name_ptr(desc_type, desc->ptr, name_index);
 	if (name_ptr == NULL)
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+
+	if (len < 0 || (size_t)len < sizeof(*h) + sizeof(*p) + sizeof(*cmd))
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 

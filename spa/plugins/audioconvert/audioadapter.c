@@ -1812,6 +1812,9 @@ impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
+	if (SPA_DIRECTION_OUTPUT != this->direction)
+		port_id++;
+
 	return spa_node_port_reuse_buffer(this->target, port_id, buffer_id);
 }
 

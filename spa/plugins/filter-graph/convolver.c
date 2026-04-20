@@ -323,7 +323,7 @@ int convolver_run(struct convolver *conv, const float *input, float *output, int
 		memset(conv->tailInput + conv->tailInputFill + processing, 0,
 						(2 * conv->headBlockSize - processing) * sizeof(float));
 
-		partition_run(dsp, conv->headPartition, conv->tailInput + conv->tailInputFill,
+		partition_run(dsp, conv->headPartition, conv->tailInput + conv->tailInputFill - blockRemain,
 				&output[processed], processing);
 
 		if (conv->tailPrecalculated)

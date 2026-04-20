@@ -1284,7 +1284,7 @@ static int ensure_tmp(struct impl *this)
 				return -ENOMEM;
 			}
 			this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp[0][i], MAX_ALIGN, void);
-			this->tmp_datas[0][i] = SPA_PTR_ALIGN(this->tmp[0][i], MAX_ALIGN, void);
+			this->tmp_datas[1][i] = SPA_PTR_ALIGN(this->tmp[1][i], MAX_ALIGN, void);
 		}
 		this->scratch_ports = maxports;
 	}

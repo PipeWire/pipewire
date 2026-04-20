@@ -187,54 +187,28 @@ error:
 static int partition_run(struct spa_fga_dsp *dsp, struct partition *part, const float *input, float *output, int len)
 {
 	int i;
-
-	if (part == NULL || part->segCount == 0) {
-		spa_fga_dsp_fft_memclear(dsp, output, len, true);
-		return len;
-	}
-
 	int inputBufferFill = part->inputBufferFill;
+	int indexAudio = part->current;
 
 	spa_fga_dsp_fft_run(dsp, part->fft, 1, input, part->segments[part->current]);
 
-	if (part->segCount > 1) {
-		if (inputBufferFill == 0) {
-			int indexAudio = part->current;
+	spa_fga_dsp_fft_cmul(dsp, part->fft,
+			part->freq,
+			part->segments[indexAudio],
+			part->segmentsIr[0],
+			part->fftComplexSize, part->scale);
 
-			if (++indexAudio == part->segCount)
-				indexAudio = 0;
+	for (i = 1; i < part->segCount; i++) {
+		if (++indexAudio == part->segCount)
+			indexAudio = 0;
 
-			spa_fga_dsp_fft_cmul(dsp, part->fft, part->pre_mult,
-					part->segmentsIr[1],
-					part->segments[indexAudio],
-					part->fftComplexSize, part->scale);
-
-			for (i = 2; i < part->segCount; i++) {
-				if (++indexAudio == part->segCount)
-					indexAudio = 0;
-
-				spa_fga_dsp_fft_cmuladd(dsp, part->fft,
-						part->pre_mult,
-						part->pre_mult,
-						part->segmentsIr[i],
-						part->segments[indexAudio],
-						part->fftComplexSize, part->scale);
-			}
-		}
 		spa_fga_dsp_fft_cmuladd(dsp, part->fft,
 				part->freq,
-				part->pre_mult,
-				part->segments[part->current],
-				part->segmentsIr[0],
-				part->fftComplexSize, part->scale);
-	} else {
-		spa_fga_dsp_fft_cmul(dsp, part->fft,
 				part->freq,
-				part->segments[part->current],
-				part->segmentsIr[0],
+				part->segments[indexAudio],
+				part->segmentsIr[i],
 				part->fftComplexSize, part->scale);
 	}
-
 	spa_fga_dsp_fft_run(dsp, part->ifft, -1, part->freq, part->fft_buffer[0]);
 
 	spa_fga_dsp_sum(dsp, output, part->fft_buffer[0] + inputBufferFill,

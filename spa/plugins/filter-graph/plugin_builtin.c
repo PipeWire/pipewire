@@ -706,14 +706,14 @@ static const struct spa_fga_descriptor bq_raw_desc = {
 	.cleanup = builtin_cleanup,
 };
 
-/** convolve */
+/** convolver */
 struct convolver_impl {
 	struct plugin *plugin;
 
 	struct spa_log *log;
 	struct spa_fga_dsp *dsp;
 	unsigned long rate;
-	float *port[3];
+	float *port[10];
 	float latency;
 
 	struct convolver *conv;
@@ -796,51 +796,76 @@ static int finfo_open(const char *filename, struct finfo *info, int rate)
 	return 0;
 }
 
-static float *finfo_read_samples(struct plugin *pl, struct finfo *info, float gain, int delay,
-		int offset, int length, int channel, long unsigned *rate, int *n_samples, int *latency)
+struct impulse {
+	float gain;
+	float delay;
+	char *filenames[MAX_RATES];
+	int offset;
+	int length;
+	int channel;
+	int resample_quality;
+	int latency;
+	unsigned long rate;
+	float *samples;
+	int n_samples;
+};
+
+#define IMPULSE_INIT(ch) (struct impulse) { 1.0f, 0.0f, { NULL, }, 0, 0, ch, RESAMPLE_DEFAULT_QUALITY, }
+
+static void impulse_clear(struct impulse *ir)
+{
+	uint32_t i;
+	for (i = 0; i < MAX_RATES; i++)
+		if (ir->filenames[i])
+			free(ir->filenames[i]);
+	free(ir->samples);
+	spa_zero(*ir);
+}
+
+static int finfo_read_samples(struct plugin *pl, struct finfo *info, struct impulse *ir)
 {
 	float *samples, v;
-	int i, n, h;
+	int i, n, h, delay = (int)(ir->delay * info->rate);
 
-	if (length <= 0)
-		length = info->def_frames;
+	if (ir->length <= 0)
+		ir->length = info->def_frames;
 	else
-		length = SPA_MIN(length, info->max_frames);
+		ir->length = SPA_MIN(ir->length, info->max_frames);
 
-	length -= SPA_MIN(offset, length);
+	ir->length -= SPA_MIN(ir->offset, ir->length);
 
-	n = delay + length;
+	n = delay + ir->length;
 	if (n == 0)
-		return NULL;
+		return -EINVAL;
 
 	samples = calloc(n * info->channels, sizeof(float));
 	if (samples == NULL)
-		return NULL;
+		return -errno;
 
-	channel = channel % info->channels;
+	ir->channel = ir->channel % info->channels;
 
 	switch (info->type) {
 	case TYPE_SNDFILE:
 #ifdef HAVE_SNDFILE
-		if (offset > 0)
-			sf_seek(info->fs, offset, SEEK_SET);
-		sf_readf_float(info->fs, samples + (delay * info->channels), length);
+		if (ir->offset > 0)
+			sf_seek(info->fs, ir->offset, SEEK_SET);
+		sf_readf_float(info->fs, samples + (delay * info->channels), ir->length);
 		for (i = 0; i < n; i++)
-			samples[i] = samples[info->channels * i + channel] * gain;
+			samples[i] = samples[info->channels * i + ir->channel] * ir->gain;
 #endif
 		break;
 	case TYPE_HILBERT:
-		gain *= 2 / (float)M_PI;
-		h = length / 2;
+		ir->gain *= 2 / (float)M_PI;
+		h = ir->length / 2;
 		for (i = 1; i < h; i += 2) {
-			v = (gain / i) * (0.43f + 0.57f * cosf(i * (float)M_PI / h));
+			v = (ir->gain / i) * (0.43f + 0.57f * cosf(i * (float)M_PI / h));
 			samples[delay + h + i] = -v;
 			samples[delay + h - i] =  v;
 		}
-		spa_log_info(pl->log, "created hilbert function length %d", length);
+		spa_log_info(pl->log, "created hilbert function length %d", ir->length);
 		break;
 	case TYPE_DIRAC:
-		samples[delay] = gain;
+		samples[delay] = ir->gain;
 		spa_log_info(pl->log, "created dirac function");
 		break;
 	case TYPE_IR:
@@ -848,22 +873,23 @@ static float *finfo_read_samples(struct plugin *pl, struct finfo *info, float ga
 		struct spa_json it[1];
 		float v;
 		if (spa_json_begin_array_relax(&it[0], info->filename+4, strlen(info->filename+4)) <= 0)
-			return NULL;
+			return -EINVAL;
 		if (spa_json_get_int(&it[0], &h) <= 0)
-			return NULL;
+			return -EINVAL;
 		info->rate = h;
 		i = 0;
 		while (spa_json_get_float(&it[0], &v) > 0) {
-			samples[delay + i] = v * gain;
+			samples[delay + i] = v * ir->gain;
 			i++;
 		}
 		break;
 	}
 	}
-	*n_samples = n;
-	*rate = info->rate;
-	*latency = (int) (n * info->latency);
-	return samples;
+	ir->samples = samples;
+	ir->n_samples = n;
+	ir->latency = (int) (n * info->latency);
+	ir->rate = info->rate;
+	return 0;
 }
 
 
@@ -875,49 +901,44 @@ static void finfo_close(struct finfo *info)
 #endif
 }
 
-static float *read_closest(struct plugin *pl, char **filenames, float gain, float delay_sec, int offset,
-		int length, int channel, long unsigned *rate, int *n_samples, int *latency)
+static int read_closest(struct plugin *pl, struct impulse *ir, int rate)
 {
 	struct finfo finfo[MAX_RATES];
-	int res, diff = INT_MAX;
+	int res = -ENOENT, diff = INT_MAX;
 	uint32_t best = SPA_ID_INVALID, i;
-	float *samples = NULL;
 
 	spa_zero(finfo);
 
-	for (i = 0; i < MAX_RATES && filenames[i] && filenames[i][0]; i++) {
-		res = finfo_open(filenames[i], &finfo[i], *rate);
-		if (res < 0)
+	for (i = 0; i < MAX_RATES && ir->filenames[i] && ir->filenames[i][0]; i++) {
+		if ((res = finfo_open(ir->filenames[i], &finfo[i], rate)) < 0)
 			continue;
 
-		if (labs((long)finfo[i].rate - (long)*rate) < diff) {
+		if (labs((long)finfo[i].rate - (long)rate) < diff) {
 			best = i;
-			diff = labs((long)finfo[i].rate - (long)*rate);
+			diff = labs((long)finfo[i].rate - (long)rate);
 			spa_log_debug(pl->log, "new closest match: %d", finfo[i].rate);
 		}
 	}
 	if (best != SPA_ID_INVALID) {
-		spa_log_info(pl->log, "loading best rate:%u %s", finfo[best].rate, filenames[best]);
-		samples = finfo_read_samples(pl, &finfo[best], gain,
-				(int) (delay_sec * finfo[best].rate), offset, length,
-				channel, rate, n_samples, latency);
+		spa_log_info(pl->log, "loading best rate:%u %s", finfo[best].rate, ir->filenames[best]);
+		res = finfo_read_samples(pl, &finfo[best], ir);
 	} else {
 		char buf[PATH_MAX];
 		spa_log_error(pl->log, "Can't open any sample file (CWD %s):",
 				getcwd(buf, sizeof(buf)));
 
-		for (i = 0; i < MAX_RATES && filenames[i] && filenames[i][0]; i++) {
-			res = finfo_open(filenames[i], &finfo[i], *rate);
+		for (i = 0; i < MAX_RATES && ir->filenames[i] && ir->filenames[i][0]; i++) {
+			res = finfo_open(ir->filenames[i], &finfo[i], rate);
 			if (res < 0)
-				spa_log_error(pl->log, " failed file %s: %s", filenames[i], finfo[i].error);
+				spa_log_error(pl->log, " failed file %s: %s", ir->filenames[i], finfo[i].error);
 			else
-				spa_log_warn(pl->log, " unexpectedly opened file %s", filenames[i]);
+				spa_log_warn(pl->log, " unexpectedly opened file %s", ir->filenames[i]);
 		}
 	}
 	for (i = 0; i < MAX_RATES; i++)
 		finfo_close(&finfo[i]);
 
-	return samples;
+	return res;
 }
 
 static float *resample_buffer(struct plugin *pl, float *samples, int *n_samples,
@@ -997,22 +1018,119 @@ error:
 #endif
 }
 
+static int convolver_read_impulse(struct plugin *pl, struct spa_json *obj,
+		unsigned long SampleRate, struct impulse *ir)
+{
+	int len, res = -EINVAL;
+	uint32_t i = 0;
+	char key[256];
+	const char *val;
+	struct spa_json it[2];
+	unsigned long rate;
+
+	while ((len = spa_json_object_next(obj, key, sizeof(key), &val)) > 0) {
+		if (spa_streq(key, "gain")) {
+			if (spa_json_parse_float(val, len, &ir->gain) <= 0) {
+				spa_log_error(pl->log, "convolver:gain requires a number");
+				goto error;
+			}
+		}
+		else if (spa_streq(key, "delay")) {
+			int delay_i;
+			if (spa_json_parse_int(val, len, &delay_i) > 0) {
+				ir->delay = delay_i / (float)SampleRate;
+			} else if (spa_json_parse_float(val, len, &ir->delay) <= 0) {
+				spa_log_error(pl->log, "convolver:delay requires a number");
+				goto error;
+			}
+		}
+		else if (spa_streq(key, "filename")) {
+			if (spa_json_is_array(val, len)) {
+				spa_json_enter(obj, &it[0]);
+				while ((len = spa_json_next(&it[0], &val)) > 0 &&
+					i < SPA_N_ELEMENTS(ir->filenames)) {
+						ir->filenames[i] = malloc(len+1);
+						if (ir->filenames[i] == NULL)
+							goto error_errno;
+						spa_json_parse_stringn(val, len, ir->filenames[i], len+1);
+						i++;
+				}
+			}
+			else {
+				ir->filenames[0] = malloc(len+1);
+				if (ir->filenames[0] == NULL)
+					goto error_errno;
+				spa_json_parse_stringn(val, len, ir->filenames[0], len+1);
+			}
+		}
+		else if (spa_streq(key, "offset")) {
+			if (spa_json_parse_int(val, len, &ir->offset) <= 0) {
+				spa_log_error(pl->log, "convolver:offset requires a number");
+				goto error;
+			}
+		}
+		else if (spa_streq(key, "length")) {
+			if (spa_json_parse_int(val, len, &ir->length) <= 0) {
+				spa_log_error(pl->log, "convolver:length requires a number");
+				goto error;
+			}
+		}
+		else if (spa_streq(key, "channel")) {
+			if (spa_json_parse_int(val, len, &ir->channel) <= 0) {
+				spa_log_error(pl->log, "convolver:channel requires a number");
+				goto error;
+			}
+		}
+		else if (spa_streq(key, "resample_quality")) {
+			if (spa_json_parse_int(val, len, &ir->resample_quality) <= 0) {
+				spa_log_error(pl->log, "convolver:resample_quality requires a number");
+				goto error;
+			}
+		}
+		else {
+			spa_log_warn(pl->log, "convolver: ignoring config key: '%s'", key);
+		}
+	}
+	if (ir->filenames[0] == NULL) {
+		spa_log_error(pl->log, "convolver:filename was not given");
+		goto error;
+	}
+
+	if (ir->delay < 0.0f)
+		ir->delay = 0.0f;
+	if (ir->offset < 0)
+		ir->offset = 0;
+
+	rate = SampleRate;
+	if ((res = read_closest(pl, ir, rate)) < 0)
+		goto error;
+	if (rate != ir->rate)
+		ir->samples = resample_buffer(pl, ir->samples, &ir->n_samples,
+				ir->rate, rate, ir->resample_quality);
+	if (ir->samples == NULL)
+		goto error_errno;
+
+	return res;
+
+error_errno:
+	res = -errno;
+error:
+	impulse_clear(ir);
+	return res;
+}
+
 static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
 		unsigned long SampleRate, int index, const char *config)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
-	struct convolver_impl *impl;
-	float *samples;
-	int offset = 0, length = 0, channel = index, n_samples = 0, len;
-	uint32_t i = 0;
+	struct convolver_impl *impl = NULL;
+	int res, len;
 	struct spa_json it[2];
 	const char *val;
 	char key[256];
-	char *filenames[MAX_RATES] = { 0 };
 	int blocksize = 0, tailsize = 0;
-	int resample_quality = RESAMPLE_DEFAULT_QUALITY, def_latency;
-	float gain = 1.0f, delay = 0.0f, latency = -1.0f;
-	unsigned long rate;
+	float latency = -1.0f;
+	struct impulse ir = IMPULSE_INIT(index);
 
 	errno = EINVAL;
 	if (config == NULL) {
@@ -1038,107 +1156,26 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 				return NULL;
 			}
 		}
-		else if (spa_streq(key, "gain")) {
-			if (spa_json_parse_float(val, len, &gain) <= 0) {
-				spa_log_error(pl->log, "convolver:gain requires a number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "delay")) {
-			int delay_i;
-			if (spa_json_parse_int(val, len, &delay_i) > 0) {
-				delay = delay_i / (float)SampleRate;
-			} else if (spa_json_parse_float(val, len, &delay) <= 0) {
-				spa_log_error(pl->log, "convolver:delay requires a number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "filename")) {
-			if (spa_json_is_array(val, len)) {
-				spa_json_enter(&it[0], &it[1]);
-				while ((len = spa_json_next(&it[1], &val)) > 0 &&
-					i < SPA_N_ELEMENTS(filenames)) {
-						filenames[i] = malloc(len+1);
-						if (filenames[i] == NULL)
-							return NULL;
-						spa_json_parse_stringn(val, len, filenames[i], len+1);
-						i++;
-				}
-			}
-			else {
-				filenames[0] = malloc(len+1);
-				if (filenames[0] == NULL)
-					return NULL;
-				spa_json_parse_stringn(val, len, filenames[0], len+1);
-			}
-		}
-		else if (spa_streq(key, "offset")) {
-			if (spa_json_parse_int(val, len, &offset) <= 0) {
-				spa_log_error(pl->log, "convolver:offset requires a number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "length")) {
-			if (spa_json_parse_int(val, len, &length) <= 0) {
-				spa_log_error(pl->log, "convolver:length requires a number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "channel")) {
-			if (spa_json_parse_int(val, len, &channel) <= 0) {
-				spa_log_error(pl->log, "convolver:channel requires a number");
-				return NULL;
-			}
-		}
-		else if (spa_streq(key, "resample_quality")) {
-			if (spa_json_parse_int(val, len, &resample_quality) <= 0) {
-				spa_log_error(pl->log, "convolver:resample_quality requires a number");
-				return NULL;
-			}
-		}
 		else if (spa_streq(key, "latency")) {
 			if (spa_json_parse_float(val, len, &latency) <= 0) {
 				spa_log_error(pl->log, "convolver:latency requires a number");
 				return NULL;
 			}
 		}
-		else {
-			spa_log_warn(pl->log, "convolver: ignoring config key: '%s'", key);
-		}
 	}
-	if (filenames[0] == NULL) {
-		spa_log_error(pl->log, "convolver:filename was not given");
-		return NULL;
-	}
-
-	if (delay < 0.0f)
-		delay = 0.0f;
-	if (offset < 0)
-		offset = 0;
-
-	rate = SampleRate;
-	samples = read_closest(pl, filenames, gain, delay, offset,
-			length, channel, &rate, &n_samples, &def_latency);
-	if (samples != NULL && rate != SampleRate)
-		samples = resample_buffer(pl, samples, &n_samples,
-				rate, SampleRate, resample_quality);
-
-	for (i = 0; i < MAX_RATES; i++)
-		if (filenames[i])
-			free(filenames[i]);
-
-	if (samples == NULL) {
-		errno = ENOENT;
+	spa_json_begin_object(&it[0], config, strlen(config));
+	if ((res = convolver_read_impulse(pl, &it[0], SampleRate, &ir)) < 0) {
+		errno = -res;
 		return NULL;
 	}
 
 	if (blocksize <= 0)
-		blocksize = SPA_CLAMP(n_samples, 64, 256);
+		blocksize = SPA_CLAMP(ir.n_samples, 64, 256);
 	if (tailsize <= 0)
 		tailsize = SPA_CLAMP(4096, blocksize, 32768);
 
-	spa_log_info(pl->log, "using n_samples:%u %d:%d blocksize delay:%f def-latency:%d", n_samples,
-			blocksize, tailsize, delay, def_latency);
+	spa_log_info(pl->log, "using n_samples:%u %d:%d blocksize delay:%f def-latency:%d", ir.n_samples,
+			blocksize, tailsize, ir.delay, ir.latency);
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
@@ -1148,21 +1185,20 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	impl->log = pl->log;
 	impl->dsp = pl->dsp;
 	impl->rate = SampleRate;
-
-	impl->conv = convolver_new(impl->dsp, blocksize, tailsize, samples, n_samples);
-	if (impl->conv == NULL)
-		goto error;
-
 	if (latency < 0.0f)
-		impl->latency = def_latency;
+		impl->latency = ir.latency;
 	else
 		impl->latency = latency * impl->rate;
 
-	free(samples);
+	impl->conv = convolver_new(impl->dsp, blocksize, tailsize, ir.samples, ir.n_samples);
+	if (impl->conv == NULL)
+		goto error;
+
+	impulse_clear(&ir);
 
 	return impl;
 error:
-	free(samples);
+	impulse_clear(&ir);
 	free(impl);
 	return NULL;
 }
@@ -1232,6 +1268,188 @@ static const struct spa_fga_descriptor convolve_desc = {
 	.activate = convolver_activate,
 	.deactivate = convolver_deactivate,
 	.run = convolve_run,
+	.cleanup = convolver_cleanup,
+};
+
+/** convolver2 */
+static void * convolver2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		unsigned long SampleRate, int index, const char *config)
+{
+	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
+	struct convolver_impl *impl = NULL;
+	int i, len, res, max_samples = 0;
+	struct spa_json it[3];
+	const char *val;
+	char key[256];
+	int blocksize = 0, tailsize = 0;
+	float latency = -1.0f;
+	struct impulse ir[8];
+	struct convolver_ir cir[8];
+	int n_ir = 0;
+
+	errno = EINVAL;
+	if (config == NULL) {
+		spa_log_error(pl->log, "convolver: requires a config section");
+		return NULL;
+	}
+
+	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
+		spa_log_error(pl->log, "convolver:config must be an object");
+		return NULL;
+	}
+
+	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
+		if (spa_streq(key, "blocksize")) {
+			if (spa_json_parse_int(val, len, &blocksize) <= 0) {
+				spa_log_error(pl->log, "convolver2:blocksize requires a number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "tailsize")) {
+			if (spa_json_parse_int(val, len, &tailsize) <= 0) {
+				spa_log_error(pl->log, "convolver2:tailsize requires a number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "latency")) {
+			if (spa_json_parse_float(val, len, &latency) <= 0) {
+				spa_log_error(pl->log, "convolver2:latency requires a number");
+				return NULL;
+			}
+		}
+		else if (spa_streq(key, "impulses")) {
+			if (!spa_json_is_array(val, len)) {
+				spa_log_error(pl->log, "convolver2:impulses require an array");
+				return NULL;
+			}
+			spa_json_enter(&it[0], &it[1]);
+			while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+				ir[n_ir] = IMPULSE_INIT(n_ir);
+				if ((res = convolver_read_impulse(pl, &it[2], SampleRate, &ir[n_ir])) < 0)
+					return NULL;
+
+				max_samples = SPA_MAX(max_samples, ir[n_ir].n_samples);
+				cir[n_ir].ir = ir[n_ir].samples;
+				cir[n_ir].len = ir[n_ir].n_samples;
+				n_ir++;
+			}
+		}
+		else {
+			spa_log_warn(pl->log, "convolver: ignoring config key: '%s'", key);
+		}
+	}
+	if (n_ir == 0) {
+		spa_log_error(pl->log, "convolver2:no impulses given");
+		goto error;
+	}
+
+	if (blocksize <= 0)
+		blocksize = SPA_CLAMP(max_samples, 64, 256);
+	if (tailsize <= 0)
+		tailsize = SPA_CLAMP(4096, blocksize, 32768);
+
+	spa_log_info(pl->log, "using max_samples:%u %d:%d blocksize", max_samples,
+			blocksize, tailsize);
+
+	impl = calloc(1, sizeof(*impl));
+	if (impl == NULL)
+		goto error;
+
+	impl->plugin = pl;
+	impl->log = pl->log;
+	impl->dsp = pl->dsp;
+	impl->rate = SampleRate;
+	if (latency < 0.0f)
+		impl->latency = ir[0].latency;
+	else
+		impl->latency = latency * impl->rate;
+
+	impl->conv = convolver_new_many(impl->dsp, blocksize, tailsize, cir, n_ir);
+	if (impl->conv == NULL)
+		goto error;
+
+
+	return impl;
+error:
+	for (i = 0; i < n_ir; i++)
+		impulse_clear(&ir[i]);
+	free(impl);
+	return NULL;
+}
+
+static void convolver2_run(void * Instance, unsigned long SampleCount)
+{
+	struct convolver_impl *impl = Instance;
+	if (impl->port[0] != NULL)
+		convolver_run_many(impl->conv, impl->port[0], &impl->port[2], SampleCount);
+	if (impl->port[1] != NULL)
+		impl->port[1][0] = impl->latency;
+}
+
+static void convolver2_activate(void * Instance)
+{
+	struct convolver_impl *impl = Instance;
+	if (impl->port[1] != NULL)
+		impl->port[1][0] = impl->latency;
+}
+
+static struct spa_fga_port convolver2_ports[] = {
+	{ .index = 0,
+	  .name = "In",
+	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 1,
+	  .name = "latency",
+	  .hint = SPA_FGA_HINT_LATENCY,
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_CONTROL,
+	},
+	{ .index = 2,
+	  .name = "Out 1",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 3,
+	  .name = "Out 2",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 4,
+	  .name = "Out 3",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 5,
+	  .name = "Out 4",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 6,
+	  .name = "Out 5",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 7,
+	  .name = "Out 6",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 8,
+	  .name = "Out 7",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+	{ .index = 9,
+	  .name = "Out 8",
+	  .flags = SPA_FGA_PORT_OUTPUT | SPA_FGA_PORT_AUDIO,
+	},
+};
+
+
+static const struct spa_fga_descriptor convolver2_desc = {
+	.name = "convolver2",
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+
+	.n_ports = SPA_N_ELEMENTS(convolver2_ports),
+	.ports = convolver2_ports,
+
+	.instantiate = convolver2_instantiate,
+	.connect_port = convolver_connect_port,
+	.activate = convolver2_activate,
+	.deactivate = convolver_deactivate,
+	.run = convolver2_run,
 	.cleanup = convolver_cleanup,
 };
 
@@ -3339,6 +3557,8 @@ static const struct spa_fga_descriptor * builtin_descriptor(unsigned long Index)
 		return &busy_desc;
 	case 32:
 		return &null_desc;
+	case 33:
+		return &convolver2_desc;
 	}
 	return NULL;
 }

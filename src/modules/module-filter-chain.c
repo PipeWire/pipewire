@@ -368,6 +368,11 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * The convolver has an input port "In" and an output port "Out". It requires a config
  * section in the node declaration in this format:
  *
+ * When multiple impulses are applied to one input, use the convolver2, which is more
+ * performant.
+ *
+ * Check the documentation for Convolver2 for the parameter meanings.
+ *
  *\code{.unparsed}
  * filter.graph = {
  *     nodes = [
@@ -392,12 +397,50 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *     }
  *     ...
  * }
+ *
+ * ### Convolver2
+ *
+ * The convolver2 can be used to apply one or more impulse responses to a signal.
+ * It is usually used for reverbs or virtual surround. The convolver2 is implemented
+ * with a fast FFT implementation.
+ *
+ * The convolver2 has an input port "In" and 8 output ports "Out 1" to "Out 8". It
+ * requires a config section in the node declaration in this format:
+ *
+ *\code{.unparsed}
+ * filter.graph = {
+ *     nodes = [
+ *         {
+ *             type   = builtin
+ *             name   = ...
+ *             label  = convolver2
+ *             config = {
+ *                 blocksize = ...
+ *                 tailsize = ...
+ *                 impulses = [
+ *                     {
+ *                         gain = ...
+ *                         delay = ...
+ *                         filename = ...
+ *                         offset = ...
+ *                         length = ...
+ *                         channel = ...
+ *                         resample_quality = ...
+ *                     }
+ *                     ...
+ *                 ]
+ *                 latency = ...
+ *             }
+ *             ...
+ *         }
+ *
  *\endcode
  *
  * - `blocksize` specifies the size of the blocks to use in the FFT. It is a value
  *               between 64 and 256. When not specified, this value is
  *               computed automatically from the number of samples in the file.
  * - `tailsize` specifies the size of the tail blocks to use in the FFT.
+ * - `impulses`  An array of objects with the IRs for the outputs "Out 1" to "Out 8".
  * - `gain`     the overall gain to apply to the IR file. Default 1.0
  * - `delay`    The extra delay to add to the IR. A float number will be interpreted as seconds,
  *              and integer as samples. Using the delay in seconds is independent of the graph
@@ -420,7 +463,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `resample_quality` The resample quality in case the IR does not match the graph
  *                      samplerate.
  * - `latency`  The extra latency in seconds to report. When left unspecified (or < 0.0)
- *              the default IR latency will be used, the the filename argument.
+ *              the default IR latency will be used, depending on the filename argument.
  *
  * ### Delay
  *

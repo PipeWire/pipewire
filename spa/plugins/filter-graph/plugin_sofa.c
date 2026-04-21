@@ -34,11 +34,11 @@ struct spatializer_impl {
 	int n_samples, blocksize, tailsize;
 	float gain;
 	float *tmp[2];
+	float latency;
 
 	struct MYSOFA_EASY *sofa;
 	unsigned int interpolate:1;
-	struct convolver *l_conv[3];
-	struct convolver *r_conv[3];
+	struct convolver *conv[3];
 };
 
 static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
@@ -73,6 +73,7 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
 	impl->gain = 1.0f;
+	impl->latency = 0.0f;
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "blocksize")) {
@@ -102,6 +103,16 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 				errno = EINVAL;
 				goto error;
 			}
+		}
+		else if (spa_streq(key, "latency")) {
+			if (spa_json_parse_float(val, len, &impl->latency) <= 0) {
+				spa_log_error(impl->log, "spatializer:latency requires a number");
+				errno = EINVAL;
+				goto error;
+			}
+		}
+		else {
+			spa_log_warn(pl->log, "spatializer: ignoring config key: '%s'", key);
 		}
 	}
 	if (!filename[0]) {
@@ -201,6 +212,7 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	impl->tmp[0] = calloc(impl->plugin->quantum_limit, sizeof(float));
 	impl->tmp[1] = calloc(impl->plugin->quantum_limit, sizeof(float));
 	impl->rate = SampleRate;
+
 	return impl;
 error:
 	if (impl->sofa)
@@ -215,14 +227,12 @@ do_switch(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 {
 	struct spatializer_impl *impl = user_data;
 
-	if (impl->l_conv[0] == NULL) {
-		SPA_SWAP(impl->l_conv[0], impl->l_conv[2]);
-		SPA_SWAP(impl->r_conv[0], impl->r_conv[2]);
+	if (impl->conv[0] == NULL) {
+		SPA_SWAP(impl->conv[0], impl->conv[2]);
 	} else {
-		SPA_SWAP(impl->l_conv[1], impl->l_conv[2]);
-		SPA_SWAP(impl->r_conv[1], impl->r_conv[2]);
+		SPA_SWAP(impl->conv[1], impl->conv[2]);
 	}
-	impl->interpolate = impl->l_conv[0] && impl->l_conv[1];
+	impl->interpolate = impl->conv[0] && impl->conv[1];
 
 	return 0;
 }
@@ -235,6 +245,7 @@ static void spatializer_reload(void * Instance)
 	float left_delay;
 	float right_delay;
 	float coords[3];
+	struct convolver_ir ir[2];
 
 	for (uint8_t i = 0; i < 3; i++)
 		coords[i] = impl->port[3 + i][0];
@@ -257,10 +268,8 @@ static void spatializer_reload(void * Instance)
 	if ((left_delay != 0.0f || right_delay != 0.0f) && (!isnan(left_delay) || !isnan(right_delay)))
 		spa_log_warn(impl->log, "delay dropped l: %f, r: %f", left_delay, right_delay);
 
-	if (impl->l_conv[2])
-		convolver_free(impl->l_conv[2]);
-	if (impl->r_conv[2])
-		convolver_free(impl->r_conv[2]);
+	if (impl->conv[2])
+		convolver_free(impl->conv[2]);
 
 	if (impl->gain != 1.0f) {
 		for (int i = 0; i < impl->n_samples; i++) {
@@ -268,24 +277,25 @@ static void spatializer_reload(void * Instance)
 			right_ir[i] *= impl->gain;
 		}
 	}
+	ir[0].ir = left_ir;
+	ir[0].len = impl->n_samples;
+	ir[1].ir = right_ir;
+	ir[1].len = impl->n_samples;
 
-	impl->l_conv[2] = convolver_new(impl->dsp, impl->blocksize, impl->tailsize,
-			left_ir, impl->n_samples);
-	impl->r_conv[2] = convolver_new(impl->dsp, impl->blocksize, impl->tailsize,
-			right_ir, impl->n_samples);
+	impl->conv[2] = convolver_new_many(impl->dsp, impl->blocksize, impl->tailsize, ir, 2);
 
 	free(left_ir);
 	free(right_ir);
 
-	if (impl->l_conv[2] == NULL || impl->r_conv[2] == NULL) {
-		spa_log_error(impl->log, "reloading left or right convolver failed");
+	if (impl->conv[2] == NULL) {
+		spa_log_error(impl->log, "reloading convolver failed");
 		return;
 	}
 	spa_loop_locked(impl->plugin->data_loop, do_switch, 1, NULL, 0, impl);
 }
 
 struct free_data {
-	void *item[2];
+	void *item[1];
 };
 
 static int
@@ -295,8 +305,6 @@ do_free(struct spa_loop *loop, bool async, uint32_t seq, const void *data,
 	const struct free_data *fd = data;
 	if (fd->item[0])
 		convolver_free(fd->item[0]);
-	if (fd->item[1])
-		convolver_free(fd->item[1]);
 	return 0;
 }
 
@@ -309,29 +317,24 @@ static void spatializer_run(void * Instance, unsigned long SampleCount)
 		struct free_data free_data;
 		float *l = impl->tmp[0], *r = impl->tmp[1];
 
-		convolver_run(impl->l_conv[0], impl->port[2], impl->port[0], len);
-		convolver_run(impl->l_conv[1], impl->port[2], l, len);
-		convolver_run(impl->r_conv[0], impl->port[2], impl->port[1], len);
-		convolver_run(impl->r_conv[1], impl->port[2], r, len);
+		convolver_run_many(impl->conv[0], impl->port[2], &impl->port[0], len);
+		convolver_run_many(impl->conv[1], impl->port[2], impl->tmp, len);
 
 		for (uint32_t i = 0; i < SampleCount; i++) {
 			float t = (float)i / SampleCount;
 			impl->port[0][i] = impl->port[0][i] * (1.0f - t) + l[i] * t;
 			impl->port[1][i] = impl->port[1][i] * (1.0f - t) + r[i] * t;
 		}
-		free_data.item[0] = impl->l_conv[0];
-		free_data.item[1] = impl->r_conv[0];
-		impl->l_conv[0] = impl->l_conv[1];
-		impl->r_conv[0] = impl->r_conv[1];
-		impl->l_conv[1] = impl->r_conv[1] = NULL;
+		free_data.item[0] = impl->conv[0];
+		impl->conv[0] = impl->conv[1];
+		impl->conv[1] = NULL;
 		impl->interpolate = false;
 
 		spa_loop_invoke(impl->plugin->main_loop, do_free, 1, &free_data, sizeof(free_data), false, impl);
-	} else if (impl->l_conv[0] && impl->r_conv[0]) {
-		convolver_run(impl->l_conv[0], impl->port[2], impl->port[0], SampleCount);
-		convolver_run(impl->r_conv[0], impl->port[2], impl->port[1], SampleCount);
+	} else if (impl->conv[0]) {
+		convolver_run_many(impl->conv[0], impl->port[2], &impl->port[0], SampleCount);
 	}
-	impl->port[6][0] = impl->n_samples;
+	impl->port[6][0] = impl->latency;
 }
 
 static void spatializer_connect_port(void * Instance, unsigned long Port,
@@ -346,10 +349,8 @@ static void spatializer_cleanup(void * Instance)
 	struct spatializer_impl *impl = Instance;
 
 	for (uint8_t i = 0; i < 3; i++) {
-		if (impl->l_conv[i])
-			convolver_free(impl->l_conv[i]);
-		if (impl->r_conv[i])
-			convolver_free(impl->r_conv[i]);
+		if (impl->conv[i])
+			convolver_free(impl->conv[i]);
 	}
 	if (impl->sofa)
 		mysofa_close_cached(impl->sofa);
@@ -367,16 +368,14 @@ static void spatializer_control_changed(void * Instance)
 static void spatializer_activate(void * Instance)
 {
 	struct spatializer_impl *impl = Instance;
-	impl->port[6][0] = impl->n_samples;
+	impl->port[6][0] = impl->latency;
 }
 
 static void spatializer_deactivate(void * Instance)
 {
 	struct spatializer_impl *impl = Instance;
-	if (impl->l_conv[0])
-		convolver_reset(impl->l_conv[0]);
-	if (impl->r_conv[0])
-		convolver_reset(impl->r_conv[0]);
+	if (impl->conv[0])
+		convolver_reset(impl->conv[0]);
 	impl->interpolate = false;
 }
 

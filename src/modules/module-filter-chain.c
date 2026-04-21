@@ -761,6 +761,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *                 tailsize = ...
  *                 filename = ...
  *                 gain = ...
+ *                 latency = ...
  *             }
  *             control = {
  *                 "Azimuth" = ...
@@ -780,7 +781,8 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * - `tailsize`  specifies the size of the tail blocks to use in the FFT.
  * - `filename`  The SOFA file to load. SOFA files usually end in the .sofa extension
  *               and contain the HRTF for the various spatial positions.
- * - `gain`      the overall gain to apply to the IR file.
+ * - `gain`      the overall gain to apply to the IR file, default 1.0.
+ * - `latency`   the latency introduced by the filter, default 0
  *
  * - `Azimuth`   controls the azimuth, this is the direction the sound is coming from
  *               in degrees between 0 and 360. 0 is straight ahead. 90 is left, 180

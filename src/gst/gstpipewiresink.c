@@ -655,7 +655,7 @@ do_send_buffer (GstPipeWireSink *pwsink, GstBuffer *buffer)
       data->crop->region.position.x = meta->x;
       data->crop->region.position.y = meta->y;
       data->crop->region.size.width = meta->width;
-      data->crop->region.size.height = meta->width;
+      data->crop->region.size.height = meta->height;
     }
   }
   data->b->size = 0;

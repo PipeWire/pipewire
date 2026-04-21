@@ -816,7 +816,10 @@ on_state_changed (void *data, enum pw_stream_state old, enum pw_stream_state sta
     case PW_STREAM_STATE_ERROR:
       /* make the error permanent, if it is not already;
          pw_stream_set_error() will recursively call us again */
-      if (pw_stream_get_state (pwsink->stream->pwstream, NULL) != PW_STREAM_STATE_ERROR)
+      if (pwsink->mode == GST_PIPEWIRE_SINK_MODE_PROVIDE) {
+        /* don't make consumer errors fatal for the provider */
+        GST_WARNING_OBJECT (pwsink, "stream error in mode=provide (ignored): %s", error);
+      } else if (pw_stream_get_state (pwsink->stream->pwstream, NULL) != PW_STREAM_STATE_ERROR)
         pw_stream_set_error (pwsink->stream->pwstream, -EPIPE, "%s", error);
       else
         GST_ELEMENT_ERROR (pwsink, RESOURCE, FAILED,

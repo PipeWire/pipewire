@@ -12,7 +12,9 @@
 
 #include <spa/utils/defs.h>
 
-#ifndef HAVE_FFTW
+#ifdef HAVE_FFTW
+#include <fftw3.h>
+#else
 #include "pffft.h"
 #endif
 
@@ -682,34 +684,98 @@ void dsp_delay_sse(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer, u
 	*pos = w;
 }
 
+#define FFT_BLOCK	4
+
+#ifdef HAVE_FFTW
+struct fft_info {
+	fftwf_plan plan_r2c;
+	fftwf_plan plan_c2r;
+	uint32_t size;
+};
+
+/* interleaved [r0,i0,r1,i1,r2,i2,r3,i3] -> blocked [r0,r1,r2,r3,i0,i1,i2,i3] */
+static void fft_blocked_sse(float *data, uint32_t len)
+{
+	uint32_t i;
+	for (i = 0; i < len; i += FFT_BLOCK) {
+		__m128 v0 = _mm_load_ps(&data[0]);	/* r0 i0 r1 i1 */
+		__m128 v1 = _mm_load_ps(&data[4]);	/* r2 i2 r3 i3 */
+		_mm_store_ps(&data[0], _mm_shuffle_ps(v0, v1, _MM_SHUFFLE(2,0,2,0)));
+		_mm_store_ps(&data[4], _mm_shuffle_ps(v0, v1, _MM_SHUFFLE(3,1,3,1)));
+		data += 2 * FFT_BLOCK;
+	}
+}
+
+/* blocked [r0,r1,r2,r3,i0,i1,i2,i3] -> interleaved [r0,i0,r1,i1,r2,i2,r3,i3] */
+static void fft_interleaved_sse(float *data, uint32_t len)
+{
+	uint32_t i;
+	for (i = 0; i < len; i += FFT_BLOCK) {
+		__m128 r = _mm_load_ps(&data[0]);	/* r0 r1 r2 r3 */
+		__m128 im = _mm_load_ps(&data[4]);	/* i0 i1 i2 i3 */
+		_mm_store_ps(&data[0], _mm_unpacklo_ps(r, im));
+		_mm_store_ps(&data[4], _mm_unpackhi_ps(r, im));
+		data += 2 * FFT_BLOCK;
+	}
+}
+#endif
+
+void *dsp_fft_memalloc_sse(void *obj, uint32_t size, bool real)
+{
+#ifdef HAVE_FFTW
+	return fftwf_alloc_real(real ? size : SPA_ROUND_UP_N(size, FFT_BLOCK) * 2);
+#else
+	if (real)
+		return pffft_aligned_malloc(size * sizeof(float));
+	else
+		return pffft_aligned_malloc(size * 2 * sizeof(float));
+#endif
+}
+
+void dsp_fft_memclear_sse(void *obj, void *data, uint32_t size, bool real)
+{
+#ifdef HAVE_FFTW
+	spa_fga_dsp_clear(obj, data, real ? size : SPA_ROUND_UP_N(size, FFT_BLOCK) * 2);
+#else
+	spa_fga_dsp_clear(obj, data, real ? size : size * 2);
+#endif
+}
+
+void dsp_fft_run_sse(void *obj, void *fft, int direction,
+	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
+{
+#ifdef HAVE_FFTW
+	struct fft_info *info = fft;
+	uint32_t freq_size = SPA_ROUND_UP_N(info->size / 2 + 1, FFT_BLOCK);
+	if (direction > 0) {
+		fftwf_execute_dft_r2c(info->plan_r2c, (float*)src, (fftwf_complex*)dst);
+		fft_blocked_sse(dst, freq_size);
+	} else {
+		fft_interleaved_sse((float*)src, freq_size);
+		fftwf_execute_dft_c2r(info->plan_c2r, (fftwf_complex*)src, dst);
+	}
+#else
+	pffft_transform(fft, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
+#endif
+}
+
 void dsp_fft_cmul_sse(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
 #ifdef HAVE_FFTW
 	__m128 s = _mm_set1_ps(scale);
-	uint32_t i, plen = SPA_ROUND_UP_N(len, 8) * 2;
+	uint32_t i, plen = SPA_ROUND_UP_N(len, FFT_BLOCK) * 2;
 
-	for (i = 0; i < plen; i += 16) {
-		__m128 ar, ai, br, bi, dr, di;
-
-		ar = _mm_load_ps(&a[i]);
-		ai = _mm_load_ps(&a[i+8]);
-		br = _mm_load_ps(&b[i]);
-		bi = _mm_load_ps(&b[i+8]);
-		dr = _mm_sub_ps(_mm_mul_ps(ar, br), _mm_mul_ps(ai, bi));
-		di = _mm_add_ps(_mm_mul_ps(ar, bi), _mm_mul_ps(ai, br));
+	for (i = 0; i < plen; i += 2 * FFT_BLOCK) {
+		__m128 ar = _mm_load_ps(&a[i]);
+		__m128 ai = _mm_load_ps(&a[i + FFT_BLOCK]);
+		__m128 br = _mm_load_ps(&b[i]);
+		__m128 bi = _mm_load_ps(&b[i + FFT_BLOCK]);
+		__m128 dr = _mm_sub_ps(_mm_mul_ps(ar, br), _mm_mul_ps(ai, bi));
+		__m128 di = _mm_add_ps(_mm_mul_ps(ar, bi), _mm_mul_ps(ai, br));
 		_mm_store_ps(&dst[i], _mm_mul_ps(dr, s));
-		_mm_store_ps(&dst[i+8], _mm_mul_ps(di, s));
-
-		ar = _mm_load_ps(&a[i+4]);
-		ai = _mm_load_ps(&a[i+12]);
-		br = _mm_load_ps(&b[i+4]);
-		bi = _mm_load_ps(&b[i+12]);
-		dr = _mm_sub_ps(_mm_mul_ps(ar, br), _mm_mul_ps(ai, bi));
-		di = _mm_add_ps(_mm_mul_ps(ar, bi), _mm_mul_ps(ai, br));
-		_mm_store_ps(&dst[i+4], _mm_mul_ps(dr, s));
-		_mm_store_ps(&dst[i+12], _mm_mul_ps(di, s));
+		_mm_store_ps(&dst[i + FFT_BLOCK], _mm_mul_ps(di, s));
 	}
 #else
 	pffft_zconvolve(fft, a, b, dst, scale);
@@ -723,31 +789,18 @@ void dsp_fft_cmuladd_sse(void *obj, void *fft,
 {
 #ifdef HAVE_FFTW
 	__m128 s = _mm_set1_ps(scale);
-	uint32_t i, plen = SPA_ROUND_UP_N(len, 8) * 2;
+	uint32_t i, plen = SPA_ROUND_UP_N(len, FFT_BLOCK) * 2;
 
-	for (i = 0; i < plen; i += 16) {
-		__m128 ar, ai, br, bi, dr, di;
-
-		ar = _mm_load_ps(&a[i]);
-		ai = _mm_load_ps(&a[i+8]);
-		br = _mm_load_ps(&b[i]);
-		bi = _mm_load_ps(&b[i+8]);
-		dr = _mm_sub_ps(_mm_mul_ps(ar, br), _mm_mul_ps(ai, bi));
-		di = _mm_add_ps(_mm_mul_ps(ar, bi), _mm_mul_ps(ai, br));
+	for (i = 0; i < plen; i += 2 * FFT_BLOCK) {
+		__m128 ar = _mm_load_ps(&a[i]);
+		__m128 ai = _mm_load_ps(&a[i + FFT_BLOCK]);
+		__m128 br = _mm_load_ps(&b[i]);
+		__m128 bi = _mm_load_ps(&b[i + FFT_BLOCK]);
+		__m128 dr = _mm_sub_ps(_mm_mul_ps(ar, br), _mm_mul_ps(ai, bi));
+		__m128 di = _mm_add_ps(_mm_mul_ps(ar, bi), _mm_mul_ps(ai, br));
 		_mm_store_ps(&dst[i], _mm_add_ps(_mm_load_ps(&src[i]),
 					_mm_mul_ps(dr, s)));
-		_mm_store_ps(&dst[i+8], _mm_add_ps(_mm_load_ps(&src[i+8]),
-					_mm_mul_ps(di, s)));
-
-		ar = _mm_load_ps(&a[i+4]);
-		ai = _mm_load_ps(&a[i+12]);
-		br = _mm_load_ps(&b[i+4]);
-		bi = _mm_load_ps(&b[i+12]);
-		dr = _mm_sub_ps(_mm_mul_ps(ar, br), _mm_mul_ps(ai, bi));
-		di = _mm_add_ps(_mm_mul_ps(ar, bi), _mm_mul_ps(ai, br));
-		_mm_store_ps(&dst[i+4], _mm_add_ps(_mm_load_ps(&src[i+4]),
-					_mm_mul_ps(dr, s)));
-		_mm_store_ps(&dst[i+12], _mm_add_ps(_mm_load_ps(&src[i+12]),
+		_mm_store_ps(&dst[i + FFT_BLOCK], _mm_add_ps(_mm_load_ps(&src[i + FFT_BLOCK]),
 					_mm_mul_ps(di, s)));
 	}
 #else

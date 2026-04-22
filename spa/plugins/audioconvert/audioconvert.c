@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <sys/mman.h>
+#include <math.h>
 
 #include <spa/support/plugin.h>
 #include <spa/support/cpu.h>
@@ -1687,7 +1688,7 @@ static struct spa_pod *generate_ramp_seq(struct impl *this, struct volume_ramp_p
 
 	while (1) {
 		float pos = (samples == 0) ? end :
-			SPA_CLAMP(start + (end - start) * offs / samples,
+			SPA_CLAMPF(start + (end - start) * offs / samples,
 					SPA_MIN(start, end), SPA_MAX(start, end));
 		float vas = get_volume_at_scale(vrp, pos);
 
@@ -2496,7 +2497,7 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 			match_size = resample_out_len(&this->resample, size);
 		}
 
-		delay = (uint32_t)round(fdelay);
+		delay = lround(fdelay);
 		delay_frac = (int32_t)((fdelay - delay) * 1e9);
 	}
 	match_size -= SPA_MIN(match_size, queued);

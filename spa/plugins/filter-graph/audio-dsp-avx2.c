@@ -237,6 +237,104 @@ void dsp_sum_avx2(void *obj, float *r, const float *a, const float *b, uint32_t 
 	}
 }
 
+void dsp_mult_avx2(void *obj,
+		float * SPA_RESTRICT dst,
+		const float * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t n, i, unrolled;
+	__m256 in[4];
+
+	if (n_src == 0) {
+		memset(dst, 0, n_samples * sizeof(float));
+		return;
+	}
+
+	if (dst != src[0])
+		spa_memcpy(dst, src[0], n_samples * sizeof(float));
+
+	if (SPA_LIKELY(SPA_IS_ALIGNED(dst, 32))) {
+		unrolled = n_samples & ~31;
+		for (i = 1; i < n_src; i++) {
+			if (SPA_UNLIKELY(!SPA_IS_ALIGNED(src[i], 32))) {
+				unrolled = 0;
+				break;
+			}
+		}
+	} else
+		unrolled = 0;
+
+	for (i = 1; i < n_src; i++) {
+		for (n = 0; n < unrolled; n += 32) {
+			in[0] = _mm256_mul_ps(_mm256_load_ps(&dst[n+ 0]), _mm256_load_ps(&src[i][n+ 0]));
+			in[1] = _mm256_mul_ps(_mm256_load_ps(&dst[n+ 8]), _mm256_load_ps(&src[i][n+ 8]));
+			in[2] = _mm256_mul_ps(_mm256_load_ps(&dst[n+16]), _mm256_load_ps(&src[i][n+16]));
+			in[3] = _mm256_mul_ps(_mm256_load_ps(&dst[n+24]), _mm256_load_ps(&src[i][n+24]));
+			_mm256_store_ps(&dst[n+ 0], in[0]);
+			_mm256_store_ps(&dst[n+ 8], in[1]);
+			_mm256_store_ps(&dst[n+16], in[2]);
+			_mm256_store_ps(&dst[n+24], in[3]);
+		}
+		for (; n < n_samples; n++)
+			dst[n] *= src[i][n];
+	}
+}
+
+void dsp_linear_avx2(void *obj, float * dst,
+		const float * SPA_RESTRICT src, const float mult,
+		const float add, uint32_t n_samples)
+{
+	uint32_t n, unrolled;
+	__m256 m, a;
+
+	if (mult == 0.0f) {
+		a = _mm256_set1_ps(add);
+		unrolled = n_samples & ~31;
+		for (n = 0; n < unrolled; n += 32) {
+			_mm256_storeu_ps(&dst[n+ 0], a);
+			_mm256_storeu_ps(&dst[n+ 8], a);
+			_mm256_storeu_ps(&dst[n+16], a);
+			_mm256_storeu_ps(&dst[n+24], a);
+		}
+		for (; n < n_samples; n++)
+			dst[n] = add;
+		return;
+	}
+
+	if (SPA_LIKELY(SPA_IS_ALIGNED(src, 32) && SPA_IS_ALIGNED(dst, 32)))
+		unrolled = n_samples & ~31;
+	else
+		unrolled = 0;
+
+	m = _mm256_set1_ps(mult);
+
+	if (add == 0.0f) {
+		if (mult == 1.0f) {
+			if (dst != src)
+				spa_memcpy(dst, src, n_samples * sizeof(float));
+			return;
+		}
+		for (n = 0; n < unrolled; n += 32) {
+			_mm256_store_ps(&dst[n+ 0], _mm256_mul_ps(m, _mm256_load_ps(&src[n+ 0])));
+			_mm256_store_ps(&dst[n+ 8], _mm256_mul_ps(m, _mm256_load_ps(&src[n+ 8])));
+			_mm256_store_ps(&dst[n+16], _mm256_mul_ps(m, _mm256_load_ps(&src[n+16])));
+			_mm256_store_ps(&dst[n+24], _mm256_mul_ps(m, _mm256_load_ps(&src[n+24])));
+		}
+		for (; n < n_samples; n++)
+			dst[n] = mult * src[n];
+	} else {
+		a = _mm256_set1_ps(add);
+		for (n = 0; n < unrolled; n += 32) {
+			_mm256_store_ps(&dst[n+ 0], _mm256_fmadd_ps(m, _mm256_load_ps(&src[n+ 0]), a));
+			_mm256_store_ps(&dst[n+ 8], _mm256_fmadd_ps(m, _mm256_load_ps(&src[n+ 8]), a));
+			_mm256_store_ps(&dst[n+16], _mm256_fmadd_ps(m, _mm256_load_ps(&src[n+16]), a));
+			_mm256_store_ps(&dst[n+24], _mm256_fmadd_ps(m, _mm256_load_ps(&src[n+24]), a));
+		}
+		for (; n < n_samples; n++)
+			dst[n] = mult * src[n] + add;
+	}
+}
+
 #define FFT_BLOCK	8
 
 struct fft_info {

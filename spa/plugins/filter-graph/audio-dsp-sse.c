@@ -615,6 +615,104 @@ void dsp_biquad_run_sse(void *obj, struct biquad *bq, uint32_t n_bq, uint32_t bq
 	}
 }
 
+void dsp_mult_sse(void *obj,
+		float * SPA_RESTRICT dst,
+		const float * SPA_RESTRICT src[],
+		uint32_t n_src, uint32_t n_samples)
+{
+	uint32_t n, i, unrolled;
+	__m128 in[4];
+
+	if (n_src == 0) {
+		memset(dst, 0, n_samples * sizeof(float));
+		return;
+	}
+
+	if (dst != src[0])
+		spa_memcpy(dst, src[0], n_samples * sizeof(float));
+
+	if (SPA_LIKELY(SPA_IS_ALIGNED(dst, 16))) {
+		unrolled = n_samples & ~15;
+		for (i = 1; i < n_src; i++) {
+			if (SPA_UNLIKELY(!SPA_IS_ALIGNED(src[i], 16))) {
+				unrolled = 0;
+				break;
+			}
+		}
+	} else
+		unrolled = 0;
+
+	for (i = 1; i < n_src; i++) {
+		for (n = 0; n < unrolled; n += 16) {
+			in[0] = _mm_mul_ps(_mm_load_ps(&dst[n+ 0]), _mm_load_ps(&src[i][n+ 0]));
+			in[1] = _mm_mul_ps(_mm_load_ps(&dst[n+ 4]), _mm_load_ps(&src[i][n+ 4]));
+			in[2] = _mm_mul_ps(_mm_load_ps(&dst[n+ 8]), _mm_load_ps(&src[i][n+ 8]));
+			in[3] = _mm_mul_ps(_mm_load_ps(&dst[n+12]), _mm_load_ps(&src[i][n+12]));
+			_mm_store_ps(&dst[n+ 0], in[0]);
+			_mm_store_ps(&dst[n+ 4], in[1]);
+			_mm_store_ps(&dst[n+ 8], in[2]);
+			_mm_store_ps(&dst[n+12], in[3]);
+		}
+		for (; n < n_samples; n++)
+			dst[n] *= src[i][n];
+	}
+}
+
+void dsp_linear_sse(void *obj, float * dst,
+		const float * SPA_RESTRICT src, const float mult,
+		const float add, uint32_t n_samples)
+{
+	uint32_t n, unrolled;
+	__m128 m, a;
+
+	if (mult == 0.0f) {
+		a = _mm_set1_ps(add);
+		unrolled = n_samples & ~15;
+		for (n = 0; n < unrolled; n += 16) {
+			_mm_storeu_ps(&dst[n+ 0], a);
+			_mm_storeu_ps(&dst[n+ 4], a);
+			_mm_storeu_ps(&dst[n+ 8], a);
+			_mm_storeu_ps(&dst[n+12], a);
+		}
+		for (; n < n_samples; n++)
+			dst[n] = add;
+		return;
+	}
+
+	if (SPA_LIKELY(SPA_IS_ALIGNED(src, 16) && SPA_IS_ALIGNED(dst, 16)))
+		unrolled = n_samples & ~15;
+	else
+		unrolled = 0;
+
+	m = _mm_set1_ps(mult);
+
+	if (add == 0.0f) {
+		if (mult == 1.0f) {
+			if (dst != src)
+				spa_memcpy(dst, src, n_samples * sizeof(float));
+			return;
+		}
+		for (n = 0; n < unrolled; n += 16) {
+			_mm_store_ps(&dst[n+ 0], _mm_mul_ps(m, _mm_load_ps(&src[n+ 0])));
+			_mm_store_ps(&dst[n+ 4], _mm_mul_ps(m, _mm_load_ps(&src[n+ 4])));
+			_mm_store_ps(&dst[n+ 8], _mm_mul_ps(m, _mm_load_ps(&src[n+ 8])));
+			_mm_store_ps(&dst[n+12], _mm_mul_ps(m, _mm_load_ps(&src[n+12])));
+		}
+		for (; n < n_samples; n++)
+			dst[n] = mult * src[n];
+	} else {
+		a = _mm_set1_ps(add);
+		for (n = 0; n < unrolled; n += 16) {
+			_mm_store_ps(&dst[n+ 0], _mm_add_ps(_mm_mul_ps(m, _mm_load_ps(&src[n+ 0])), a));
+			_mm_store_ps(&dst[n+ 4], _mm_add_ps(_mm_mul_ps(m, _mm_load_ps(&src[n+ 4])), a));
+			_mm_store_ps(&dst[n+ 8], _mm_add_ps(_mm_mul_ps(m, _mm_load_ps(&src[n+ 8])), a));
+			_mm_store_ps(&dst[n+12], _mm_add_ps(_mm_mul_ps(m, _mm_load_ps(&src[n+12])), a));
+		}
+		for (; n < n_samples; n++)
+			dst[n] = mult * src[n] + add;
+	}
+}
+
 void dsp_delay_sse(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer, uint32_t delay,
 		float *dst, const float *src, uint32_t n_samples, float fb, float ff)
 {

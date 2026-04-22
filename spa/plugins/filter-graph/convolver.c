@@ -39,8 +39,6 @@ struct partition {
 	struct ir *ir;
 	int time_idx;
 	int precalc_idx;
-
-	float scale;
 };
 
 struct convolver
@@ -191,7 +189,6 @@ static struct partition *partition_new(struct convolver *conv, int block,
 		        spa_fga_dsp_fft_run(dsp, part->fft, 1, r->time_buffer[0], r->segments[j]);
 		}
 	}
-	part->scale = 1.0f / part->time_size;
 	partition_reset(dsp, part);
 
 	return part;
@@ -218,7 +215,7 @@ static int partition_run(struct spa_fga_dsp *dsp, struct partition *part, const 
 				part->freq,
 				part->segments[current],
 				r->segments[0],
-				part->freq_size, part->scale);
+				part->freq_size);
 
 		for (j = 1; j < part->n_segments; j++) {
 			if (++current == part->n_segments)
@@ -229,7 +226,7 @@ static int partition_run(struct spa_fga_dsp *dsp, struct partition *part, const 
 					part->freq,
 					part->segments[current],
 					r->segments[j],
-					part->freq_size, part->scale);
+					part->freq_size);
 		}
 		spa_fga_dsp_fft_run(dsp, part->ifft, -1, part->freq, r->time_buffer[idx]);
 

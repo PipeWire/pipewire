@@ -50,12 +50,12 @@ void dsp_fft_run_##arch(void *obj, void *fft, int direction, \
 #define MAKE_FFT_CMUL_FUNC(arch) \
 void dsp_fft_cmul_##arch(void *obj, void *fft, \
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a, \
-	const float * SPA_RESTRICT b, uint32_t len, const float scale)
+	const float * SPA_RESTRICT b, uint32_t len)
 #define MAKE_FFT_CMULADD_FUNC(arch) \
 void dsp_fft_cmuladd_##arch(void *obj, void *fft,		\
 	float * dst, const float * src,					\
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,	\
-	uint32_t len, const float scale)
+	uint32_t len)
 
 
 MAKE_CLEAR_FUNC(c);

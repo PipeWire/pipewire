@@ -239,12 +239,17 @@ void dsp_sum_avx2(void *obj, float *r, const float *a, const float *b, uint32_t 
 
 #define FFT_BLOCK	8
 
-#ifdef HAVE_FFTW
 struct fft_info {
+#ifdef HAVE_FFTW
 	fftwf_plan plan_r2c;
 	fftwf_plan plan_c2r;
+#else
+	void *setup;
+#endif
 	uint32_t size;
 };
+
+#ifdef HAVE_FFTW
 
 /* interleaved [r0,i0,...,r7,i7] -> blocked [r0..r7,i0..i7] */
 static void fft_blocked_avx2(float *data, uint32_t len)
@@ -262,16 +267,17 @@ static void fft_blocked_avx2(float *data, uint32_t len)
 	}
 }
 
-/* blocked [r0..r7,i0..i7] -> interleaved [r0,i0,...,r7,i7] */
-static void fft_interleaved_avx2(float *data, uint32_t len)
+/* blocked [r0..r7,i0..i7] -> interleaved [r0,i0,...,r7,i7] with scaling */
+static void fft_interleaved_avx2(float *data, uint32_t len, float scale)
 {
 	const __m256i idx = _mm256_setr_epi32(0,4,1,5,2,6,3,7);
+	__m256 s = _mm256_set1_ps(scale);
 	uint32_t i;
 	for (i = 0; i < len; i += FFT_BLOCK) {
-		__m256 r = _mm256_load_ps(&data[0]);	/* r0 r1 r2 r3 r4 r5 r6 r7 */
-		__m256 im = _mm256_load_ps(&data[8]);	/* i0 i1 i2 i3 i4 i5 i6 i7 */
-		__m256 t0 = _mm256_permute2f128_ps(r, im, 0x20); /* r0 r1 r2 r3 i0 i1 i2 i3 */
-		__m256 t1 = _mm256_permute2f128_ps(r, im, 0x31); /* r4 r5 r6 r7 i4 i5 i6 i7 */
+		__m256 r = _mm256_mul_ps(_mm256_load_ps(&data[0]), s);
+		__m256 im = _mm256_mul_ps(_mm256_load_ps(&data[8]), s);
+		__m256 t0 = _mm256_permute2f128_ps(r, im, 0x20);
+		__m256 t1 = _mm256_permute2f128_ps(r, im, 0x31);
 		_mm256_store_ps(&data[0], _mm256_permutevar8x32_ps(t0, idx));
 		_mm256_store_ps(&data[8], _mm256_permutevar8x32_ps(t1, idx));
 		data += 2 * FFT_BLOCK;
@@ -303,27 +309,29 @@ void dsp_fft_memclear_avx2(void *obj, void *data, uint32_t size, bool real)
 void dsp_fft_run_avx2(void *obj, void *fft, int direction,
 	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
 {
-#ifdef HAVE_FFTW
 	struct fft_info *info = fft;
+#ifdef HAVE_FFTW
 	uint32_t freq_size = SPA_ROUND_UP_N(info->size / 2 + 1, FFT_BLOCK);
 	if (direction > 0) {
 		fftwf_execute_dft_r2c(info->plan_r2c, (float*)src, (fftwf_complex*)dst);
 		fft_blocked_avx2(dst, freq_size);
 	} else {
-		fft_interleaved_avx2((float*)src, freq_size);
+		fft_interleaved_avx2((float*)src, freq_size, 1.0f / info->size);
 		fftwf_execute_dft_c2r(info->plan_c2r, (fftwf_complex*)src, dst);
 	}
 #else
-	pffft_transform(fft, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
+	if (direction < 0)
+		spa_fga_dsp_linear(obj, (float*)src, (float*)src,
+				1.0f / info->size, 0.0f, info->size);
+	pffft_transform(info->setup, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
 #endif
 }
 
 void dsp_fft_cmul_avx2(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
-	const float * SPA_RESTRICT b, uint32_t len, const float scale)
+	const float * SPA_RESTRICT b, uint32_t len)
 {
 #ifdef HAVE_FFTW
-	__m256 s = _mm256_set1_ps(scale);
 	uint32_t i, plen = SPA_ROUND_UP_N(len, 8) * 2;
 
 	for (i = 0; i < plen; i += 16) {
@@ -335,21 +343,21 @@ void dsp_fft_cmul_avx2(void *obj, void *fft,
 		__m256 di = _mm256_mul_ps(ar, bi);
 		dr = _mm256_fnmadd_ps(ai, bi, dr);	/* ar*br - ai*bi */
 		di = _mm256_fmadd_ps(ai, br, di);	/* ar*bi + ai*br */
-		_mm256_store_ps(&dst[i], _mm256_mul_ps(dr, s));
-		_mm256_store_ps(&dst[i+8], _mm256_mul_ps(di, s));
+		_mm256_store_ps(&dst[i], dr);
+		_mm256_store_ps(&dst[i+8], di);
 	}
 #else
-	pffft_zconvolve(fft, a, b, dst, scale);
+	struct fft_info *info = fft;
+	pffft_zconvolve(info->setup, a, b, dst, 1.0f);
 #endif
 }
 
 void dsp_fft_cmuladd_avx2(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT src,
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
-	uint32_t len, const float scale)
+	uint32_t len)
 {
 #ifdef HAVE_FFTW
-	__m256 s = _mm256_set1_ps(scale);
 	uint32_t i, plen = SPA_ROUND_UP_N(len, 8) * 2;
 
 	for (i = 0; i < plen; i += 16) {
@@ -361,12 +369,13 @@ void dsp_fft_cmuladd_avx2(void *obj, void *fft,
 		__m256 di = _mm256_mul_ps(ar, bi);
 		dr = _mm256_fnmadd_ps(ai, bi, dr);	/* ar*br - ai*bi */
 		di = _mm256_fmadd_ps(ai, br, di);	/* ar*bi + ai*br */
-		_mm256_store_ps(&dst[i], _mm256_fmadd_ps(dr, s,
+		_mm256_store_ps(&dst[i], _mm256_add_ps(dr,
 					_mm256_load_ps(&src[i])));
-		_mm256_store_ps(&dst[i+8], _mm256_fmadd_ps(di, s,
+		_mm256_store_ps(&dst[i+8], _mm256_add_ps(di,
 					_mm256_load_ps(&src[i+8])));
 	}
 #else
-	pffft_zconvolve_accumulate(fft, a, b, src, dst, scale);
+	struct fft_info *info = fft;
+	pffft_zconvolve_accumulate(info->setup, a, b, src, dst, 1.0f);
 #endif
 }

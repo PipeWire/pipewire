@@ -235,51 +235,55 @@ void dsp_delay_c(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer,
 	}
 }
 
-#ifdef HAVE_FFTW
 struct fft_info {
+#ifdef HAVE_FFTW
 	fftwf_plan plan_r2c;
 	fftwf_plan plan_c2r;
+#else
+	void *setup;
+#endif
 	uint32_t size;
 };
-#endif
 
 void *dsp_fft_new_c(void *obj, uint32_t size, bool real)
 {
-#ifdef HAVE_FFTW
 	struct fft_info *info = calloc(1, sizeof(struct fft_info));
-	float *rdata;
-	fftwf_complex *cdata;
 
 	if (info == NULL)
 		return NULL;
 
 	info->size = size;
 
-	rdata = fftwf_alloc_real(size * 2);
-	cdata = fftwf_alloc_complex(size + 1);
+#ifdef HAVE_FFTW
+	{
+		float *rdata;
+		fftwf_complex *cdata;
 
-	info->plan_r2c = fftwf_plan_dft_r2c_1d(size, rdata, cdata, FFTW_ESTIMATE);
-	info->plan_c2r = fftwf_plan_dft_c2r_1d(size, cdata, rdata, FFTW_ESTIMATE);
+		rdata = fftwf_alloc_real(size * 2);
+		cdata = fftwf_alloc_complex(size + 1);
 
-	fftwf_free(rdata);
-	fftwf_free(cdata);
+		info->plan_r2c = fftwf_plan_dft_r2c_1d(size, rdata, cdata, FFTW_ESTIMATE);
+		info->plan_c2r = fftwf_plan_dft_c2r_1d(size, cdata, rdata, FFTW_ESTIMATE);
 
-	return info;
+		fftwf_free(rdata);
+		fftwf_free(cdata);
+	}
 #else
-	return pffft_new_setup(size, real ? PFFFT_REAL : PFFFT_COMPLEX);
+	info->setup = pffft_new_setup(size, real ? PFFFT_REAL : PFFFT_COMPLEX);
 #endif
+	return info;
 }
 
 void dsp_fft_free_c(void *obj, void *fft)
 {
-#ifdef HAVE_FFTW
 	struct fft_info *info = fft;
+#ifdef HAVE_FFTW
 	fftwf_destroy_plan(info->plan_r2c);
 	fftwf_destroy_plan(info->plan_c2r);
-	free(info);
 #else
-	pffft_destroy_setup(fft);
+	pffft_destroy_setup(info->setup);
 #endif
+	free(info);
 }
 
 void *dsp_fft_memalloc_c(void *obj, uint32_t size, bool real)
@@ -318,43 +322,51 @@ void dsp_fft_memclear_c(void *obj, void *data, uint32_t size, bool real)
 void dsp_fft_run_c(void *obj, void *fft, int direction,
 	const float * SPA_RESTRICT src, float * SPA_RESTRICT dst)
 {
-#ifdef HAVE_FFTW
 	struct fft_info *info = fft;
-	if (direction > 0)
+#ifdef HAVE_FFTW
+	if (direction > 0) {
 		fftwf_execute_dft_r2c(info->plan_r2c, (float*)src, (fftwf_complex*)dst);
-	else
+	} else {
+		spa_fga_dsp_linear(obj, (float*)src, (float*)src,
+				1.0f / info->size, 0.0f, (info->size / 2 + 1) * 2);
 		fftwf_execute_dft_c2r(info->plan_c2r, (fftwf_complex*)src, dst);
+	}
 #else
-	pffft_transform(fft, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
+	if (direction < 0)
+		spa_fga_dsp_linear(obj, (float*)src, (float*)src,
+				1.0f / info->size, 0.0f, info->size);
+	pffft_transform(info->setup, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
 #endif
 }
 
 void dsp_fft_cmul_c(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
-	const float * SPA_RESTRICT b, uint32_t len, const float scale)
+	const float * SPA_RESTRICT b, uint32_t len)
 {
 #ifdef HAVE_FFTW
 	for (uint32_t i = 0; i < len; i++) {
-		dst[2*i  ] = (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
-		dst[2*i+1] = (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+		dst[2*i  ] = a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1];
+		dst[2*i+1] = a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ];
 	}
 #else
-	pffft_zconvolve(fft, a, b, dst, scale);
+	struct fft_info *info = fft;
+	pffft_zconvolve(info->setup, a, b, dst, 1.0f);
 #endif
 }
 
 void dsp_fft_cmuladd_c(void *obj, void *fft,
 	float * SPA_RESTRICT dst, const float * SPA_RESTRICT src,
 	const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
-	uint32_t len, const float scale)
+	uint32_t len)
 {
 #ifdef HAVE_FFTW
 	for (uint32_t i = 0; i < len; i++) {
-		dst[2*i  ] = src[2*i  ] + (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
-		dst[2*i+1] = src[2*i+1] + (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+		dst[2*i  ] = src[2*i  ] + a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1];
+		dst[2*i+1] = src[2*i+1] + a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ];
 	}
 #else
-	pffft_zconvolve_accumulate(fft, a, b, src, dst, scale);
+	struct fft_info *info = fft;
+	pffft_zconvolve_accumulate(info->setup, a, b, src, dst, 1.0f);
 #endif
 }
 

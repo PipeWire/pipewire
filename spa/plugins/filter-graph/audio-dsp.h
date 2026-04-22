@@ -43,11 +43,11 @@ struct spa_fga_dsp_methods {
 			const float * SPA_RESTRICT src, float * SPA_RESTRICT dst);
 	void (*fft_cmul) (void *obj, void *fft,
 			float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
-			const float * SPA_RESTRICT b, uint32_t len, const float scale);
+			const float * SPA_RESTRICT b, uint32_t len);
 	void (*fft_cmuladd) (void *obj, void *fft,
 			float * dst, const float * src,
 			const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
-			uint32_t len, const float scale);
+			uint32_t len);
 	void (*linear) (void *obj,
 			float * dst, const float * SPA_RESTRICT src,
 			const float mult, const float add, uint32_t n_samples);
@@ -123,18 +123,18 @@ static inline void spa_fga_dsp_fft_run(struct spa_fga_dsp *obj, void *fft, int d
 }
 static inline void spa_fga_dsp_fft_cmul(struct spa_fga_dsp *obj, void *fft,
 		float * SPA_RESTRICT dst, const float * SPA_RESTRICT a,
-		const float * SPA_RESTRICT b, uint32_t len, const float scale)
+		const float * SPA_RESTRICT b, uint32_t len)
 {
 	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_cmul, 0,
-			fft, dst, a, b, len, scale);
+			fft, dst, a, b, len);
 }
 static inline void spa_fga_dsp_fft_cmuladd(struct spa_fga_dsp *obj, void *fft,
 		float * dst, const float * src,
 		const float * SPA_RESTRICT a, const float * SPA_RESTRICT b,
-		uint32_t len, const float scale)
+		uint32_t len)
 {
 	spa_api_method_v(spa_fga_dsp, &obj->iface, fft_cmuladd, 0,
-			fft, dst, src, a, b, len, scale);
+			fft, dst, src, a, b, len);
 }
 static inline void spa_fga_dsp_linear(struct spa_fga_dsp *obj,
 		float * dst, const float * SPA_RESTRICT src,

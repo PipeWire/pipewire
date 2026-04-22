@@ -345,6 +345,7 @@ struct fft_info {
 	void *setup;
 #endif
 	uint32_t size;
+	float scale;
 };
 
 #ifdef HAVE_FFTW
@@ -414,13 +415,13 @@ void dsp_fft_run_avx2(void *obj, void *fft, int direction,
 		fftwf_execute_dft_r2c(info->plan_r2c, (float*)src, (fftwf_complex*)dst);
 		fft_blocked_avx2(dst, freq_size);
 	} else {
-		fft_interleaved_avx2((float*)src, freq_size, 1.0f / info->size);
+		fft_interleaved_avx2((float*)src, freq_size, info->scale);
 		fftwf_execute_dft_c2r(info->plan_c2r, (fftwf_complex*)src, dst);
 	}
 #else
 	if (direction < 0)
 		spa_fga_dsp_linear(obj, (float*)src, (float*)src,
-				1.0f / info->size, 0.0f, info->size);
+				info->scale, 0.0f, info->size);
 	pffft_transform(info->setup, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
 #endif
 }

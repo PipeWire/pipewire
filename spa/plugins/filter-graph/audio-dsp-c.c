@@ -243,6 +243,7 @@ struct fft_info {
 	void *setup;
 #endif
 	uint32_t size;
+	float scale;
 };
 
 void *dsp_fft_new_c(void *obj, uint32_t size, bool real)
@@ -253,6 +254,7 @@ void *dsp_fft_new_c(void *obj, uint32_t size, bool real)
 		return NULL;
 
 	info->size = size;
+	info->scale = 1.0f / size;
 
 #ifdef HAVE_FFTW
 	{
@@ -328,13 +330,13 @@ void dsp_fft_run_c(void *obj, void *fft, int direction,
 		fftwf_execute_dft_r2c(info->plan_r2c, (float*)src, (fftwf_complex*)dst);
 	} else {
 		spa_fga_dsp_linear(obj, (float*)src, (float*)src,
-				1.0f / info->size, 0.0f, (info->size / 2 + 1) * 2);
+				info->scale, 0.0f, (info->size / 2 + 1) * 2);
 		fftwf_execute_dft_c2r(info->plan_c2r, (fftwf_complex*)src, dst);
 	}
 #else
 	if (direction < 0)
 		spa_fga_dsp_linear(obj, (float*)src, (float*)src,
-				1.0f / info->size, 0.0f, info->size);
+				info->scale, 0.0f, info->size);
 	pffft_transform(info->setup, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
 #endif
 }

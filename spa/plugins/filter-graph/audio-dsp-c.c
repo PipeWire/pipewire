@@ -235,11 +235,44 @@ void dsp_delay_c(void *obj, float *buffer, uint32_t *pos, uint32_t n_buffer,
 	}
 }
 
+#define FFT_BLOCK	8
+
 #ifdef HAVE_FFTW
 struct fft_info {
 	fftwf_plan plan_r2c;
 	fftwf_plan plan_c2r;
+	uint32_t size;
 };
+
+/* interleaved [r0,i0,r1,i1,...] -> blocked [r0..r7,i0..i7,r8..r15,i8..i15,...] */
+static void fft_blocked(float *data, uint32_t len)
+{
+	float tmp[2 * FFT_BLOCK];
+	uint32_t i, j;
+	for (i = 0; i < len; i += FFT_BLOCK) {
+		memcpy(tmp, data, 2 * FFT_BLOCK * sizeof(float));
+		for (j = 0; j < FFT_BLOCK; j++) {
+			data[j]           = tmp[2*j];
+			data[FFT_BLOCK+j] = tmp[2*j+1];
+		}
+		data += 2 * FFT_BLOCK;
+	}
+}
+
+/* blocked [r0..r7,i0..i7,...] -> interleaved [r0,i0,r1,i1,...] */
+static void fft_interleaved(float *data, uint32_t len)
+{
+	float tmp[2 * FFT_BLOCK];
+	uint32_t i, j;
+	for (i = 0; i < len; i += FFT_BLOCK) {
+		memcpy(tmp, data, 2 * FFT_BLOCK * sizeof(float));
+		for (j = 0; j < FFT_BLOCK; j++) {
+			data[2*j]   = tmp[j];
+			data[2*j+1] = tmp[FFT_BLOCK+j];
+		}
+		data += 2 * FFT_BLOCK;
+	}
+}
 #endif
 
 void *dsp_fft_new_c(void *obj, uint32_t size, bool real)
@@ -251,6 +284,8 @@ void *dsp_fft_new_c(void *obj, uint32_t size, bool real)
 
 	if (info == NULL)
 		return NULL;
+
+	info->size = size;
 
 	rdata = fftwf_alloc_real(size * 2);
 	cdata = fftwf_alloc_complex(size + 1);
@@ -282,10 +317,7 @@ void dsp_fft_free_c(void *obj, void *fft)
 void *dsp_fft_memalloc_c(void *obj, uint32_t size, bool real)
 {
 #ifdef HAVE_FFTW
-	if (real)
-		return fftwf_alloc_real(size);
-	else
-		return fftwf_alloc_complex(size);
+	return fftwf_alloc_real(real ? size : SPA_ROUND_UP_N(size, FFT_BLOCK) * 2);
 #else
 	if (real)
 		return pffft_aligned_malloc(size * sizeof(float));
@@ -306,7 +338,7 @@ void dsp_fft_memfree_c(void *obj, void *data)
 void dsp_fft_memclear_c(void *obj, void *data, uint32_t size, bool real)
 {
 #ifdef HAVE_FFTW
-	spa_fga_dsp_clear(obj, data, real ? size : size * 2);
+	spa_fga_dsp_clear(obj, data, real ? size : SPA_ROUND_UP_N(size, FFT_BLOCK) * 2);
 #else
 	spa_fga_dsp_clear(obj, data, real ? size : size * 2);
 #endif
@@ -317,10 +349,14 @@ void dsp_fft_run_c(void *obj, void *fft, int direction,
 {
 #ifdef HAVE_FFTW
 	struct fft_info *info = fft;
-	if (direction > 0)
-		fftwf_execute_dft_r2c (info->plan_r2c, (float*)src, (fftwf_complex*)dst);
-	else
-		fftwf_execute_dft_c2r (info->plan_c2r, (fftwf_complex*)src, dst);
+	uint32_t freq_size = SPA_ROUND_UP_N(info->size / 2 + 1, FFT_BLOCK);
+	if (direction > 0) {
+		fftwf_execute_dft_r2c(info->plan_r2c, (float*)src, (fftwf_complex*)dst);
+		fft_blocked(dst, freq_size);
+	} else {
+		fft_interleaved((float*)src, freq_size);
+		fftwf_execute_dft_c2r(info->plan_c2r, (fftwf_complex*)src, dst);
+	}
 #else
 	pffft_transform(fft, src, dst, NULL, direction < 0 ? PFFFT_BACKWARD : PFFFT_FORWARD);
 #endif
@@ -331,9 +367,17 @@ void dsp_fft_cmul_c(void *obj, void *fft,
 	const float * SPA_RESTRICT b, uint32_t len, const float scale)
 {
 #ifdef HAVE_FFTW
-	for (uint32_t i = 0; i < len; i++) {
-		dst[2*i  ] = (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
-		dst[2*i+1] = (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+	uint32_t i, j, plen = SPA_ROUND_UP_N(len, FFT_BLOCK);
+	for (i = 0; i < plen; i += FFT_BLOCK) {
+		for (j = 0; j < FFT_BLOCK; j++) {
+			float ar = a[j], ai = a[FFT_BLOCK+j];
+			float br = b[j], bi = b[FFT_BLOCK+j];
+			dst[j]           = (ar * br - ai * bi) * scale;
+			dst[FFT_BLOCK+j] = (ar * bi + ai * br) * scale;
+		}
+		a += 2 * FFT_BLOCK;
+		b += 2 * FFT_BLOCK;
+		dst += 2 * FFT_BLOCK;
 	}
 #else
 	pffft_zconvolve(fft, a, b, dst, scale);
@@ -346,9 +390,18 @@ void dsp_fft_cmuladd_c(void *obj, void *fft,
 	uint32_t len, const float scale)
 {
 #ifdef HAVE_FFTW
-	for (uint32_t i = 0; i < len; i++) {
-		dst[2*i  ] = src[2*i  ] + (a[2*i] * b[2*i  ] - a[2*i+1] * b[2*i+1]) * scale;
-		dst[2*i+1] = src[2*i+1] + (a[2*i] * b[2*i+1] + a[2*i+1] * b[2*i  ]) * scale;
+	uint32_t i, j, plen = SPA_ROUND_UP_N(len, FFT_BLOCK);
+	for (i = 0; i < plen; i += FFT_BLOCK) {
+		for (j = 0; j < FFT_BLOCK; j++) {
+			float ar = a[j], ai = a[FFT_BLOCK+j];
+			float br = b[j], bi = b[FFT_BLOCK+j];
+			dst[j]           = src[j]           + (ar * br - ai * bi) * scale;
+			dst[FFT_BLOCK+j] = src[FFT_BLOCK+j] + (ar * bi + ai * br) * scale;
+		}
+		a += 2 * FFT_BLOCK;
+		b += 2 * FFT_BLOCK;
+		src += 2 * FFT_BLOCK;
+		dst += 2 * FFT_BLOCK;
 	}
 #else
 	pffft_zconvolve_accumulate(fft, a, b, src, dst, scale);

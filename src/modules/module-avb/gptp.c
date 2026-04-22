@@ -18,6 +18,8 @@
 #include <spa/utils/hook.h>
 #include <time.h>
 
+#define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
+#define server_emit_gm_changed(s, n, g)	server_emit(s, gm_changed, 0, n, g)
 
 struct gptp {
 	struct server *server;
@@ -207,8 +209,13 @@ static bool update_ts_refclk(struct gptp *gptp) {
 	// When GM is not equal to own clock we are clocked by external master
 	pw_log_debug("Synced to GM: %s", (memcmp(cid, gmid, 8) != 0) ? "true" : "false");
 
+	struct timespec now;
 	memcpy(gptp->clock_id, cid, 8);
 	memcpy(gptp->gm_id, gmid, 8);
+
+	clock_gettime(CLOCK_REALTIME, &now);
+	server_emit_gm_changed(gptp->server, SPA_TIMESPEC_TO_NSEC(&now), gmid);
+
 	return gmid_changed;
 }
 

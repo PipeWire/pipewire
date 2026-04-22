@@ -61,6 +61,8 @@ struct server_events {
 	void (*periodic) (void *data, uint64_t now);
 
 	int (*command) (void *data, uint64_t now, const char *command, const char *args, FILE *out);
+
+	void (*gm_changed) (void *data, uint64_t now, uint8_t gm_id[8]);
 };
 
 struct descriptor {

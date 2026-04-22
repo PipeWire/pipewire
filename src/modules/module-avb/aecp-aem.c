@@ -100,10 +100,16 @@ static int handle_read_descriptor_common(struct aecp *aecp, int64_t now, const v
 	if (desc == NULL)
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	memcpy(buf, m, len);
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
 	psize = sizeof(*rd);
 	size = sizeof(*h) + sizeof(*reply) + psize;
+
+	if (desc->size > sizeof(buf) || size > sizeof(buf) - desc->size)
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_RESOURCES, m, len);
+
+	memcpy(buf, m, len);
 
 	memcpy(buf + size, desc->ptr, desc->size);
 	size += desc->size;

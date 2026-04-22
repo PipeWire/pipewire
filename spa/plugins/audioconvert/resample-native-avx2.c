@@ -31,8 +31,8 @@ static inline void inner_product_avx2(float *d, const float * SPA_RESTRICT s,
 		sx[1] = _mm_fmadd_ps(tx, _mm_load_ps(taps + i + 4), sx[1]);
 	}
 	sx[0] = _mm_add_ps(sx[0], sx[1]);
-	sx[0] = _mm_hadd_ps(sx[0], sx[0]);
-	sx[0] = _mm_hadd_ps(sx[0], sx[0]);
+	sx[0] = _mm_add_ps(sx[0], _mm_movehl_ps(sx[0], sx[0]));
+	sx[0] = _mm_add_ss(sx[0], _mm_movehdup_ps(sx[0]));
 	_mm_store_ss(d, sx[0]);
 }
 
@@ -65,8 +65,8 @@ static inline void inner_product_ip_avx2(float *d, const float * SPA_RESTRICT s,
 	}
 	sx[1] = _mm_mul_ps(_mm_sub_ps(sx[1], sx[0]), _mm_load1_ps(&x));
 	sx[0] = _mm_add_ps(sx[0], sx[1]);
-	sx[0] = _mm_hadd_ps(sx[0], sx[0]);
-	sx[0] = _mm_hadd_ps(sx[0], sx[0]);
+	sx[0] = _mm_add_ps(sx[0], _mm_movehl_ps(sx[0], sx[0]));
+	sx[0] = _mm_add_ss(sx[0], _mm_movehdup_ps(sx[0]));
 	_mm_store_ss(d, sx[0]);
 }
 

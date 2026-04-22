@@ -81,14 +81,72 @@ static inline void inner_product_ip_ssse3(float *d, const float * SPA_RESTRICT s
 	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
 	uint32_t n_taps)
 {
-	float sum[2] = { 0.0f, 0.0f };
+	__m128 sum[2] = { _mm_setzero_ps(), _mm_setzero_ps() };
+	__m128 r0, r1, r;
 	uint32_t i;
 
-	for (i = 0; i < n_taps; i++) {
-		sum[0] += s[i] * t0[i];
-		sum[1] += s[i] * t1[i];
+	switch (SPA_PTR_ALIGNMENT(s, 16)) {
+	case 0:
+		for (i = 0; i < n_taps; i += 8) {
+			r = _mm_load_ps(s + i + 0);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 0)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 0)));
+			r = _mm_load_ps(s + i + 4);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+		}
+		break;
+	case 4:
+		r0 = _mm_load_ps(s - 1);
+		for (i = 0; i < n_taps; i += 8) {
+			r1 = _mm_load_ps(s + i + 3);
+			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 4);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 0)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 0)));
+			r0 = r1;
+			r1 = _mm_load_ps(s + i + 7);
+			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 4);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+			r0 = r1;
+		}
+		break;
+	case 8:
+		r0 = _mm_load_ps(s - 2);
+		for (i = 0; i < n_taps; i += 8) {
+			r1 = _mm_load_ps(s + i + 2);
+			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 8);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 0)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 0)));
+			r0 = r1;
+			r1 = _mm_load_ps(s + i + 6);
+			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 8);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+			r0 = r1;
+		}
+		break;
+	case 12:
+		r0 = _mm_load_ps(s - 3);
+		for (i = 0; i < n_taps; i += 8) {
+			r1 = _mm_load_ps(s + i + 1);
+			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 12);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 0)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 0)));
+			r0 = r1;
+			r1 = _mm_load_ps(s + i + 5);
+			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 12);
+			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+			r0 = r1;
+		}
+		break;
 	}
-	*d = (sum[1] - sum[0]) * x + sum[0];
+	sum[1] = _mm_mul_ps(_mm_sub_ps(sum[1], sum[0]), _mm_load1_ps(&x));
+	sum[0] = _mm_add_ps(sum[0], sum[1]);
+	sum[0] = _mm_add_ps(sum[0], _mm_movehdup_ps(sum[0]));
+	sum[0] = _mm_add_ss(sum[0], _mm_movehl_ps(sum[0], sum[0]));
+	_mm_store_ss(d, sum[0]);
 }
 
 MAKE_RESAMPLER_FULL(ssse3);

@@ -429,7 +429,7 @@ int convolver_run_many(struct convolver *conv, const float *input, float *output
 		}
 		processed += processing;
 	}
-	return 0;
+	return processed;
 }
 
 int convolver_run(struct convolver *conv, const float *input, float *output, int length)

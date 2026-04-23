@@ -774,6 +774,9 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 	sub_cycle = ntohl(header->sub_cycle);
 	peer->sync.num_packets = ntohl(header->num_packets);
 	max_size = peer->params.mtu - sizeof(*header);
+
+	if (sub_cycle > 0 && max_size > UINT32_MAX / sub_cycle)
+		return -EOVERFLOW;
 	offset = max_size * sub_cycle;
 
 	data += sizeof(*header);
@@ -782,7 +785,7 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 	midi_data = peer->midi_data;
 	midi_size = peer->midi_size;
 
-	if (offset + len < midi_size)
+	if (offset <= midi_size && (size_t)len <= midi_size - offset)
 		memcpy(SPA_PTROFF(midi_data, offset, void), data, len);
 
 	if (++(*count) < peer->sync.num_packets)
@@ -796,7 +799,7 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 		size_t used = sizeof(*mbuf)
 			+ mbuf->event_count * sizeof(struct nj2_midi_event)
 			+ mbuf->write_pos;
-		if (used > midi_size)
+		if (used < sizeof(*mbuf) || used > midi_size)
 			break;
 
 		if (i < n_info && info[i].data != NULL) {

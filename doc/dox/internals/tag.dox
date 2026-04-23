@@ -54,11 +54,11 @@ in the graph. Output Tag objects on output ports are propagated to linked input
 ports and input Tag objects on input ports are propagated to linked output ports.
 
 If a port has links with multiple other ports, the Tag objects are merged by
-appending the dictionaties to the Tag param. Intermediate nodes or sinks are allowed
+appending the dictionaries to the Tag param. Intermediate nodes or sinks are allowed
 to take the multiple dictionaries in a Tag and combine them into one dictionary if
 they would like to do so.
 
-This way, Output Tag always describes the aggragated total upstream metadata of
+This way, Output Tag always describes the aggregated total upstream metadata of the
 signal up to the port and Input tag describes the aggregated downstream metadata
 of the signal from the port.
 

@@ -6,11 +6,15 @@ The PipeWire server configuration file
 
 # SYNOPSIS
 
+*$PIPEWIRE_CONFIG_DIR/pipewire/pipewire.conf*
+
 *$XDG_CONFIG_HOME/pipewire/pipewire.conf*
 
 *$(PIPEWIRE_CONFIG_DIR)/pipewire.conf*
 
 *$(PIPEWIRE_CONFDATADIR)/pipewire.conf*
+
+*$PIPEWIRE_CONFIG_DIR/pipewire/pipewire.conf.d/*
 
 *$(PIPEWIRE_CONFDATADIR)/pipewire.conf.d/*
 
@@ -18,19 +22,39 @@ The PipeWire server configuration file
 
 *$XDG_CONFIG_HOME/pipewire/pipewire.conf.d/*
 
+
 # DESCRIPTION
 
 PipeWire is a service that facilitates sharing of multimedia content
 between devices and applications.
 
 On startup, the daemon reads a main configuration file to configure
-itself. It executes a series of commands listed in the config file.
+itself. After that it will apply a set of drop-in config overrides.
 
-The config file is looked up in the order listed in the
-[SYNOPSIS](#synopsis). The environment variables `PIPEWIRE_CONFIG_DIR`,
-`PIPEWIRE_CONFIG_PREFIX` and `PIPEWIRE_CONFIG_NAME` can be used to
-specify an alternative config directory, subdirectory and file
-respectively.
+By default the pipewire daemon will read `pipewire.conf` and looks
+for drop-in config files in the `pipewire.conf.d` subdirectory.
+The environment variable `PIPEWIRE_CONFIG_NAME` can be used to specify
+an alternative config file name and the drop-in config file directory
+name (by appending `.d` to the config name).
+
+The config file and the drop-in config directories are looked up in
+the order listed in the [SYNOPSIS](#synopsis).
+
+If the environment variable `PIPEWIRE_CONFIG_DIR` is set, it is the
+only place where the main config file and the drop-in config files
+are looked up.
+
+If the environment variable `PIPEWIRE_CONFIG_PREFIX` contains an
+absolute path, it will be searched first for the main config file and
+the drop-in config files.
+If `PIPEWIRE_CONFIG_PREFIX` does not contain an absolute path, it is
+used as a subdirectory to locate the main config file and the drop-in
+config files.
+
+When the environment variable `PIPEWIRE_NO_CONFIG` is set to `true`,
+only the data config directory $(PIPEWIRE_CONFDATADIR) is searched.
+This is useful when you want to run with the default configuration
+without any system or user overrides.
 
 Other PipeWire configuration files generally follow the same lookup
 logic, replacing `pipewire.conf` with the name of the particular
@@ -38,11 +62,19 @@ config file.
 
 # DROP-IN CONFIGURATION FILES  @IDX@ pipewire.conf
 
+The config file drop-in overrides are looked up in the order
+of the `pipewire.conf.d` directories listed in the[SYNOPSIS](#synopsis).
+
 All `*.conf` files in the `pipewire.conf.d/` directories are loaded
-and merged into the configuration.  Dictionary sections are merged,
-overriding properties if they already existed, and array sections are
-appended to. The drop-in files have same format as the main
-configuration file, but only contain the settings to be modified.
+in alphabetical order and merged into the main configuration.
+Dictionary sections are merged, overriding properties if they already
+existed, and array sections are appended to. The drop-in files have
+same format as the main configuration file, but only contain the
+settings to be modified.
+
+If a config overrides with the same name exists in multiple `conf.d`
+directories, the one from the last directory in the above search order
+is used.
 
 As the `pipewire.conf` configuration file contains various parts
 that must be present for correct functioning, using drop-in files

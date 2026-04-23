@@ -88,6 +88,8 @@ static bool dot_data_init(struct dot_data * dd, size_t size)
 		return false;
 
 	dd->data = malloc(sizeof (char) * size);
+	if (dd->data == NULL)
+		return false;
 	dd->data[0] = '\0';
 	dd->size = 0;
 	dd->max_size = size;
@@ -108,7 +110,10 @@ static void dot_data_ensure_max_size (struct dot_data * dd, size_t size)
 	size_t new_size = dd->size + size + 1;
 	if (new_size > dd->max_size) {
 		size_t next_size = new_size * 2;
-		dd->data = realloc (dd->data, next_size);
+		void *p = realloc (dd->data, next_size);
+		if (p == NULL)
+			return;
+		dd->data = p;
 		dd->max_size = next_size;
 	}
 }

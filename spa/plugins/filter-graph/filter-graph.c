@@ -1016,6 +1016,11 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	}
 
 	desc = calloc(1, sizeof(*desc));
+	if (desc == NULL) {
+		plugin_unref(pl);
+		errno = ENOMEM;
+		return NULL;
+	}
 	desc->ref = 1;
 	desc->plugin = pl;
 	spa_list_init(&desc->link);
@@ -1027,6 +1032,10 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	}
 	desc->desc = d;
 	desc->label = strdup(label);
+	if (desc->label == NULL) {
+		res = -ENOMEM;
+		goto exit;
+	}
 
 	n_input = n_output = n_control = n_notify = 0;
 	for (p = 0; p < d->n_ports; p++) {
@@ -1047,6 +1056,13 @@ static struct descriptor *descriptor_load(struct impl *impl, const char *type,
 	desc->output = calloc(n_output, sizeof(unsigned long));
 	desc->control = calloc(n_control, sizeof(unsigned long));
 	desc->notify = calloc(n_notify, sizeof(unsigned long));
+	if ((n_input > 0 && desc->input == NULL) ||
+	    (n_output > 0 && desc->output == NULL) ||
+	    (n_control > 0 && desc->control == NULL) ||
+	    (n_notify > 0 && desc->notify == NULL)) {
+		res = -ENOMEM;
+		goto exit;
+	}
 
 	for (p = 0; p < d->n_ports; p++) {
 		struct spa_fga_port *fp = &d->ports[p];

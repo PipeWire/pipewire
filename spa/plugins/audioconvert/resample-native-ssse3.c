@@ -82,7 +82,8 @@ static inline void inner_product_ip_ssse3(float *d, const float * SPA_RESTRICT s
 	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
 	uint32_t n_taps)
 {
-	__m128 sum[2] = { _mm_setzero_ps(), _mm_setzero_ps() };
+	__m128 sum[4] = { _mm_setzero_ps(), _mm_setzero_ps(),
+			  _mm_setzero_ps(), _mm_setzero_ps() };
 	__m128 r0, r1, r;
 	uint32_t i;
 
@@ -93,8 +94,8 @@ static inline void inner_product_ip_ssse3(float *d, const float * SPA_RESTRICT s
 			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 0)));
 			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 0)));
 			r = _mm_load_ps(s + i + 4);
-			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
-			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+			sum[2] = _mm_add_ps(sum[2], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[3] = _mm_add_ps(sum[3], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
 		}
 		break;
 	case 4:
@@ -107,8 +108,8 @@ static inline void inner_product_ip_ssse3(float *d, const float * SPA_RESTRICT s
 			r0 = r1;
 			r1 = _mm_load_ps(s + i + 7);
 			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 4);
-			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
-			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+			sum[2] = _mm_add_ps(sum[2], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[3] = _mm_add_ps(sum[3], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
 			r0 = r1;
 		}
 		break;
@@ -122,8 +123,8 @@ static inline void inner_product_ip_ssse3(float *d, const float * SPA_RESTRICT s
 			r0 = r1;
 			r1 = _mm_load_ps(s + i + 6);
 			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 8);
-			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
-			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+			sum[2] = _mm_add_ps(sum[2], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[3] = _mm_add_ps(sum[3], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
 			r0 = r1;
 		}
 		break;
@@ -137,12 +138,14 @@ static inline void inner_product_ip_ssse3(float *d, const float * SPA_RESTRICT s
 			r0 = r1;
 			r1 = _mm_load_ps(s + i + 5);
 			r = (__m128)_mm_alignr_epi8((__m128i)r1, (__m128i)r0, 12);
-			sum[0] = _mm_add_ps(sum[0], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
-			sum[1] = _mm_add_ps(sum[1], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
+			sum[2] = _mm_add_ps(sum[2], _mm_mul_ps(r, _mm_load_ps(t0 + i + 4)));
+			sum[3] = _mm_add_ps(sum[3], _mm_mul_ps(r, _mm_load_ps(t1 + i + 4)));
 			r0 = r1;
 		}
 		break;
 	}
+	sum[0] = _mm_add_ps(sum[0], sum[2]);
+	sum[1] = _mm_add_ps(sum[1], sum[3]);
 	sum[1] = _mm_mul_ps(_mm_sub_ps(sum[1], sum[0]), _mm_load1_ps(&x));
 	sum[0] = _mm_add_ps(sum[0], sum[1]);
 	sum[0] = _mm_add_ps(sum[0], _mm_movehdup_ps(sum[0]));

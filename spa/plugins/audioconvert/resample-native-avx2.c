@@ -40,8 +40,9 @@ static inline void inner_product_ip_avx2(float *d, const float * SPA_RESTRICT s,
 	const float * SPA_RESTRICT t0, const float * SPA_RESTRICT t1, float x,
 	uint32_t n_taps)
 {
-	__m256 sy[2] = { _mm256_setzero_ps(), _mm256_setzero_ps() }, ty;
-	__m128 sx[2], tx;
+	__m256 sy[4] = { _mm256_setzero_ps(), _mm256_setzero_ps(),
+			 _mm256_setzero_ps(), _mm256_setzero_ps() }, ty;
+	__m128 sx[4], tx;
 	uint32_t i, n_taps4 = n_taps & ~0xf;
 
 	for (i = 0; i < n_taps4; i += 16) {
@@ -49,9 +50,11 @@ static inline void inner_product_ip_avx2(float *d, const float * SPA_RESTRICT s,
 		sy[0] = _mm256_fmadd_ps(ty, _mm256_load_ps(t0 + i + 0), sy[0]);
 		sy[1] = _mm256_fmadd_ps(ty, _mm256_load_ps(t1 + i + 0), sy[1]);
 		ty = _mm256_loadu_ps(s + i + 8);
-		sy[0] = _mm256_fmadd_ps(ty, _mm256_load_ps(t0 + i + 8), sy[0]);
-		sy[1] = _mm256_fmadd_ps(ty, _mm256_load_ps(t1 + i + 8), sy[1]);
+		sy[2] = _mm256_fmadd_ps(ty, _mm256_load_ps(t0 + i + 8), sy[2]);
+		sy[3] = _mm256_fmadd_ps(ty, _mm256_load_ps(t1 + i + 8), sy[3]);
 	}
+	sy[0] = _mm256_add_ps(sy[0], sy[2]);
+	sy[1] = _mm256_add_ps(sy[1], sy[3]);
 	sx[0] = _mm_add_ps(_mm256_extractf128_ps(sy[0], 0), _mm256_extractf128_ps(sy[0], 1));
 	sx[1] = _mm_add_ps(_mm256_extractf128_ps(sy[1], 0), _mm256_extractf128_ps(sy[1], 1));
 

@@ -707,6 +707,7 @@ static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
 
 	size = MD5_DIGEST_LENGTH;
 	EVP_Digest(buffer, strlen(buffer), d, &size, EVP_md5(), NULL);
+	explicit_bzero(buffer, sizeof(buffer));
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++)
 		snprintf(&hash[2*i], 3, "%02x", (uint8_t) d[i]);
 	hash[MD5_HASH_LENGTH] = '\0';
@@ -725,6 +726,7 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 		char enc[512];
 		spa_scnprintf(buf, sizeof(buf), "%s:%s", RAOP_AUTH_USER_NAME, impl->password);
 		pw_base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
+		explicit_bzero(buf, sizeof(buf));
 		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
 	}
 	else if (spa_streq(impl->auth_method, "Digest")) {

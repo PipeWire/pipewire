@@ -367,6 +367,11 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 	}
 
 	f = fdopen(fd, "w");
+	if (f == NULL) {
+		res = -errno;
+		close(fd);
+		return res;
+	}
 	fprintf(f, "{");
 	count += pw_properties_serialize_dict(f, &conf->dict, PW_PROPERTIES_FLAG_NL);
 	fprintf(f, "%s}", count == 0 ? " " : "\n");

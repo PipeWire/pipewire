@@ -581,24 +581,27 @@ static void do_refresh(struct data *d, bool force_refresh)
 		return;
 
 	if (!d->batch_mode) {
-		char statusbar[255] = { 0 };
+		char statusbar[255];
+		struct spa_strbuf buf;
+
+		spa_strbuf_init(&buf, statusbar, sizeof(statusbar));
 
 		if (!((filter->state == PW_NODE_STATE_ERROR) &&
 			(filter->followers == PW_NODE_STATE_ERROR))) {
 
-			strcpy(statusbar, "FILTER: ");
+			spa_strbuf_append(&buf, "FILTER: ");
 			if (filter->state == PW_NODE_STATE_ERROR)
-				strcat(statusbar, "ALL");
+				spa_strbuf_append(&buf, "ALL");
 			else for (enum pw_node_state showstate = PW_NODE_STATE_RUNNING; showstate >= PW_NODE_STATE_ERROR; showstate--) {
 				if (showstate >= filter->state)
-					strcat(statusbar, state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
+					spa_strbuf_append(&buf, "%s", state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
 			}
-			strcat(statusbar, "+");
+			spa_strbuf_append(&buf, "+");
 			if (filter->followers == PW_NODE_STATE_ERROR)
-				strcat(statusbar, "ALL");
+				spa_strbuf_append(&buf, "ALL");
 			else for (enum pw_node_state showstate = PW_NODE_STATE_RUNNING; showstate >= PW_NODE_STATE_ERROR; showstate--) {
 				if (showstate >= filter->followers)
-					strcat(statusbar, state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
+					spa_strbuf_append(&buf, "%s", state_as_string(showstate, SPA_IO_POSITION_STATE_STOPPED));
 			}
 		}
 

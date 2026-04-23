@@ -586,6 +586,10 @@ static void update_delay(struct impl *impl)
 
 		if (s->delay_samples != INT64_MIN) {
 			int64_t delay = max_delay - s->delay_samples;
+			if (delay < 0)
+				delay = 0;
+			if (delay > (int64_t)(DELAYBUF_MAX_SIZE / sizeof(float)))
+				delay = DELAYBUF_MAX_SIZE / sizeof(float);
 			s->compensate_samples = delay;
 			size = delay * sizeof(float);
 		}

@@ -39,7 +39,7 @@ static const int in_rates[] = { 44100, 44100, 48000, 96000, 22050, 96000 };
 static const int out_rates[] = { 44100, 48000, 44100, 48000, 48000, 44100 };
 
 
-#define MAX_RESAMPLER	5
+#define MAX_RESAMPLER	10
 #define MAX_SIZES	SPA_N_ELEMENTS(sample_sizes)
 #define MAX_RATES	SPA_N_ELEMENTS(in_rates)
 #define MAX_RESULTS	MAX_RESAMPLER * MAX_SIZES * MAX_RATES
@@ -123,7 +123,9 @@ int main(int argc, char *argv[])
 		r.o_rate = out_rates[i];
 		r.quality = RESAMPLE_DEFAULT_QUALITY;
 		resample_native_init(&r);
-		run_test("native", "c", &r);
+		run_test("full", "c", &r);
+		resample_update_rate(&r, 1.001);
+		run_test("inter", "c", &r);
 		resample_free(&r);
 	}
 #if defined (HAVE_SSE)
@@ -136,7 +138,9 @@ int main(int argc, char *argv[])
 			r.o_rate = out_rates[i];
 			r.quality = RESAMPLE_DEFAULT_QUALITY;
 			resample_native_init(&r);
-			run_test("native", "sse", &r);
+			run_test("full", "sse", &r);
+			resample_update_rate(&r, 1.001);
+			run_test("inter", "sse", &r);
 			resample_free(&r);
 		}
 	}
@@ -151,7 +155,9 @@ int main(int argc, char *argv[])
 			r.o_rate = out_rates[i];
 			r.quality = RESAMPLE_DEFAULT_QUALITY;
 			resample_native_init(&r);
-			run_test("native", "ssse3", &r);
+			run_test("full", "ssse3", &r);
+			resample_update_rate(&r, 1.001);
+			run_test("inter", "ssse3", &r);
 			resample_free(&r);
 		}
 	}
@@ -166,7 +172,9 @@ int main(int argc, char *argv[])
 			r.o_rate = out_rates[i];
 			r.quality = RESAMPLE_DEFAULT_QUALITY;
 			resample_native_init(&r);
-			run_test("native", "avx2", &r);
+			run_test("full", "avx2", &r);
+			resample_update_rate(&r, 1.001);
+			run_test("inter", "avx2", &r);
 			resample_free(&r);
 		}
 	}

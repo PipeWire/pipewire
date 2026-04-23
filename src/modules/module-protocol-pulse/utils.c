@@ -82,7 +82,7 @@ int check_flatpak(struct client *client, pid_t pid)
 	int root_fd, info_fd, res;
 	struct stat stat_buf;
 
-	sprintf(root_path, "/proc/%ld/root", (long) pid);
+	snprintf(root_path, sizeof(root_path), "/proc/%ld/root", (long) pid);
 	root_fd = openat(AT_FDCWD, root_path, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY);
 	if (root_fd == -1) {
 		res = -errno;

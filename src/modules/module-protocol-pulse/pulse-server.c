@@ -71,6 +71,7 @@
 /* The max amount of data we send in one block when capturing. In PulseAudio this
  * size is derived from the mempool PA_MEMPOOL_SLOT_SIZE */
 #define MAX_BLOCK	(64*1024)
+#define MAX_ALLOCA_SIZE	(64*1024)
 
 #define TEMPORARY_MOVE_TIMEOUT	(SPA_NSEC_PER_SEC)
 
@@ -3171,6 +3172,8 @@ static int do_set_port_latency_offset(struct client *client, uint32_t command, u
 		return -ENOENT;
 
 	collect_card_info(card, &card_info);
+	if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
+		return -ENOMEM;
 	port_info = alloca(card_info.n_ports * sizeof(*port_info));
 	card_info.active_profile = SPA_ID_INVALID;
 	n_ports = collect_port_info(card, &card_info, NULL, port_info);
@@ -3310,6 +3313,8 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	}
 
 	dict.n_items = props->dict.n_items;
+	if (dict.n_items > MAX_ALLOCA_SIZE / sizeof(struct spa_dict_item))
+		return -ENOMEM;
 	dict.items = items = alloca(sizeof(struct spa_dict_item) * dict.n_items);
 	for (i = 0; i < dict.n_items; i++) {
 		items[i].key = props->dict.items[i].key;
@@ -3593,6 +3598,8 @@ static int fill_card_info(struct client *client, struct message *m,
 		TAG_U32, card_info.n_profiles,			/* n_profiles */
 		TAG_INVALID);
 
+	if (card_info.n_profiles > MAX_ALLOCA_SIZE / sizeof(*profile_info))
+		return -ENOMEM;
 	profile_info = alloca(card_info.n_profiles * sizeof(*profile_info));
 	n_profiles = collect_profile_info(o, &card_info, profile_info);
 
@@ -3622,6 +3629,8 @@ static int fill_card_info(struct client *client, struct message *m,
 		uint32_t n_ports;
 		struct port_info *port_info, *pi;
 
+		if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
+			return -ENOMEM;
 		port_info = alloca(card_info.n_ports * sizeof(*port_info));
 		card_info.active_profile = SPA_ID_INVALID;
 		n_ports = collect_port_info(o, &card_info, NULL, port_info);
@@ -3826,6 +3835,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 		uint32_t n_ports, n;
 		struct port_info *port_info, *pi;
 
+		if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
+			return -ENOMEM;
 		port_info = alloca(card_info.n_ports * sizeof(*port_info));
 		n_ports = collect_port_info(card, &card_info, &dev_info, port_info);
 
@@ -4022,6 +4033,8 @@ static int fill_source_info(struct client *client, struct message *m,
 		uint32_t n_ports, n;
 		struct port_info *port_info, *pi;
 
+		if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
+			return -ENOMEM;
 		port_info = alloca(card_info.n_ports * sizeof(*port_info));
 		n_ports = collect_port_info(card, &card_info, &dev_info, port_info);
 

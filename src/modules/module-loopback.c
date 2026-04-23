@@ -576,9 +576,18 @@ static void recalculate_buffer(struct impl *impl)
 	if (impl->target_delay > 0.0f && impl->channels > 0 && impl->rate > 0) {
 		uint32_t delay = (uint32_t)(impl->rate * impl->target_delay);
 		void *data;
+		size_t alloc_size;
 
+		if (delay > (UINT32_MAX / 4) - (1u<<15)) {
+			pw_log_warn("delay too large, delay disabled");
+			impl->buffer_size = 0;
+			free(impl->buffer_data);
+			impl->buffer_data = NULL;
+			goto done;
+		}
 		impl->buffer_size = (delay + (1u<<15)) * 4;
-		data = realloc(impl->buffer_data, impl->buffer_size * impl->channels);
+		alloc_size = (size_t)impl->buffer_size * impl->channels;
+		data = realloc(impl->buffer_data, alloc_size);
 		if (data == NULL) {
 			pw_log_warn("can't allocate delay buffer, delay disabled: %m");
 			impl->buffer_size = 0;
@@ -591,6 +600,7 @@ static void recalculate_buffer(struct impl *impl)
 		free(impl->buffer_data);
 		impl->buffer_data = NULL;
 	}
+done:
 	pw_log_info("configured delay:%f buffer:%d", impl->target_delay, impl->buffer_size);
 	impl->recalc_delay = true;
 }

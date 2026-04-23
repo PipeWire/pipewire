@@ -89,11 +89,14 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	uint32_t stride = impl->stride;
 	int32_t filled;
 
+	hlen = VBAN_HEADER_SIZE;
+	if (len < hlen)
+		return 0;
+
 	hdr = (struct vban_header*)buffer;
 
 	impl->receiving = true;
 
-	hlen = VBAN_HEADER_SIZE;
 	plen = len - hlen;
 	samples = SPA_MIN(hdr->format_nbs+1, plen / stride);
 

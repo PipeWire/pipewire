@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <errno.h>
+#include <stdint.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -95,7 +96,10 @@ static int read_fmt(struct dsf_file *f)
 	if (size > s)
 		f_skip(f, size - s);
 
-	f->buffer = calloc(1, f->info.blocksize * f->info.channels);
+	if (f->info.blocksize == 0 || f->info.channels == 0 ||
+	    f->info.channels > SIZE_MAX / f->info.blocksize)
+		return -EINVAL;
+	f->buffer = calloc(f->info.channels, f->info.blocksize);
 	if (f->buffer == NULL)
 		return -errno;
 

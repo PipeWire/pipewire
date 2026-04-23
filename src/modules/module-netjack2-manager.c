@@ -1106,9 +1106,9 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	peer->quantum_limit = impl->quantum_limit;
 	netjack2_init(peer);
 
-	int bufsize = NETWORK_MAX_LATENCY * (peer->params.mtu +
-		follower->period_size * sizeof(float) *
-		SPA_MAX(follower->source.n_ports, follower->sink.n_ports));
+	int bufsize = SPA_MIN((size_t)NETWORK_MAX_LATENCY * (peer->params.mtu +
+		(size_t)follower->period_size * sizeof(float) *
+		SPA_MAX(follower->source.n_ports, follower->sink.n_ports)), (size_t)INT_MAX);
 
 	pw_log_info("send/recv buffer %d", bufsize);
 	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize)) < 0)

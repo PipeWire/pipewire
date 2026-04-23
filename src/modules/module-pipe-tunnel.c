@@ -618,16 +618,9 @@ static int create_fifo(struct impl *impl)
 			goto error;
 		}
 	} else {
-		/*
-		 * Our umask is 077, so the pipe won't be created with the
-		 * requested permissions. Let's fix the permissions with chmod().
-		 */
-		if (chmod(filename, 0666) < 0)
-			pw_log_warn("chmod('%s'): %s", filename, spa_strerror(-errno));
-
 		do_unlink_fifo = true;
 	}
-	if ((fd = open(filename, O_RDWR | O_CLOEXEC | O_NONBLOCK, 0)) < 0) {
+	if ((fd = open(filename, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW, 0)) < 0) {
 		res = -errno;
 		pw_log_error("open('%s'): %s", filename, spa_strerror(res));
 		goto error;
@@ -644,6 +637,12 @@ static int create_fifo(struct impl *impl)
 		pw_log_error("'%s' is not a FIFO.", filename);
 		goto error;
 	}
+	/*
+	 * Our umask is 077, so the pipe won't be created with the
+	 * requested permissions. Use fchmod on the fd to avoid TOCTOU.
+	 */
+	if (do_unlink_fifo && fchmod(fd, 0666) < 0)
+		pw_log_warn("fchmod('%s'): %s", filename, spa_strerror(-errno));
 	impl->socket = pw_loop_add_io(impl->data_loop, fd,
 			0, false, on_pipe_io, impl);
 	if (impl->socket == NULL) {

@@ -1419,6 +1419,8 @@ static PFFFT_Setup *new_setup_simd(int N, pffft_transform_t transform)
 	/* unfortunately, the fft size must be a multiple of 16 for complex FFTs
 	   and 32 for real FFTs -- a lot of stuff would need to be rewritten to
 	   handle other cases (or maybe just switch to a scalar fft, I don't know..) */
+	if (s == NULL)
+		return NULL;
 	if (transform == PFFFT_REAL) {
 		assert((N % (2 * SIMD_SZ * SIMD_SZ)) == 0 && N > 0);
 	}
@@ -1431,6 +1433,10 @@ static PFFFT_Setup *new_setup_simd(int N, pffft_transform_t transform)
 	/* nb of complex simd vectors */
 	s->Ncvec = (transform == PFFFT_REAL ? N / 2 : N) / SIMD_SZ;
 	s->data = (v4sf *) pffft_aligned_malloc(2 * s->Ncvec * sizeof(v4sf));
+	if (s->data == NULL) {
+		free(s);
+		return NULL;
+	}
 	s->e = (float *)s->data;
 	s->twiddle =
 	    (float *)(s->data + (2 * s->Ncvec * (SIMD_SZ - 1)) / SIMD_SZ);

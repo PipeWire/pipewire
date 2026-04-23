@@ -1671,7 +1671,10 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->headers);
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
-	free(impl->password);
+	if (impl->password) {
+		explicit_bzero(impl->password, strlen(impl->password));
+		free(impl->password);
+	}
 	free(impl);
 }
 

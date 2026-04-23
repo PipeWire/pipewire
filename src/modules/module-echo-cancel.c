@@ -1179,15 +1179,24 @@ static int setup_streams(struct impl *impl)
 
 	spa_pod_dynamic_builder_clean(&b);
 
-	impl->rec_ringsize = sizeof(float) * impl->max_buffer_size * impl->rec_info.rate / 1000;
-	impl->play_ringsize = sizeof(float) * ((impl->max_buffer_size * impl->play_info.rate / 1000) + impl->buffer_delay);
-	impl->out_ringsize = sizeof(float) * impl->max_buffer_size * impl->out_info.rate / 1000;
-	for (i = 0; i < impl->rec_info.channels; i++)
+	impl->rec_ringsize = (size_t)sizeof(float) * impl->max_buffer_size * impl->rec_info.rate / 1000;
+	impl->play_ringsize = (size_t)sizeof(float) * ((size_t)impl->max_buffer_size * impl->play_info.rate / 1000 + impl->buffer_delay);
+	impl->out_ringsize = (size_t)sizeof(float) * impl->max_buffer_size * impl->out_info.rate / 1000;
+	for (i = 0; i < impl->rec_info.channels; i++) {
 		impl->rec_buffer[i] = malloc(impl->rec_ringsize);
-	for (i = 0; i < impl->play_info.channels; i++)
+		if (impl->rec_buffer[i] == NULL)
+			return -errno;
+	}
+	for (i = 0; i < impl->play_info.channels; i++) {
 		impl->play_buffer[i] = malloc(impl->play_ringsize);
-	for (i = 0; i < impl->out_info.channels; i++)
+		if (impl->play_buffer[i] == NULL)
+			return -errno;
+	}
+	for (i = 0; i < impl->out_info.channels; i++) {
 		impl->out_buffer[i] = malloc(impl->out_ringsize);
+		if (impl->out_buffer[i] == NULL)
+			return -errno;
+	}
 
 	reset_buffers(impl);
 

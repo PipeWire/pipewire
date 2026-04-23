@@ -708,7 +708,7 @@ static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
 	size = MD5_DIGEST_LENGTH;
 	EVP_Digest(buffer, strlen(buffer), d, &size, EVP_md5(), NULL);
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++)
-		sprintf(&hash[2*i], "%02x", (uint8_t) d[i]);
+		snprintf(&hash[2*i], 3, "%02x", (uint8_t) d[i]);
 	hash[MD5_HASH_LENGTH] = '\0';
 	return 0;
 }

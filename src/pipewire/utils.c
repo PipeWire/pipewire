@@ -368,6 +368,10 @@ void* pw_reallocarray(void *ptr, size_t nmemb, size_t size)
 #ifdef HAVE_REALLOCARRAY
 	return reallocarray(ptr, nmemb, size);
 #else
+	if (size > 0 && nmemb > SIZE_MAX / size) {
+		errno = ENOMEM;
+		return NULL;
+	}
 	return realloc(ptr, nmemb * size);
 #endif
 }

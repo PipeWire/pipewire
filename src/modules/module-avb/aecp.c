@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include <errno.h>
+
 #include <spa/utils/json.h>
 #include <spa/debug/mem.h>
 
@@ -22,9 +24,12 @@ struct msg_info {
 static int reply_not_implemented(struct aecp *aecp, const void *p, int len)
 {
 	struct server *server = aecp->server;
-	uint8_t buf[len];
+	uint8_t buf[AVB_PACKET_MILAN_DEFAULT_MTU];
 	struct avb_ethernet_header *h = (void*)buf;
 	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
+
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return -EINVAL;
 
 	memcpy(h, p, len);
 	AVB_PACKET_AECP_SET_STATUS(reply, AVB_AECP_STATUS_NOT_IMPLEMENTED);
@@ -64,6 +69,10 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 	const struct msg_info *info;
 	int message_type;
 
+	if (len < 0 ||
+	    (size_t)len < sizeof(*h) + sizeof(*p) ||
+	    (size_t)len > AVB_PACKET_MILAN_DEFAULT_MTU)
+		return 0;
 	if (ntohs(h->type) != AVB_TSN_ETH)
 		return 0;
 	if (memcmp(h->dest, mac, 6) != 0 &&

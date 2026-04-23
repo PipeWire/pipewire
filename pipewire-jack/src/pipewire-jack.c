@@ -3714,8 +3714,8 @@ static int update_port_name(struct object *o, const char *name)
 	if (spa_streq(port_name, o->port.name))
 		return 0;
 
-	strcpy(o->port.old_name, o->port.name);
-	strcpy(o->port.name, port_name);
+	snprintf(o->port.old_name, sizeof(o->port.old_name), "%s", o->port.name);
+	snprintf(o->port.name, sizeof(o->port.name), "%s", port_name);
 	return 1;
 }
 
@@ -5560,7 +5560,7 @@ jack_port_t * jack_port_register (jack_client_t *client,
 
 	o = p->object;
 	o->port.flags = flags;
-	strcpy(o->port.name, name);
+	snprintf(o->port.name, sizeof(o->port.name), "%s", name);
 	o->port.type_id = type_id;
 
 	init_buffer(p, c->max_frames);

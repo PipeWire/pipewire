@@ -383,8 +383,11 @@ static int ensure_size(struct message *m, uint32_t size)
 	if (m->length > m->allocated)
 		return -ENOMEM;
 
-	if (m->length + size <= m->allocated)
+	if (size <= m->allocated - m->length)
 		return size;
+
+	if (m->allocated + size < m->allocated)
+		return -ENOMEM;
 
 	alloc = SPA_ROUND_UP_N(SPA_MAX(m->allocated + size, 4096u), 4096u);
 	diff = alloc - m->allocated;

@@ -1332,6 +1332,8 @@ static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *header
 		return -EINVAL;
 
 	impl->auth_method = strdup(tokens[0]);
+	if (impl->auth_method == NULL)
+		return -ENOMEM;
 
 	if (spa_streq(impl->auth_method, "Digest")) {
 		realm = find_attr(tokens, "realm");
@@ -1341,6 +1343,8 @@ static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *header
 
 		impl->realm = strdup(realm);
 		impl->nonce = strdup(nonce);
+		if (impl->realm == NULL || impl->nonce == NULL)
+			return -ENOMEM;
 	}
 
 	return rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_options_auth_reply);

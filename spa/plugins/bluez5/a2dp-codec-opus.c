@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <limits.h>
 
 #include <spa/debug/types.h>
 #include <spa/param/audio/type-info.h>
@@ -1004,6 +1005,10 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	opus_multistream_encoder_ctl(this->enc, OPUS_SET_BITRATE(this->e.bitrate));
 
 	this->e.samples = this->e.frame_dms * this->samplerate / 10000;
+	if (this->e.samples > INT_MAX / (int)sizeof(float) / SPA_MAX((int)this->channels, 1)) {
+		res = -EINVAL;
+		goto error;
+	}
 	this->e.codesize = this->e.samples * (int)this->channels * sizeof(float);
 
 	opus_multistream_encoder_ctl(this->enc, OPUS_GET_LOOKAHEAD(&this->e.delay));

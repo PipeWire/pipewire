@@ -1299,7 +1299,20 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		goto error;
 	}
 	this->samples = res;
-	this->codesize = (size_t)this->samples * this->channels * conf.n_blks * sizeof(int32_t);
+	{
+		size_t cs = (size_t)this->samples * this->channels;
+		if (this->channels > 0 && cs / this->channels != (size_t)this->samples) {
+			res = -EINVAL;
+			goto error;
+		}
+		cs *= conf.n_blks;
+		cs *= sizeof(int32_t);
+		if (cs > UINT_MAX) {
+			res = -EINVAL;
+			goto error;
+		}
+		this->codesize = cs;
+	}
 
 	if (!(flags & MEDIA_CODEC_FLAG_SINK)) {
 		for (ich = 0; ich < this->channels; ich++) {

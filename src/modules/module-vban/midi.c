@@ -190,8 +190,11 @@ static int vban_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 	ssize_t hlen;
 	uint32_t n_frames;
 
-	hdr = (struct vban_header*)buffer;
 	hlen = VBAN_HEADER_SIZE;
+	if (len < hlen)
+		return 0;
+
+	hdr = (struct vban_header*)buffer;
 
 	n_frames = hdr->n_frames;
 	if (impl->have_sync && impl->n_frames != n_frames) {

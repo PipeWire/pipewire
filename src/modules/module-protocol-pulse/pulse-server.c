@@ -3650,7 +3650,8 @@ static int fill_card_info(struct client *client, struct message *m,
 
 			pi = &port_info[n];
 
-			if (pi->info && pi->n_props > 0) {
+			if (pi->info && pi->n_props > 0 &&
+			    pi->n_props <= MAX_ALLOCA_SIZE / sizeof(*items)) {
 				items = alloca(pi->n_props * sizeof(*items));
 				pdict = collect_props(pi->info, &dict, items, pi->n_props);
 			}

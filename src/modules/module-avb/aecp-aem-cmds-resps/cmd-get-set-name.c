@@ -102,6 +102,12 @@ int handle_cmd_get_name_common(struct aecp *aecp, int64_t now,
 	struct descriptor *desc;
 	uint16_t desc_type, desc_id, name_index;
 	char *name_ptr;
+	size_t reply_len;
+
+	if (len < 0 || (size_t)len > sizeof(buf) ||
+	    (size_t)len < sizeof(*h) + sizeof(*p) + sizeof(*cmd))
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
 	cmd = (const struct avb_packet_aecp_aem_setget_name *)p->payload;
 	desc_type = ntohs(cmd->descriptor_type);
@@ -118,12 +124,9 @@ int handle_cmd_get_name_common(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
-	if (len < 0 || (size_t)len > sizeof(buf) ||
-	    (size_t)len < sizeof(*h) + sizeof(*p) + sizeof(*cmd))
-		return reply_status(aecp,
-				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+	reply_len = sizeof(*h) + sizeof(*p) + sizeof(*cmd);
 
-	memcpy(buf, m, len);
+	memcpy(buf, m, reply_len);
 	h_reply = (struct avb_ethernet_header *)buf;
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	reply = (struct avb_packet_aecp_aem_setget_name *)p_reply->payload;
@@ -135,7 +138,7 @@ int handle_cmd_get_name_common(struct aecp *aecp, int64_t now,
 	 */
 	memcpy(reply->name, name_ptr, 64);
 
-	return reply_success(aecp, buf, len);
+	return reply_success(aecp, buf, reply_len);
 }
 
 

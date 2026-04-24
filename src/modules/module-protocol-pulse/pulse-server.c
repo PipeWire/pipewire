@@ -863,10 +863,12 @@ static void manager_added(void *data, struct pw_manager_object *o)
 					peer_name = "unknown";
 				if (peer_name && s->direction == PW_DIRECTION_INPUT &&
 				    pw_manager_object_is_monitor(peer)) {
-					int len = strlen(peer_name) + 10;
-					char *tmp = alloca(len);
-					snprintf(tmp, len, "%s.monitor", peer_name);
-					peer_name = tmp;
+					size_t len = strlen(peer_name) + 10;
+					if (len <= 1024) {
+						char *tmp = alloca(len);
+						snprintf(tmp, len, "%s.monitor", peer_name);
+						peer_name = tmp;
+					}
 				}
 				if (peer_name != NULL)
 					stream_send_moved(s, peer->index, peer_name);

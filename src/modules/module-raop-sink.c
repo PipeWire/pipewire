@@ -1439,10 +1439,16 @@ static void connection_cleanup(struct impl *impl)
 
 	free(impl->auth_method);
 	impl->auth_method = NULL;
-	free(impl->realm);
-	impl->realm = NULL;
-	free(impl->nonce);
-	impl->nonce = NULL;
+	if (impl->realm) {
+		explicit_bzero(impl->realm, strlen(impl->realm));
+		free(impl->realm);
+		impl->realm = NULL;
+	}
+	if (impl->nonce) {
+		explicit_bzero(impl->nonce, strlen(impl->nonce));
+		free(impl->nonce);
+		impl->nonce = NULL;
+	}
 }
 
 static void rtsp_disconnected(void *data)

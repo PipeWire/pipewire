@@ -7117,9 +7117,9 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 			if (spa_streq(key, "broadcast_code")) {
 				if (spa_json_get_string(&it[0], bcode, sizeof(bcode)) <= 0)
 						goto parse_failed;
-				if (strlen(bcode) > BROADCAST_CODE_LEN)
+				if (strlen(bcode) >= BROADCAST_CODE_LEN)
 					goto parse_failed;
-				memcpy(big_entry->broadcast_code, bcode, strlen(bcode));
+				memcpy(big_entry->broadcast_code, bcode, strlen(bcode) + 1);
 				spa_log_debug(monitor->log, "big_entry->broadcast_code %s", big_entry->broadcast_code);
 			} else if (spa_streq(key, "adapter")) {
 				if (spa_json_get_string(&it[0], big_entry->adapter, sizeof(big_entry->adapter)) <= 0)

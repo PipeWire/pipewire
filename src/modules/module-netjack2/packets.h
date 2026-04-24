@@ -46,12 +46,12 @@ struct nj2_session_params {
 
 static inline void nj2_dump_session_params(struct nj2_session_params *params)
 {
-	pw_log_info("Type:          '%s'", params->type);
+	pw_log_info("Type:          '%.*s'", (int)sizeof(params->type), params->type);
 	pw_log_info("Version:       %u", ntohl(params->version));
 	pw_log_info("packet ID:     %d", ntohl(params->packet_id));
-	pw_log_info("Name:          '%s'", params->name);
-	pw_log_info("Driver Name:   '%s'", params->driver_name);
-	pw_log_info("Follower Name: '%s'", params->follower_name);
+	pw_log_info("Name:          '%.*s'", (int)sizeof(params->name), params->name);
+	pw_log_info("Driver Name:   '%.*s'", (int)sizeof(params->driver_name), params->driver_name);
+	pw_log_info("Follower Name: '%.*s'", (int)sizeof(params->follower_name), params->follower_name);
 	pw_log_info("MTU:           %u", ntohl(params->mtu));
 	pw_log_info("ID:            %u", ntohl(params->id));
 	pw_log_info("TransportSync: %u", ntohl(params->transport_sync));
@@ -71,6 +71,10 @@ static inline void nj2_session_params_ntoh(struct nj2_session_params *host,
 		const struct nj2_session_params *net)
 {
 	memcpy(host, net, sizeof(*host));
+	host->type[sizeof(host->type) - 1] = '\0';
+	host->name[sizeof(host->name) - 1] = '\0';
+	host->driver_name[sizeof(host->driver_name) - 1] = '\0';
+	host->follower_name[sizeof(host->follower_name) - 1] = '\0';
 	host->version = ntohl(net->version);
 	host->packet_id = ntohl(net->packet_id);
 	host->mtu = ntohl(net->mtu);

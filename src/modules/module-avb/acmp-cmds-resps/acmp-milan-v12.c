@@ -36,6 +36,10 @@
  */
 static inline uint64_t entity_id_from_peer_id(uint64_t peer_id)
 {
+	if (peer_id == 0) {
+		return 0;
+	}
+
 	return (peer_id & 0xFFFFFF0000000000ULL) |
 	       (0xFFFEULL << 24) |
 	       ((peer_id >> 16) & 0xFFFFFFULL);
@@ -43,6 +47,10 @@ static inline uint64_t entity_id_from_peer_id(uint64_t peer_id)
 
 static inline uint64_t peer_id_from_entity_id(uint64_t entity_id, uint16_t unique_id)
 {
+	if (entity_id == 0 && unique_id == 0) {
+		return 0;
+	}
+
 	return (entity_id & 0xFFFFFF0000000000ULL) |
 	       ((entity_id & 0xFFFFFFULL) << 16) |
 	       unique_id;

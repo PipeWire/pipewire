@@ -776,7 +776,7 @@ static int lock_socket(struct server *s)
 
 	snprintf(s->lock_addr, sizeof(s->lock_addr), "%s%s", s->addr.sun_path, LOCK_SUFFIX);
 
-	s->fd_lock = open(s->lock_addr, O_CREAT | O_CLOEXEC,
+	s->fd_lock = open(s->lock_addr, O_CREAT | O_CLOEXEC | O_NOFOLLOW,
 			  (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP));
 
 	if (s->fd_lock < 0) {

@@ -3646,7 +3646,8 @@ static int fill_card_info(struct client *client, struct message *m,
 
 			pi = &port_info[n];
 
-			if (pi->info && pi->n_props > 0) {
+			if (pi->info && pi->n_props > 0 &&
+			    pi->n_props <= MAX_ALLOCA_SIZE / sizeof(*items)) {
 				items = alloca(pi->n_props * sizeof(*items));
 				dict.items = items;
 				pdict = collect_props(pi->info, &dict);
@@ -4099,6 +4100,9 @@ static int fill_node_info_proplist(struct message *m, const struct spa_dict *nod
 		client_props = client_info->props;
 		n_items += client_props->n_items;
 	}
+
+	if (n_items > MAX_ALLOCA_SIZE / sizeof(struct spa_dict_item))
+		return -ENOMEM;
 
 	dict.n_items = n = 0;
 	dict.items = items = alloca(n_items * sizeof(struct spa_dict_item));

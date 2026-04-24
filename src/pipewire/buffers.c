@@ -6,6 +6,7 @@
 #include <spa/pod/iter.h>
 #include <spa/param/param.h>
 #include <spa/buffer/alloc.h>
+#include <spa/utils/overflow.h>
 #include <spa/debug/types.h>
 
 #include "pipewire/keys.h"
@@ -71,7 +72,12 @@ static int alloc_buffers(struct pw_mempool *pool,
         spa_buffer_alloc_fill_info(&info, n_metas, metas, n_datas, datas, data_aligns);
 
 	/* allocate the skeleton, depending on SHARED flag, meta/chunk/data is included */
-	buffers = calloc(1, info.max_align + n_buffers * (sizeof(struct spa_buffer *) + info.skel_size));
+	size_t skel_alloc;
+	if (spa_overflow_mul((size_t)n_buffers, sizeof(struct spa_buffer *) + info.skel_size, &skel_alloc) ||
+	    spa_overflow_add(skel_alloc, (size_t)info.max_align, &skel_alloc))
+		return -ENOMEM;
+
+	buffers = calloc(1, skel_alloc);
 	if (buffers == NULL)
 		return -errno;
 
@@ -80,12 +86,18 @@ static int alloc_buffers(struct pw_mempool *pool,
 
 	if (SPA_FLAG_IS_SET(flags, PW_BUFFERS_FLAG_SHARED)) {
 		/* For shared data we use MemFd for meta/chunk/data */
+		size_t mem_alloc;
+		if (spa_overflow_mul((size_t)n_buffers, (size_t)info.mem_size, &mem_alloc)) {
+			free(buffers);
+			return -ENOMEM;
+		}
+
 		m = pw_mempool_alloc(pool,
 				PW_MEMBLOCK_FLAG_READWRITE |
 				PW_MEMBLOCK_FLAG_SEAL |
 				PW_MEMBLOCK_FLAG_MAP,
 				SPA_DATA_MemFd,
-				n_buffers * info.mem_size);
+				mem_alloc);
 		if (m == NULL) {
 			free(buffers);
 			return -errno;

@@ -39,6 +39,7 @@
 #include <bluetooth/bluetooth.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/overflow.h>
 #include <spa/support/log.h>
 
 #include "rate-control.h"
@@ -107,9 +108,12 @@ static inline int spa_bt_decode_buffer_init(struct spa_bt_decode_buffer *this, s
 	this->frame_size = frame_size;
 	this->rate = rate;
 	this->log = log;
-	this->buffer_reserve = this->frame_size * reserve;
-	this->buffer_size = this->frame_size * quantum_limit * 2;
-	this->buffer_size += this->buffer_reserve;
+	if (spa_overflow_mul(this->frame_size, reserve, &this->buffer_reserve))
+		return -ENOMEM;
+	if (spa_overflow_mul(this->frame_size, quantum_limit, &this->buffer_size) ||
+	    spa_overflow_mul(this->buffer_size, 2u, &this->buffer_size) ||
+	    spa_overflow_add(this->buffer_size, this->buffer_reserve, &this->buffer_size))
+		return -ENOMEM;
 	this->corr = 1.0;
 	this->prev_match_rate = 1.0;
 	this->target = 0;

@@ -11,6 +11,7 @@
 #include <math.h>
 
 #include <spa/utils/string.h>
+#include <spa/utils/overflow.h>
 
 #include "dsffile.h"
 
@@ -96,10 +97,11 @@ static int read_fmt(struct dsf_file *f)
 	if (size > s)
 		f_skip(f, size - s);
 
+	size_t buf_size;
 	if (f->info.blocksize == 0 || f->info.channels == 0 ||
-	    f->info.channels > SIZE_MAX / f->info.blocksize)
+	    spa_overflow_mul((size_t)f->info.channels, (size_t)f->info.blocksize, &buf_size))
 		return -EINVAL;
-	f->buffer = calloc(f->info.channels, f->info.blocksize);
+	f->buffer = calloc(1, buf_size);
 	if (f->buffer == NULL)
 		return -errno;
 

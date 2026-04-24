@@ -28,6 +28,7 @@
 #include <spa/support/plugin.h>
 #include <spa/utils/json.h>
 #include <spa/utils/names.h>
+#include <spa/utils/overflow.h>
 #include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/string.h>
@@ -1179,9 +1180,16 @@ static int setup_streams(struct impl *impl)
 
 	spa_pod_dynamic_builder_clean(&b);
 
-	impl->rec_ringsize = (size_t)sizeof(float) * impl->max_buffer_size * impl->rec_info.rate / 1000;
-	impl->play_ringsize = (size_t)sizeof(float) * ((size_t)impl->max_buffer_size * impl->play_info.rate / 1000 + impl->buffer_delay);
-	impl->out_ringsize = (size_t)sizeof(float) * impl->max_buffer_size * impl->out_info.rate / 1000;
+	if (spa_overflow_mul(impl->max_buffer_size, impl->rec_info.rate / 1000, &impl->rec_ringsize) ||
+	    spa_overflow_mul(impl->rec_ringsize, (uint32_t)sizeof(float), &impl->rec_ringsize))
+		return -ENOMEM;
+	if (spa_overflow_mul(impl->max_buffer_size, impl->play_info.rate / 1000, &impl->play_ringsize) ||
+	    spa_overflow_add(impl->play_ringsize, impl->buffer_delay, &impl->play_ringsize) ||
+	    spa_overflow_mul(impl->play_ringsize, (uint32_t)sizeof(float), &impl->play_ringsize))
+		return -ENOMEM;
+	if (spa_overflow_mul(impl->max_buffer_size, impl->out_info.rate / 1000, &impl->out_ringsize) ||
+	    spa_overflow_mul(impl->out_ringsize, (uint32_t)sizeof(float), &impl->out_ringsize))
+		return -ENOMEM;
 	for (i = 0; i < impl->rec_info.channels; i++) {
 		impl->rec_buffer[i] = malloc(impl->rec_ringsize);
 		if (impl->rec_buffer[i] == NULL)

@@ -8,6 +8,7 @@
 #include <errno.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/overflow.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -111,7 +112,8 @@ PW_API_ARRAY int pw_array_ensure_size(struct pw_array *arr, size_t size)
 	size_t alloc, need;
 
 	alloc = arr->alloc;
-	need = arr->size + size;
+	if (SPA_UNLIKELY(spa_overflow_add(arr->size, size, &need)))
+		return -ENOMEM;
 
 	if (SPA_UNLIKELY(alloc < need)) {
 		void *data;

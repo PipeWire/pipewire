@@ -19,6 +19,7 @@
 #include <spa/utils/json.h>
 #include <spa/utils/result.h>
 #include <spa/utils/cleanup.h>
+#include <spa/utils/overflow.h>
 #include <spa/support/cpu.h>
 #include <spa/support/log.h>
 #include <spa/support/loop.h>
@@ -1533,7 +1534,13 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 	spa_log_info(impl->log, "max-delay:%f seconds rate:%lu samples:%d latency:%f",
 			max_delay, impl->rate, impl->buffer_samples, impl->latency);
 
-	impl->buffer = calloc(impl->buffer_samples * 2 + 64, sizeof(float));
+	size_t buf_count;
+	if (spa_overflow_mul((size_t)impl->buffer_samples, (size_t)2, &buf_count) ||
+	    spa_overflow_add(buf_count, (size_t)64, &buf_count)) {
+		delay_cleanup(impl);
+		return NULL;
+	}
+	impl->buffer = calloc(buf_count, sizeof(float));
 	if (impl->buffer == NULL) {
 		delay_cleanup(impl);
 		return NULL;

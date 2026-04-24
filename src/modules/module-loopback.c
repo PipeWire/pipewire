@@ -16,6 +16,7 @@
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/overflow.h>
 #include <spa/param/latency-utils.h>
 #include <spa/param/audio/raw-json.h>
 #include <spa/debug/types.h>
@@ -578,14 +579,14 @@ static void recalculate_buffer(struct impl *impl)
 		void *data;
 		size_t alloc_size;
 
-		if (delay > (UINT32_MAX / 4) - (1u<<15)) {
+		if (spa_overflow_add(delay, 1u << 15, &impl->buffer_size) ||
+		    spa_overflow_mul(impl->buffer_size, 4u, &impl->buffer_size)) {
 			pw_log_warn("delay too large, delay disabled");
 			impl->buffer_size = 0;
 			free(impl->buffer_data);
 			impl->buffer_data = NULL;
 			goto done;
 		}
-		impl->buffer_size = (delay + (1u<<15)) * 4;
 		alloc_size = (size_t)impl->buffer_size * impl->channels;
 		data = realloc(impl->buffer_data, alloc_size);
 		if (data == NULL) {

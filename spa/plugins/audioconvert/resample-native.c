@@ -5,6 +5,7 @@
 #include <errno.h>
 
 #include <spa/param/audio/format.h>
+#include <spa/utils/overflow.h>
 
 #include "resample-native-impl.h"
 #ifndef RESAMPLE_DISABLE_PRECOMP
@@ -470,8 +471,9 @@ int resample_native_init(struct resample *r)
 	struct native_data *d;
 	const struct quality *q;
 	double scale, cutoff;
-	uint32_t i, n_taps, n_phases, filter_size, in_rate, out_rate, gcd, filter_stride;
-	uint32_t history_stride, history_size, oversample;
+	uint32_t i, n_taps, n_phases, in_rate, out_rate, gcd, filter_stride;
+	uint32_t history_stride, oversample;
+	size_t filter_size, history_size, alloc_size;
 	struct resample_config *c = &r->config;
 #ifndef RESAMPLE_DISABLE_PRECOMP
 	struct resample_config def = { 0 };
@@ -515,17 +517,21 @@ int resample_native_init(struct resample *r)
 	n_phases *= oversample;
 
 	filter_stride = SPA_ROUND_UP_N(n_taps * sizeof(float), 64);
-	filter_size = filter_stride * (n_phases + 1);
+	if (spa_overflow_mul((size_t)filter_stride, (size_t)(n_phases + 1), &filter_size))
+		return -ENOMEM;
 
 	history_stride = SPA_ROUND_UP_N(2 * n_taps * sizeof(float), 64);
-	history_size = r->channels * history_stride;
+	if (spa_overflow_mul((size_t)r->channels, (size_t)history_stride, &history_size))
+		return -ENOMEM;
 
-	d = calloc(1, sizeof(struct native_data) +
-			filter_size +
-			history_size +
-			(r->channels * sizeof(float*)) +
-			64);
+	alloc_size = sizeof(struct native_data);
+	if (spa_overflow_add(alloc_size, filter_size, &alloc_size) ||
+	    spa_overflow_add(alloc_size, history_size, &alloc_size) ||
+	    spa_overflow_add(alloc_size, (size_t)r->channels * sizeof(float*), &alloc_size) ||
+	    spa_overflow_add(alloc_size, (size_t)64, &alloc_size))
+		return -ENOMEM;
 
+	d = calloc(1, alloc_size);
 	if (d == NULL)
 		return -errno;
 

@@ -6,6 +6,7 @@
 #include <errno.h>
 
 #include <spa/param/audio/format.h>
+#include <spa/utils/overflow.h>
 
 #include "peaks-ops.h"
 #include "resample.h"
@@ -113,7 +114,12 @@ int resample_peaks_init(struct resample *r)
 	r->free = impl_peaks_free;
 	r->update_rate = impl_peaks_update_rate;
 
-	d = calloc(1, sizeof(struct peaks_data) + sizeof(float) * r->channels);
+	size_t alloc_size;
+	if (spa_overflow_mul(sizeof(float), (size_t)r->channels, &alloc_size) ||
+	    spa_overflow_add(alloc_size, sizeof(struct peaks_data), &alloc_size))
+		return -ENOMEM;
+
+	d = calloc(1, alloc_size);
 	if (d == NULL)
 		return -errno;
 

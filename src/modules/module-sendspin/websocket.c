@@ -11,6 +11,7 @@
 #include <netdb.h>
 
 #include <spa/utils/result.h>
+#include <spa/utils/overflow.h>
 #include <spa/debug/mem.h>
 
 #include "config.h"
@@ -644,9 +645,8 @@ static int handle_input(struct pw_websocket_connection *conn)
 					current)) < 0)
 				return res;
 
-			if (conn->data_wanted > SIZE_MAX - res)
+			if (spa_overflow_add(conn->data_wanted, (size_t)res, &conn->data_wanted))
 				return -EOVERFLOW;
-			conn->data_wanted += res;
 		}
 	}
 	return 0;
@@ -1020,14 +1020,14 @@ int pw_websocket_connection_send(struct pw_websocket_connection *conn, uint8_t o
 	size_t payload_length = 0;
 
 	for (i = 0; i < iov_len; i++) {
-		if (payload_length > SIZE_MAX - iov[i].iov_len)
+		if (spa_overflow_add(payload_length, iov[i].iov_len, &payload_length))
 			return -EOVERFLOW;
-		payload_length += iov[i].iov_len;
 	}
-	if (payload_length > SIZE_MAX - sizeof(*msg) - 14)
+	size_t alloc_size;
+	if (spa_overflow_add(payload_length, sizeof(*msg) + 14, &alloc_size))
 		return -EOVERFLOW;
 
-	if ((msg = calloc(1, sizeof(*msg) + 14 + payload_length)) == NULL)
+	if ((msg = calloc(1, alloc_size)) == NULL)
 		return -errno;
 
 	d = msg->data;

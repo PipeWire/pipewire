@@ -15,6 +15,7 @@
 
 #include <spa/param/latency-utils.h>
 #include <spa/param/tag-utils.h>
+#include <spa/utils/overflow.h>
 #include <spa/param/audio/raw-json.h>
 #include <spa/pod/dynamic.h>
 #include <spa/filter-graph/filter-graph.h>
@@ -1764,7 +1765,13 @@ static int setup_streams(struct impl *impl)
 		res = -ENOMEM;
 		goto done;
 	}
-	if ((params = calloc(n_params+1, sizeof(struct spa_pod*))) == NULL) {
+	size_t params_alloc;
+	if (spa_overflow_add((size_t)n_params, (size_t)1, &params_alloc) ||
+	    spa_overflow_mul(params_alloc, sizeof(struct spa_pod*), &params_alloc)) {
+		res = -ENOMEM;
+		goto done;
+	}
+	if ((params = calloc(1, params_alloc)) == NULL) {
 		res = -errno;
 		goto done;
 	}

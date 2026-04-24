@@ -12,6 +12,7 @@
 
 #include <spa/utils/list.h>
 #include <spa/utils/string.h>
+#include <spa/utils/overflow.h>
 
 #define PW_TELEPHONY_SERVICE "org.pipewire.Telephony"
 
@@ -1100,10 +1101,11 @@ telephony_ag_new(struct spa_bt_telephony *telephony, size_t user_data_size)
 {
 	struct impl *impl = SPA_CONTAINER_OF(telephony, struct impl, this);
 	struct agimpl *agimpl;
+	size_t alloc_size;
 
-	spa_assert(user_data_size < SIZE_MAX - sizeof(*agimpl));
+	spa_assert(!spa_overflow_add(sizeof(*agimpl), user_data_size, &alloc_size));
 
-	agimpl = calloc(1, sizeof(*agimpl) + user_data_size);
+	agimpl = calloc(1, alloc_size);
 	if (agimpl == NULL)
 		return NULL;
 
@@ -1334,10 +1336,11 @@ struct spa_bt_telephony_call *
 telephony_call_new(struct spa_bt_telephony_ag *ag, size_t user_data_size)
 {
 	struct callimpl *callimpl;
+	size_t alloc_size;
 
-	spa_assert(user_data_size < SIZE_MAX - sizeof(*callimpl));
+	spa_assert(!spa_overflow_add(sizeof(*callimpl), user_data_size, &alloc_size));
 
-	callimpl = calloc(1, sizeof(*callimpl) + user_data_size);
+	callimpl = calloc(1, alloc_size);
 	if (callimpl == NULL)
 		return NULL;
 

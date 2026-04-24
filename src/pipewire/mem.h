@@ -5,6 +5,7 @@
 #ifndef PIPEWIRE_MEM_H
 #define PIPEWIRE_MEM_H
 
+#include <spa/utils/overflow.h>
 #include <pipewire/properties.h>
 
 struct spa_hook;
@@ -184,14 +185,15 @@ PW_API_MEM int pw_map_range_init(struct pw_map_range *range,
 				     uint32_t offset, uint32_t size,
 				     uint32_t page_size)
 {
+	uint32_t sum, tmp;
 	range->offset = SPA_ROUND_DOWN_N(offset, page_size);
 	range->start = offset - range->offset;
-	if (size > UINT32_MAX - range->start)
+	if (spa_overflow_add(range->start, size, &sum))
 		return -EOVERFLOW;
 	/* Check that rounding up to page_size won't overflow */
-	if (range->start + size > UINT32_MAX - (page_size - 1))
+	if (spa_overflow_add(sum, page_size - 1, &tmp))
 		return -EOVERFLOW;
-	range->size = SPA_ROUND_UP_N(range->start + size, page_size);
+	range->size = SPA_ROUND_UP_N(sum, page_size);
 	return 0;
 }
 

@@ -931,14 +931,20 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 			s->addr.sun_path[0] = 0;
 			size = (socklen_t) (strlen(&s->addr.sun_path[1]) + 1);
 		} else {
-			if (stat(s->addr.sun_path, &socket_stat) < 0) {
+			if (lstat(s->addr.sun_path, &socket_stat) < 0) {
 				if (errno != ENOENT) {
 					res = -errno;
 					pw_log_error("server %p: stat %s failed with error: %m",
 							s, s->addr.sun_path);
 					goto error_close;
 				}
-			} else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
+			} else if (S_ISLNK(socket_stat.st_mode)) {
+				pw_log_error("server %p: refusing to follow symlink at %s",
+						s, s->addr.sun_path);
+				res = -EACCES;
+				goto error_close;
+			} else if (S_ISSOCK(socket_stat.st_mode) &&
+				   (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP)) {
 				unlink(s->addr.sun_path);
 			}
 			size = (socklen_t) (strlen(s->addr.sun_path) + 1);

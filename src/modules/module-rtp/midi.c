@@ -134,7 +134,7 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 	case 0xf7:
 		if ((size = parse_varlen(&p[offs], avail - offs, &value)) < 0)
 			return size;
-		if ((unsigned int)(INT_MAX - size - 1) > value)
+		if (value > (unsigned int)(INT_MAX - size - 1))
 			return -EINVAL;
 		size += (int)value + 1;
 		break;

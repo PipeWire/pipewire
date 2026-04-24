@@ -6215,7 +6215,8 @@ static void configure_bis(struct spa_bt_monitor *monitor,
 
 	/* Configure each BIS from a BIG */
 	spa_list_for_each(metadata_entry, &bis->metadata_list, link) {
-		if ((metadata_size + metadata_entry->length + 1) > METADATA_MAX_LEN) {
+		if (metadata_entry->length < 1 ||
+		    (metadata_size + metadata_entry->length + 1) > METADATA_MAX_LEN) {
 			spa_log_warn(monitor->log, "Metadata configured for the BIS exceeds the maximum metadata size");
 			return;
 		}

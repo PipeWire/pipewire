@@ -614,13 +614,19 @@ static int start_unix_server(struct server *server, const struct sockaddr_storag
 		goto error;
 	}
 
-	if (stat(addr_un->sun_path, &socket_stat) < 0) {
+	if (lstat(addr_un->sun_path, &socket_stat) < 0) {
 		if (errno != ENOENT) {
 			res = -errno;
 			pw_log_warn("server %p: stat('%s') failed: %m",
 				    server, addr_un->sun_path);
 			goto error_close;
 		}
+	}
+	else if (S_ISLNK(socket_stat.st_mode)) {
+		res = -EACCES;
+		pw_log_error("server %p: refusing to follow symlink at '%s'",
+			    server, addr_un->sun_path);
+		goto error_close;
 	}
 	else if (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP) {
 		if (!S_ISSOCK(socket_stat.st_mode)) {

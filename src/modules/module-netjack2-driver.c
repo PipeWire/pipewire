@@ -846,6 +846,8 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	    peer->params.recv_midi_channels < 0 ||
 	    peer->params.sample_rate == 0 ||
 	    peer->params.period_size == 0 ||
+	    peer->params.mtu == 0 ||
+	    peer->params.mtu > MAX_MTU ||
 	    !encoding_supported(peer->params.sample_encoder)) {
 		pw_log_warn("invalid follower setup");
 		return -EINVAL;
@@ -1049,7 +1051,8 @@ static int create_netjack2_socket(struct impl *impl)
 		goto out;
 	}
 
-	impl->mtu = pw_properties_get_uint32(impl->props, "net.mtu", DEFAULT_NET_MTU);
+	impl->mtu = SPA_MIN(pw_properties_get_uint32(impl->props, "net.mtu", DEFAULT_NET_MTU),
+			(uint32_t)MAX_MTU);
 	impl->ttl = pw_properties_get_uint32(impl->props, "net.ttl", DEFAULT_NET_TTL);
 	impl->loop = pw_properties_get_bool(impl->props, "net.loop", DEFAULT_NET_LOOP);
 	impl->dscp = pw_properties_get_uint32(impl->props, "net.dscp", DEFAULT_NET_DSCP);

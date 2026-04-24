@@ -1201,7 +1201,8 @@ static int create_netjack2_socket(struct impl *impl)
 		goto out;
 	}
 
-	impl->mtu = pw_properties_get_uint32(impl->props, "net.mtu", DEFAULT_NET_MTU);
+	impl->mtu = SPA_MIN(pw_properties_get_uint32(impl->props, "net.mtu", DEFAULT_NET_MTU),
+			(uint32_t)MAX_MTU);
 	impl->ttl = pw_properties_get_uint32(impl->props, "net.ttl", DEFAULT_NET_TTL);
 	impl->loop = pw_properties_get_bool(impl->props, "net.loop", DEFAULT_NET_LOOP);
 	impl->dscp = pw_properties_get_uint32(impl->props, "net.dscp", DEFAULT_NET_DSCP);

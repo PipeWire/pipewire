@@ -85,7 +85,7 @@ set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
 	iov[1].iov_base = buffer;
 }
 
-static int flush_write(struct stream *stream, uint64_t current_time)
+static int flush_write_milan_v12(struct stream *stream, uint64_t current_time)
 {
 	int32_t avail;
 	uint32_t index;
@@ -93,7 +93,7 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 	int pdu_count;
 	ssize_t n;
 	struct avb_frame_header *h = (void*)stream->pdu;
-	bool is_milan = stream->server->avb_mode == AVB_MODE_MILAN_V12;
+	struct avb_packet_aaf *p = SPA_PTROFF(h, sizeof(*h), void);
 
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
@@ -102,61 +102,76 @@ static int flush_write(struct stream *stream, uint64_t current_time)
 	txtime = current_time + stream->t_uncertainty;
 	ptime = txtime + stream->mtt;
 
-	if (is_milan) {
-		struct avb_packet_aaf *p = SPA_PTROFF(h, sizeof(*h), void);
+	while (pdu_count--) {
+		*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
 
-		while (pdu_count--) {
-			*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
+		set_iovec(&stream->ring,
+			stream->buffer_data,
+			stream->buffer_size,
+			index % stream->buffer_size,
+			&stream->iov[1], stream->payload_size);
 
-			set_iovec(&stream->ring,
-				stream->buffer_data,
-				stream->buffer_size,
-				index % stream->buffer_size,
-				&stream->iov[1], stream->payload_size);
+		p->seq_num = stream->pdu_seq++;
+		p->tv = 1;
+		p->timestamp = htonl((uint32_t)ptime);
 
-			p->seq_num = stream->pdu_seq++;
-			p->tv = 1;
-			p->timestamp = htonl((uint32_t)ptime);
-
-			n = avb_server_stream_send(stream->server, stream,
-					&stream->msg, MSG_NOSIGNAL);
-			if (n < 0 || n != (ssize_t)stream->pdu_size)
-				pw_log_error("stream send failed %zd != %zd: %m",
-						n, stream->pdu_size);
-			txtime += stream->pdu_period;
-			ptime += stream->pdu_period;
-			index += stream->payload_size;
-		}
-	} else {
-		struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
-		uint8_t dbc = stream->dbc;
-
-		while (pdu_count--) {
-			*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
-
-			set_iovec(&stream->ring,
-				stream->buffer_data,
-				stream->buffer_size,
-				index % stream->buffer_size,
-				&stream->iov[1], stream->payload_size);
-
-			p->seq_num = stream->pdu_seq++;
-			p->tv = 1;
-			p->timestamp = ptime;
-			p->dbc = dbc;
-
-			n = avb_server_stream_send(stream->server, stream,
-					&stream->msg, MSG_NOSIGNAL);
-			if (n < 0 || n != (ssize_t)stream->pdu_size)
-				pw_log_error("stream send failed %zd != %zd: %m",
-						n, stream->pdu_size);
-			txtime += stream->pdu_period;
-			ptime += stream->pdu_period;
-			index += stream->payload_size;
-			dbc += stream->frames_per_pdu;
-		}
-		stream->dbc = dbc;
+		n = avb_server_stream_send(stream->server, stream,
+				&stream->msg, MSG_NOSIGNAL);
+		if (n < 0 || n != (ssize_t)stream->pdu_size)
+			pw_log_error("stream send failed %zd != %zd: %m",
+					n, stream->pdu_size);
+		txtime += stream->pdu_period;
+		ptime += stream->pdu_period;
+		index += stream->payload_size;
 	}
+
+	spa_ringbuffer_read_update(&stream->ring, index);
+	return 0;
+}
+
+static int flush_write_legacy(struct stream *stream, uint64_t current_time)
+{
+	int32_t avail;
+	uint32_t index;
+	uint64_t ptime, txtime;
+	int pdu_count;
+	ssize_t n;
+	struct avb_frame_header *h = (void*)stream->pdu;
+	struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
+	uint8_t dbc = stream->dbc;
+
+	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
+
+	pdu_count = (avail / stream->stride) / stream->frames_per_pdu;
+
+	txtime = current_time + stream->t_uncertainty;
+	ptime = txtime + stream->mtt;
+
+	while (pdu_count--) {
+		*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
+
+		set_iovec(&stream->ring,
+			stream->buffer_data,
+			stream->buffer_size,
+			index % stream->buffer_size,
+			&stream->iov[1], stream->payload_size);
+
+		p->seq_num = stream->pdu_seq++;
+		p->tv = 1;
+		p->timestamp = ptime;
+		p->dbc = dbc;
+
+		n = avb_server_stream_send(stream->server, stream,
+				&stream->msg, MSG_NOSIGNAL);
+		if (n < 0 || n != (ssize_t)stream->pdu_size)
+			pw_log_error("stream send failed %zd != %zd: %m",
+					n, stream->pdu_size);
+		txtime += stream->pdu_period;
+		ptime += stream->pdu_period;
+		index += stream->payload_size;
+		dbc += stream->frames_per_pdu;
+	}
+	stream->dbc = dbc;
 
 	spa_ringbuffer_read_update(&stream->ring, index);
 	return 0;
@@ -198,68 +213,81 @@ static void on_sink_stream_process(void *data)
 	pw_stream_queue_buffer(stream->stream, buf);
 
 	clock_gettime(CLOCK_TAI, &now);
-	flush_write(stream, SPA_TIMESPEC_TO_NSEC(&now));
+	if (stream->server->avb_mode == AVB_MODE_MILAN_V12)
+		flush_write_milan_v12(stream, SPA_TIMESPEC_TO_NSEC(&now));
+	else
+		flush_write_legacy(stream, SPA_TIMESPEC_TO_NSEC(&now));
 }
 
-static void setup_pdu(struct stream *stream)
+static void setup_pdu_milan_v12(struct stream *stream)
 {
 	struct avb_frame_header *h;
+	struct avb_packet_aaf *p;
 	ssize_t payload_size, hdr_size, pdu_size;
-	bool is_milan = stream->server->avb_mode == AVB_MODE_MILAN_V12;
 
 	spa_memzero(stream->pdu, sizeof(stream->pdu));
 	h = (struct avb_frame_header*)stream->pdu;
+	p = SPA_PTROFF(h, sizeof(*h), void);
 
 	payload_size = stream->stride * stream->frames_per_pdu;
+	hdr_size = sizeof(*h) + sizeof(*p);
+	pdu_size = hdr_size + payload_size;
 
-	if (is_milan) {
-		struct avb_packet_aaf *p = SPA_PTROFF(h, sizeof(*h), void);
+	h->type = htons(0x8100);
+	h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
+	h->etype = htons(0x22f0);
 
-		hdr_size = sizeof(*h) + sizeof(*p);
-		pdu_size = hdr_size + payload_size;
+	if (stream->direction == SPA_DIRECTION_OUTPUT) {
+		p->subtype = AVB_SUBTYPE_AAF;
+		p->sv = 1;
+		p->stream_id = htobe64(stream->id);
+		p->format = AVB_AAF_FORMAT_INT_32BIT;
+		p->nsr = AVB_AAF_PCM_NSR_48KHZ;
+		p->bit_depth = 32;
+		p->chan_per_frame = stream->info.info.raw.channels;
+		p->sp = AVB_AAF_PCM_SP_NORMAL;
+		p->event = 0;
+		p->seq_num = 0;
+		p->data_len = htons(payload_size);
+	}
 
-		h->type = htons(0x8100);
-		h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
-		h->etype = htons(0x22f0);
+	stream->hdr_size = hdr_size;
+	stream->payload_size = payload_size;
+	stream->pdu_size = pdu_size;
+}
 
-		if (stream->direction == SPA_DIRECTION_OUTPUT) {
-			p->subtype = AVB_SUBTYPE_AAF;
-			p->sv = 1;
-			p->stream_id = htobe64(stream->id);
-			p->format = AVB_AAF_FORMAT_INT_32BIT;
-			p->nsr = AVB_AAF_PCM_NSR_48KHZ;
-			p->bit_depth = 32;
-			p->chan_per_frame = stream->info.info.raw.channels;
-			p->sp = AVB_AAF_PCM_SP_NORMAL;
-			p->event = 0;
-			p->seq_num = 0;
-			p->data_len = htons(payload_size);
-		}
-	} else {
-		struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);
+static void setup_pdu_legacy(struct stream *stream)
+{
+	struct avb_frame_header *h;
+	struct avb_packet_iec61883 *p;
+	ssize_t payload_size, hdr_size, pdu_size;
 
-		hdr_size = sizeof(*h) + sizeof(*p);
-		pdu_size = hdr_size + payload_size;
+	spa_memzero(stream->pdu, sizeof(stream->pdu));
+	h = (struct avb_frame_header*)stream->pdu;
+	p = SPA_PTROFF(h, sizeof(*h), void);
 
-		h->type = htons(0x8100);
-		h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
-		h->etype = htons(0x22f0);
+	payload_size = stream->stride * stream->frames_per_pdu;
+	hdr_size = sizeof(*h) + sizeof(*p);
+	pdu_size = hdr_size + payload_size;
 
-		if (stream->direction == SPA_DIRECTION_OUTPUT) {
-			p->subtype = AVB_SUBTYPE_61883_IIDC;
-			p->sv = 1;
-			p->stream_id = htobe64(stream->id);
-			p->data_len = htons(payload_size + 8);
-			p->tag = 0x1;
-			p->channel = 0x1f;
-			p->tcode = 0xa;
-			p->sid = 0x3f;
-			p->dbs = stream->info.info.raw.channels;
-			p->qi2 = 0x2;
-			p->format_id = 0x10;
-			p->fdf = 0x2;
-			p->syt = htons(0x0008);
-		}
+	h->type = htons(0x8100);
+	h->prio_cfi_id = htons((stream->prio << 13) | stream->vlan_id);
+	h->etype = htons(0x22f0);
+
+	if (stream->direction == SPA_DIRECTION_OUTPUT) {
+		p->subtype = AVB_SUBTYPE_61883_IIDC;
+		p->sv = 1;
+		p->stream_id = htobe64(stream->id);
+		p->data_len = htons(payload_size + 8);
+		p->tag = 0x1;
+		p->channel = 0x1f;
+		p->tcode = 0xa;
+		p->sid = 0x3f;
+		p->dbs = stream->info.info.raw.channels;
+		p->qi2 = 0x2;
+		p->format_id = 0x10;
+		p->fdf = 0x2;
+		p->syt = htons(0x0008);
 	}
 
 	stream->hdr_size = hdr_size;
@@ -373,7 +401,10 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 	stream->pdu_period = SPA_NSEC_PER_SEC * stream->frames_per_pdu /
                           stream->info.info.raw.rate;
 
-	setup_pdu(stream);
+	if (server->avb_mode == AVB_MODE_MILAN_V12)
+		setup_pdu_milan_v12(stream);
+	else
+		setup_pdu_legacy(stream);
 	setup_msg(stream);
 
 	res = avb_msrp_attribute_new(server->msrp, &common->lstream_attr,
@@ -398,10 +429,12 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 		}
 
 		common->tastream_attr.attr.talker.vlan_id = htons(stream->vlan_id);
-		common->tastream_attr.attr.talker.tspec_max_frame_size =
-			htons(stream->server->avb_mode == AVB_MODE_MILAN_V12
-				? (uint16_t)stream->pdu_size
-				: (uint16_t)(32 + stream->frames_per_pdu * stream->stride));
+		if (server->avb_mode == AVB_MODE_MILAN_V12)
+			common->tastream_attr.attr.talker.tspec_max_frame_size =
+				htons((uint16_t)stream->pdu_size);
+		else
+			common->tastream_attr.attr.talker.tspec_max_frame_size =
+				htons((uint16_t)(32 + stream->frames_per_pdu * stream->stride));
 		common->tastream_attr.attr.talker.tspec_max_interval_frames =
 			htons(AVB_MSRP_TSPEC_MAX_INTERVAL_FRAMES_DEFAULT);
 		common->tastream_attr.attr.talker.priority = stream->prio;

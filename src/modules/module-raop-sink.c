@@ -1327,7 +1327,7 @@ static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *header
 		return -ENOTSUP;
 	}
 
-	pw_log_info("Auth: %s", str);
+	pw_log_debug("Auth: %s", str);
 
 	spa_auto(pw_strv) tokens = pw_split_strv(str, " ", INT_MAX, &n_tokens);
 	if (tokens == NULL || tokens[0] == NULL)

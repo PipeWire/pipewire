@@ -728,6 +728,7 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 		pw_base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
 		explicit_bzero(buf, sizeof(buf));
 		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
+		explicit_bzero(enc, sizeof(enc));
 	}
 	else if (spa_streq(impl->auth_method, "Digest")) {
 		const char *url;
@@ -744,12 +745,16 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 		spa_scnprintf(auth, sizeof(auth),
 				"username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
 				RAOP_AUTH_USER_NAME, impl->realm, impl->nonce, url, resp);
+		explicit_bzero(h1, sizeof(h1));
+		explicit_bzero(h2, sizeof(h2));
+		explicit_bzero(resp, sizeof(resp));
 	}
 	else
 		goto error;
 
 	pw_properties_setf(impl->headers, "Authorization", "%s %s",
 			impl->auth_method, auth);
+	explicit_bzero(auth, sizeof(auth));
 
 	return 0;
 error:

@@ -1035,13 +1035,14 @@ static int parse_endpoint_props(struct spa_bt_monitor *monitor, DBusMessageIter 
 			dbus_message_iter_recurse(&it[1], &it[2]);
 			dbus_message_iter_get_fixed_array(&it[2], &data, &n);
 
-			if (n) {
+			if (n > 0) {
 				buf = malloc(n);
 				if (!buf)
 					return -ENOMEM;
 				memcpy(buf, data, n);
 			} else {
 				buf = NULL;
+				n = 0;
 			}
 
 			free(*dest);
@@ -3834,16 +3835,16 @@ static int transport_update_props(struct spa_bt_transport *transport,
 			dbus_message_iter_recurse(&it[1], &iter);
 			dbus_message_iter_get_fixed_array(&iter, &value, &len);
 
-			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, len);
-			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
-
 			free(transport->configuration);
 			transport->configuration_len = 0;
 
-			if (!len) {
+			if (len <= 0) {
 				transport->configuration = NULL;
 				goto next;
 			}
+
+			spa_log_debug(monitor->log, "transport %p: %s=%d", transport, key, len);
+			spa_debug_log_mem(monitor->log, SPA_LOG_LEVEL_DEBUG, 2, value, (size_t)len);
 
 			transport->configuration = malloc(len);
 			if (transport->configuration) {

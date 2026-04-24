@@ -6,6 +6,7 @@
 #ifndef __AVB_AECP_AEM_HELPERS_H__
 #define __AVB_AECP_AEM_HELPERS_H__
 
+#include <errno.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -20,6 +21,11 @@ static inline int reply_status(struct aecp *aecp, int status, const void *m, int
 	struct server *server = aecp->server;
 	struct avb_ethernet_header *h = (void*)buf;
 	struct avb_packet_aecp_header *reply = SPA_PTROFF(h, sizeof(*h), void);
+
+	if (len < 0 || (size_t)len > sizeof(buf)) {
+		pw_log_warn("reply_status: invalid len %d", len);
+		return -EINVAL;
+	}
 
 	memcpy(buf, m, len);
 

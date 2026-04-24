@@ -336,6 +336,7 @@ void pw_random(void *buf, size_t buflen)
 {
 	if (pw_getrandom(buf, buflen, 0) < 0) {
 		uint8_t *p = buf;
+		pw_log_warn("getrandom failed, falling back to weak PRNG");
 		while (buflen-- > 0) {
 			int32_t val;
 #ifdef HAVE_RANDOM_R

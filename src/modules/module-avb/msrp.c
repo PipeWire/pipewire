@@ -79,12 +79,18 @@ static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, ui
 			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_READY;
 		else if (notify == AVB_MRP_NOTIFY_LEAVE)
 			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
+		/* Milan Table 5.10: TA registrar state flips flags_ex.REGISTERING
+		 * in the listener-side GET_STREAM_INFO answer — emit an unsol. */
+		avb_aecp_aem_mark_stream_info_dirty(msrp->server,
+				AVB_AEM_DESC_STREAM_INPUT, sc->stream.index);
 	}
 }
 
 static void notify_talker_failed(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
 {
+	struct stream_common *sc;
 	char label[64];
+
 	pw_log_info("> notify talker failed: %s", avb_mrp_notify_name(notify));
 	snprintf(label, sizeof(label), "MSRP talker-fail %s", avb_mrp_notify_name(notify));
 	avb_log_state(msrp->server, label);
@@ -93,6 +99,13 @@ static void notify_talker_failed(struct msrp *msrp, uint64_t now, struct attr *a
 		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
 			handle_evt_tk_registration_failed(msrp->server->acmp, attr->attr, now);
 	}
+
+	/* Milan Table 5.10: TF registrar state also flips flags_ex.REGISTERING
+	 * on the listener side; emit an unsol when it changes. */
+	sc = SPA_CONTAINER_OF(attr->attr, struct stream_common, tfstream_attr);
+	if (sc->stream.direction == SPA_DIRECTION_INPUT)
+		avb_aecp_aem_mark_stream_info_dirty(msrp->server,
+				AVB_AEM_DESC_STREAM_INPUT, sc->stream.index);
 }
 
 static int process_talker(struct msrp *msrp, uint64_t now, uint8_t attr_type,

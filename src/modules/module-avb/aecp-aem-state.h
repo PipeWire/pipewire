@@ -79,12 +79,33 @@ struct aecp_aem_lock_state {
 	bool is_locked;
 };
 
+/**
+ * \brief Milan v1.2 Section 5.4.2.25 / Tables 5.13–5.14 — AVB Interface counters.
+ * LINK_UP / LINK_DOWN / GPTP_GM_CHANGED are mandatory; controllers infer the
+ * current link state from (LINK_UP > LINK_DOWN). We don't (yet) hook netlink
+ * for runtime up/down events, so link_up is seeded to 1 at descriptor
+ * creation — the interface is up by the time the daemon successfully binds. */
+struct aecp_aem_avb_interface_counters {
+	uint32_t link_up;
+	uint32_t link_down;
+	uint32_t gptp_gm_changed;
+};
+
 struct aecp_aem_avb_interface_state {
 	struct avb_aem_desc_avb_interface desc;
 
 	struct avb_msrp_attribute domain_attr;
 
 	struct avb_mvrp_attribute vlan_attr;
+
+	struct aecp_aem_avb_interface_counters counters;
+
+	/* Milan Section 5.4.5: emit unsolicited GET_COUNTERS when any counter is
+	 * updated, max once per second per descriptor. counters_dirty is set
+	 * by the writer; AECP's periodic emits when dirty AND the rate-limit
+	 * has elapsed, then clears dirty and updates last_counters_emit_ns. */
+	bool counters_dirty;
+	int64_t last_counters_emit_ns;
 };
 
 
@@ -139,12 +160,26 @@ struct stream_common {
 	struct avb_msrp_attribute tfstream_attr;
 };
 
+#define AVB_AEM_STREAM_DESC_EXTRA_SIZE	128
+
 struct aecp_aem_stream_input_state {
 	struct avb_aem_desc_stream desc;
+	uint8_t desc_extra[AVB_AEM_STREAM_DESC_EXTRA_SIZE];
 
 	struct aecp_aem_stream_input_counters counters;
 	struct stream_common common;
 	struct avb_mvrp_attribute mvrp_attr;
+
+	/** Milan v1.2 Section 5.3.8.7: started/stopped state of the bound Stream Input.
+	 *  Toggled by START_STREAMING / STOP_STREAMING. Defaults to started.
+	 *  Undefined when the Stream Input is not bound. */
+	bool started;
+
+	bool stream_info_dirty;
+
+	/* Milan Section 5.4.5 counter unsolicited rate-limit (see avb_interface_state). */
+	bool counters_dirty;
+	int64_t last_counters_emit_ns;
 };
 
 struct acmp_stream_status_milan_v12 {
@@ -176,6 +211,7 @@ struct aecp_aem_stream_output_counters {
 
 struct aecp_aem_stream_output_state {
 	struct avb_aem_desc_stream desc;
+	uint8_t desc_extra[AVB_AEM_STREAM_DESC_EXTRA_SIZE];
 
 	struct aecp_aem_stream_output_counters counters;
 	struct stream_common common;
@@ -183,6 +219,22 @@ struct aecp_aem_stream_output_state {
 	/** Milan v1.2 Section 4.3.3.1: absolute time of last PROBE_TX_COMMAND received.
 	 *  0 = never received. Reset to 0 when SRP is deactivated. */
 	int64_t last_probe_rx_time;
+
+	/** Milan v1.2 Section 4.3.3.1: a Listener MSRP attribute matching this Stream
+	 *  Output's stream_id is currently registered (foreign declaration
+	 *  observed via MRP). Maintained by notify_listener() in msrp.c. */
+	bool listener_observed;
+
+	/** Milan v1.2 Section 5.3.7.6: Presentation time offset, in nanoseconds.
+	 *  Default 2_000_000 (2 ms). Settable via SET_STREAM_INFO with the
+	 *  MSRP_ACC_LAT_VALID flag. Range 0 .. 0x7FFFFFFF. */
+	uint32_t presentation_time_offset_ns;
+
+	bool stream_info_dirty;
+
+	/* Milan Section 5.4.5 counter unsolicited rate-limit (see avb_interface_state). */
+	bool counters_dirty;
+	int64_t last_counters_emit_ns;
 };
 
 struct aecp_aem_stream_output_state_milan_v12 {

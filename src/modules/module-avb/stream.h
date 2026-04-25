@@ -24,6 +24,7 @@ struct stream {
 	struct server *server;
 
 	uint16_t direction;
+	uint16_t index;
 	uint64_t id;
 
 	struct pw_stream *stream;

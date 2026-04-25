@@ -120,18 +120,17 @@ static void populate_input_response(struct aecp *aecp,
 	settled = (si->acmp_sta.probing_status == 3);
 	(void)settled;
 
-	/* Milan Section 5.3.8.8 / Table 5.10 REGISTERING bit: Talker Advertise OR
-	 * Talker Failed matching the saved SRP params is currently registered.
-	 * tastream_attr / tfstream_attr are the foreign declarations we observe;
-	 * registrar IN means we've heard them on the wire.
-	 *
-	 * For listeners, only lstream_attr and tfstream_attr are created in
-	 * server_create_stream — tastream_attr.mrp is NULL until/unless we
-	 * later wire in talker-advertise observation. Guard the deref. */
+	/* Milan Section 5.3.8.8 / Table 5.10 REGISTERING bit: Talker Advertise/Failed
+	 * matching the saved SRP params is currently registered. Treat IN and
+	 * LV alike — LV is the 1-s leave-timer transient and recovers on the
+	 * next JoinIn (matches the talker-side listener_observed semantics
+	 * which stay true until LV→MT). */
 	ta_observed = (taattr->mrp != NULL) &&
-		(avb_mrp_attribute_get_registrar_state(taattr->mrp) == AVB_MRP_IN);
+		(avb_mrp_attribute_get_registrar_state(taattr->mrp) == AVB_MRP_IN ||
+		 avb_mrp_attribute_get_registrar_state(taattr->mrp) == AVB_MRP_LV);
 	tf_observed = (tfattr->mrp != NULL) &&
-		(avb_mrp_attribute_get_registrar_state(tfattr->mrp) == AVB_MRP_IN);
+		(avb_mrp_attribute_get_registrar_state(tfattr->mrp) == AVB_MRP_IN ||
+		 avb_mrp_attribute_get_registrar_state(tfattr->mrp) == AVB_MRP_LV);
 	registering = ta_observed || tf_observed;
 
 	/* Stream Input — expose the identity fields unconditionally so a

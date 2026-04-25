@@ -70,11 +70,20 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 	switch (type) {
 	case AVB_AEM_DESC_STREAM_INPUT:
 		struct aecp_aem_stream_input_state *pstream_input;
-		struct aecp_aem_stream_input_state stream_input = { 0 };
+		/* Milan v1.2 ACMP code casts the descriptor pointer to
+		 * struct aecp_aem_stream_input_state_milan_v12 * and reads
+		 * acmp_sta, which sits *after* the bare stream input state.
+		 * Allocate the wrapper size so that read/write of acmp_sta is
+		 * within the descriptor buffer. The bare struct is the prefix
+		 * of the wrapper, so existing direct-access paths remain valid. */
+		struct aecp_aem_stream_input_state_milan_v12 stream_input_w = { 0 };
+		struct aecp_aem_stream_input_state *stream_input = &stream_input_w.stream_in_sta;
 
-		memcpy(&stream_input.desc, ptr, size);
+		memcpy(&stream_input->desc, ptr, size);
+		/* Milan v1.2 Section 5.3.8.7: started/stopped state defaults to started. */
+		stream_input->started = true;
 		desc = server_add_descriptor(server, type, index,
-					sizeof(stream_input), &stream_input);
+					sizeof(stream_input_w), &stream_input_w);
 		if (!desc) {
 			pw_log_error("Allocation failed\n");
 			return NULL;
@@ -87,11 +96,14 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 		break;
 	case AVB_AEM_DESC_STREAM_OUTPUT:
 		struct aecp_aem_stream_output_state *pstream_output;
-		struct aecp_aem_stream_output_state stream_output = { 0 };
+		struct aecp_aem_stream_output_state_milan_v12 stream_output_w = { 0 };
+		struct aecp_aem_stream_output_state *stream_output = &stream_output_w.stream_out_sta;
 
-		memcpy(&stream_output.desc, ptr, size);
+		memcpy(&stream_output->desc, ptr, size);
+		/* Milan v1.2 Section 5.3.7.6: default presentation time offset is 2 ms. */
+		stream_output->presentation_time_offset_ns = 2000000;
 		desc = server_add_descriptor(server, type, index,
-					sizeof(stream_output), &stream_output);
+					sizeof(stream_output_w), &stream_output_w);
 		if (!desc) {
 			pw_log_error("Allocation failed\n");
 			return NULL;
@@ -135,6 +147,17 @@ static struct descriptor *es_buidler_desc_avb_interface(struct server *server,
 	}
 
 	if_ptr = desc->ptr;
+
+	/* Milan Section 5.4.2.25 / Table 5.13: seed LINK_UP=1 at startup. The interface
+	 * is up by the time descriptors are built (we wouldn't have a working
+	 * raw socket otherwise). Hive infers current link state from
+	 * (LINK_UP > LINK_DOWN); without this it sees the link as down.
+	 *
+	 * Mark counters dirty so the next periodic emits an unsolicited
+	 * GET_COUNTERS — Milan Section 5.4.5 only emits on update, no periodic
+	 * heartbeat. */
+	if_ptr->counters.link_up = 1;
+	if_ptr->counters_dirty = true;
 
 	avb_msrp_attribute_new(server->msrp, &if_ptr->domain_attr,
 			AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN);

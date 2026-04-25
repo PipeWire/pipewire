@@ -62,7 +62,7 @@ static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, ui
 	struct stream_common *sc;
 	char label[64];
 
-	pw_log_debug("> notify talker advertise: %s", avb_mrp_notify_name(notify));
+	pw_log_info("> notify talker advertise: %s", avb_mrp_notify_name(notify));
 	snprintf(label, sizeof(label), "MSRP talker-adv %s", avb_mrp_notify_name(notify));
 	avb_log_state(msrp->server, label);
 	if (msrp->server->avb_mode == AVB_MODE_MILAN_V12) {
@@ -85,7 +85,7 @@ static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, ui
 static void notify_talker_failed(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
 {
 	char label[64];
-	pw_log_debug("> notify talker failed: %s", avb_mrp_notify_name(notify));
+	pw_log_info("> notify talker failed: %s", avb_mrp_notify_name(notify));
 	snprintf(label, sizeof(label), "MSRP talker-fail %s", avb_mrp_notify_name(notify));
 	avb_log_state(msrp->server, label);
 
@@ -178,7 +178,7 @@ static void notify_listener(struct msrp *msrp, uint64_t now, struct attr *attr, 
 	struct stream *s;
 	char label[64];
 
-	pw_log_debug("> notify listener: %s", avb_mrp_notify_name(notify));
+	pw_log_info("> notify listener: %s", avb_mrp_notify_name(notify));
 	debug_msrp_listener(&attr->attr->attr.listener, attr->attr->param);
 	snprintf(label, sizeof(label), "MSRP listener %s", avb_mrp_notify_name(notify));
 	avb_log_state(msrp->server, label);
@@ -272,7 +272,7 @@ static void debug_msrp_domain(const struct avb_packet_msrp_domain *d)
 
 static void notify_domain(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
 {
-	pw_log_debug("> notify domain: %s", avb_mrp_notify_name(notify));
+	pw_log_info("> notify domain: %s", avb_mrp_notify_name(notify));
 	debug_msrp_domain(&attr->attr->attr.domain);
 }
 

@@ -13,6 +13,7 @@
 #include "utils.h"
 #include "msrp.h"
 #include "acmp.h"
+#include "stream.h"
 
 static const uint8_t msrp_mac[6] = AVB_MSRP_MAC;
 
@@ -52,8 +53,12 @@ static void debug_msrp_talker(const struct avb_packet_msrp_talker *t)
 	debug_msrp_talker_common(t);
 }
 
+/* IEEE 802.1Q Section 35.2.2.4.4: Listener may declare Ready only once the matching
+ * Talker Advertise is registered; otherwise it stays in AskingFailed. */
 static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
 {
+	struct stream_common *sc;
+
 	pw_log_info("> notify talker advertise: %s", avb_mrp_notify_name(notify));
 	if (msrp->server->avb_mode == AVB_MODE_MILAN_V12) {
 		uint64_t stream_id = be64toh(attr->attr->attr.talker.stream_id);
@@ -61,6 +66,14 @@ static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, ui
 			handle_evt_tk_discovered(msrp->server->acmp, stream_id, now);
 		else if (notify == AVB_MRP_NOTIFY_LEAVE)
 			handle_evt_tk_departed(msrp->server->acmp, stream_id, now);
+	}
+
+	sc = SPA_CONTAINER_OF(attr->attr, struct stream_common, tastream_attr);
+	if (sc->stream.direction == SPA_DIRECTION_INPUT) {
+		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
+			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_READY;
+		else if (notify == AVB_MRP_NOTIFY_LEAVE)
+			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
 	}
 }
 

@@ -592,7 +592,9 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 		input_stream = SPA_CONTAINER_OF(common, struct aecp_aem_stream_input_state, common);
 
 		common->lstream_attr.attr.listener.stream_id = htobe64(stream->peer_id);
-		common->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_READY;
+		/* Milan Section 4.3.3.1: Listener starts in AskingFailed; notify_talker
+		 * promotes to Ready once the Talker Advertise registrar is IN. */
+		common->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
 		avb_mrp_attribute_begin(common->lstream_attr.mrp, now);
 		avb_mrp_attribute_join(common->lstream_attr.mrp, now, true);
 

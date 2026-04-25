@@ -11,6 +11,7 @@
 
 #include "aecp.h"
 #include "aecp-aem.h"
+#include "aecp-vendor-unique-milan-v12.h"
 #include "internal.h"
 
 static const uint8_t mac[6] = AVB_BROADCAST_MAC;
@@ -82,6 +83,18 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 		return 0;
 
 	message_type = AVB_PACKET_AECP_GET_MESSAGE_TYPE(p);
+
+	/* Milan v1.2 Section 5.4.4: AECP VENDOR_UNIQUE_COMMAND with the Milan MVU
+	 * protocol_id is dispatched separately. The handler returns 1 if it
+	 * recognised the protocol_id (sent a response or NOT_IMPLEMENTED for
+	 * the specific MVU command); 0 means "not Milan MVU, fall through". */
+	if (message_type == AVB_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND &&
+	    server->avb_mode == AVB_MODE_MILAN_V12) {
+		int rc = aecp_vendor_unique_milan_v12_handle_command(aecp,
+				message, len);
+		if (rc != 0)
+			return rc < 0 ? rc : 0;
+	}
 
 	info = find_msg_info(message_type, NULL);
 	if (info == NULL)

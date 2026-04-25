@@ -164,6 +164,7 @@ static void notify_listener(struct msrp *msrp, uint64_t now, struct attr *attr, 
 	}
 }
 
+/* IEEE 802.1Q Section 35.2.2.4.4: capture the rx 4-pack Listener Declaration Type. */
 static int process_listener(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 		const void *m, uint8_t event, uint8_t param, int num)
 {
@@ -171,8 +172,11 @@ static int process_listener(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 	struct attr *a;
 	spa_list_for_each(a, &msrp->attributes, link)
 		if (a->attr->type == attr_type &&
-		    a->attr->attr.listener.stream_id == l->stream_id)
+		    a->attr->attr.listener.stream_id == l->stream_id) {
+			a->attr->attr.listener = *l;
+			a->attr->param = param;
 			avb_mrp_attribute_rx_event(a->attr->mrp, now, event);
+		}
 	return 0;
 }
 static int encode_listener(struct msrp *msrp, struct attr *a, void *m)

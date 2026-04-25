@@ -113,4 +113,6 @@ int avb_msrp_attribute_new(struct avb_msrp *m, struct avb_msrp_attribute *attr,
 
 struct avb_msrp *avb_msrp_register(struct server *server);
 
+void avb_msrp_log_state(struct server *server, const char *label);
+
 #endif /* AVB_MSRP_H */

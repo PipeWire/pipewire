@@ -65,4 +65,6 @@ int handle_evt_tk_registration_failed_milan_v12(struct acmp *acmp,
 
 int handle_acmp_cli_cmd_milan_v12(struct acmp *acmp, const char *args, FILE *out);
 
+void acmp_log_state_milan_v12(struct server *server, const char *label);
+
 #endif //AVB_ACMP_MILAN_V12_H

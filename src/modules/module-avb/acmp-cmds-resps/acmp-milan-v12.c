@@ -6,10 +6,12 @@
 
 #include "acmp-common.h"
 #include "acmp-milan-v12.h"
+#include "../utils.h"
 
 #include "../adp.h"
 #include "../aecp-aem.h"
 #include "../aecp-aem-state.h"
+#include "../stream.h"
 
 
 #define ACMP_MILAN_V12_PBSTA_DISABLED		(0U)
@@ -66,6 +68,8 @@ static inline void clear_stream_binding(struct aecp_aem_stream_input_state_milan
 	memset(stream->stream_in_sta.common.stream.addr, 0,
 	       sizeof(stream->stream_in_sta.common.stream.addr));
 	stream->stream_in_sta.common.stream.vlan_id = AVB_DEFAULT_VLAN;
+
+	stream->stream_in_sta.stream_info_dirty = true;
 }
 
 static inline uint64_t stream_talker_entity_id(const struct aecp_aem_stream_input_state_milan_v12 *s)
@@ -570,7 +574,7 @@ int handle_fsm_prb_w_avail_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	uint8_t res;
 
-	if (is_accessible_entity_id(acmp, stream, m, len, now)) {
+	if (!is_accessible_entity_id(acmp, stream, m, len, now)) {
 		prepare_bind_rx_response_no_match(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
 		if (res) {
@@ -654,7 +658,7 @@ int handle_fsm_prb_w_avail_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	int res;
 
-	if (is_accessible_entity_id(acmp, stream, m, len, now)) {
+	if (!is_accessible_entity_id(acmp, stream, m, len, now)) {
 		prepare_bind_rx_response_no_match(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
 		if (res) {
@@ -710,7 +714,15 @@ int handle_fsm_prb_w_delay_tmr_delay_evt(struct acmp *acmp,
 	struct server *server = acmp->server;
 	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)acmp;
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
+	const size_t min_len = sizeof(struct avb_ethernet_header) +
+				sizeof(struct avb_packet_acmp);
 	int res;
+
+	if (m == NULL || len < min_len) {
+		pw_log_warn("tmr_delay fired with no saved packet (len=%zu); "
+				"deferring probe_tx_command retry", len);
+		return 0;
+	}
 
 	prepare_probe_tx_command_success(acmp, stream, m, len, buf);
 	res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH,
@@ -746,7 +758,7 @@ int handle_fsm_prb_w_delay_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	int res;
 
-	if (is_accessible_entity_id(acmp, stream, m, len, now)) {
+	if (!is_accessible_entity_id(acmp, stream, m, len, now)) {
 		prepare_bind_rx_response_no_match(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
 		if (res) {
@@ -837,7 +849,7 @@ int handle_fsm_prb_w_delay_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	int res;
 
-	if (is_accessible_entity_id(acmp, stream, m, len, now)) {
+	if (!is_accessible_entity_id(acmp, stream, m, len, now)) {
 		prepare_bind_rx_response_no_match(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
 		if (res) {
@@ -1048,13 +1060,37 @@ int handle_fsm_prb_w_resp_rcv_probe_tx_resp_evt(struct acmp *acmp,
 	memcpy(stream_generic->addr, p->stream_dest_mac,
 			sizeof(p->stream_dest_mac));
 	stream_generic->vlan_id = ntohs(p->stream_vlan_id);
+
+	pw_log_info("Listener probe complete: stream_id=0x%016" PRIx64
+			" dest_mac=%02x:%02x:%02x:%02x:%02x:%02x vlan=%u",
+			be64toh(p->stream_id),
+			stream_generic->addr[0], stream_generic->addr[1],
+			stream_generic->addr[2], stream_generic->addr[3],
+			stream_generic->addr[4], stream_generic->addr[5],
+			stream_generic->vlan_id);
+
+	/* Milan Section 5.4.5: nudge AECP to push an unsolicited GET_STREAM_INFO
+	 * notification (Hive caches the pre-bind answer and won't refetch
+	 * on its own). The setter is the only AECP symbol ACMP touches —
+	 * the AECP periodic clears the flag and emits the actual unsol. */
+	avb_aecp_aem_mark_stream_info_dirty(server,
+			AVB_AEM_DESC_STREAM_INPUT,
+			ntohs(p->listener_unique_id));
 	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = p->stream_id;
 	stream->stream_in_sta.common.tastream_attr.attr.talker.stream_id = p->stream_id;
 	stream->stream_in_sta.common.tastream_attr.attr.talker.vlan_id = p->stream_vlan_id;
 	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.stream_id = p->stream_id;
 	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.vlan_id = p->stream_vlan_id;
 
-
+	/* Milan Section 5.3.8.5: settled listener begins monitoring for matching
+	 * Talker Advertise/Failed and shall declare Listener Ready when one
+	 * is observed. stream_activate opens the receive socket, begins the
+	 * VLAN MVRP attribute, and declares the Listener Ready attribute on
+	 * the listener-side lstream_attr — which is what the talker side
+	 * needs to see to satisfy Section 4.3.3.1's second condition. */
+	res = stream_activate(stream_generic, ntohs(p->listener_unique_id), now);
+	if (res < 0)
+		pw_log_warn("stream_activate failed: %d", res);
 
 	stream->acmp_sta.probing_status = ACMP_MILAN_V12_PBSTA_COMPLETED;
 	stream->acmp_sta.acmp_status = 0;
@@ -1407,7 +1443,7 @@ int handle_fsm_settled_no_rsv_rcv_bind_rx_cmd_evt(struct acmp *acmp,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	uint8_t res;
 
-	if (is_accessible_entity_id(acmp, stream, m, len, now)) {
+	if (!is_accessible_entity_id(acmp, stream, m, len, now)) {
 		prepare_bind_rx_response_no_match(acmp, stream, m, len, buf);
 		res = avb_server_send_packet(server, h_reply->dest, AVB_TSN_ETH, h_reply, len);
 		if (res) {
@@ -1518,6 +1554,7 @@ int handle_fsm_settled_no_rsv_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		return res;
 	}
 
+	stream_deactivate(&stream->stream_in_sta.common.stream, now);
 
 	adp_stop_discovery_entity(server, be64toh(p->talker_guid));
 
@@ -1696,6 +1733,8 @@ int handle_fsm_settled_rsv_ok_rcv_unbind_rx_cmd_evt(struct acmp *acmp,
 		}
 		return res;
 	}
+
+	stream_deactivate(&stream->stream_in_sta.common.stream, now);
 
 	adp_stop_discovery_entity(acmp->server, be64toh(p->talker_guid));
 
@@ -1958,11 +1997,12 @@ static int acmp_generic_command_lt_handler_milan_v12(struct acmp *acmp,
 
 	si_state = (struct aecp_aem_stream_input_state_milan_v12 *)desc->ptr;
 	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
-	if (!cmd) {
-		pw_log_error("transition STATE:%s EVT:%s",
+	if (!cmd->state_handler) {
+		/* Milan Section 5.5.3: unlisted (state, event) pairs are no-op. */
+		pw_log_debug("No handler: STATE:%s EVT:%s - ignoring",
 				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
-		return -1;
+		return 0;
 	}
 
 	return cmd->state_handler(acmp, si_state, m, len, now);
@@ -1978,11 +2018,13 @@ static int acmp_generic_timer_handler_milan_v12(struct acmp *acmp, uint64_t now,
 
 	si_state = (struct aecp_aem_stream_input_state_milan_v12 *)tmr->stream;
 	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
-	if (!cmd) {
-		pw_log_error("transition STATE:%s EVT:%s",
+	if (!cmd->state_handler) {
+		/* Stale timer firing after a state transition cancelled the
+		 * thing it was waiting for — Milan Section 5.5.3 treats it as no-op. */
+		pw_log_debug("No handler: STATE:%s EVT:%s - ignoring",
 				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
-		return -1;
+		return 0;
 	}
 
 	return cmd->state_handler(acmp, si_state, tmr->saved_packet, tmr->saved_packet_len, now);
@@ -2004,7 +2046,10 @@ static int acmp_generic_srp_evt_lt_handler_milan_v12(struct acmp *acmp,
 
 	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 	if (!cmd->state_handler) {
-		pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
+		/* Milan Section 5.5.3 — events absent from the per-state table are
+		 * defined as no-op for that state (e.g. TK_UNREGISTERED in
+		 * PRB_W_DELAY/PRB_W_AVAIL). Not an error. */
+		pw_log_debug("No handler: STATE:%s EVT:%s - ignoring",
 				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
 		return 0;
@@ -2029,7 +2074,8 @@ static int acmp_generic_srp_failed_evt_lt_handler_milan_v12(struct acmp *acmp,
 
 	cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 	if (!cmd->state_handler) {
-		pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
+		/* Milan Section 5.5.3: unlisted (state, event) pairs are no-op. */
+		pw_log_debug("No handler: STATE:%s EVT:%s - ignoring",
 				fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 				fsm_acmp_evt_milan_v12_str[event]);
 		return 0;
@@ -2059,7 +2105,8 @@ static int acmp_generic_adp_evt_lt_handler_milan_v12(struct acmp *acmp,
 
 		cmd = &cmd_listeners_states[si_state->acmp_sta.fsm_acmp_state][event];
 		if (!cmd->state_handler) {
-			pw_log_warn("No handler: STATE:%s EVT:%s - ignoring",
+			/* Milan Section 5.5.3: unlisted (state, event) pairs are no-op. */
+			pw_log_debug("No handler: STATE:%s EVT:%s - ignoring",
 					fsm_acmp_state_milan_v12_str[si_state->acmp_sta.fsm_acmp_state],
 					fsm_acmp_evt_milan_v12_str[event]);
 			continue;
@@ -2325,14 +2372,18 @@ void acmp_periodic_milan_v12(struct acmp *acmp, uint64_t now)
 		if (p->timeout > now)
 			continue;
 
+		spa_list_remove(&p->link);
+
 		if (acmp_generic_timer_handler_milan_v12(acmp, now, p)) {
 			pw_log_error("while executing timer handler");
 		}
 		free(p);
 	}
 
-	/* Milan Section 4.3.3.1: deactivate talker SRP if no PROBE_TX_COMMAND received
-	 * within 15 s and no listener attribute is registered. */
+	/* Milan Section 4.3.3.1: the talker advertise is valid when a PROBE_TX_COMMAND
+	 * has been received in the last 15 s OR a Listener attribute matching
+	 * the Stream Output's stream_id is currently registered. Deactivate
+	 * only when neither condition holds. */
 	for (uint16_t desc_index = 0; desc_index < UINT16_MAX; desc_index++) {
 		struct descriptor *desc;
 		struct aecp_aem_stream_output_state *stream_out;
@@ -2350,11 +2401,100 @@ void acmp_periodic_milan_v12(struct acmp *acmp, uint64_t now)
 			continue;
 		if (stream->source == NULL)
 			continue;
+		if (stream_out->listener_observed)
+			continue;
 		if (now - (uint64_t)stream_out->last_probe_rx_time > 15 * SPA_NSEC_PER_SEC) {
-			pw_log_info("talker stream %u: no probe in 15 s, deactivating SRP",
+			pw_log_info("talker stream %u: no probe in 15 s and no listener registered, deactivating SRP",
 					desc_index);
 			stream_deactivate(stream, now);
 			stream_out->last_probe_rx_time = 0;
+		}
+	}
+}
+
+static const char *probing_status_name(uint8_t s)
+{
+	switch (s) {
+	case ACMP_MILAN_V12_PBSTA_DISABLED:  return "DISABLED";
+	case ACMP_MILAN_V12_PBSTA_PASSIVE:   return "PASSIVE";
+	case ACMP_MILAN_V12_PBSTA_ACTIVE:    return "ACTIVE";
+	case ACMP_MILAN_V12_PBSTA_COMPLETED: return "COMPLETED";
+	default:                             return "?";
+	}
+}
+
+void acmp_log_state_milan_v12(struct server *server, const char *label)
+{
+	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)server->acmp;
+	struct acmp_lt_timers *tmr;
+	struct timespec ts;
+	uint64_t now;
+	int n_in = 0, n_out = 0, n_tmr = 0;
+
+	if (acmp_m == NULL)
+		return;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	now = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	for (uint16_t i = 0; i < UINT16_MAX; i++) {
+		struct descriptor *d = server_find_descriptor(server,
+				AVB_AEM_DESC_STREAM_INPUT, i);
+		if (d == NULL)
+			break;
+		n_in++;
+	}
+	for (uint16_t i = 0; i < UINT16_MAX; i++) {
+		struct descriptor *d = server_find_descriptor(server,
+				AVB_AEM_DESC_STREAM_OUTPUT, i);
+		if (d == NULL)
+			break;
+		n_out++;
+	}
+	spa_list_for_each(tmr, &acmp_m->timers_lt, link)
+		n_tmr++;
+
+	pw_log_debug("[%s] ACMP: stream_in=%d stream_out=%d active_timers=%d",
+			label, n_in, n_out, n_tmr);
+
+	for (uint16_t i = 0; i < UINT16_MAX; i++) {
+		struct descriptor *d = server_find_descriptor(server,
+				AVB_AEM_DESC_STREAM_INPUT, i);
+		struct aecp_aem_stream_input_state_milan_v12 *si;
+		char buf[64];
+		if (d == NULL)
+			break;
+		si = d->ptr;
+		pw_log_debug("[%s]   in[%u] fsm=%s probing=%s acmp_status=%u bound_talker_stream_id=%s",
+				label, i,
+				fsm_acmp_state_milan_v12_str[si->acmp_sta.fsm_acmp_state],
+				probing_status_name(si->acmp_sta.probing_status),
+				si->acmp_sta.acmp_status,
+				avb_utils_format_id(buf, sizeof(buf),
+					be64toh(si->stream_in_sta.common.lstream_attr.attr.listener.stream_id)));
+	}
+
+	for (uint16_t i = 0; i < UINT16_MAX; i++) {
+		struct descriptor *d = server_find_descriptor(server,
+				AVB_AEM_DESC_STREAM_OUTPUT, i);
+		struct aecp_aem_stream_output_state *so;
+		char buf[64];
+		if (d == NULL)
+			break;
+		so = d->ptr;
+		if (so->last_probe_rx_time == 0) {
+			pw_log_debug("[%s]   out[%u] stream_id=%s last_probe=never listener_observed=%d",
+					label, i,
+					avb_utils_format_id(buf, sizeof(buf),
+						be64toh(so->common.tastream_attr.attr.talker.stream_id)),
+					so->listener_observed);
+		} else {
+			uint64_t age_ms = (now - (uint64_t)so->last_probe_rx_time) / 1000000ULL;
+			pw_log_debug("[%s]   out[%u] stream_id=%s last_probe=%" PRIu64 "ms_ago listener_observed=%d",
+					label, i,
+					avb_utils_format_id(buf, sizeof(buf),
+						be64toh(so->common.tastream_attr.attr.talker.stream_id)),
+					age_ms, so->listener_observed);
 		}
 	}
 }

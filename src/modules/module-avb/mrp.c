@@ -448,10 +448,10 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	}
 
 	if (a->registrar_state != state || notify) {
-		pw_log_debug("REG: attr %p: %s %s %s -> %s %s notify? %s", a, a->attr.name,
+		pw_log_debug("REG: attr %p: %s %s %s -> %s notify=%s", a, a->attr.name,
 			avb_mrp_event_name(event), avb_registrar_state_name(a->registrar_state),
-			avb_registrar_state_name(state), avb_mrp_send_name(notify),
-			notify ? "YES":"NO");
+			avb_registrar_state_name(state),
+			notify ? avb_mrp_notify_name(notify) : "none");
 		a->registrar_state = state;
 	}
 

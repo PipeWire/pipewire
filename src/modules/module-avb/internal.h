@@ -179,6 +179,8 @@ int avb_server_stream_setup_socket(struct server *server, struct stream *stream)
 ssize_t avb_server_stream_send(struct server *server, struct stream *stream,
 		struct msghdr *msg, int flags);
 
+void avb_log_state(struct server *server, const char *label);
+
 struct aecp {
 	struct server *server;
 	struct spa_hook server_listener;

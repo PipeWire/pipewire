@@ -31,6 +31,7 @@
 #include "mvrp.h"
 #include "descriptors.h"
 #include "utils.h"
+#include "acmp-cmds-resps/acmp-milan-v12.h"
 
 #define DEFAULT_INTERVAL	1
 
@@ -96,7 +97,7 @@ static int raw_send_packet(struct server *server, const uint8_t dest[6],
 
 	if (send(server->source->fd, data, size, 0) < 0) {
 		res = -errno;
-		pw_log_warn("got send error: %m");
+		pw_log_warn("got send error (size=%zu type=0x%04x): %m", size, type);
 	}
 	return res;
 }
@@ -449,4 +450,20 @@ void avdecc_server_free(struct server *server)
 const char *get_avb_mode_str(enum avb_mode mode)
 {
 	return avb_mode_str[mode];
+}
+
+void avb_log_state(struct server *server, const char *label)
+{
+	if (server == NULL)
+		return;
+#if 0
+	if (!pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
+		return;
+#endif
+	pw_log_debug("===== state @ %s =====", label);
+	adp_log_state(server, label);
+	avb_msrp_log_state(server, label);
+	if (server->avb_mode == AVB_MODE_MILAN_V12)
+		acmp_log_state_milan_v12(server, label);
+	pw_log_debug("===== end state =====");
 }

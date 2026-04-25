@@ -22,6 +22,9 @@
 #include "aecp-aem-cmds-resps/cmd-get-set-clock-source.h"
 #include "aecp-aem-cmds-resps/cmd-lock-entity.h"
 #include "aecp-aem-cmds-resps/cmd-get-dynamic-info.h"
+#include "aecp-aem-cmds-resps/cmd-get-set-stream-info.h"
+#include "aecp-aem-cmds-resps/cmd-start-stop-streaming.h"
+#include "aecp-aem-cmds-resps/cmd-get-counters.h"
 
 
 /* ACQUIRE_ENTITY */
@@ -368,6 +371,22 @@ static const struct cmd_info cmd_info_milan_v12[] = {
 
 	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_DYNAMIC_INFO, true,
 		 handle_cmd_get_dynamic_info_milan_v12),
+
+	/* Milan v1.2 Section 5.4.2.9 / Section 5.4.2.10 */
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_STREAM_INFO, true,
+		 handle_cmd_get_stream_info_milan_v12),
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_SET_STREAM_INFO, false,
+		 handle_cmd_set_stream_info_milan_v12),
+
+	/* Milan v1.2 Section 5.4.2.19 / Section 5.4.2.20 */
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_START_STREAMING, false,
+		 handle_cmd_start_streaming_milan_v12),
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_STOP_STREAMING, false,
+		 handle_cmd_stop_streaming_milan_v12),
+
+	/* Milan v1.2 Section 5.4.2.25 */
+	AECP_AEM_HANDLE_CMD(AVB_AECP_AEM_CMD_GET_COUNTERS, true,
+		 handle_cmd_get_counters_milan_v12),
 };
 
 static const struct {
@@ -477,6 +496,75 @@ void avb_aecp_aem_periodic(struct aecp *aecp, int64_t now)
 		return;
 
 	handle_cmd_lock_entity_expired_milan_v12(aecp, now);
+
+	/* Milan Section 5.4.5: emit unsolicited GET_COUNTERS when any counter is
+	 * updated, max once per descriptor per second. The dirty/rate-limit
+	 * is enforced per descriptor inside this function — no outer gate. */
+	cmd_get_counters_periodic_milan_v12(aecp, now);
+
+	{
+		struct server *srv = aecp->server;
+		uint16_t i;
+		for (i = 0; i < UINT16_MAX; i++) {
+			struct descriptor *d = server_find_descriptor(srv,
+					AVB_AEM_DESC_STREAM_INPUT, i);
+			struct aecp_aem_stream_input_state *si;
+			if (d == NULL)
+				break;
+			si = d->ptr;
+			if (si->stream_info_dirty) {
+				cmd_get_stream_info_emit_unsol_milan_v12(srv,
+						AVB_AEM_DESC_STREAM_INPUT, i);
+				si->stream_info_dirty = false;
+			}
+		}
+		for (i = 0; i < UINT16_MAX; i++) {
+			struct descriptor *d = server_find_descriptor(srv,
+					AVB_AEM_DESC_STREAM_OUTPUT, i);
+			struct aecp_aem_stream_output_state *so;
+			if (d == NULL)
+				break;
+			so = d->ptr;
+			if (so->stream_info_dirty) {
+				cmd_get_stream_info_emit_unsol_milan_v12(srv,
+						AVB_AEM_DESC_STREAM_OUTPUT, i);
+				so->stream_info_dirty = false;
+			}
+		}
+	}
+}
+
+void avb_aecp_aem_mark_stream_info_dirty(struct server *server,
+		uint16_t desc_type, uint16_t desc_index)
+{
+	struct descriptor *d = server_find_descriptor(server, desc_type, desc_index);
+	if (d == NULL)
+		return;
+	if (desc_type == AVB_AEM_DESC_STREAM_INPUT) {
+		struct aecp_aem_stream_input_state *si = d->ptr;
+		si->stream_info_dirty = true;
+	} else if (desc_type == AVB_AEM_DESC_STREAM_OUTPUT) {
+		struct aecp_aem_stream_output_state *so = d->ptr;
+		so->stream_info_dirty = true;
+	}
+}
+
+void avb_aecp_aem_mark_counters_dirty(struct server *server,
+		uint16_t desc_type, uint16_t desc_index)
+{
+	struct descriptor *d = server_find_descriptor(server, desc_type, desc_index);
+	if (d == NULL)
+		return;
+	if (desc_type == AVB_AEM_DESC_AVB_INTERFACE) {
+		struct aecp_aem_avb_interface_state *ifs = d->ptr;
+		ifs->counters_dirty = true;
+	} else if (desc_type == AVB_AEM_DESC_STREAM_INPUT) {
+		struct aecp_aem_stream_input_state *si = d->ptr;
+		si->counters_dirty = true;
+	} else if (desc_type == AVB_AEM_DESC_STREAM_OUTPUT) {
+		struct aecp_aem_stream_output_state *so = d->ptr;
+		so->counters_dirty = true;
+	}
 }
 
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len)

@@ -115,6 +115,14 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 
 	e = find_entity_by_id(adp, entity_id);
 
+	{
+		const char *mt = (message_type == AVB_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE) ? "ADP rx ENTITY_AVAILABLE" :
+				 (message_type == AVB_ADP_MESSAGE_TYPE_ENTITY_DEPARTING) ? "ADP rx ENTITY_DEPARTING" :
+				 (message_type == AVB_ADP_MESSAGE_TYPE_ENTITY_DISCOVER)  ? "ADP rx ENTITY_DISCOVER"  :
+				                                                           "ADP rx ?";
+		avb_log_state(server, mt);
+	}
+
 	switch (message_type) {
 	case AVB_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE:
 		if (e == NULL) {
@@ -145,7 +153,7 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 				struct avb_packet_adp *p_saved =
 				       	SPA_PTROFF(h_saved, sizeof(*h_saved), void);
 
-				if (p_saved->available_index != p->available_index) {
+				if (ntohl(p->available_index) <= ntohl(p_saved->available_index)) {
 					if (handle_evt_tk_departed(server->acmp, entity_id, now)) {
 						pw_log_info("handling departing event");
 						return -1;
@@ -429,6 +437,36 @@ void adp_stop_discovery_entity(struct server *server, uint64_t entity_id)
         }
 
 	pw_log_warn("Could not find entity 0x%"PRIx64, entity_id);
+}
+
+void adp_log_state(struct server *server, const char *label)
+{
+	struct adp *adp = (struct adp *)server->adp;
+	struct entity *e;
+	struct timespec ts;
+	uint64_t now;
+	char buf[64];
+	int n = 0;
+
+	if (adp == NULL)
+		return;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	now = SPA_TIMESPEC_TO_NSEC(&ts);
+
+	spa_list_for_each(e, &adp->entities, link)
+		n++;
+	pw_log_debug("[%s] ADP: %d entit%s", label, n, n == 1 ? "y" : "ies");
+
+	spa_list_for_each(e, &adp->entities, link) {
+		struct avb_ethernet_header *h = (void *)e->buf;
+		struct avb_packet_adp *p = SPA_PTROFF(h, sizeof(*h), void);
+		uint64_t age_ms = (now - e->last_time) / 1000000ULL;
+		pw_log_debug("[%s]   %s last_seen=%" PRIu64 "ms valid=%ds available_index=%u",
+				label,
+				avb_utils_format_id(buf, sizeof(buf), e->entity_id),
+				age_ms, e->valid_time, ntohl(p->available_index));
+	}
 }
 
 struct avb_adp *avb_adp_register(struct server *server)

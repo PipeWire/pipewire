@@ -88,4 +88,6 @@ void adp_stop_discovery_entity(struct server *server, uint64_t entity_id);
 struct avb_adp *avb_adp_register(struct server *server);
 void avb_adp_unregister(struct avb_adp *adp);
 
+void adp_log_state(struct server *server, const char *label);
+
 #endif /* AVB_ADP_H */

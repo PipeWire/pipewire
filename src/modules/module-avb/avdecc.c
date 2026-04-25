@@ -33,7 +33,9 @@
 #include "utils.h"
 #include "acmp-cmds-resps/acmp-milan-v12.h"
 
-#define DEFAULT_INTERVAL	1
+/* IEEE 802.1Q-2014 Section 10.7.11: MRP join timer is ~100 ms. Run the periodic
+ * dispatch at the same granularity so join/leave timers fire on time. */
+#define DEFAULT_INTERVAL_MS	100
 
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_destroy(s)		server_emit(s, destroy, 0)
@@ -57,7 +59,7 @@ static void on_timer_event(void *data)
 	server_emit_periodic(server, SPA_TIMESPEC_TO_NSEC(&now));
 
 	pw_timer_queue_add(impl->timer_queue, &server->timer,
-		&server->timer.timeout, DEFAULT_INTERVAL * SPA_NSEC_PER_SEC,
+		&server->timer.timeout, DEFAULT_INTERVAL_MS * SPA_NSEC_PER_MSEC,
 		on_timer_event, server);
 }
 
@@ -243,7 +245,7 @@ static int raw_transport_setup(struct server *server)
 	}
 
 	if ((res = pw_timer_queue_add(impl->timer_queue, &server->timer,
-			NULL, DEFAULT_INTERVAL * SPA_NSEC_PER_SEC,
+			NULL, DEFAULT_INTERVAL_MS * SPA_NSEC_PER_MSEC,
 			on_timer_event, server)) < 0) {
 		pw_log_error("server %p: can't create timer: %s", impl, spa_strerror(res));
 		goto error_no_timer;

@@ -137,6 +137,9 @@ void avb_mrp_attribute_add_listener(struct avb_mrp_attribute *attr, struct spa_h
 uint8_t avb_mrp_attribute_get_applicant_state(const struct avb_mrp_attribute *attr);
 uint8_t avb_mrp_attribute_get_registrar_state(const struct avb_mrp_attribute *attr);
 
+/* IEEE 802.1Q-2014 Section 10.7.6.3: lva bit must be 1 while transmitting our LVA. */
+bool avb_mrp_lva_tx_pending(const struct avb_mrp *m);
+
 struct avb_mrp_parse_info {
 #define AVB_VERSION_MRP_PARSE_INFO	0
 	uint32_t version;

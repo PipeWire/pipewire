@@ -55,6 +55,10 @@ struct mrp {
 	uint64_t periodic_timeout;
 	struct fsm_leave_all_timer lva_timer;
 	uint64_t join_timeout;
+
+	/* IEEE 802.1Q-2014 Section 10.7.6.3 lva bit: true while the next outgoing
+	 * vector header must carry lva=1 (local LeaveAll being transmitted). */
+	bool lva_tx_pending;
 };
 
 static void mrp_destroy(void *data)
@@ -107,6 +111,7 @@ static void mrp_periodic(void *data, uint64_t now)
 		/* 802.1Q-2014 Table 10-5 */
 		mrp->lva_timer.state = FSM_LVA_ACTIVE;
 		if (mrp->lva_timer.leave_all_timeout > 0) {
+			mrp->lva_tx_pending = true;
 			global_event(mrp, now, AVB_MRP_EVENT_RX_LVA);
 			leave_all = true;
 		}
@@ -118,6 +123,7 @@ static void mrp_periodic(void *data, uint64_t now)
 			global_event(mrp, now, event);
 		}
 		mrp->join_timeout = now + MRP_JOINTIMER_MS * SPA_NSEC_PER_MSEC;
+		mrp->lva_tx_pending = false;
 	}
 
 	spa_list_for_each(a, &mrp->attributes, link) {
@@ -737,6 +743,11 @@ void avb_mrp_attribute_leave(struct avb_mrp_attribute *attr, uint64_t now)
 	struct attribute *a = SPA_CONTAINER_OF(attr, struct attribute, attr);
 	avb_mrp_attribute_update_state(attr, now, AVB_MRP_EVENT_LV);
 	a->joined = false;
+}
+
+bool avb_mrp_lva_tx_pending(const struct avb_mrp *m)
+{
+	return ((const struct mrp *)m)->lva_tx_pending;
 }
 
 void avb_mrp_destroy(struct avb_mrp *mrp)

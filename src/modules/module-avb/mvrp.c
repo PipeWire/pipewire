@@ -77,7 +77,7 @@ static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m)
 	msg->attribute_length = sizeof(*d);
 
 	v = (struct avb_packet_mrp_vector *)msg->attribute_list;
-	v->lva = 0;
+	v->lva = avb_mrp_lva_tx_pending(mvrp->server->mrp) ? 1 : 0;
 	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
 
 	d = (struct avb_packet_mvrp_vid *)v->first_value;

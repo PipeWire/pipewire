@@ -124,7 +124,7 @@ static int encode_talker(struct msrp *msrp, struct attr *a, void *m)
 	msg->attribute_list_length = htons(attr_list_length);
 
 	v = (struct avb_packet_mrp_vector *)msg->attribute_list;
-	v->lva = 0;
+	v->lva = avb_mrp_lva_tx_pending(msrp->server->mrp) ? 1 : 0;
 	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
 
 	t = (struct avb_packet_msrp_talker *)v->first_value;
@@ -244,7 +244,7 @@ static int encode_listener(struct msrp *msrp, struct attr *a, void *m)
 	msg->attribute_list_length = htons(attr_list_length);
 
 	v = (struct avb_packet_mrp_vector *)msg->attribute_list;
-	v->lva = 0;
+	v->lva = avb_mrp_lva_tx_pending(msrp->server->mrp) ? 1 : 0;
 	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
 
 	l = (struct avb_packet_msrp_listener *)v->first_value;
@@ -325,7 +325,7 @@ static int encode_domain(struct msrp *msrp, struct attr *a, void *m)
 	msg->attribute_list_length = htons(attr_list_length);
 
 	v = (struct avb_packet_mrp_vector *)msg->attribute_list;
-	v->lva = 0;
+	v->lva = avb_mrp_lva_tx_pending(msrp->server->mrp) ? 1 : 0;
 	AVB_MRP_VECTOR_SET_NUM_VALUES(v, 1);
 
 	d = (struct avb_packet_msrp_domain *)v->first_value;

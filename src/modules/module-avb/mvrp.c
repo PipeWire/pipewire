@@ -94,7 +94,7 @@ static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m)
 
 static void notify_vid(struct mvrp *mvrp, uint64_t now, struct attr *attr, uint8_t notify)
 {
-	pw_log_info("> notify vid: %s", avb_mrp_notify_name(notify));
+	pw_log_debug("> notify vid: %s", avb_mrp_notify_name(notify));
 	debug_vid(&attr->attr->attr.vid);
 }
 

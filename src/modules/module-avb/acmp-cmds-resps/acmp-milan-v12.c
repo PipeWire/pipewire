@@ -721,7 +721,7 @@ int handle_fsm_prb_w_delay_tmr_delay_evt(struct acmp *acmp,
 	int res;
 
 	if (m == NULL || len < min_len) {
-		pw_log_warn("tmr_delay fired with no saved packet (len=%zu); "
+		pw_log_debug("tmr_delay fired with no saved packet (len=%zu); "
 				"deferring probe_tx_command retry", len);
 		return 0;
 	}

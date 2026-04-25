@@ -361,6 +361,18 @@ void avb_mrp_attribute_add_listener(struct avb_mrp_attribute *attr, struct spa_h
 	spa_hook_list_append(&a->listener_list, listener, events, data);
 }
 
+uint8_t avb_mrp_attribute_get_applicant_state(const struct avb_mrp_attribute *attr)
+{
+	const struct attribute *a = SPA_CONTAINER_OF(attr, const struct attribute, attr);
+	return a->applicant_state;
+}
+
+uint8_t avb_mrp_attribute_get_registrar_state(const struct avb_mrp_attribute *attr)
+{
+	const struct attribute *a = SPA_CONTAINER_OF(attr, const struct attribute, attr);
+	return a->registrar_state;
+}
+
 void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now,
 		int event)
 {

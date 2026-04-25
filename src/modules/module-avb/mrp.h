@@ -134,6 +134,9 @@ void avb_mrp_attribute_leave(struct avb_mrp_attribute *attr, uint64_t now);
 void avb_mrp_attribute_add_listener(struct avb_mrp_attribute *attr, struct spa_hook *listener,
 		const struct avb_mrp_attribute_events *events, void *data);
 
+uint8_t avb_mrp_attribute_get_applicant_state(const struct avb_mrp_attribute *attr);
+uint8_t avb_mrp_attribute_get_registrar_state(const struct avb_mrp_attribute *attr);
+
 struct avb_mrp_parse_info {
 #define AVB_VERSION_MRP_PARSE_INFO	0
 	uint32_t version;

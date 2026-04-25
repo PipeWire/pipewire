@@ -183,7 +183,9 @@ static struct acmp_lt_timers* acmp_timer_lt_find_milan_v12(struct acmp_milan_v12
 		}
 	}
 
-	pw_log_warn("Stream %p, no timer %s", stream, fsm_acmp_evt_milan_v12_str[event]);
+	/* Milan Section 5.5.3: callers use find_remove with "remove if present"
+	 * semantics, so a missing timer is not an error — keep at debug. */
+	pw_log_debug("Stream %p, no timer %s", stream, fsm_acmp_evt_milan_v12_str[event]);
 
 	return NULL;
 }

@@ -82,6 +82,17 @@ struct avb_packet_aecp_aem_setget_sensor_format {
 #define AVB_AEM_STREAM_INFO_FLAG_STREAM_ID_VALID		(1u<<30)
 #define AVB_AEM_STREAM_INFO_FLAG_STREAM_FORMAT_VALID		(1u<<31)
 
+/* Milan v1.2 Section 5.4.2.10 GET_STREAM_INFO flags (Tables 5.9 / 5.11).
+ *
+ * IMPORTANT: do not introduce inner unions/structs of bitfields here. GCC
+ * treats them as separate storage blocks and the parent union balloons to
+ * 12 bytes, shifting every field after it by 8 bytes on the wire.
+ * The 32 bitfields below total exactly 32 bits = 4 bytes, matching the
+ * single uint32_t alias.
+ *
+ * Milan renames CONNECTED → BOUND and TALKER_FAILED → REGISTERING_FAILED;
+ * they occupy the same bit positions so we keep the original member names
+ * with Milan semantics in the caller. */
 union aem_stream_info_flags {
 	struct {
 		uint32_t class_b:1;
@@ -90,11 +101,7 @@ union aem_stream_info_flags {
 		uint32_t streaming_wait:1;
 		uint32_t supports_encrypted:1;
 		uint32_t encrypted_pdu:1;
-		union {
-			uint32_t talker_failed:1;
-			// Milan V1.2
-			uint32_t registering_failed:1;
-		};
+		uint32_t registering_failed:1;
 		uint32_t rsvd_0:1;
 		uint32_t no_srp:1;
 		uint32_t rsvd_1:10;
@@ -120,16 +127,33 @@ union aem_stream_info_flag_extended {
 		uint16_t ip_flags;
 		uint16_t source_port;
 		uint16_t destination_port;
+		uint16_t reserved;
 	} legacy_avb;
+	/* Milan v1.2 Figure 5.1 GET_STREAM_INFO response trailer:
+	 *   offset 72: flags_ex (32 bits, big-endian on the wire)
+	 *              bit 31 (wire MSB) = REGISTERING, bits 0..30 reserved
+	 *   offset 76: pbsta (3 bits) + acmpsta (5 bits) + reserved (24 bits)
+	 * The two uint32_t fields here are stored in network byte order on
+	 * the wire — callers must htonl() before serialising. */
 	struct {
-		uint16_t rsvd_0;
-		uint32_t flags_ex_registering:1;
-		uint32_t rsvd_1:31;
-		uint32_t pbsta:3;
-		uint32_t acmpsta:5;
-		uint32_t rsvd_2:24;
+		uint32_t flags_ex;
+		uint32_t pbsta_acmpsta;
 	} milan_v12;
 } __attribute__ ((__packed__));
+
+/* Milan v1.2 Tables 5.10 / 5.12 — flags_ex.REGISTERING. The Milan/1722.1
+ * spec text describes "bit 0" using MSB-first numbering, but la_avdecc
+ * (and Hive, which uses it) defines `Registering = 1u << 0` — i.e., the
+ * value 0x00000001 on the host uint32_t. After htonl, that puts the bit
+ * in the LAST wire byte (00 00 00 01), which is wire MSB-first bit 31 =
+ * the spec's "bit 0". Caller does flags_ex_host |= … then htonl. */
+#define AVB_AEM_STREAM_INFO_FLAGS_EX_REGISTERING		(1u<<0)
+
+/* Milan v1.2 Figure 5.1 trailer: pbsta in bits 31..29, acmpsta in bits
+ * 28..24 of the trailing 32-bit word. Helpers operate in host order;
+ * callers htonl() before serialisation. */
+#define AVB_AEM_STREAM_INFO_PBSTA_ACMPSTA(pbsta, acmpsta)	\
+	((((uint32_t)(pbsta) & 0x7u) << 29) | (((uint32_t)(acmpsta) & 0x1fu) << 24))
 
 struct avb_packet_aecp_aem_setget_stream_info {
 	uint16_t descriptor_type;
@@ -143,6 +167,7 @@ struct avb_packet_aecp_aem_setget_stream_info {
 	uint8_t reserved;
 	uint64_t msrp_failure_bridge_id;
 	uint16_t stream_vlan_id;
+	uint16_t stream_vlan_id_reserved;  /* offset 70 — Milan v1.2 Figure 5.1 padding */
 	union aem_stream_info_flag_extended flags_ex;
 } __attribute__ ((__packed__));
 
@@ -343,5 +368,18 @@ struct avb_packet_aecp_aem {
 int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len);
 int avb_aecp_aem_handle_response(struct aecp *aecp, const void *m, int len);
 void avb_aecp_aem_periodic(struct aecp *aecp, int64_t now);
+
+void avb_aecp_aem_mark_stream_info_dirty(struct server *server,
+		uint16_t desc_type, uint16_t desc_index);
+
+/**
+ * \brief Cross-module hint: a counter on this descriptor was incremented.
+ * AECP's periodic emits an unsolicited GET_COUNTERS RESPONSE at most once
+ * per second per descriptor, per Milan Section 5.4.5.
+ *
+ * Valid desc_type: AVB_INTERFACE, STREAM_INPUT, STREAM_OUTPUT, CLOCK_DOMAIN.
+ */
+void avb_aecp_aem_mark_counters_dirty(struct server *server,
+		uint16_t desc_type, uint16_t desc_index);
 
 #endif /* AVB_AEM_H */

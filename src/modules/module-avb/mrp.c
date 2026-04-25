@@ -412,7 +412,10 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 		}
 		state = AVB_MRP_IN;
 		break;
+	/* IEEE 802.1Q-2014 Table 10-4: RX_IN transitions registrar to IN
+	 * the same way as RX_JOININ. */
 	case AVB_MRP_EVENT_RX_JOININ:
+	case AVB_MRP_EVENT_RX_IN:
 	case AVB_MRP_EVENT_RX_JOINMT:
 		switch (state) {
 		case AVB_MRP_LV:

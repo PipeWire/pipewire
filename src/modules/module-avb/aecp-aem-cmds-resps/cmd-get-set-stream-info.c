@@ -92,9 +92,11 @@ static int build_stream_info_response(struct aecp *aecp, const void *m, int len,
 }
 
 static void populate_input_response(struct aecp *aecp,
-		struct aecp_aem_stream_input_state_milan_v12 *si,
+		struct descriptor *desc,
 		struct avb_packet_aecp_aem_setget_stream_info *reply)
 {
+	struct aecp_aem_stream_input_state_milan_v12 *si = desc->ptr;
+	const struct avb_aem_desc_stream *stream_body = descriptor_body(desc);
 	struct stream_common *sc = &si->stream_in_sta.common;
 	struct avb_msrp_attribute *lattr = &sc->lstream_attr;
 	struct avb_msrp_attribute *taattr = &sc->tastream_attr;
@@ -111,7 +113,7 @@ static void populate_input_response(struct aecp *aecp,
 	bool bound, settled, ta_observed, tf_observed, registering;
 	(void)aecp;
 
-	stream_format_be = si->stream_in_sta.desc.current_format;
+	stream_format_be = stream_body->current_format;
 
 	/* Milan Section 5.3.8.2: bound iff the listener has a saved talker stream id. */
 	bound = (lattr->attr.listener.stream_id != 0);
@@ -194,7 +196,7 @@ static void populate_input_response(struct aecp *aecp,
 }
 
 static int handle_get_stream_input(struct aecp *aecp, const void *m, int len,
-		struct aecp_aem_stream_input_state_milan_v12 *si)
+		struct descriptor *desc)
 {
 	uint8_t buf[2048];
 	struct avb_ethernet_header *h_reply;
@@ -207,15 +209,17 @@ static int handle_get_stream_input(struct aecp *aecp, const void *m, int len,
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	reply = (struct avb_packet_aecp_aem_setget_stream_info *)p_reply->payload;
 
-	populate_input_response(aecp, si, reply);
+	populate_input_response(aecp, desc, reply);
 
 	return reply_success(aecp, buf, AVB_AECP_GET_STREAM_INFO_RESPONSE_LEN);
 }
 
 static void populate_output_response(struct aecp *aecp, uint16_t desc_index,
-		struct aecp_aem_stream_output_state *so,
+		struct descriptor *desc,
 		struct avb_packet_aecp_aem_setget_stream_info *reply)
 {
+	struct aecp_aem_stream_output_state *so = desc->ptr;
+	const struct avb_aem_desc_stream *stream_body = descriptor_body(desc);
 	struct stream_common *sc = &so->common;
 	struct avb_msrp_attribute *taattr = &sc->tastream_attr;
 	const uint8_t zero_mac[6] = {0};
@@ -275,21 +279,21 @@ static void populate_output_response(struct aecp *aecp, uint16_t desc_index,
 	build_stream_info_response(aecp, NULL, 0, reply,
 			flags_host, flags_ex_host,
 			0, 0,
-			so->desc.current_format, stream_id_be,
+			stream_body->current_format, stream_id_be,
 			so->presentation_time_offset_ns, dest_mac,
 			0, 0, vlan_id_host);
 
 	pw_log_debug("populate STREAM_OUTPUT stream_format=0x%016" PRIx64
 			" flags=0x%08x flags_ex=0x%08x pres_time_off=%u "
 			"stream_id=0x%016" PRIx64,
-			be64toh(so->desc.current_format),
+			be64toh(stream_body->current_format),
 			flags_host, flags_ex_host,
 			so->presentation_time_offset_ns,
 			be64toh(stream_id_be));
 }
 
 static int handle_get_stream_output(struct aecp *aecp, const void *m, int len,
-		uint16_t desc_index, struct aecp_aem_stream_output_state *so)
+		uint16_t desc_index, struct descriptor *desc)
 {
 	uint8_t buf[2048];
 	struct avb_ethernet_header *h_reply;
@@ -302,7 +306,7 @@ static int handle_get_stream_output(struct aecp *aecp, const void *m, int len,
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	reply = (struct avb_packet_aecp_aem_setget_stream_info *)p_reply->payload;
 
-	populate_output_response(aecp, desc_index, so, reply);
+	populate_output_response(aecp, desc_index, desc, reply);
 
 	return reply_success(aecp, buf, AVB_AECP_GET_STREAM_INFO_RESPONSE_LEN);
 }
@@ -324,12 +328,12 @@ int handle_cmd_get_stream_info_milan_v12(struct aecp *aecp, int64_t now,
 	if (desc == NULL)
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	if (desc_type == AVB_AEM_DESC_STREAM_INPUT)
-		return handle_get_stream_input(aecp, m, len,
-				(struct aecp_aem_stream_input_state_milan_v12 *)desc->ptr);
-	if (desc_type == AVB_AEM_DESC_STREAM_OUTPUT)
-		return handle_get_stream_output(aecp, m, len, desc_index,
-				(struct aecp_aem_stream_output_state *)desc->ptr);
+	if (desc_type == AVB_AEM_DESC_STREAM_INPUT) {
+		return handle_get_stream_input(aecp, m, len, desc);
+	}
+	if (desc_type == AVB_AEM_DESC_STREAM_OUTPUT) {
+		return handle_get_stream_output(aecp, m, len, desc_index, desc);
+	}
 
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 }
@@ -438,14 +442,11 @@ void cmd_get_stream_info_emit_unsol_milan_v12(struct server *server,
 	body->descriptor_type = htons(desc_type);
 	body->descriptor_index = htons(desc_index);
 
-	if (desc_type == AVB_AEM_DESC_STREAM_INPUT)
-		populate_input_response(aecp,
-			(struct aecp_aem_stream_input_state_milan_v12 *)desc->ptr,
-			body);
-	else
-		populate_output_response(aecp, desc_index,
-			(struct aecp_aem_stream_output_state *)desc->ptr,
-			body);
+	if (desc_type == AVB_AEM_DESC_STREAM_INPUT) {
+		populate_input_response(aecp, desc, body);
+	} else {
+		populate_output_response(aecp, desc_index, desc, body);
+	}
 
 	(void)reply_unsolicited_notifications(aecp, &b_state, buf,
 			AVB_AECP_GET_STREAM_INFO_RESPONSE_LEN, true);

@@ -119,7 +119,7 @@ int handle_cmd_get_name_common(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	name_ptr = get_name_ptr(desc_type, desc->ptr, name_index);
+	name_ptr = get_name_ptr(desc_type, descriptor_body(desc), name_index);
 	if (name_ptr == NULL)
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
@@ -169,7 +169,7 @@ int handle_cmd_set_name_common(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	name_ptr = get_name_ptr(desc_type, desc->ptr, name_index);
+	name_ptr = get_name_ptr(desc_type, descriptor_body(desc), name_index);
 	if (name_ptr == NULL)
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);

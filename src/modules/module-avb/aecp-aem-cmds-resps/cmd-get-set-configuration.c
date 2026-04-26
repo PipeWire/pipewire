@@ -25,7 +25,7 @@ static int handle_unsol_set_configuration_milan_v12(struct aecp *aecp, struct de
 	int rc;
 
 	memset(buf, 0, sizeof(buf));
-	entity_desc = (struct avb_aem_desc_entity*) desc->ptr;
+	entity_desc = (struct avb_aem_desc_entity*) descriptor_body(desc);
 	cfg = (struct avb_packet_aecp_aem_setget_configuration *) p->payload;
 	cfg->configuration_index = htons(entity_desc->current_configuration);
 	p->aecp.target_guid = htobe64(aecp->server->entity_id);
@@ -97,7 +97,7 @@ int handle_cmd_set_configuration_milan_v12(struct aecp *aecp, int64_t now,
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 
 	cfg = (struct avb_packet_aecp_aem_setget_configuration*) p_reply->payload;
-	entity_desc = (struct avb_aem_desc_entity*) desc->ptr;
+	entity_desc = (struct avb_aem_desc_entity*) descriptor_body(desc);
 	cur_cfg_id = ntohs(entity_desc->current_configuration);
 	req_cfg_id = ntohs(cfg->configuration_index);
 	cfg_count = ntohs(entity_desc->configurations_count);
@@ -182,7 +182,7 @@ int handle_cmd_get_configuration_common(struct aecp *aecp, int64_t now,
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 
 	cfg = (struct avb_packet_aecp_aem_setget_configuration*) p_reply->payload;
-	entity_desc = (struct avb_aem_desc_entity*) desc->ptr;
+	entity_desc = (struct avb_aem_desc_entity*) descriptor_body(desc);
 
 	if (entity_desc->entity_id != p->aecp.target_guid) {
 		pw_log_error("Invalid entity id");

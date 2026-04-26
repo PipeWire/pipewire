@@ -89,7 +89,7 @@ int handle_cmd_get_clock_source_milan_v12(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	dclk_domain = (struct avb_aem_desc_clock_domain*) desc->ptr;
+	dclk_domain = (struct avb_aem_desc_clock_domain*) descriptor_body(desc);
 
 	/** Descriptors always keep the network endianness */
 	sclk_source->clock_source_index = dclk_domain->clock_source_index;
@@ -134,7 +134,7 @@ int handle_cmd_set_clock_source_milan_v12(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	dclk_domain = (struct avb_aem_desc_clock_domain *) desc->ptr;
+	dclk_domain = (struct avb_aem_desc_clock_domain *) descriptor_body(desc);
 	if (clock_src_index >= dclk_domain->clock_sources_count) {
 		return reply_invalid_clock_source(aecp, dclk_domain, m, len);
 	}

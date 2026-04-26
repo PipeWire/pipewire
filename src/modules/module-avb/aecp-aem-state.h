@@ -92,8 +92,6 @@ struct aecp_aem_avb_interface_counters {
 };
 
 struct aecp_aem_avb_interface_state {
-	struct avb_aem_desc_avb_interface desc;
-
 	struct avb_msrp_attribute domain_attr;
 
 	struct avb_mvrp_attribute vlan_attr;
@@ -113,7 +111,6 @@ struct aecp_aem_avb_interface_state {
  * \brief the generic entity state common for all flavor of AVB
  */
 struct aecp_aem_entity_state {
-	struct avb_aem_desc_entity desc;
 	struct aecp_aem_lock_state lock_state;
 };
 
@@ -160,12 +157,7 @@ struct stream_common {
 	struct avb_msrp_attribute tfstream_attr;
 };
 
-#define AVB_AEM_STREAM_DESC_EXTRA_SIZE	128
-
 struct aecp_aem_stream_input_state {
-	struct avb_aem_desc_stream desc;
-	uint8_t desc_extra[AVB_AEM_STREAM_DESC_EXTRA_SIZE];
-
 	struct aecp_aem_stream_input_counters counters;
 	struct stream_common common;
 	struct avb_mvrp_attribute mvrp_attr;
@@ -210,9 +202,6 @@ struct aecp_aem_stream_output_counters {
 };
 
 struct aecp_aem_stream_output_state {
-	struct avb_aem_desc_stream desc;
-	uint8_t desc_extra[AVB_AEM_STREAM_DESC_EXTRA_SIZE];
-
 	struct aecp_aem_stream_output_counters counters;
 	struct stream_common common;
 

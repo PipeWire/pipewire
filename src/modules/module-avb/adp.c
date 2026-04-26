@@ -280,7 +280,7 @@ static int check_advertise(struct adp *adp, uint64_t now)
 	if (d == NULL)
 		return -1;
 
-	entity = d->ptr;
+	entity = descriptor_body(d);
 	entity_id = be64toh(entity->entity_id);
 
 	if ((e = find_entity_by_id(adp, entity_id)) != NULL) {
@@ -290,7 +290,7 @@ static int check_advertise(struct adp *adp, uint64_t now)
 	}
 
 	d = server_find_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, 0);
-	avb_interface = d ? d->ptr : NULL;
+	avb_interface = d ? descriptor_body(d) : NULL;
 
 	pw_log_info("entity %s advertise",
 		avb_utils_format_id(buf, sizeof(buf), entity_id));

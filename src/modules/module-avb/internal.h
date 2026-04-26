@@ -67,8 +67,14 @@ struct descriptor {
 	uint16_t type;
 	uint16_t index;
 	uint32_t size;
+	uint32_t state_size;
 	void *ptr;
 };
+
+static inline void *descriptor_body(const struct descriptor *d)
+{
+	return SPA_PTROFF(d->ptr, d->state_size, void);
+}
 
 
 enum avb_mode {
@@ -142,20 +148,24 @@ static inline struct descriptor *server_find_descriptor(struct server *server,
 	}
 	return NULL;
 }
-static inline void *server_add_descriptor(struct server *server,
-		uint16_t type, uint16_t index, size_t size, void *ptr)
+static inline struct descriptor *server_add_descriptor(struct server *server,
+		uint16_t type, uint16_t index,
+		size_t state_size, size_t desc_size, const void *desc_ptr)
 {
 	struct descriptor *d;
 
-	if ((d = calloc(1, sizeof(struct descriptor) + size)) == NULL)
+	if ((d = calloc(1, sizeof(*d) + state_size + desc_size)) == NULL) {
 		return NULL;
+	}
 
 	d->type = type;
 	d->index = index;
-	d->size = size;
-	d->ptr = SPA_PTROFF(d, sizeof(struct descriptor), void);
-	if (ptr)
-		memcpy(d->ptr, ptr, size);
+	d->size = desc_size;
+	d->state_size = state_size;
+	d->ptr = SPA_PTROFF(d, sizeof(*d), void);
+	if (desc_ptr) {
+		memcpy(SPA_PTROFF(d->ptr, state_size, void), desc_ptr, desc_size);
+	}
 	spa_list_append(&server->descriptors, &d->link);
 	return d;
 }

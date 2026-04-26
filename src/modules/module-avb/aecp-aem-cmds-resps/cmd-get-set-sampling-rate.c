@@ -155,7 +155,7 @@ int handle_cmd_set_sampling_rate_milan_v12(struct aecp *aecp, int64_t now,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
 	if (desc_type == AVB_AEM_DESC_AUDIO_UNIT) {
-		struct avb_aem_desc_audio_unit *unit = desc->ptr;
+		struct avb_aem_desc_audio_unit *unit = descriptor_body(desc);
 		/* TODO check if the STREAM_PORT associated with it supportes
 		 * the SSRC/ASRC bit.
 		 */
@@ -218,7 +218,7 @@ int handle_cmd_get_sampling_rate_common(struct aecp *aecp, int64_t now,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
 	if (desc_type == AVB_AEM_DESC_AUDIO_UNIT) {
-		struct avb_aem_desc_audio_unit *unit = desc->ptr;
+		struct avb_aem_desc_audio_unit *unit = descriptor_body(desc);
 		memcpy(&pullfreq, &unit->current_sampling_rate, sizeof(pullfreq));
 	} else {
 		return reply_status(aecp,

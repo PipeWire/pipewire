@@ -115,7 +115,7 @@ static int handle_read_descriptor_common(struct aecp *aecp, int64_t now, const v
 
 	memcpy(buf, m, len);
 
-	memcpy(buf + size, desc->ptr, desc->size);
+	memcpy(buf + size, descriptor_body(desc), desc->size);
 	size += desc->size;
 	psize += desc->size;
 
@@ -158,7 +158,7 @@ static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
 	if (len < 0 || (size_t)len > sizeof(buf))
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
-	avb_interface = desc->ptr;
+	avb_interface = descriptor_body(desc);
 
 	memcpy(buf, m, len);
 

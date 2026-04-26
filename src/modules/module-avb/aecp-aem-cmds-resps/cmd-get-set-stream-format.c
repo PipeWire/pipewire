@@ -62,7 +62,7 @@ int handle_cmd_get_stream_format_milan_v12(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
-	stream_desc = (struct avb_aem_desc_stream *)desc->ptr;
+	stream_desc = (struct avb_aem_desc_stream *)descriptor_body(desc);
 
 	if (len < 0 || (size_t)len > sizeof(buf))
 		return reply_status(aecp,
@@ -120,7 +120,7 @@ int handle_cmd_set_stream_format_milan_v12(struct aecp *aecp, int64_t now,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 	}
 
-	stream_desc = (struct avb_aem_desc_stream *)desc->ptr;
+	stream_desc = (struct avb_aem_desc_stream *)descriptor_body(desc);
 	for (i = 0; i < ntohs(stream_desc->number_of_formats); i++) {
 		if (stream_desc->stream_formats[i] == new_format) {
 			found = true;

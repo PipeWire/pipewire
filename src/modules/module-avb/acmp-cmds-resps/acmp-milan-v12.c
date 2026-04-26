@@ -2197,18 +2197,20 @@ int handle_evt_tk_registration_failed_milan_v12(struct acmp *acmp,
 }
 
 static bool stream_output_on_this_iface(struct server *server,
-		struct aecp_aem_stream_output_state *stream_out)
+		struct descriptor *stream_out_desc)
 {
 	struct descriptor *avb_if_desc;
-	struct aecp_aem_avb_interface_state *avb_if_state;
-	uint16_t avb_if_index = ntohs(stream_out->desc.avb_interface_index);
+	const struct avb_aem_desc_stream *stream_body = descriptor_body(stream_out_desc);
+	const struct avb_aem_desc_avb_interface *avb_if_body;
+	uint16_t avb_if_index = ntohs(stream_body->avb_interface_index);
 
 	avb_if_desc = server_find_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, avb_if_index);
-	if (avb_if_desc == NULL)
+	if (avb_if_desc == NULL) {
 		return false;
+	}
 
-	avb_if_state = avb_if_desc->ptr;
-	return memcmp(avb_if_state->desc.mac_address, server->mac_addr,
+	avb_if_body = descriptor_body(avb_if_desc);
+	return memcmp(avb_if_body->mac_address, server->mac_addr,
 			sizeof(server->mac_addr)) == 0;
 }
 
@@ -2241,7 +2243,7 @@ int handle_probe_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 
 	stream_out = desc->ptr;
 
-	if (!stream_output_on_this_iface(server, stream_out)) {
+	if (!stream_output_on_this_iface(server, desc)) {
 		status = AVB_ACMP_STATUS_INCOMPATIBLE_REQUEST;
 		goto done;
 	}
@@ -2282,7 +2284,6 @@ int handle_disconnect_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)buf;
 	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
 	struct descriptor *desc;
-	struct aecp_aem_stream_output_state *stream_out;
 	int status = AVB_ACMP_STATUS_SUCCESS;
 
 	if (be64toh(p->talker_guid) != server->entity_id)
@@ -2298,9 +2299,9 @@ int handle_disconnect_tx_command_milan_v12(struct acmp *acmp, uint64_t now,
 		goto done;
 	}
 
-	stream_out = desc->ptr;
-	if (!stream_output_on_this_iface(server, stream_out))
+	if (!stream_output_on_this_iface(server, desc)) {
 		return 0;
+	}
 
 	reply->stream_id = 0;
 	memset(reply->stream_dest_mac, 0, sizeof(reply->stream_dest_mac));
@@ -2341,8 +2342,9 @@ int handle_get_tx_state_command_milan_v12(struct acmp *acmp, uint64_t now,
 
 	stream_out = desc->ptr;
 
-	if (!stream_output_on_this_iface(server, stream_out))
+	if (!stream_output_on_this_iface(server, desc)) {
 		return 0;
+	}
 
 	reply->stream_id = stream_out->common.tastream_attr.attr.talker.stream_id;
 	memcpy(reply->stream_dest_mac, stream_out->common.stream.addr,

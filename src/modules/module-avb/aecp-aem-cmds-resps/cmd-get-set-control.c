@@ -109,7 +109,7 @@ static int handle_cmd_get_control_identify(struct aecp *aecp, struct descriptor 
 	struct avb_packet_aecp_aem_setget_control *ae_reply;
 	int pkt_size;
 
-	ctrl_desc = desc->ptr;
+	ctrl_desc = descriptor_body(desc);
 	desc_formats = ctrl_desc->value_format;
 
 	if (len < 0 || (size_t)len > sizeof(buf))
@@ -145,7 +145,7 @@ static int handle_cmd_set_control_identify(struct aecp *aecp, struct descriptor 
 	int rc;
 
 	control = (struct avb_packet_aecp_aem_setget_control*)p->payload;
-	ctrl_desc = desc->ptr;
+	ctrl_desc = descriptor_body(desc);
 	desc_formats = ctrl_desc->value_format;
 	old_value_format = desc_formats;
 	value_req = (uint8_t *)control->payload;
@@ -265,7 +265,7 @@ int handle_cmd_set_control_milan_v12(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 			       	AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
-	ctrl_desc = desc->ptr;
+	ctrl_desc = descriptor_body(desc);
 	control_type = htobe64(ctrl_desc->control_type);
 	setter_cb = get_ctrl_setter_common(controls_handlers,
 		       	SPA_N_ELEMENTS(controls_handlers), control_type);
@@ -307,7 +307,7 @@ int handle_cmd_get_control_milan_v12(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 			       	AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
-	ctrl_desc = desc->ptr;
+	ctrl_desc = descriptor_body(desc);
 	control_type = htobe64(ctrl_desc->control_type);
 	getter_cb = get_ctrl_getter_common(controls_handlers,
 			SPA_N_ELEMENTS(controls_handlers), control_type);

@@ -53,7 +53,7 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 	if (entity_desc == NULL)
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	entity = (const struct avb_aem_desc_entity *)entity_desc->ptr;
+	entity = (const struct avb_aem_desc_entity *)descriptor_body(entity_desc);
 	if (config_idx >= ntohs(entity->configurations_count))
 		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
@@ -76,7 +76,7 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 		switch (d->type) {
 		case AVB_AEM_DESC_ENTITY: {
 			const struct avb_aem_desc_entity *e =
-				(const struct avb_aem_desc_entity *)d->ptr;
+				(const struct avb_aem_desc_entity *)descriptor_body(d);
 			struct avb_aem_dynamic_info_entity rec;
 
 			if (size + sizeof(rec) > sizeof(buf)) {
@@ -95,7 +95,7 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 		}
 		case AVB_AEM_DESC_AUDIO_UNIT: {
 			const struct avb_aem_desc_audio_unit *au =
-				(const struct avb_aem_desc_audio_unit *)d->ptr;
+				(const struct avb_aem_desc_audio_unit *)descriptor_body(d);
 			struct avb_aem_dynamic_info_audio_unit rec;
 
 			if (size + sizeof(rec) > sizeof(buf)) {
@@ -112,8 +112,8 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 			break;
 		}
 		case AVB_AEM_DESC_STREAM_INPUT: {
-			const struct aecp_aem_stream_input_state *state =
-				(const struct aecp_aem_stream_input_state *)d->ptr;
+			const struct avb_aem_desc_stream *body =
+				(const struct avb_aem_desc_stream *)descriptor_body(d);
 			struct avb_aem_dynamic_info_stream rec;
 
 			if (size + sizeof(rec) > sizeof(buf)) {
@@ -124,10 +124,11 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 			rec.hdr.descriptor_type  = htons(d->type);
 			rec.hdr.descriptor_index = htons(d->index);
 			rec.stream_id    = 0;
-			rec.stream_format = state->desc.current_format;
-			if (state->desc.current_format != 0)
+			rec.stream_format = body->current_format;
+			if (body->current_format != 0) {
 				rec.stream_info_flags =
 					htonl(AVB_AEM_STREAM_INFO_FLAG_STREAM_FORMAT_VALID);
+			}
 			memcpy(ptr, &rec, sizeof(rec));
 			ptr   += sizeof(rec);
 			psize += sizeof(rec);
@@ -135,8 +136,8 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 			break;
 		}
 		case AVB_AEM_DESC_STREAM_OUTPUT: {
-			const struct aecp_aem_stream_output_state *state =
-				(const struct aecp_aem_stream_output_state *)d->ptr;
+			const struct avb_aem_desc_stream *body =
+				(const struct avb_aem_desc_stream *)descriptor_body(d);
 			struct avb_aem_dynamic_info_stream rec;
 
 			if (size + sizeof(rec) > sizeof(buf)) {
@@ -147,10 +148,11 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 			rec.hdr.descriptor_type  = htons(d->type);
 			rec.hdr.descriptor_index = htons(d->index);
 			rec.stream_id    = 0;
-			rec.stream_format = state->desc.current_format;
-			if (state->desc.current_format != 0)
+			rec.stream_format = body->current_format;
+			if (body->current_format != 0) {
 				rec.stream_info_flags =
 					htonl(AVB_AEM_STREAM_INFO_FLAG_STREAM_FORMAT_VALID);
+			}
 			memcpy(ptr, &rec, sizeof(rec));
 			ptr   += sizeof(rec);
 			psize += sizeof(rec);
@@ -159,7 +161,7 @@ int handle_cmd_get_dynamic_info_milan_v12(struct aecp *aecp, int64_t now,
 		}
 		case AVB_AEM_DESC_CLOCK_DOMAIN: {
 			const struct avb_aem_desc_clock_domain *cd =
-				(const struct avb_aem_desc_clock_domain *)d->ptr;
+				(const struct avb_aem_desc_clock_domain *)descriptor_body(d);
 			struct avb_aem_dynamic_info_clock_domain rec;
 
 			if (size + sizeof(rec) > sizeof(buf)) {

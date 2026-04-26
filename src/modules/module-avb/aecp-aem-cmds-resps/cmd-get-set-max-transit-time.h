@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: MIT */
+
+#ifndef __AVB_AECP_AEM_CMD_GET_SET_MAX_TRANSIT_TIME_H__
+#define __AVB_AECP_AEM_CMD_GET_SET_MAX_TRANSIT_TIME_H__
+
+#include "../aecp.h"
+
+int handle_cmd_get_max_transit_time_milan_v12(struct aecp *aecp, int64_t now,
+	const void *m, int len);
+
+int handle_cmd_set_max_transit_time_milan_v12(struct aecp *aecp, int64_t now,
+	const void *m, int len);
+
+#endif /* __AVB_AECP_AEM_CMD_GET_SET_MAX_TRANSIT_TIME_H__ */

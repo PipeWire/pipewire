@@ -814,6 +814,8 @@ if build_module_avb
       'module-avb/aecp-aem-cmds-resps/cmd-get-set-stream-info.c',
       'module-avb/aecp-aem-cmds-resps/cmd-start-stop-streaming.c',
       'module-avb/aecp-aem-cmds-resps/cmd-get-counters.c',
+      'module-avb/aecp-aem-cmds-resps/cmd-get-as-path.c',
+      'module-avb/aecp-aem-cmds-resps/cmd-get-set-max-transit-time.c',
       'module-avb/aecp-aem-cmds-resps/reply-unsol-helpers.c',
       'module-avb/es-builder.c',
       'module-avb/avdecc.c',

@@ -458,10 +458,7 @@ void avb_log_state(struct server *server, const char *label)
 {
 	if (server == NULL)
 		return;
-#if 0
-	if (!pw_log_level_enabled(SPA_LOG_LEVEL_DEBUG))
-		return;
-#endif
+
 	pw_log_debug("===== state @ %s =====", label);
 	adp_log_state(server, label);
 	avb_msrp_log_state(server, label);

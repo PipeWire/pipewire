@@ -41,10 +41,12 @@ static inline bool mrp_is_declaring(struct avb_mrp_attribute *mrp)
 		sizeof(struct avb_packet_aecp_aem) + \
 		sizeof(struct avb_packet_aecp_aem_setget_stream_info))
 
+/* IEEE 1722.1-2021 Section 9.2.1.1.7: CDL excludes the 12-octet AVTPDU common. */
 #define AVB_AECP_GET_STREAM_INFO_CDL \
 	(uint16_t)(AVB_AECP_GET_STREAM_INFO_RESPONSE_LEN - \
 		sizeof(struct avb_ethernet_header) - \
-		sizeof(struct avb_packet_header))
+		sizeof(struct avb_packet_header) - \
+		sizeof(uint64_t))
 
 /* Hive (and 1722.1 controllers in general) sends GET_STREAM_INFO as a short
  * command — only the descriptor pair, sometimes plus the flags word. The

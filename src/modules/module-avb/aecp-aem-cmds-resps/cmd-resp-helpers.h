@@ -51,25 +51,14 @@ static inline int direct_reply_entiy_locked(struct aecp *aecp, int64_t now,
 	return reply_entity_locked(aecp, m, len);
 }
 
-/* IEEE 1722.1-2013 Section 9.2.1.1.7: NOT_IMPLEMENTED reply carries no AEM payload, CDL=12. */
+/* IEEE 1722.1-2021 Section 9.2.1.1.5: non-success AEM responses keep the success
+ * response's payload format; only the status field changes. Echo the inbound
+ * command back with status=NOT_IMPLEMENTED so the response payload size
+ * matches what the controller validates against. */
 static inline int reply_not_implemented(struct aecp *aecp, const void *m, int len)
 {
-	struct server *server = aecp->server;
-	uint8_t buf[sizeof(struct avb_ethernet_header) + sizeof(struct avb_packet_aecp_aem)];
-	struct avb_ethernet_header *h = (void *)buf;
-	struct avb_packet_aecp_aem *reply = SPA_PTROFF(h, sizeof(*h), void);
-
 	pw_log_warn("reply not implementing");
-
-	if ((size_t)len < sizeof(buf))
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED, m, len);
-
-	memcpy(buf, m, sizeof(buf));
-	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&reply->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
-	AVB_PACKET_AECP_SET_STATUS(&reply->aecp, AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED);
-	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, AVB_PACKET_CONTROL_DATA_OFFSET);
-
-	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, sizeof(buf));
+	return reply_status(aecp, AVB_AECP_AEM_STATUS_NOT_IMPLEMENTED, m, len);
 }
 
 /** \brief The function is be directly hooked with the cmd_info structure */

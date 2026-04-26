@@ -398,9 +398,15 @@ static void prepare_get_rx_response_success(struct acmp *acmp,
 {
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)outbuf;
 	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
+	struct stream_common *sc = &stream->stream_in_sta.common;
+	struct avb_msrp_attribute *tfattr = &sc->tfstream_attr;
 	/* Milan v1.2 Section 5.5.3.5: bound iff the listener FSM is not in UNBOUND. */
 	bool bound = (stream->acmp_sta.fsm_acmp_state !=
 			FSM_ACMP_STATE_MILAN_V12_UNBOUND);
+	bool streaming_wait = bound && !stream->stream_in_sta.started;
+	bool srp_failed = bound && tfattr->mrp != NULL &&
+		(avb_mrp_attribute_get_registrar_state(tfattr->mrp) == AVB_MRP_IN ||
+		 avb_mrp_attribute_get_registrar_state(tfattr->mrp) == AVB_MRP_LV);
 	uint16_t flags;
 
 	memcpy(outbuf, m, len);
@@ -415,12 +421,14 @@ static void prepare_get_rx_response_success(struct acmp *acmp,
 	reply->connection_count = htons(bound ? 1 : 0);
 
 	flags = ntohs(reply->flags);
-	if (bound)
-		flags |= AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED
-			| AVB_ACMP_FLAG_STREAMING_WAIT;
+	if (streaming_wait)
+		flags |= AVB_ACMP_FLAG_STREAMING_WAIT;
 	else
-		flags &= ~(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED
-			| AVB_ACMP_FLAG_STREAMING_WAIT);
+		flags &= ~AVB_ACMP_FLAG_STREAMING_WAIT;
+	if (srp_failed)
+		flags |= AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED;
+	else
+		flags &= ~AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED;
 	reply->flags = htons(flags);
 }
 
@@ -1614,9 +1622,13 @@ int handle_fsm_settled_no_rsv_evt_tk_registered_evt(struct acmp *acmp,
 	size_t len, uint64_t now)
 {
 	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)acmp;
+	struct stream *s = &stream->stream_in_sta.common.stream;
 	acmp_timer_lt_find_remove_milan_v12(acmp_m, stream, FSM_ACMP_EVT_MILAN_V12_TMR_NO_TK);
 
 	stream->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_RSV_OK;
+
+	if (s->source == NULL)
+		stream_activate(s, s->index, now);
 
 	return 0;
 }
@@ -1780,7 +1792,11 @@ int handle_fsm_settled_rsv_ok_evt_tk_departed_evt(struct acmp *acmp,
 	struct aecp_aem_stream_input_state_milan_v12 *stream, const void *m,
 	size_t len, uint64_t now)
 {
+	struct stream *s = &stream->stream_in_sta.common.stream;
+
 	pw_log_info("rx: tk_departed");
+	if (s->source != NULL)
+		stream_deactivate(s, now);
 	return 0;
 }
 
@@ -1790,7 +1806,11 @@ int handle_fsm_settled_rsv_ok_evt_tk_unregistered_evt(struct acmp *acmp,
 	size_t len, uint64_t now)
 {
 	struct acmp_milan_v12 *acmp_m = (struct acmp_milan_v12 *)acmp;
+	struct stream *s = &stream->stream_in_sta.common.stream;
 	uint64_t talker_guid;
+
+	if (s->source != NULL)
+		stream_deactivate(s, now);
 
 	talker_guid = stream_talker_entity_id(stream);
 	if (!adp_is_discovered_entity(acmp->server, talker_guid)) {

@@ -146,6 +146,15 @@ int handle_cmd_set_stream_format_milan_v12(struct aecp *aecp, int64_t now,
 	}
 
 	stream_desc->current_format = new_format;
+
+	if (desc_type == AVB_AEM_DESC_STREAM_INPUT) {
+		struct aecp_aem_stream_input_state *si = desc->ptr;
+		si->common.stream.format = new_format;
+	} else {
+		struct aecp_aem_stream_output_state *so = desc->ptr;
+		so->common.stream.format = new_format;
+	}
+
 	rc = reply_success(aecp, buf, len);
 	if (rc < 0)
 		return rc;

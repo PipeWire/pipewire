@@ -113,6 +113,9 @@ static int process_talker(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 {
 	const struct avb_packet_msrp_talker *t = m;
 	struct attr *a;
+
+	debug_msrp_talker(t);
+
 	spa_list_for_each(a, &msrp->attributes, link) {
 		if (a->attr->type == attr_type &&
 		    a->attr->attr.talker.stream_id == t->stream_id) {

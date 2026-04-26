@@ -398,9 +398,13 @@ static void prepare_get_rx_response_success(struct acmp *acmp,
 {
 	struct avb_ethernet_header *h_reply = (struct avb_ethernet_header *)outbuf;
 	struct avb_packet_acmp *reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
+	/* Milan v1.2 Section 5.5.3.5: bound iff the listener FSM is not in UNBOUND. */
+	bool bound = (stream->acmp_sta.fsm_acmp_state !=
+			FSM_ACMP_STATE_MILAN_V12_UNBOUND);
+	uint16_t flags;
 
 	memcpy(outbuf, m, len);
-	/** Prepare packet according to Milan v1.2 Table 5.34 */
+	/** Prepare packet according to Milan v1.2 Table 5.37 */
 	AVB_PACKET_ACMP_SET_STATUS(reply, AVB_ACMP_STATUS_SUCCESS);
 	AVB_PACKET_ACMP_SET_MESSAGE_TYPE(reply,
 			AVB_ACMP_MESSAGE_TYPE_GET_RX_STATE_RESPONSE);
@@ -408,10 +412,16 @@ static void prepare_get_rx_response_success(struct acmp *acmp,
 	memset(reply->stream_dest_mac, 0, sizeof(reply->stream_dest_mac));
 	reply->talker_guid = htobe64(stream_talker_entity_id(stream));
 	reply->talker_unique_id = htons(stream_talker_unique_id(stream));
-	reply->connection_count = htons(1);
-	reply->flags |= htons(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED
-			| AVB_ACMP_FLAG_STREAMING_WAIT);
+	reply->connection_count = htons(bound ? 1 : 0);
 
+	flags = ntohs(reply->flags);
+	if (bound)
+		flags |= AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED
+			| AVB_ACMP_FLAG_STREAMING_WAIT;
+	else
+		flags &= ~(AVB_ACMP_FLAG_SRP_REGISTRATION_FAILED
+			| AVB_ACMP_FLAG_STREAMING_WAIT);
+	reply->flags = htons(flags);
 }
 
 static bool bindings_match_message_talker(struct acmp *acmp,

@@ -222,12 +222,27 @@ static void notify_listener(struct msrp *msrp, uint64_t now, struct attr *attr, 
 		else if (notify == AVB_MRP_NOTIFY_LEAVE)
 			stream_out->listener_observed = false;
 
-		/* listener_observed flips flags_ex.REGISTERING in the
-		 * GET_STREAM_INFO answer (Milan Table 5.12). Hint AECP to
-		 * re-emit so controllers see the update. */
-		if (prev != stream_out->listener_observed)
+		if (prev != stream_out->listener_observed) {
+			/* listener_observed flips flags_ex.REGISTERING in the
+			 * GET_STREAM_INFO answer (Milan Table 5.12). Hint AECP
+			 * to re-emit so controllers see the update. */
 			avb_aecp_aem_mark_stream_info_dirty(msrp->server,
 					AVB_AEM_DESC_STREAM_OUTPUT, s->index);
+
+			/* Milan Section 4.3.3.1: a foreign Listener registration is the
+			 * "matching declaration" condition for starting AVTP TX.
+			 * Activate the data plane on false→true; tear it down on
+			 * true→false. The internal source/!source guards make the
+			 * calls idempotent against the listener_observed bit, so a
+			 * spurious flip won't double-start. */
+			if (stream_out->listener_observed) {
+				if (s->source == NULL)
+					stream_activate(s, s->index, now);
+			} else {
+				if (s->source != NULL)
+					stream_deactivate(s, now);
+			}
+		}
 	}
 }
 

@@ -219,6 +219,15 @@ struct aecp_aem_stream_output_state {
 	 *  MSRP_ACC_LAT_VALID flag. Range 0 .. 0x7FFFFFFF. */
 	uint32_t presentation_time_offset_ns;
 
+	/** IEEE 1722.1-2021 Section 7.4.39 max_transit_time, nanoseconds. The maximum
+	 *  time between an AVTP frame's transmission by this Talker and its
+	 *  consumption by any Listener. Read by stream_activate() to seed
+	 *  stream->mtt (the per-PDU presentation_time = txtime + mtt) and by
+	 *  GET_MAX_TRANSIT_TIME; updated by SET_MAX_TRANSIT_TIME. Default
+	 *  2_000_000 (2 ms) — kept in sync with presentation_time_offset_ns
+	 *  until the two opcodes are wired up to set them independently. */
+	uint64_t max_transit_time_ns;
+
 	bool stream_info_dirty;
 
 	/* Milan Section 5.4.5 counter unsolicited rate-limit (see avb_interface_state). */

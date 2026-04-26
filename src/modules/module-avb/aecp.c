@@ -38,6 +38,24 @@ static int reply_not_implemented(struct aecp *aecp, const void *p, int len)
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, len);
 }
 
+/* Milan v1.2 Section 5.4.3 / Section 5.4.4 VENDOR_UNIQUE_COMMAND dispatcher. */
+static int handle_vendor_unique_command(struct aecp *aecp,
+		const void *m, int len)
+{
+	struct server *server = aecp->server;
+	int rc;
+
+	if (server->avb_mode != AVB_MODE_MILAN_V12)
+		return reply_not_implemented(aecp, m, len);
+
+	rc = aecp_vendor_unique_milan_v12_handle_command(aecp, m, len);
+	if (rc < 0)
+		return rc;
+	if (rc == 0)
+		return reply_not_implemented(aecp, m, len);
+	return 0;
+}
+
 static const struct msg_info msg_info[] = {
 	{ AVB_AECP_MESSAGE_TYPE_AEM_COMMAND, "aem-command", avb_aecp_aem_handle_command, },
 	{ AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE, "aem-response", avb_aecp_aem_handle_response, },
@@ -45,7 +63,7 @@ static const struct msg_info msg_info[] = {
 	{ AVB_AECP_MESSAGE_TYPE_ADDRESS_ACCESS_RESPONSE, "address-access-response", NULL, },
 	{ AVB_AECP_MESSAGE_TYPE_AVC_COMMAND, "avc-command", NULL, },
 	{ AVB_AECP_MESSAGE_TYPE_AVC_RESPONSE, "avc-response", NULL, },
-	{ AVB_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND, "vendor-unique-command", NULL, },
+	{ AVB_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND, "vendor-unique-command", handle_vendor_unique_command, },
 	{ AVB_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_RESPONSE, "vendor-unique-response", NULL, },
 	{ AVB_AECP_MESSAGE_TYPE_EXTENDED_COMMAND, "extended-command", NULL, },
 	{ AVB_AECP_MESSAGE_TYPE_EXTENDED_RESPONSE, "extended-response", NULL, },
@@ -83,18 +101,6 @@ static int aecp_message(void *data, uint64_t now, const void *message, int len)
 		return 0;
 
 	message_type = AVB_PACKET_AECP_GET_MESSAGE_TYPE(p);
-
-	/* Milan v1.2 Section 5.4.4: AECP VENDOR_UNIQUE_COMMAND with the Milan MVU
-	 * protocol_id is dispatched separately. The handler returns 1 if it
-	 * recognised the protocol_id (sent a response or NOT_IMPLEMENTED for
-	 * the specific MVU command); 0 means "not Milan MVU, fall through". */
-	if (message_type == AVB_AECP_MESSAGE_TYPE_VENDOR_UNIQUE_COMMAND &&
-	    server->avb_mode == AVB_MODE_MILAN_V12) {
-		int rc = aecp_vendor_unique_milan_v12_handle_command(aecp,
-				message, len);
-		if (rc != 0)
-			return rc < 0 ? rc : 0;
-	}
 
 	info = find_msg_info(message_type, NULL);
 	if (info == NULL)

@@ -8,17 +8,8 @@
 
 #include "aecp.h"
 
-/* Milan v1.2 Section 5.4.4 — Milan Vendor Unique (MVU) protocol carried inside an
- * IEEE 1722.1 AECP VENDOR_UNIQUE_COMMAND/RESPONSE (message_type 6/7).
- *
- * Wire layout after the standard AECP common header:
- *     protocol_id (6) | command_type (2) | command-specific data
- *
- * Milan v1.2 Section 5.4.3.2.1: protocol_id is the Avnu OUI-36 00-1B-C5-0A-C
- * appended with the 12-bit MVU protocol id 0x100, giving the 6-byte
- * marker 00-1B-C5-0A-C1-00. command_type is a 1-bit U flag (MSB) +
- * 15-bit command code. */
-
+/* Milan v1.2 Section 5.4.3.2.1 protocol_id: Avnu OUI-36 00-1B-C5-0A-C +
+ * 12-bit MVU id 0x100 = 00-1B-C5-0A-C1-00. */
 #define AVB_AECP_MVU_PROTOCOL_ID_0	0x00
 #define AVB_AECP_MVU_PROTOCOL_ID_1	0x1B
 #define AVB_AECP_MVU_PROTOCOL_ID_2	0xC5
@@ -26,23 +17,20 @@
 #define AVB_AECP_MVU_PROTOCOL_ID_4	0xC1
 #define AVB_AECP_MVU_PROTOCOL_ID_5	0x00
 
-/* Milan MVU command codes (Milan v1.2 Section 5.4.4). */
+/* Milan v1.2 Section 5.4.3.2.3 Table 5.18 MVU command codes. */
 #define AVB_AECP_MVU_CMD_GET_MILAN_INFO		0x0000
 
-#define AVB_AECP_MVU_CMD_TYPE_U_FLAG_MASK	0x8000
+/* Milan v1.2 Section 5.4.3.2.2: r is reserved (must be 0). */
+#define AVB_AECP_MVU_CMD_TYPE_R_FLAG_MASK	0x8000
 #define AVB_AECP_MVU_CMD_TYPE_CMD_MASK		0x7FFF
 
+/* Milan v1.2 Section 5.4.3.2 Figure 5.2 MVU payload format. */
 struct avb_packet_aecp_vendor_unique {
 	struct avb_packet_aecp_header hdr;
 	uint8_t  protocol_id[6];
 	uint16_t command_type;
+	uint16_t reserved;
 	uint8_t  payload[0];
-} __attribute__ ((__packed__));
-
-struct avb_packet_aecp_mvu_get_milan_info_rsp {
-	uint32_t protocol_version;
-	uint32_t features_flags;
-	uint32_t certification_version;
 } __attribute__ ((__packed__));
 
 int aecp_vendor_unique_milan_v12_handle_command(struct aecp *aecp,

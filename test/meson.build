@@ -176,6 +176,7 @@ if build_avb_virtual
     '../src/modules/module-avb/aecp.c',
     '../src/modules/module-avb/aecp-aem.c',
     '../src/modules/module-avb/aecp-vendor-unique-milan-v12.c',
+    '../src/modules/module-avb/aecp-vendor-unique-milan-v12-cmds-resps/cmd-get-milan-info.c',
     '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-available.c',
     '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-control.c',
     '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-name.c',

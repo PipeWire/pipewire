@@ -4,6 +4,7 @@
 
 
 #include "es-builder.h"
+#include "aecp-aem.h"
 #include "aecp-aem-state.h"
 #include "utils.h"
 
@@ -28,9 +29,11 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 	struct descriptor *desc;
 	struct stream *stream;
 	enum spa_direction direction;
+	uint64_t out_mtt_ns = 0;
 
 	if (type == AVB_AEM_DESC_STREAM_INPUT) {
 		struct aecp_aem_stream_input_state_milan_v12 *w;
+		const struct avb_aem_desc_stream *body = ptr;
 
 		desc = server_add_descriptor(server, type, index,
 				sizeof(*w), size, ptr);
@@ -42,6 +45,12 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 		w = desc->ptr;
 		/* Milan v1.2 Section 5.3.8.7: started/stopped state defaults to started. */
 		w->stream_in_sta.started = true;
+
+		struct avb_aem_stream_format_info fi;
+		avb_aem_stream_format_decode(body->current_format, &fi);
+		if (fi.kind == AVB_AEM_STREAM_FORMAT_KIND_CRF)
+			return desc;
+
 		stream = &w->stream_in_sta.common.stream;
 		direction = SPA_DIRECTION_INPUT;
 	} else if (type == AVB_AEM_DESC_STREAM_OUTPUT) {
@@ -57,6 +66,8 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 		w = desc->ptr;
 		/* Milan v1.2 Section 5.3.7.6: default presentation time offset is 2 ms. */
 		w->stream_out_sta.presentation_time_offset_ns = 2000000;
+		w->stream_out_sta.max_transit_time_ns = 2000000;
+		out_mtt_ns = w->stream_out_sta.max_transit_time_ns;
 		stream = &w->stream_out_sta.common.stream;
 		direction = SPA_DIRECTION_OUTPUT;
 	} else {
@@ -68,6 +79,9 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 		pw_log_error("Could not create/initialize a stream");
 		return NULL;
 	}
+
+	if (direction == SPA_DIRECTION_OUTPUT)
+		stream->mtt = (int)out_mtt_ns;
 
 	return desc;
 }

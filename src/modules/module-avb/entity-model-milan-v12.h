@@ -98,6 +98,10 @@
 #define DSC_CONFIGURATION_DESCRIPTOR_COUNTS_OFFSET 74
 
 #define DSC_CONFIGURATION_NO_OF_AUDIO_UNITS 1
+/* Two STREAM_INPUTs: index 0 = audio (AAF/IEC 61883-6), index 1 = CRF media
+ * clock reference (IEEE 1722-2016 Section 10). Today only index 0 is built in
+ * descriptors.c — index 1 (CRF) is still TODO; until it lands, Hive will get
+ * NO_SUCH_DESCRIPTOR on a READ_DESCRIPTOR for STREAM_INPUT/1. */
 #define DSC_CONFIGURATION_NO_OF_STREAM_INPUTS 2
 
 #define DSC_CONFIGURATION_NO_OF_STREAM_OUTPUTS 1

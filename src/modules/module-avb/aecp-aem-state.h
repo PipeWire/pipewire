@@ -172,6 +172,13 @@ struct aecp_aem_stream_input_state {
 	/* Milan Section 5.4.5 counter unsolicited rate-limit (see avb_interface_state). */
 	bool counters_dirty;
 	int64_t last_counters_emit_ns;
+
+	/* Milan Section 5.4.5.3 / Table 5.16: MEDIA_LOCKED ticks on the first valid
+	 * AVTPDU after a silence gap; MEDIA_UNLOCKED ticks when the gap
+	 * exceeds AVB_MEDIA_UNLOCK_TIMEOUT_NS. last_frame_rx_ns tracks the
+	 * most recent valid PDU; media_locked_state is the current edge. */
+	int64_t last_frame_rx_ns;
+	bool media_locked_state;
 };
 
 struct acmp_stream_status_milan_v12 {

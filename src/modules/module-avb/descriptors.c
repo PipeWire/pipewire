@@ -188,6 +188,41 @@ static void init_descriptor_legacy_avb(struct server *server)
 	es_builder_add_descriptor(server, AVB_AEM_DESC_STREAM_INPUT, 0,
 			sizeof(stream_input_0), &stream_input_0);
 
+	/* CRF clock-reference stream input (Milan v1.2 Section 5.4.x / IEEE 1722-2016
+	 * Section 10). One format only. No audio cluster mapping — CRF carries clock
+	 * timestamps, not media. Constants are pre-defined in
+	 * entity-model-milan-v12.h. */
+	struct {
+		struct avb_aem_desc_stream desc;
+		uint64_t stream_formats[DSC_STREAM_INPUT_CRF_NUMBER_OF_FORMATS];
+	} __attribute__ ((__packed__)) stream_input_1_crf =
+	{
+		{
+		.object_name = DSC_STREAM_INPUT_CRF_OBJECT_NAME,
+		.localized_description = htons(DSC_STREAM_INPUT_CRF_LOCALIZED_DESCRIPTION),
+		.clock_domain_index = htons(DSC_STREAM_INPUT_CRF_CLOCK_DOMAIN_INDEX),
+		.stream_flags = htons(DSC_STREAM_INPUT_CRF_STREAM_FLAGS),
+		.current_format = htobe64(DSC_STREAM_INPUT_CRF_CURRENT_FORMAT),
+		.formats_offset = htons(DSC_STREAM_INPUT_CRF_FORMATS_OFFSET),
+		.number_of_formats = htons(DSC_STREAM_INPUT_CRF_NUMBER_OF_FORMATS),
+		.backup_talker_entity_id_0 = htobe64(0),
+		.backup_talker_unique_id_0 = htons(0),
+		.backup_talker_entity_id_1 = htobe64(0),
+		.backup_talker_unique_id_1 = htons(0),
+		.backup_talker_entity_id_2 = htobe64(0),
+		.backup_talker_unique_id_2 = htons(0),
+		.backedup_talker_entity_id = htobe64(0),
+		.backedup_talker_unique = htons(0),
+		.avb_interface_index = htons(DSC_STREAM_INPUT_CRF_AVB_INTERFACE_INDEX),
+		.buffer_length = htonl(DSC_STREAM_INPUT_CRF_BUFFER_LENGTH_IN_NS)
+		},
+		.stream_formats = {
+			htobe64(DSC_STREAM_INPUT_CRF_FORMATS_0),
+		},
+	};
+	es_builder_add_descriptor(server, AVB_AEM_DESC_STREAM_INPUT, 1,
+			sizeof(stream_input_1_crf), &stream_input_1_crf);
+
 	struct {
 		struct avb_aem_desc_stream desc;
 		uint64_t stream_formats[6];

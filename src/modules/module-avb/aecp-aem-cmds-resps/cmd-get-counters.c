@@ -360,6 +360,8 @@ static void emit_avb_interface_counters(struct aecp *aecp, uint16_t desc_index,
  * here, gated by last_counters_emit_ns. */
 #define COUNTER_UNSOL_MIN_INTERVAL_NS	((int64_t)SPA_NSEC_PER_SEC)
 
+#define MEDIA_UNLOCK_TIMEOUT_NS		((int64_t)(2 * SPA_NSEC_PER_MSEC))
+
 static bool counter_rate_limit_elapsed(int64_t now, int64_t last_emit)
 {
 	if (last_emit == 0)
@@ -386,18 +388,34 @@ void cmd_get_counters_periodic_milan_v12(struct aecp *aecp, int64_t now)
 			ifs->last_counters_emit_ns = now;
 		}
 	}
-	for (i = 0; i < UINT16_MAX; i++) {
-		struct descriptor *d = server_find_descriptor(server,
-				AVB_AEM_DESC_STREAM_INPUT, i);
-		struct aecp_aem_stream_input_state *si;
-		if (d == NULL)
-			break;
-		si = d->ptr;
-		if (si->counters_dirty &&
-		    counter_rate_limit_elapsed(now, si->last_counters_emit_ns)) {
-			emit_stream_input_counters(aecp, i, si);
-			si->counters_dirty = false;
-			si->last_counters_emit_ns = now;
+	{
+		struct timespec mono_ts;
+		int64_t mono_now = 0;
+		clock_gettime(CLOCK_MONOTONIC, &mono_ts);
+		mono_now = SPA_TIMESPEC_TO_NSEC(&mono_ts);
+
+		for (i = 0; i < UINT16_MAX; i++) {
+			struct descriptor *d = server_find_descriptor(server,
+					AVB_AEM_DESC_STREAM_INPUT, i);
+			struct aecp_aem_stream_input_state *si;
+			if (d == NULL)
+				break;
+			si = d->ptr;
+
+			if (si->media_locked_state &&
+			    si->last_frame_rx_ns != 0 &&
+			    (mono_now - si->last_frame_rx_ns) > MEDIA_UNLOCK_TIMEOUT_NS) {
+				si->counters.media_unlocked++;
+				si->media_locked_state = false;
+				si->counters_dirty = true;
+			}
+
+			if (si->counters_dirty &&
+			    counter_rate_limit_elapsed(now, si->last_counters_emit_ns)) {
+				emit_stream_input_counters(aecp, i, si);
+				si->counters_dirty = false;
+				si->last_counters_emit_ns = now;
+			}
 		}
 	}
 	for (i = 0; i < UINT16_MAX; i++) {

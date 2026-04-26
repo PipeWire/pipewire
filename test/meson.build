@@ -190,6 +190,8 @@ if build_avb_virtual
     '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-stream-info.c',
     '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-start-stop-streaming.c',
     '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-counters.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-as-path.c',
+    '../src/modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-max-transit-time.c',
     '../src/modules/module-avb/aecp-aem-cmds-resps/reply-unsol-helpers.c',
     '../src/modules/module-avb/es-builder.c',
     '../src/modules/module-avb/avdecc.c',

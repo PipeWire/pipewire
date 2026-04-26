@@ -135,6 +135,8 @@ if build_avb_virtual
     '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-stream-info.c',
     '../modules/module-avb/aecp-aem-cmds-resps/cmd-start-stop-streaming.c',
     '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-counters.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-as-path.c',
+    '../modules/module-avb/aecp-aem-cmds-resps/cmd-get-set-max-transit-time.c',
     '../modules/module-avb/aecp-aem-cmds-resps/reply-unsol-helpers.c',
     '../modules/module-avb/es-builder.c',
     '../modules/module-avb/avdecc.c',

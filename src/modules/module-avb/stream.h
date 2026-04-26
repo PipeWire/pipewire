@@ -35,6 +35,8 @@ struct stream {
 	int vlan_id;
 
 	struct spa_source *source;
+	struct spa_source *flush_timer;
+	uint64_t flush_last_ns;
 	int prio;
 	int mtt;
 	int t_uncertainty;

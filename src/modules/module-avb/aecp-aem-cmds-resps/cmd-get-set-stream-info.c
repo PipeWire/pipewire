@@ -8,6 +8,7 @@
 #include "../aecp-aem.h"
 #include "../aecp-aem-descriptors.h"
 #include "../aecp-aem-state.h"
+#include "../acmp-cmds-resps/acmp-milan-v12.h"
 #include "../maap.h"
 #include "../mrp.h"
 
@@ -115,8 +116,9 @@ static void populate_input_response(struct aecp *aecp,
 
 	stream_format_be = stream_body->current_format;
 
-	/* Milan Section 5.3.8.2: bound iff the listener has a saved talker stream id. */
-	bound = (lattr->attr.listener.stream_id != 0);
+	/* Milan v1.2 Section 5.5.3.5: bound iff the listener FSM is not in UNBOUND. */
+	bound = (si->acmp_sta.fsm_acmp_state !=
+			FSM_ACMP_STATE_MILAN_V12_UNBOUND);
 
 	/* Milan Section 5.3.8.5: settled iff probing has completed. */
 	settled = (si->acmp_sta.probing_status == 3);

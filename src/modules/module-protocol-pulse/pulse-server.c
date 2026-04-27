@@ -1115,8 +1115,8 @@ static void stream_control_info(void *data, uint32_t id,
 	switch (id) {
 	case SPA_PROP_channelVolumes:
 		if (!stream->volume_set) {
-			stream->volume.channels = control->n_values;
-			memcpy(stream->volume.values, control->values, control->n_values * sizeof(float));
+			stream->volume.channels = SPA_MIN(control->n_values, CHANNELS_MAX);
+			memcpy(stream->volume.values, control->values, stream->volume.channels * sizeof(float));
 			pw_log_info("stream %p: volume changed %f", stream, stream->volume.values[0]);
 		}
 		break;

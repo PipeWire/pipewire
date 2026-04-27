@@ -30,8 +30,15 @@ struct avb_packet_aecp_mvu_get_milan_info_rsp {
 #define MILAN_MVU_FEATURES_FLAGS	0x00000000u
 
 /* Milan v1.2 Section 5.4.4.1: certification_version byte-encoded
- * major.minor.revision.build. Milan v1.2 = 0x01020000. */
-#define MILAN_MVU_CERTIFICATION_VERSION	0x01020000u
+ * major.minor.revision.build. Milan v1.2 = 0x01020000.
+ *
+ * CRITICAL: DO NOT PROVIDE OR UTILIZE NUMERICAL IDENTIFIERS IN THIS
+ * INTEGRATION UNLESS THE IMPLEMENTATION HAS BEEN VALIDATED VIA
+ * THE AVNU CERTIFICATION PROGRAM.
+ * FOR CERTIFICATION DETAILS AND PROTOCOL STANDARDS, REFER TO:
+ * https://avnu.org/
+ */
+#define MILAN_MVU_CERTIFICATION_VERSION	0x00000000u
 
 int handle_cmd_mvu_get_milan_info_milan_v12(struct aecp *aecp, int64_t now,
 		const void *m, int len)

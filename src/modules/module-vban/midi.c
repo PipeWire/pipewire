@@ -2,6 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2023 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <inttypes.h>
+#include <limits.h>
+
 static void vban_midi_process_playback(void *data)
 {
 	struct impl *impl = data;
@@ -97,12 +100,15 @@ static int parse_varlen(uint8_t *p, uint32_t avail, uint32_t *result)
 	uint32_t value = 0, offs = 0;
 	while (offs < avail) {
 		uint8_t b = p[offs++];
+		if (value > (UINT32_MAX >> 7))
+			return -ERANGE;
 		value = (value << 7) | (b & 0x7f);
-		if ((b & 0x80) == 0)
-			break;
+		if ((b & 0x80) == 0) {
+			*result = value;
+			return offs;
+		}
 	}
-	*result = value;
-	return offs;
+	return -EINVAL;
 }
 
 static int get_midi_size(uint8_t *p, uint32_t avail)
@@ -110,6 +116,8 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 	int size;
 	uint32_t offs = 0, value;
 
+	if (avail < 1)
+		return -EINVAL;
 	switch (p[offs++]) {
 	case 0xc0 ... 0xdf:
 		size = 2;
@@ -121,8 +129,11 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 	case 0xff:
 	case 0xf0:
 	case 0xf7:
-		size = parse_varlen(&p[offs], avail - offs, &value);
-		size += value + 1;
+		if ((size = parse_varlen(&p[offs], avail - offs, &value)) < 0)
+			return size;
+		if (value > (unsigned int)(INT_MAX - size - 1))
+			return -EINVAL;
+		size += (int)value + 1;
 		break;
 	default:
 		return -EINVAL;

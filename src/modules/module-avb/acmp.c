@@ -8,6 +8,7 @@
 #include <pipewire/pipewire.h>
 
 #include "acmp.h"
+#include "aecp-aem.h"
 #include "msrp.h"
 #include "internal.h"
 #include "stream.h"
@@ -392,6 +393,11 @@ static int acmp_message(void *data, uint64_t now, const void *message, int len)
 	const struct avb_packet_acmp *p = SPA_PTROFF(h, sizeof(*h), void);
 	const struct msg_info *info;
 	int message_type;
+
+	if (len < 0 ||
+	    (size_t)len < sizeof(*h) + sizeof(*p) ||
+	    (size_t)len > AVB_PACKET_MILAN_DEFAULT_MTU)
+		return 0;
 
 	if (ntohs(h->type) != AVB_TSN_ETH)
 		return 0;

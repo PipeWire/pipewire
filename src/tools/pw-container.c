@@ -11,6 +11,7 @@
 #include <locale.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
@@ -283,7 +284,17 @@ int main(int argc, char *argv[])
 	}
 
 	if (optind < argc) {
-		system(argv[optind++]);
+		pid_t pid = fork();
+		if (pid < 0) {
+			fprintf(stderr, "can't fork: %m\n");
+			return -1;
+		}
+		if (pid == 0) {
+			execvp(argv[optind], &argv[optind]);
+			fprintf(stderr, "can't exec %s: %m\n", argv[optind]);
+			_exit(127);
+		}
+		waitpid(pid, NULL, 0);
 	} else {
 		fprintf(stdout, "new socket: %s\n", temp);
 		pw_main_loop_run(data.loop);

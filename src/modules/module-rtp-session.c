@@ -721,8 +721,16 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	char addr[128];
 	uint16_t port = 0;
 
+	if ((size_t)len < sizeof(*hdr))
+		return;
+
 	initiator = ntohl(hdr->initiator);
 	ssrc = ntohl(hdr->ssrc);
+
+	/* ensure the name field is null-terminated within the received data */
+	size_t name_area = len - sizeof(*hdr);
+	if (name_area == 0 || memchr(hdr->name, '\0', name_area) == NULL)
+		return;
 
 	pw_net_get_ip(sa, addr, sizeof(addr), NULL, &port);
 	pw_log_info("IN from %s:%d %s ssrc:%08x initiator:%08x",
@@ -962,6 +970,8 @@ static void parse_apple_midi_cmd(struct impl *impl, bool ctrl, uint8_t *buffer,
 		ssize_t len, struct sockaddr_storage *sa, socklen_t salen)
 {
 	struct rtp_apple_midi *hdr = (struct rtp_apple_midi*)buffer;
+	if ((size_t)len < sizeof(*hdr))
+		return;
 	switch (ntohl(hdr->cmd)) {
 	case APPLE_MIDI_CMD_IN:
 		parse_apple_midi_cmd_in(impl, ctrl, buffer, len, sa, salen);

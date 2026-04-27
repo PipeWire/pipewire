@@ -366,6 +366,8 @@ static void handle_iec61883_packet(struct stream *stream,
 	if (data_len < 8)
 		return;
 	n_bytes = data_len - 8;
+	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)))
+		return;
 
 	if (filled + n_bytes > stream->buffer_size) {
 		pw_log_debug("capture overrun");
@@ -393,9 +395,11 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 		if (len < 0) {
 			pw_log_warn("got recv error: %m");
 		}
-		else if (len < (int)sizeof(struct avb_packet_header)) {
+		else if (len < (int)(sizeof(struct avb_ethernet_header) +
+				  sizeof(struct avb_packet_iec61883))) {
 			pw_log_warn("short packet received (%d < %d)", len,
-					(int)sizeof(struct avb_packet_header));
+					(int)(sizeof(struct avb_ethernet_header) +
+					sizeof(struct avb_packet_iec61883)));
 		} else {
 			struct avb_ethernet_header *h = (void*)buffer;
 			struct avb_packet_iec61883 *p = SPA_PTROFF(h, sizeof(*h), void);

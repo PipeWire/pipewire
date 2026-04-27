@@ -207,6 +207,9 @@ static int maap_message(struct maap *maap, uint64_t now, const void *message, in
 {
 	const struct avb_packet_maap *p = message;
 
+	if (len < 0 || (size_t)len < sizeof(*p))
+		return 0;
+
 	if (AVB_PACKET_GET_SUBTYPE(&p->hdr) != AVB_SUBTYPE_MAAP)
 		return 0;
 

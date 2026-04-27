@@ -38,6 +38,7 @@
  *
  * - a new virtual sink that forwards audio to other sinks
  * - a new virtual source that combines audio from other sources
+ * - a new virtual source that combines audio from the monitor ports of all sinks
  *
  * The sources and sink that need to be combined can be selected using generic match
  * rules. This makes it possible to combine static nodes or nodes based on certain
@@ -51,7 +52,7 @@
  *
  * - `node.name`: a unique name for the stream
  * - `node.description`: a human readable name for the stream
- * - `combine.mode` = capture | playback | sink | source, default sink
+ * - `combine.mode` = capture | playback | sink | source | monitor, default sink
  * - `combine.latency-compensate`: use delay buffers to match stream latencies
  * - `combine.on-demand-streams`: use metadata to create streams on demand
  * - `combine.props = {}`: properties to be passed to the sink/source
@@ -224,7 +225,7 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define DEFAULT_POSITION "[ FL FR ]"
 
 #define MODULE_USAGE	"( node.latency=<latency as fraction> ) "				\
-			"( combine.mode=<mode of stream, playback|capture|sink|source>, default:sink ) "	\
+			"( combine.mode=<mode of stream, playback|capture|sink|source|monitor>, default:sink ) "	\
 			"( node.name=<name of the stream> ) "					\
 			"( node.description=<description of the stream> ) "			\
 			"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS) "> ) "	\
@@ -254,6 +255,7 @@ struct impl {
 #define MODE_SOURCE	1
 #define MODE_CAPTURE	2
 #define MODE_PLAYBACK	3
+#define MODE_MONITOR	4
 	uint32_t mode;
 	struct pw_impl_module *module;
 
@@ -935,6 +937,9 @@ static int create_stream(struct stream_info *info)
 			pw_properties_set(info->stream_props, PW_KEY_TARGET_OBJECT, node_name);
 	}
 
+	if (impl->mode == MODE_MONITOR)
+		pw_properties_set(info->stream_props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+
 	s->stream = pw_stream_new(impl->core, "Combine stream", info->stream_props);
 	info->stream_props = NULL;
 	if (s->stream == NULL)
@@ -1078,7 +1083,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 	str = pw_properties_get(impl->props, "stream.rules");
 	if (str == NULL) {
-		if (impl->mode == MODE_CAPTURE || impl->mode == MODE_SINK)
+		if (impl->mode == MODE_CAPTURE || impl->mode == MODE_SINK ||
+		    impl->mode == MODE_MONITOR)
 			str = "[ { matches = [ { media.class = \"Audio/Sink\" } ] "
 				"  actions = { create-stream = {} } } ]";
 		else
@@ -1585,6 +1591,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	} else if (spa_streq(str, "playback")) {
 		impl->mode = MODE_PLAYBACK;
 		prefix = "playback";
+	} else if (spa_streq(str, "monitor")) {
+		impl->mode = MODE_MONITOR;
+		prefix = "monitor";
 	} else {
 		pw_log_warn("unknown combine.mode '%s', using 'sink'", str);
 		impl->mode = MODE_SINK;
@@ -1622,7 +1631,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, PW_KEY_MEDIA_CLASS) == NULL) {
 		if (impl->mode == MODE_SINK)
 			pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Sink");
-		else if (impl->mode == MODE_SOURCE)
+		else if (impl->mode == MODE_SOURCE || impl->mode == MODE_MONITOR)
 			pw_properties_set(props, PW_KEY_MEDIA_CLASS, "Audio/Source");
 	}
 

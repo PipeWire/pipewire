@@ -253,8 +253,8 @@ static int process_status(struct pw_rtsp_client *client, char *buf)
 	if (s == NULL)
 		return -EPROTO;
 
-	client->status = atoi(s);
-	if (client->status == 0)
+	client->status = strtol(s, NULL, 10);
+	if (client->status < 100 || client->status > 599)
 		return -EPROTO;
 
 	s = pw_split_walk(buf, " ", &len, &state);

@@ -63,6 +63,7 @@ char *pa_alsa_mixer_id_to_string(char *dst, size_t dst_len, pa_alsa_mixer_id *id
 }
 
 static int alsa_id_decode(const char *src, char *name, int *index) {
+    size_t src_len = strlen(src);
     char *idx, c;
     int i;
 
@@ -70,7 +71,7 @@ static int alsa_id_decode(const char *src, char *name, int *index) {
     c = src[0];
     /* Strip quotes in entries such as 'Speaker',1 or "Speaker",1 */
     if (c == '\'' || c == '"') {
-        strcpy(name, src + 1);
+        memcpy(name, src + 1, src_len);
         for (i = 0; name[i] != '\0' && name[i] != c; i++);
         idx = NULL;
         if (name[i]) {
@@ -78,7 +79,7 @@ static int alsa_id_decode(const char *src, char *name, int *index) {
                 idx = strchr(name + i + 1, ',');
         }
     } else {
-        strcpy(name, src);
+        memcpy(name, src, src_len + 1);
         idx = strchr(name, ',');
     }
     if (idx == NULL)

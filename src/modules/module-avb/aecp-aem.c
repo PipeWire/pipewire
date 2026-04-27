@@ -427,14 +427,16 @@ int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 
 	cmd_type = AVB_PACKET_AEM_GET_COMMAND_TYPE(p);
 
-	pw_log_info("mode: %s aem command %s",
-		get_avb_mode_str(server->avb_mode), cmd_names[cmd_type]);
-
 	if (cmd_info_modes[server->avb_mode].count <= cmd_type) {
-		pw_log_warn("Too many %d vs exp. %zu\n", cmd_type,
+		pw_log_warn("unknown aem command %d (max %zu)\n", cmd_type,
 			cmd_info_modes[server->avb_mode].count);
 		return reply_not_implemented(aecp, m, len);
 	}
+
+	pw_log_info("mode: %s aem command %s",
+		get_avb_mode_str(server->avb_mode),
+		cmd_type < SPA_N_ELEMENTS(cmd_names) && cmd_names[cmd_type]
+			? cmd_names[cmd_type] : "unknown");
 
 	info = &cmd_info_modes[server->avb_mode].cmd_info[cmd_type];
 	if (!info || !info->handle_command )
@@ -453,8 +455,7 @@ int avb_aecp_aem_handle_command(struct aecp *aecp, const void *m, int len)
 	 * commands are always allowed regardless of lock state.
 	 */
 	if (!info->is_readonly && check_locked(aecp, now, p)) {
-		pw_log_info("aem command %s rejected: entity locked",
-			cmd_names[cmd_type]);
+		pw_log_info("aem command %d rejected: entity locked", cmd_type);
 		return reply_entity_locked(aecp, m, len);
 	}
 

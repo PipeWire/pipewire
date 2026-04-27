@@ -40,7 +40,7 @@ struct compress_offload_api_context* compress_offload_api_open(int card_nr, int 
 
 	snprintf(fn, sizeof(fn), "/dev/snd/comprC%uD%u", card_nr, device_nr);
 
-	context->fd = open(fn, O_WRONLY);
+	context->fd = open(fn, O_WRONLY | O_CLOEXEC);
 	if (context->fd < 0) {
 		spa_log_error(context->log, "could not open device \"%s\": %s (%d)", fn, strerror(errno), errno);
 		goto error;

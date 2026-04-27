@@ -632,7 +632,7 @@ on_timing_source_io(void *data, int fd, uint32_t mask)
 		}
 		if (bytes != sizeof(packet)) {
 			pw_log_warn("discarding short (%zd < %zd) timing packet",
-					bytes, sizeof(bytes));
+					bytes, sizeof(packet));
 			return;
 		}
 		if (packet[0] != ntohl(0x80d20007))
@@ -671,7 +671,7 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 		}
 		if (bytes != sizeof(packet)) {
 			pw_log_warn("discarding short (%zd < %zd) control packet",
-					bytes, sizeof(bytes));
+					bytes, sizeof(packet));
 			return;
 		}
 		hdr = ntohl(packet[0]);

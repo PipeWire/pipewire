@@ -1040,7 +1040,9 @@ static int netjack2_recv_data(struct netjack2_peer *peer,
 
 		if (ntohl(header.data_stream) != peer->other_stream ||
 		    ntohl(header.id) != peer->params.id) {
-			pw_log_debug("not our packet");
+			uint8_t discard[peer->params.mtu];
+			pw_log_debug("not our packet, discarding");
+			recv(peer->fd, discard, sizeof(discard), 0);
 			continue;
 		}
 

@@ -322,6 +322,11 @@ static int process_header(struct pw_rtsp_client *client, char *buf)
 			pw_log_debug(" %s: %s", it->key, it->value);
 
 		client->content_length = pw_properties_get_uint32(client->headers, "Content-Length", 0);
+		if (client->content_length > 64 * 1024) {
+			pw_log_error("Content-Length %zu exceeds maximum",
+					client->content_length);
+			return -EOVERFLOW;
+		}
 		if (client->content_length > 0)
 			client->recv_state = CLIENT_RECV_CONTENT;
 		else
@@ -351,6 +356,8 @@ static int process_content(struct pw_rtsp_client *client)
 		}
 
 		void *p = pw_array_add(&client->content, res);
+		if (p == NULL)
+			return -ENOMEM;
 		memcpy(p, buf, res);
 
 		spa_assert((size_t) res <= client->content_length);

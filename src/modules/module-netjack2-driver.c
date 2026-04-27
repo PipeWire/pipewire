@@ -1006,7 +1006,7 @@ static int send_follower_available(struct impl *impl)
 		client_name = DEFAULT_CLIENT_NAME;
 
 	spa_zero(params);
-	strcpy(params.type, "params");
+	snprintf(params.type, sizeof(params.type), "params");
 	params.version = htonl(NJ2_NETWORK_PROTOCOL);
 	params.packet_id = htonl(NJ2_ID_FOLLOWER_AVAILABLE);
 	snprintf(params.name, sizeof(params.name), "%s", client_name);

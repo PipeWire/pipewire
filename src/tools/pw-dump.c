@@ -1097,9 +1097,10 @@ static int metadata_property(void *data,
 		free(e);
 	}
 	if (key != NULL && value != NULL) {
-		size_t size = strlen(key) + 1;
-		size += strlen(value) + 1;
-		size += type ? strlen(type) + 1 : 0;
+		size_t key_len = strlen(key) + 1;
+		size_t value_len = strlen(value) + 1;
+		size_t type_len = type ? strlen(type) + 1 : 0;
+		size_t size = key_len + value_len + type_len;
 
 		e = calloc(1, sizeof(*e) + size);
 		if (e == NULL)
@@ -1107,12 +1108,12 @@ static int metadata_property(void *data,
 
 		e->subject = subject;
 		e->key = SPA_PTROFF(e, sizeof(*e), void);
-		strcpy(e->key, key);
-		e->value = SPA_PTROFF(e->key, strlen(e->key) + 1, void);
-		strcpy(e->value, value);
+		memcpy(e->key, key, key_len);
+		e->value = SPA_PTROFF(e->key, key_len, void);
+		memcpy(e->value, value, value_len);
 		if (type) {
-			e->type = SPA_PTROFF(e->value, strlen(e->value) + 1, void);
-			strcpy(e->type, type);
+			e->type = SPA_PTROFF(e->value, value_len, void);
+			memcpy(e->type, type, type_len);
 		} else {
 			e->type = NULL;
 		}

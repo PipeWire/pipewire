@@ -96,6 +96,9 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 	char buf[128];
 	uint64_t entity_id;
 
+	if (len < 0 || (size_t)len < sizeof(*h) + sizeof(*p))
+		return 0;
+
 	if (ntohs(h->type) != AVB_TSN_ETH)
 		return 0;
 	if (memcmp(h->dest, mac, 6) != 0 &&

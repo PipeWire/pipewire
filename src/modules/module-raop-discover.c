@@ -147,6 +147,10 @@ static struct tunnel *tunnel_new(struct impl *impl, const char *name)
 		return NULL;
 
 	t->name = strdup(name);
+	if (t->name == NULL) {
+		free(t);
+		return NULL;
+	}
 	spa_list_append(&impl->tunnel_list, &t->link);
 
 	return t;

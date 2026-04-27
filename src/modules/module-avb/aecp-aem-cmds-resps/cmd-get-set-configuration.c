@@ -87,6 +87,10 @@ int handle_cmd_set_configuration_milan_v12(struct aecp *aecp, int64_t now,
 		return reply_status(aecp, 
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, p, len);
+
 	// TODO maybe avoid copy here
 	memcpy(buf, m, len);
 	h_reply = (struct avb_ethernet_header *)buf;
@@ -168,6 +172,10 @@ int handle_cmd_get_configuration_common(struct aecp *aecp, int64_t now,
 	if (desc == NULL)
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
+
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, p, len);
 
 	memcpy(buf, m, len);
 	h_reply = (struct avb_ethernet_header *)buf;

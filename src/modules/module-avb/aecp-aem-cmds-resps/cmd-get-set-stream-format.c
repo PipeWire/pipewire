@@ -64,6 +64,10 @@ int handle_cmd_get_stream_format_milan_v12(struct aecp *aecp, int64_t now,
 
 	stream_desc = (struct avb_aem_desc_stream *)desc->ptr;
 
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+
 	memcpy(buf, m, len);
 	h_reply = (struct avb_ethernet_header *)buf;
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
@@ -132,6 +136,10 @@ int handle_cmd_set_stream_format_milan_v12(struct aecp *aecp, int64_t now,
 		}
 	}
 
+
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 
 	memcpy(buf, m, len);
 	h_reply = (struct avb_ethernet_header *)buf;

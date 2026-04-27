@@ -194,6 +194,10 @@ int handle_cmd_lock_entity_milan_v12(struct aecp *aecp, int64_t now, const void 
 		}
 	}
 
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, p, len);
+
 	/* Forge the response for the entity that is locking the device */
 	memcpy(buf, m, len);
 	h_reply = (struct avb_ethernet_header *) buf;

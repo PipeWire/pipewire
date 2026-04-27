@@ -170,12 +170,13 @@ int create_pid_file(void)
 	if ((res = get_runtime_dir(pid_file, sizeof(pid_file))) < 0)
 		return res;
 
-	if (strlen(pid_file) > PATH_MAX - sizeof("/pid")) {
+	size_t len = strlen(pid_file);
+	if (len > PATH_MAX - sizeof("/pid")) {
 		pw_log_error("path too long: %s/pid", pid_file);
 		return -ENAMETOOLONG;
 	}
 
-	strcat(pid_file, "/pid");
+	memcpy(pid_file + len, "/pid", sizeof("/pid"));
 
 	if ((f = fopen(pid_file, "we")) == NULL) {
 		res = -errno;

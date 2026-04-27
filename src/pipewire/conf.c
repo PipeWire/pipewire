@@ -25,6 +25,7 @@
 #endif
 
 #include <spa/utils/cleanup.h>
+#include <spa/utils/overflow.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
@@ -929,8 +930,10 @@ static char **pw_strv_insert_at(char **strv, int len, int pos, const char *str)
 	if (pos < 0 || pos > len)
 		pos = len;
 
-	n = realloc(strv, sizeof(char*) * (len + 2));
-	if (n == NULL) {
+	size_t alloc_size;
+	if (spa_overflow_add((size_t)len, (size_t)2, &alloc_size) ||
+	    spa_overflow_mul(alloc_size, sizeof(char*), &alloc_size) ||
+	    (n = realloc(strv, alloc_size)) == NULL) {
 		pw_free_strv(strv);
 		return NULL;
 	}

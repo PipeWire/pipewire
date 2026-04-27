@@ -896,6 +896,8 @@ static int netjack2_recv_opus(struct netjack2_peer *peer, struct nj2_packet_head
 
 	if ((len = recv(peer->fd, buffer, packet_size, 0)) < 0)
 		return -errno;
+	if ((size_t)len < sizeof(*header))
+		return -EINVAL;
 
 	active_ports = peer->params.recv_audio_channels;
 	if (active_ports == 0)
@@ -923,12 +925,20 @@ static int netjack2_recv_opus(struct netjack2_peer *peer, struct nj2_packet_head
 	encoded_data = peer->encoded_data;
 	encoded_size = peer->encoded_size;
 
-	if ((active_ports-1) * max_encoded + sub_cycle * sub_period_bytes + data_size > encoded_size)
+	uint32_t end_offset, cycle_offset;
+	if (spa_overflow_mul(sub_cycle, sub_period_bytes, &cycle_offset) ||
+	    spa_overflow_add(cycle_offset, (active_ports - 1) * max_encoded, &end_offset) ||
+	    spa_overflow_add(end_offset, data_size, &end_offset) ||
+	    end_offset > encoded_size)
 		return -ENOSPC;
+
+	if (spa_overflow_mul(active_ports, data_size, &end_offset) ||
+	    end_offset > (uint32_t)len)
+		return -EINVAL;
 
 	for (i = 0; i < active_ports; i++) {
 		memcpy(SPA_PTROFF(encoded_data,
-				i * max_encoded + sub_cycle * sub_period_bytes, void),
+				i * max_encoded + cycle_offset, void),
 				SPA_PTROFF(data, i * data_size, void),
 				data_size);
 	}
@@ -969,6 +979,8 @@ static int netjack2_recv_int(struct netjack2_peer *peer, struct nj2_packet_heade
 
 	if ((len = recv(peer->fd, buffer, packet_size, 0)) < 0)
 		return -errno;
+	if ((size_t)len < sizeof(*header))
+		return -EINVAL;
 
 	active_ports = peer->params.recv_audio_channels;
 	if (active_ports == 0)
@@ -996,12 +1008,20 @@ static int netjack2_recv_int(struct netjack2_peer *peer, struct nj2_packet_heade
 	encoded_data = peer->encoded_data;
 	encoded_size = peer->encoded_size;
 
-	if ((active_ports-1) * max_encoded + sub_cycle * sub_period_bytes + data_size > encoded_size)
+	uint32_t end_offset, cycle_offset;
+	if (spa_overflow_mul(sub_cycle, sub_period_bytes, &cycle_offset) ||
+	    spa_overflow_add(cycle_offset, (active_ports - 1) * max_encoded, &end_offset) ||
+	    spa_overflow_add(end_offset, data_size, &end_offset) ||
+	    end_offset > encoded_size)
 		return -ENOSPC;
+
+	if (spa_overflow_mul(active_ports, data_size, &end_offset) ||
+	    end_offset > (uint32_t)len)
+		return -EINVAL;
 
 	for (i = 0; i < active_ports; i++) {
 		memcpy(SPA_PTROFF(encoded_data,
-				i * max_encoded + sub_cycle * sub_period_bytes, void),
+				i * max_encoded + cycle_offset, void),
 				SPA_PTROFF(data, i * data_size, void),
 				data_size);
 	}

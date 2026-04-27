@@ -689,3 +689,71 @@ channelmix_f32_5p1_4_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		vol_sse(d[3], s[5], v5, n_samples);
 	}
 }
+
+/* FL+FR+FC+LFE+SL+SR+RL+RR -> FL+FR */
+void
+channelmix_f32_7p1_2_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
+		const void * SPA_RESTRICT src[], uint32_t n_samples)
+{
+	uint32_t n, unrolled;
+	float **d = (float **) dst;
+	const float **s = (const float **) src;
+	const __m128 v0 = _mm_set1_ps(mix->matrix[0][0]);
+	const __m128 v1 = _mm_set1_ps(mix->matrix[1][1]);
+	const __m128 clev = _mm_set1_ps((mix->matrix[0][2] + mix->matrix[1][2]) * 0.5f);
+	const __m128 llev = _mm_set1_ps((mix->matrix[0][3] + mix->matrix[1][3]) * 0.5f);
+	const __m128 slev0 = _mm_set1_ps(mix->matrix[0][4]);
+	const __m128 slev1 = _mm_set1_ps(mix->matrix[1][5]);
+	const __m128 rlev0 = _mm_set1_ps(mix->matrix[0][6]);
+	const __m128 rlev1 = _mm_set1_ps(mix->matrix[1][7]);
+	__m128 in, ctr;
+
+	if (SPA_IS_ALIGNED(s[0], 16) &&
+	    SPA_IS_ALIGNED(s[1], 16) &&
+	    SPA_IS_ALIGNED(s[2], 16) &&
+	    SPA_IS_ALIGNED(s[3], 16) &&
+	    SPA_IS_ALIGNED(s[4], 16) &&
+	    SPA_IS_ALIGNED(s[5], 16) &&
+	    SPA_IS_ALIGNED(s[6], 16) &&
+	    SPA_IS_ALIGNED(s[7], 16) &&
+	    SPA_IS_ALIGNED(d[0], 16) &&
+	    SPA_IS_ALIGNED(d[1], 16))
+		unrolled = n_samples & ~3;
+	else
+		unrolled = 0;
+
+	if (SPA_FLAG_IS_SET(mix->flags, CHANNELMIX_FLAG_ZERO)) {
+		clear_sse(d[0], n_samples);
+		clear_sse(d[1], n_samples);
+	}
+	else {
+		for (n = 0; n < unrolled; n += 4) {
+			ctr = _mm_add_ps(_mm_mul_ps(_mm_load_ps(&s[2][n]), clev),
+					_mm_mul_ps(_mm_load_ps(&s[3][n]), llev));
+			in = _mm_mul_ps(_mm_load_ps(&s[4][n]), slev0);
+			in = _mm_add_ps(in, _mm_mul_ps(_mm_load_ps(&s[6][n]), rlev0));
+			in = _mm_add_ps(in, ctr);
+			in = _mm_add_ps(in, _mm_mul_ps(_mm_load_ps(&s[0][n]), v0));
+			_mm_store_ps(&d[0][n], in);
+			in = _mm_mul_ps(_mm_load_ps(&s[5][n]), slev1);
+			in = _mm_add_ps(in, _mm_mul_ps(_mm_load_ps(&s[7][n]), rlev1));
+			in = _mm_add_ps(in, ctr);
+			in = _mm_add_ps(in, _mm_mul_ps(_mm_load_ps(&s[1][n]), v1));
+			_mm_store_ps(&d[1][n], in);
+		}
+		for (; n < n_samples; n++) {
+			ctr = _mm_add_ss(_mm_mul_ss(_mm_load_ss(&s[2][n]), clev),
+					_mm_mul_ss(_mm_load_ss(&s[3][n]), llev));
+			in = _mm_mul_ss(_mm_load_ss(&s[4][n]), slev0);
+			in = _mm_add_ss(in, _mm_mul_ss(_mm_load_ss(&s[6][n]), rlev0));
+			in = _mm_add_ss(in, ctr);
+			in = _mm_add_ss(in, _mm_mul_ss(_mm_load_ss(&s[0][n]), v0));
+			_mm_store_ss(&d[0][n], in);
+			in = _mm_mul_ss(_mm_load_ss(&s[5][n]), slev1);
+			in = _mm_add_ss(in, _mm_mul_ss(_mm_load_ss(&s[7][n]), rlev1));
+			in = _mm_add_ss(in, ctr);
+			in = _mm_add_ss(in, _mm_mul_ss(_mm_load_ss(&s[1][n]), v1));
+			_mm_store_ss(&d[1][n], in);
+		}
+	}
+}

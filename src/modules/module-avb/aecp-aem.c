@@ -151,6 +151,9 @@ static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
 	if (desc_type != AVB_AEM_DESC_AVB_INTERFACE || desc_id != 0)
 		return reply_not_implemented(aecp, m, len);
 
+	if (len < 0 || (size_t)len > sizeof(buf))
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+
 	avb_interface = desc->ptr;
 
 	memcpy(buf, m, len);

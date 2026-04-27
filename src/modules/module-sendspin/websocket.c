@@ -518,8 +518,12 @@ static int receive_http_reply(struct pw_websocket_connection *conn,
 						return -EPROTO;
 					}
 				}
-				else if (spa_streq(key, "Content-Length"))
-					conn->content_length = atoi(value);
+				else if (spa_streq(key, "Content-Length")) {
+					uint32_t cl;
+					if (!spa_atou32(value, &cl, 10) || cl > 0xFFFFFF)
+						return -EPROTO;
+					conn->content_length = cl;
+				}
 			} else {
 				conn->data_state++;
 				need = conn->content_length;
@@ -907,7 +911,12 @@ int pw_websocket_listen(struct pw_websocket *ws, void *user,
 {
 	int res;
 	struct server *server;
-	uint16_t port = atoi(service);
+	uint32_t port32;
+	uint16_t port;
+
+	if (!spa_atou32(service, &port32, 10) || port32 > 65535)
+		return -EINVAL;
+	port = (uint16_t)port32;
 
 	if ((server = calloc(1, sizeof(struct server))) == NULL)
 		return -errno;

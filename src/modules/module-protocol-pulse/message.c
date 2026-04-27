@@ -532,12 +532,13 @@ static void add_stream_group(struct message *m, struct spa_dict *dict, const cha
 	else
 		return;
 
-	write_string(m, key);
 	l = strlen(prefix) + strlen(id) + strlen(str) + 6; /* "-by-" , ":" and \0 */
-	if (l < 0 || l > 1024)
+	if (l < 0 || l > 4096)
 		return;
+
+	write_string(m, key);
 	b = alloca(l);
-	snprintf(b, l, "%s-by-%s:%s", prefix, id, str);
+	spa_scnprintf(b, l, "%s-by-%s:%s", prefix, id, str);
 	write_u32(m, l);
 	write_arbitrary(m, b, l);
 }

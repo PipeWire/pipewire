@@ -34,6 +34,9 @@
 
 #define MAXLENGTH		(4u*1024*1024) /* 4MB */
 
+/* pulseaudio has a 128 char limit for this but we can allow more */
+#define MAX_NAME		1024u
+
 #define SCACHE_ENTRY_SIZE_MAX	(1024*1024*16)
 
 #define MODULE_INDEX_MASK	0xfffffffu

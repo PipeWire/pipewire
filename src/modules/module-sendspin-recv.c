@@ -560,12 +560,14 @@ static int handle_server_hello(struct client *client, struct spa_json *payload)
 
 	while ((l = spa_json_object_next(payload, key, sizeof(key), &v)) > 0) {
 		if (spa_streq(key, "server_id")) {
-			t = alloca(l+1);
+			if ((t = spa_alloca(1, l+1, 1024)) == NULL)
+				return -errno;
 			spa_json_parse_stringn(v, l, t, l+1);
 			pw_properties_set(client->props, "sendspin.server-id", t);
 		}
 		else if (spa_streq(key, "name")) {
-			t = alloca(l+1);
+			if ((t = spa_alloca(1, l+1, 1024)) == NULL)
+				return -errno;
 			spa_json_parse_stringn(v, l, t, l+1);
 			pw_properties_set(client->props, "sendspin.server-name", t);
 		}
@@ -579,7 +581,8 @@ static int handle_server_hello(struct client *client, struct spa_json *payload)
 
 			spa_json_enter(payload, &it[0]);
 			while ((l = spa_json_next(&it[0], &v)) > 0) {
-				t = alloca(l+1);
+				if ((t = spa_alloca(1, l+1, 128)) == NULL)
+					continue;
 				spa_json_parse_stringn(v, l, t, l+1);
 
 				if (spa_streq(t, "player@v1"))
@@ -589,7 +592,8 @@ static int handle_server_hello(struct client *client, struct spa_json *payload)
 			}
 		}
 		else if (spa_streq(key, "connection_reason")) {
-			t = alloca(l+1);
+			if ((t = spa_alloca(1, l+1, 4096)) == NULL)
+				return -errno;
 			spa_json_parse_stringn(v, l, t, l+1);
 
 			if (spa_streq(t, "discovery"))

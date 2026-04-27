@@ -31,6 +31,8 @@ PW_LOG_TOPIC_EXTERN(log_node);
 
 #define DEFAULT_SYNC_TIMEOUT  ((uint64_t)(5 * SPA_NSEC_PER_SEC))
 
+#define MAX_COMMAND	(64*1024u)
+
 /** \cond */
 struct impl {
 	struct pw_impl_node this;
@@ -1959,14 +1961,17 @@ static void node_event(void *data, const struct spa_event *event)
 			size_t size = SPA_POD_SIZE(&event->pod);
 
 			/* turn the event and all the arguments into a command */
-			command = alloca(size);
-			memcpy(command, event, size);
-			command->body.body.type = SPA_TYPE_COMMAND_Node;
-			command->body.body.id = SPA_NODE_COMMAND_RequestProcess;
+			if ((command = spa_alloca(1, size, MAX_COMMAND)) != NULL) {
+				memcpy(command, event, size);
+				command->body.body.type = SPA_TYPE_COMMAND_Node;
+				command->body.body.id = SPA_NODE_COMMAND_RequestProcess;
 
-			/* send the request process to the driver but only on the
-			 * server size */
-			handle_request_process_command(node->driver_node, command);
+				/* send the request process to the driver but only on the
+				 * server size */
+				handle_request_process_command(node->driver_node, command);
+			} else {
+				pw_log_warn("%p: ignore large command", node);
+			}
 		}
 		break;
 	default:

@@ -359,6 +359,8 @@ int pw_conf_save_state(const char *prefix, const char *name, const struct pw_pro
 		return sfd;
 
 	size_t tmp_name_size = strlen(name) + 5;
+	if (tmp_name_size > PATH_MAX)
+		return -EINVAL;
 	tmp_name = alloca(tmp_name_size);
 	snprintf(tmp_name, tmp_name_size, "%s.tmp", name);
 	if ((fd = openat(sfd, tmp_name,  O_CLOEXEC | O_CREAT | O_WRONLY | O_TRUNC, 0600)) < 0) {

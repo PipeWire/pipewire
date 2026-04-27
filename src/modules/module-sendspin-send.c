@@ -745,7 +745,8 @@ static int parse_player_v1_support(struct client *c, struct spa_json *payload)
 			spa_json_enter(payload, &it[0]);
 
 			while ((l = spa_json_next(&it[0], &v)) > 0) {
-				t = alloca(l+1);
+				if ((t = spa_alloca(1, l+1, 64)) == NULL)
+					continue;
 				spa_json_parse_stringn(v, l, t, l+1);
 				if (spa_streq(t, "volume"))
 					c->supported_commands |= COMMAND_VOLUME;
@@ -766,12 +767,14 @@ static int handle_client_hello(struct client *c, struct spa_json *payload)
 
 	while ((l = spa_json_object_next(payload, key, sizeof(key), &v)) > 0) {
 		if (spa_streq(key, "client_id")) {
-			t = alloca(l+1);
+			if ((t = spa_alloca(1, l+1, 1024)) == NULL)
+				return -errno;
 			spa_json_parse_stringn(v, l, t, l+1);
 			pw_properties_set(c->props, "sendspin.client-id", t);
 		}
 		else if (spa_streq(key, "name")) {
-			t = alloca(l+1);
+			if ((t = spa_alloca(1, l+1, 1024)) == NULL)
+				return -errno;
 			spa_json_parse_stringn(v, l, t, l+1);
 			pw_properties_set(c->props, "sendspin.client-name", t);
 		}
@@ -785,7 +788,8 @@ static int handle_client_hello(struct client *c, struct spa_json *payload)
 
 			spa_json_enter(payload, &it[0]);
 			while ((l = spa_json_next(&it[0], &v)) > 0) {
-				t = alloca(l+1);
+				if ((t = spa_alloca(1, l+1, 64)) == NULL)
+					continue;
 				spa_json_parse_stringn(v, l, t, l+1);
 
 				if (spa_streq(t, "player@v1"))

@@ -252,6 +252,9 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	if ((res = param_filter(result, &input, &output, SPA_PARAM_Meta, &b)) > 0)
 		n_params += res;
 
+	if (n_params > 4096)
+		return -EINVAL;
+
 	metas = alloca(sizeof(struct spa_meta) * n_params * 2);
 
 	n_metas = 0;

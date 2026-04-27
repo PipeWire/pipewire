@@ -457,6 +457,16 @@ struct spa_error_location {
 	_strp;								\
 })
 
+#define spa_alloca(n, size, max_size)				\
+({								\
+	void *_res = NULL; 					\
+	if ((size_t)n > (size_t)max_size / (size_t)size)	\
+		errno = ENOMEM;					\
+	else							\
+		_res = alloca((size_t)n * (size_t)size);	\
+	_res;							\
+})
+
 /**
  * \}
  */

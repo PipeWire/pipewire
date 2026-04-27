@@ -753,8 +753,11 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 		peer_index = peer->index;
 		if (!pw_manager_object_is_source(peer)) {
 			size_t len = (name ? strlen(name) : 5) + 10;
-			peer_name = tmp = alloca(len);
-			snprintf(tmp, len, "%s.monitor", name ? name : "sink");
+			if (len <= MAX_NAME) {
+				peer_name = tmp = alloca(len);
+				spa_scnprintf(tmp, len, "%s.monitor", name ? name : "sink");
+			} else
+				peer_name = NULL;
 		} else {
 			peer_name = name;
 		}
@@ -866,7 +869,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 					size_t len = strlen(peer_name) + 10;
 					if (len <= 1024) {
 						char *tmp = alloca(len);
-						snprintf(tmp, len, "%s.monitor", peer_name);
+						spa_scnprintf(tmp, len, "%s.monitor", peer_name);
 						peer_name = tmp;
 					}
 				}
@@ -3174,9 +3177,8 @@ static int do_set_port_latency_offset(struct client *client, uint32_t command, u
 		return -ENOENT;
 
 	collect_card_info(card, &card_info);
-	if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
-		return -ENOMEM;
-	port_info = alloca(card_info.n_ports * sizeof(*port_info));
+	if ((port_info = spa_alloca(card_info.n_ports, sizeof(*port_info), MAX_ALLOCA_SIZE)) == NULL)
+		return -errno;
 	card_info.active_profile = SPA_ID_INVALID;
 	n_ports = collect_port_info(card, &card_info, NULL, port_info);
 
@@ -3315,9 +3317,9 @@ static int do_remove_proplist(struct client *client, uint32_t command, uint32_t 
 	}
 
 	dict.n_items = props->dict.n_items;
-	if (dict.n_items > MAX_ALLOCA_SIZE / sizeof(struct spa_dict_item))
-		return -ENOMEM;
-	dict.items = items = alloca(sizeof(struct spa_dict_item) * dict.n_items);
+	if ((dict.items = items = spa_alloca(dict.n_items,
+			sizeof(struct spa_dict_item), MAX_ALLOCA_SIZE)) == NULL)
+		return -errno;
 	for (i = 0; i < dict.n_items; i++) {
 		items[i].key = props->dict.items[i].key;
 		items[i].value = NULL;
@@ -3600,9 +3602,8 @@ static int fill_card_info(struct client *client, struct message *m,
 		TAG_U32, card_info.n_profiles,			/* n_profiles */
 		TAG_INVALID);
 
-	if (card_info.n_profiles > MAX_ALLOCA_SIZE / sizeof(*profile_info))
-		return -ENOMEM;
-	profile_info = alloca(card_info.n_profiles * sizeof(*profile_info));
+	if ((profile_info = spa_alloca(card_info.n_profiles, sizeof(*profile_info), MAX_ALLOCA_SIZE)) == NULL)
+		return -errno;
 	n_profiles = collect_profile_info(o, &card_info, profile_info);
 
 	for (n = 0; n < n_profiles; n++) {
@@ -3631,9 +3632,8 @@ static int fill_card_info(struct client *client, struct message *m,
 		uint32_t n_ports;
 		struct port_info *port_info, *pi;
 
-		if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
-			return -ENOMEM;
-		port_info = alloca(card_info.n_ports * sizeof(*port_info));
+		if ((port_info = spa_alloca(card_info.n_ports, sizeof(*port_info), MAX_ALLOCA_SIZE)) == NULL)
+			return -errno;
 		card_info.active_profile = SPA_ID_INVALID;
 		n_ports = collect_port_info(o, &card_info, NULL, port_info);
 
@@ -3649,8 +3649,7 @@ static int fill_card_info(struct client *client, struct message *m,
 			pi = &port_info[n];
 
 			if (pi->info && pi->n_props > 0 &&
-			    pi->n_props <= MAX_ALLOCA_SIZE / sizeof(*items)) {
-				items = alloca(pi->n_props * sizeof(*items));
+			    (items = spa_alloca(pi->n_props, sizeof(*items), MAX_ALLOCA_SIZE)) != NULL) {
 				dict.items = items;
 				pdict = collect_props(pi->info, &dict);
 			}
@@ -3757,7 +3756,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if (name == NULL)
 		name = "unknown";
 
-	size = strlen(name) + 10;
+	size = SPA_MIN(strlen(name) + 10, MAX_NAME);
 	monitor_name = alloca(size);
 	if (pw_manager_object_is_source(o))
 		snprintf(monitor_name, size, "%s", name);
@@ -3838,9 +3837,8 @@ static int fill_sink_info(struct client *client, struct message *m,
 		uint32_t n_ports, n;
 		struct port_info *port_info, *pi;
 
-		if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
-			return -ENOMEM;
-		port_info = alloca(card_info.n_ports * sizeof(*port_info));
+		if ((port_info = spa_alloca(card_info.n_ports, sizeof(*port_info), MAX_ALLOCA_SIZE)) == NULL)
+			return -errno;
 		n_ports = collect_port_info(card, &card_info, &dev_info, port_info);
 
 		message_put(m,
@@ -3956,11 +3954,11 @@ static int fill_source_info(struct client *client, struct message *m,
 	if (name == NULL)
 		name = "unknown";
 
-	size = strlen(name) + 10;
+	size = SPA_MIN(strlen(name) + 10, MAX_NAME);
 	monitor_name = alloca(size);
 	snprintf(monitor_name, size, "%s.monitor", name);
 
-	size = strlen(desc) + 20;
+	size = SPA_MIN(strlen(desc) + 20, MAX_NAME);
 	monitor_desc = alloca(size);
 	snprintf(monitor_desc, size, "Monitor of %s", desc);
 
@@ -4036,9 +4034,8 @@ static int fill_source_info(struct client *client, struct message *m,
 		uint32_t n_ports, n;
 		struct port_info *port_info, *pi;
 
-		if (card_info.n_ports > MAX_ALLOCA_SIZE / sizeof(*port_info))
-			return -ENOMEM;
-		port_info = alloca(card_info.n_ports * sizeof(*port_info));
+		if ((port_info = spa_alloca(card_info.n_ports, sizeof(*port_info), MAX_ALLOCA_SIZE)) == NULL)
+			return -errno;
 		n_ports = collect_port_info(card, &card_info, &dev_info, port_info);
 
 		message_put(m,
@@ -4103,12 +4100,10 @@ static int fill_node_info_proplist(struct message *m, const struct spa_dict *nod
 		n_items += client_props->n_items;
 	}
 
-	if (n_items > MAX_ALLOCA_SIZE / sizeof(struct spa_dict_item))
-		return -ENOMEM;
+	if ((dict.items = items = spa_alloca(n_items, sizeof(struct spa_dict_item), MAX_ALLOCA_SIZE)) == NULL)
+		return -errno;
 
 	dict.n_items = n = 0;
-	dict.items = items = alloca(n_items * sizeof(struct spa_dict_item));
-
 	spa_dict_for_each(it, node_props)
 		items[n++] = *it;
 	dict.n_items = n;

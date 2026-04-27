@@ -217,25 +217,28 @@ static int start_receiving(struct module_roc_source_data *data)
 		if (roc_receiver_bind(data->receiver, ROC_SLOT_DEFAULT, ROC_INTERFACE_AUDIO_SOURCE,
 					data->local_source_addr) != 0) {
 			pw_log_error("can't connect roc receiver to local source address");
-			return -EINVAL;
+			goto error;
 		}
 	}
 	if (data->local_repair_addr != NULL) {
 		if (roc_receiver_bind(data->receiver, ROC_SLOT_DEFAULT, ROC_INTERFACE_AUDIO_REPAIR,
 					data->local_repair_addr) != 0) {
 			pw_log_error("can't connect roc receiver to local repair address");
-			return -EINVAL;
+			goto error;
 		}
 	}
 	if (data->local_control_addr != NULL) {
 		if (roc_receiver_bind(data->receiver, ROC_SLOT_DEFAULT, ROC_INTERFACE_AUDIO_CONTROL,
 					data->local_control_addr) != 0) {
 			pw_log_error("can't connect roc receiver to local control address");
-			return -EINVAL;
+			goto error;
 		}
 	}
 	data->receiving = true;
 	return 0;
+error:
+	roc_receiver_unlink(data->receiver, ROC_SLOT_DEFAULT);
+	return -EINVAL;
 }
 
 static int stop_receiving(struct module_roc_source_data *data)
@@ -265,7 +268,8 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 		pw_log_error("stream error: %s", error);
 		break;
 	case PW_STREAM_STATE_STREAMING:
-		start_receiving(data);
+		if (start_receiving(data) < 0)
+			pw_impl_module_schedule_destroy(data->module);
 		break;
 	case PW_STREAM_STATE_PAUSED:
 		stop_receiving(data);

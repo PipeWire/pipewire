@@ -14,6 +14,7 @@
 #include <spa/support/loop.h>
 #include <spa/support/log.h>
 #include <spa/support/plugin-loader.h>
+#include <spa/utils/overflow.h>
 #include <spa/utils/result.h>
 #include <spa/utils/list.h>
 #include <spa/utils/json.h>
@@ -1285,24 +1286,28 @@ static int ensure_tmp(struct impl *this)
 	uint32_t maxsize = this->maxsize, maxports = this->maxports;
 	uint32_t i;
 	float *empty, *scratch, *tmp[2];
+	size_t alloc_size;
+
+	if (spa_overflow_add((size_t)maxsize, (size_t)MAX_ALIGN, &alloc_size))
+		return -ENOMEM;
 
 	if (maxsize > this->scratch_size) {
 		spa_log_info(this->log, "resize tmp %d -> %d", this->scratch_size, maxsize);
 
-		if ((empty = realloc(this->empty, maxsize + MAX_ALIGN)) != NULL)
+		if ((empty = realloc(this->empty, alloc_size)) != NULL)
 			this->empty = empty;
-		if ((scratch = realloc(this->scratch, maxsize + MAX_ALIGN)) != NULL)
+		if ((scratch = realloc(this->scratch, alloc_size)) != NULL)
 			this->scratch = scratch;
 		if (empty == NULL || scratch == NULL) {
 			free_tmp(this);
 			return -ENOMEM;
 		}
-		memset(this->empty, 0, maxsize + MAX_ALIGN);
+		memset(this->empty, 0, alloc_size);
 
 		for (i = 0; i < this->scratch_ports; i++) {
-			if ((tmp[0] = realloc(this->tmp[0][i], maxsize + MAX_ALIGN)) != NULL)
+			if ((tmp[0] = realloc(this->tmp[0][i], alloc_size)) != NULL)
 				this->tmp[0][i] = tmp[0];
-			if ((tmp[1] = realloc(this->tmp[1][i], maxsize + MAX_ALIGN)) != NULL)
+			if ((tmp[1] = realloc(this->tmp[1][i], alloc_size)) != NULL)
 				this->tmp[1][i] = tmp[1];
 			if (tmp[0] == NULL || tmp[1] == NULL) {
 				free_tmp(this);
@@ -1317,9 +1322,9 @@ static int ensure_tmp(struct impl *this)
 		spa_log_info(this->log, "resize ports %d -> %d", this->scratch_ports, maxports);
 
 		for (i = this->scratch_ports; i < maxports; i++) {
-			if ((tmp[0] = malloc(maxsize + MAX_ALIGN)) != NULL)
+			if ((tmp[0] = malloc(alloc_size)) != NULL)
 				this->tmp[0][i] = tmp[0];
-			if ((tmp[1] = malloc(maxsize + MAX_ALIGN)) != NULL)
+			if ((tmp[1] = malloc(alloc_size)) != NULL)
 				this->tmp[1][i] = tmp[1];
 			if (tmp[0] == NULL || tmp[1] == NULL) {
 				free_tmp(this);

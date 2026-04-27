@@ -358,6 +358,7 @@ static void emit_node_info(struct impl *this, bool full)
 
 		if (this->info.props)
 			n_items = this->info.props->n_items;
+		n_items = SPA_MIN(n_items, 1024u);
 		items = alloca((n_items + 2) * sizeof(struct spa_dict_item));
 		for (i = 0; i < n_items; i++)
 			items[i] = this->info.props->items[i];
@@ -517,6 +518,9 @@ static int negotiate_buffers(struct impl *this)
 			this, buffers, blocks, size, stride, align, follower_alloc, conv_alloc);
 
 	align = SPA_MAX(align, this->max_align);
+
+	if (blocks > 4096)
+		return -ENOMEM;
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
 	memset(datas, 0, sizeof(struct spa_data) * blocks);
@@ -1910,9 +1914,10 @@ static int load_converter(struct impl *this, const struct spa_dict *info,
 	char direction[16];
 	uint32_t i;
 
-	items = alloca((info->n_items + 1) * sizeof(struct spa_dict_item));
+	uint32_t n_items = SPA_MIN(info->n_items, 1024u);
+	items = alloca((n_items + 1) * sizeof(struct spa_dict_item));
 	cinfo = SPA_DICT(items, 0);
-	for (i = 0; i < info->n_items; i++)
+	for (i = 0; i < n_items; i++)
 		items[cinfo.n_items++] = info->items[i];
 
 	snprintf(direction, sizeof(direction), "%s",

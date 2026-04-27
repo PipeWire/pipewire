@@ -15,6 +15,7 @@
 #include <limits.h>
 #include <math.h>
 
+#include <spa/utils/overflow.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
@@ -1918,9 +1919,15 @@ static int setup_graph(struct graph *graph)
 	spa_log_info(impl->log, "using %d instances %d %d", n_hndl, n_input, n_output);
 
 	graph->n_input = 0;
-	graph->input = calloc(n_input * 16 * n_hndl, sizeof(struct graph_port));
+	size_t input_count, output_count;
+	if (spa_overflow_mul((size_t)n_input, (size_t)16, &input_count) ||
+	    spa_overflow_mul(input_count, (size_t)n_hndl, &input_count))
+		return -ENOMEM;
+	graph->input = calloc(input_count, sizeof(struct graph_port));
 	graph->n_output = 0;
-	graph->output = calloc(n_output * n_hndl, sizeof(struct graph_port));
+	if (spa_overflow_mul((size_t)n_output, (size_t)n_hndl, &output_count))
+		return -ENOMEM;
+	graph->output = calloc(output_count, sizeof(struct graph_port));
 
 	/* now collect all input and output ports for all the handles. */
 	for (i = 0; i < n_hndl; i++) {
@@ -2059,7 +2066,10 @@ static int setup_graph(struct graph *graph)
 	}
 
 	graph->n_hndl = 0;
-	graph->hndl = calloc(graph->n_nodes * n_hndl, sizeof(struct graph_hndl));
+	size_t hndl_count;
+	if (spa_overflow_mul((size_t)graph->n_nodes, (size_t)n_hndl, &hndl_count))
+		return -ENOMEM;
+	graph->hndl = calloc(hndl_count, sizeof(struct graph_hndl));
 	/* order all nodes based on dependencies, first reset fields */
 	sort_reset(graph);
 	while ((node = sort_next_node(graph)) != NULL) {

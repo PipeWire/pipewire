@@ -580,14 +580,14 @@ static void recalculate_buffer(struct impl *impl)
 		size_t alloc_size;
 
 		if (spa_overflow_add(delay, 1u << 15, &impl->buffer_size) ||
-		    spa_overflow_mul(impl->buffer_size, 4u, &impl->buffer_size)) {
+		    spa_overflow_mul(impl->buffer_size, 4u, &impl->buffer_size) ||
+		    spa_overflow_mul((size_t)impl->buffer_size, (size_t)impl->channels, &alloc_size)) {
 			pw_log_warn("delay too large, delay disabled");
 			impl->buffer_size = 0;
 			free(impl->buffer_data);
 			impl->buffer_data = NULL;
 			goto done;
 		}
-		alloc_size = (size_t)impl->buffer_size * impl->channels;
 		data = realloc(impl->buffer_data, alloc_size);
 		if (data == NULL) {
 			pw_log_warn("can't allocate delay buffer, delay disabled: %m");

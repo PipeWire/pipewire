@@ -8,6 +8,7 @@
 
 #include <spa/support/cpu.h>
 #include <spa/utils/defs.h>
+#include <spa/utils/overflow.h>
 #include <spa/param/audio/format-utils.h>
 
 #include "fmt-ops.h"
@@ -551,7 +552,8 @@ int convert_init(struct convert *conv)
 	const struct dither_info *dinfo;
 	const struct noise_info *ninfo;
 	const struct clear_info *cinfo;
-	uint32_t i, conv_flags, data_size[4];
+	uint32_t i, conv_flags;
+	size_t data_size[4];
 
 	/* we generate int32 bits of random values. With this scale
 	 * factor, we bring this in the [-1.0, 1.0] range */
@@ -615,10 +617,18 @@ int convert_init(struct convert *conv)
 	data_size[0] = SPA_ROUND_UP(conv->noise_size * sizeof(float), FMT_OPS_MAX_ALIGN);
 	data_size[1] = SPA_ROUND_UP(RANDOM_SIZE * sizeof(uint32_t), FMT_OPS_MAX_ALIGN);
 	data_size[2] = SPA_ROUND_UP(RANDOM_SIZE * sizeof(int32_t), FMT_OPS_MAX_ALIGN);
-	data_size[3] = SPA_ROUND_UP(conv->n_channels * sizeof(struct shaper), FMT_OPS_MAX_ALIGN);
+	if (spa_overflow_mul((size_t)conv->n_channels, sizeof(struct shaper), &data_size[3]))
+		return -ENOMEM;
+	data_size[3] = SPA_ROUND_UP(data_size[3], FMT_OPS_MAX_ALIGN);
 
-	conv->data = calloc(FMT_OPS_MAX_ALIGN +
-			data_size[0] + data_size[1] + data_size[2] + data_size[3], 1);
+	size_t total_size = FMT_OPS_MAX_ALIGN;
+	if (spa_overflow_add(total_size, data_size[0], &total_size) ||
+	    spa_overflow_add(total_size, data_size[1], &total_size) ||
+	    spa_overflow_add(total_size, data_size[2], &total_size) ||
+	    spa_overflow_add(total_size, data_size[3], &total_size))
+		return -ENOMEM;
+
+	conv->data = calloc(total_size, 1);
 	if (conv->data == NULL)
 		return -errno;
 

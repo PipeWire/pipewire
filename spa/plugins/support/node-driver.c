@@ -726,7 +726,7 @@ static int get_phc_index(struct spa_system *s, const char *name) {
 	strncpy(ifr.ifr_name, name, IFNAMSIZ - 1);
 	ifr.ifr_data = (char *) &info;
 
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 	if (fd < 0)
 		return -errno;
 

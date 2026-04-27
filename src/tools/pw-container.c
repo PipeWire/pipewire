@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
 	close(res);
 	unlink(temp);
 
-	listen_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 	if (listen_fd < 0) {
 		fprintf(stderr, "can't make unix socket: %m\n");
 		return -1;

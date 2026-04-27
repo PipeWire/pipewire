@@ -1191,15 +1191,19 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 	replace_str(&sdp->mime_type, str);
 
 	if ((str = pw_properties_get(props, "rtp.rate")) != NULL)
-		sdp->rate = atoi(str);
+		if (!spa_atou32(str, &sdp->rate, 0))
+			sdp->rate = 0;
 	if ((str = pw_properties_get(props, "rtp.channels")) != NULL)
-		sdp->channels = atoi(str);
-	if ((str = pw_properties_get(props, "rtp.ssrc")) != NULL)
-		sdp->ssrc = atoi(str);
-	else
+		if (!spa_atou32(str, &sdp->channels, 0))
+			sdp->channels = 0;
+	if ((str = pw_properties_get(props, "rtp.ssrc")) != NULL) {
+		if (!spa_atou32(str, &sdp->ssrc, 0))
+			sdp->ssrc = 0;
+	} else
 		sdp->ssrc = 0;
 	if ((str = pw_properties_get(props, "rtp.ts-offset")) != NULL)
-		sdp->ts_offset = atoi(str);
+		if (!spa_atou32(str, &sdp->ts_offset, 0))
+			sdp->ts_offset = 0;
 	str = pw_properties_get(props, "rtp.ts-refclk");
 	replace_str(&sdp->ts_refclk, str);
 

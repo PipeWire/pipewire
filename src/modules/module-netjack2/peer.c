@@ -815,13 +815,14 @@ static int netjack2_recv_midi(struct netjack2_peer *peer, struct nj2_packet_head
 
 	for (i = 0; i < active_ports; i++) {
 		struct nj2_midi_buffer *mbuf = (struct nj2_midi_buffer *)midi_data;
+		size_t used, events_size;
 
 		nj2_midi_buffer_ntoh(mbuf, mbuf);
 
-		size_t used = sizeof(*mbuf)
-			+ mbuf->event_count * sizeof(struct nj2_midi_event)
-			+ mbuf->write_pos;
-		if (used < sizeof(*mbuf) || used > midi_size)
+		if (spa_overflow_mul((size_t)mbuf->event_count, sizeof(struct nj2_midi_event), &events_size) ||
+		    spa_overflow_add(events_size, (size_t)mbuf->write_pos, &used) ||
+		    spa_overflow_add(used, sizeof(*mbuf), &used) ||
+		    used > midi_size)
 			break;
 
 		if (i < n_info && info[i].data != NULL) {

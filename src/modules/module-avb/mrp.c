@@ -139,10 +139,16 @@ static const struct server_events server_events = {
 int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int len,
 		const struct avb_mrp_parse_info *info, void *data)
 {
-	uint8_t *e = SPA_PTROFF(pkt, len, uint8_t);
-	uint8_t *m = SPA_PTROFF(pkt, sizeof(struct avb_packet_mrp), uint8_t);
+	uint8_t *e, *m;
 
-	while (m < e && (m[0] != 0 || m[1] != 0)) {
+	if (len < 0 || (size_t)len < sizeof(struct avb_packet_mrp))
+		return -EPROTO;
+
+	e = SPA_PTROFF(pkt, len, uint8_t);
+	m = SPA_PTROFF(pkt, sizeof(struct avb_packet_mrp), uint8_t);
+
+	while (m + sizeof(struct avb_packet_mrp_hdr) <= e &&
+	       (m[0] != 0 || m[1] != 0)) {
 		const struct avb_packet_mrp_hdr *hdr = (const struct avb_packet_mrp_hdr*)m;
 		uint8_t attr_type = hdr->attribute_type;
 		uint8_t attr_len = hdr->attribute_length;
@@ -152,9 +158,12 @@ int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int
 		if (!info->check_header(data, hdr, &hdr_size, &has_param))
 			return -EINVAL;
 
+		if (hdr_size > (size_t)(e - m))
+			return -EPROTO;
 		m += hdr_size;
 
-		while (m < e && (m[0] != 0 || m[1] != 0)) {
+		while (m + sizeof(struct avb_packet_mrp_vector) <= e &&
+		       (m[0] != 0 || m[1] != 0)) {
 			const struct avb_packet_mrp_vector *v =
 				(const struct avb_packet_mrp_vector*)m;
 			uint16_t i, num_values = AVB_MRP_VECTOR_GET_NUM_VALUES(v);

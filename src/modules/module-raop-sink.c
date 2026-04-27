@@ -940,14 +940,21 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 
 	impl->server_port = control_port = timing_port = 0;
 	while ((s = pw_split_walk(str, ";", &len, &state)) != NULL) {
+		unsigned long v;
 		if (spa_strstartswith(s, "server_port=")) {
-			impl->server_port = atoi(s + 12);
+			v = strtoul(s + 12, NULL, 10);
+			if (v > 0 && v <= 65535)
+				impl->server_port = (uint16_t)v;
 		}
 		else if (spa_strstartswith(s, "control_port=")) {
-			control_port = atoi(s + 13);
+			v = strtoul(s + 13, NULL, 10);
+			if (v > 0 && v <= 65535)
+				control_port = (uint16_t)v;
 		}
 		else if (spa_strstartswith(s, "timing_port=")) {
-			timing_port = atoi(s + 12);
+			v = strtoul(s + 12, NULL, 10);
+			if (v > 0 && v <= 65535)
+				timing_port = (uint16_t)v;
 		}
 	}
 	if (impl->server_port == 0) {
@@ -1519,7 +1526,11 @@ static int rtsp_do_connect(struct impl *impl)
 
 	spa_scnprintf(impl->session_id, sizeof(impl->session_id), "%u", session_id);
 
-	return pw_rtsp_client_connect(impl->rtsp, hostname, atoi(port), impl->session_id);
+	uint32_t port_num;
+	if (!spa_atou32(port, &port_num, 10) || port_num == 0 || port_num > 65535)
+		return -EINVAL;
+
+	return pw_rtsp_client_connect(impl->rtsp, hostname, (uint16_t)port_num, impl->session_id);
 }
 
 static int rtsp_teardown_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
@@ -1829,7 +1840,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if ((str = pw_properties_get(props, "raop.latency.ms")) == NULL)
 		str = SPA_STRINGIFY(DEFAULT_LATENCY_MS);
-	impl->latency = SPA_MAX(impl->latency, msec_to_samples(impl, atoi(str)));
+	uint32_t latency_ms;
+	if (spa_atou32(str, &latency_ms, 10))
+		impl->latency = SPA_MAX(impl->latency, msec_to_samples(impl, latency_ms));
 
 	if (pw_properties_get(props, PW_KEY_AUDIO_FORMAT) == NULL)
 		pw_properties_setf(props, PW_KEY_AUDIO_FORMAT, "%s", RAOP_FORMAT);

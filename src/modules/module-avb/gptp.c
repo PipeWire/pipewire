@@ -21,14 +21,7 @@
 struct gptp {
 	struct server *server;
 
-	struct pw_loop *loop;
-	struct pw_timer_queue *timer_queue;
-
 	struct spa_hook server_listener;
-
-	struct spa_hook_list listener_list;
-
-	struct spa_list attributes;
 
 	char *ptp_mgmt_socket_path;
 	int ptp_fd;
@@ -254,9 +247,6 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 
 	impl = server->impl;
 
-	gptp->loop = pw_context_get_main_loop(impl->context);
-	gptp->timer_queue = pw_context_get_timer_queue(impl->context);
-
 	str = pw_properties_get(impl->props, "ptp.management-socket");
 	gptp->ptp_mgmt_socket_path = str ? strdup(str) : NULL;
 
@@ -270,9 +260,6 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 		pw_log_error("server %p: ptp.management-socket not set", impl);
 		goto error_free;
 	}
-
-	spa_list_init(&gptp->attributes);
-	spa_hook_list_init(&gptp->listener_list);
 
 	avdecc_server_add_listener(server, &gptp->server_listener, &server_events, gptp);
 

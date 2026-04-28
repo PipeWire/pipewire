@@ -99,7 +99,7 @@ static bool update_ts_refclk(struct gptp *gptp)
 	req.ver = PTP_VERSION_1588_2008_2_1;
 	req.message_length_be = htons(sizeof(struct ptp_management_msg));
 	spa_zero(req.clock_identity);
-	req.source_port_id_be = htons(getpid());
+	req.source_port_id_be = htons((uint16_t)gptp->server->entity_id);
 	req.log_message_interval = PTP_DEFAULT_LOG_MESSAGE_INTERVAL;
 	req.sequence_id_be = htons(gptp->ptp_seq++);
 	memset(req.target_port_identity, 0xff, 8);

@@ -43,12 +43,18 @@ static void clear_item(struct item *item)
 	spa_zero(*item);
 }
 
-static void set_item(struct item *item, uint32_t subject, const char *key, const char *type, const char *value)
+static int set_item(struct item *item, uint32_t subject, const char *key, const char *type, const char *value)
 {
 	item->subject = subject;
 	item->key = strdup(key);
 	item->type = type ? strdup(type) : NULL;
 	item->value = strdup(value);
+	if (item->key == NULL || item->value == NULL ||
+	    (type != NULL && item->type == NULL)) {
+		clear_item(item);
+		return -ENOMEM;
+	}
+	return 0;
 }
 
 static int change_item(struct item *item, const char *type, const char *value)
@@ -181,7 +187,10 @@ static int impl_set_property(void *object,
 		item = pw_array_add(&this->storage, sizeof(*item));
 		if (item == NULL)
 			return -errno;
-		set_item(item, subject, key, type, value);
+		if (set_item(item, subject, key, type, value) < 0) {
+			pw_array_remove(&this->storage, item);
+			return -ENOMEM;
+		}
 		changed++;
 		pw_log_info("%p: add id:%d key:%s type:%s value:%s", this,
 				subject, key, type, value);

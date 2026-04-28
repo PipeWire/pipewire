@@ -5,6 +5,7 @@
 #ifndef AVB_GPTP_H
 #define AVB_GPTP_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "internal.h"
 
@@ -18,7 +19,9 @@ extern "C" {
 #define PTP_MGMT_ACTION_GET 0
 #define PTP_MGMT_ACTION_RESPONSE 2
 #define PTP_TLV_TYPE_MGMT 0x0001
+#define PTP_MGMT_ID_DEFAULT_DATA_SET 0x2000
 #define PTP_MGMT_ID_PARENT_DATA_SET 0x2002
+#define PTP_MGMT_ID_PORT_DATA_SET 0x2004
 
 /**************************************************************************************/
 /* IEEE 1588-2019, Sec. 15.4.1 PTP management message format - Common Fields */
@@ -68,7 +71,41 @@ struct ptp_parent_data_set {
 	uint8_t  gm_clock_id[8];
 } __attribute__((packed));
 
+/* IEEE 1588-2008 Section 15.5.1.1 defaultDS */
+struct ptp_default_data_set {
+	uint8_t  flags;
+	uint8_t  reserved1;
+	uint16_t number_ports_be;
+	uint8_t  priority1;
+	uint8_t  clock_class;
+	uint8_t  clock_accuracy;
+	uint16_t offset_scaled_log_variance_be;
+	uint8_t  priority2;
+	uint8_t  clock_identity[8];
+	uint8_t  domain_number;
+	uint8_t  reserved2;
+} __attribute__((packed));
+
+/* IEEE 1588-2008 Section 15.5.1.4 portDS */
+struct ptp_port_data_set {
+	uint8_t  port_clock_identity[8];
+	uint16_t port_number_be;
+	uint8_t  port_state;
+	int8_t   log_min_delay_req_interval;
+	uint8_t  peer_mean_path_delay[8];
+	int8_t   log_announce_interval;
+	uint8_t  announce_receipt_timeout;
+	int8_t   log_sync_interval;
+	uint8_t  delay_mechanism;
+	int8_t   log_min_pdelay_req_interval;
+	uint8_t  version_number;
+} __attribute__((packed));
+
 struct avb_gptp *avb_gptp_new(struct server *server);
+
+bool avb_gptp_get_clock_id(const struct avb_gptp *gptp, uint64_t *clock_id_be);
+bool avb_gptp_get_grandmaster_id(const struct avb_gptp *gptp, uint64_t *gm_id_be);
+bool avb_gptp_is_grandmaster(const struct avb_gptp *gptp);
 
 #ifdef __cplusplus
 }

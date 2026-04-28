@@ -1014,6 +1014,8 @@ error:
 #else
 	spa_log_error(impl->log, "compiled without spa-plugins support, can't resample");
 	float *out_samples = calloc(*n_samples, sizeof(float));
+	if (out_samples == NULL)
+		return NULL;
 	spa_memcpy(out_samples, samples, *n_samples * sizeof(float));
 	return out_samples;
 #endif

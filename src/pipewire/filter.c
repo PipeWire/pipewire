@@ -1055,7 +1055,8 @@ static int impl_node_process(void *object)
 
 		if (p->direction == SPA_DIRECTION_INPUT) {
 			res |= SPA_STATUS_NEED_DATA;
-			if (SPA_UNLIKELY(io->status != SPA_STATUS_HAVE_DATA))
+			if (SPA_UNLIKELY(io->status != SPA_STATUS_HAVE_DATA &&
+			    io->buffer_id != SPA_ID_INVALID))
 				continue;
 
 			/* pop buffer to recycle */

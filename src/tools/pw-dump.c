@@ -1215,6 +1215,11 @@ static void registry_event_global(void *data, uint32_t id,
 	o->id = id;
 	o->permissions = permissions;
 	o->type = strdup(type);
+	if (o->type == NULL) {
+		pw_log_error("can't alloc type for %u %s/%d: %m", id, type, version);
+		free(o);
+		return;
+	}
 	o->version = version;
 	o->props = props ? pw_properties_new_dict(props) : NULL;
 	spa_list_init(&o->param_list);

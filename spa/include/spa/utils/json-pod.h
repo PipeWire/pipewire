@@ -121,7 +121,10 @@ SPA_API_JSON_POD int spa_json_to_pod_part(struct spa_pod_builder *b, uint32_t fl
 		spa_pod_builder_none(b);
 	}
 	else {
-		char *val = (char*)alloca(len+1);
+		char *val;
+		if (len > 8192)
+			return -ENOSPC;
+		val = (char*)alloca(len+1);
 		spa_json_parse_stringn(value, len, val, len+1);
 		switch (info ? info->parent : (uint32_t)SPA_TYPE_Struct) {
 		case SPA_TYPE_Id:

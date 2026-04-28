@@ -371,7 +371,9 @@ static int create_stream(struct client *client)
 
 	spa_ringbuffer_init(&client->ring);
 	client->buffer_size = 1024 * 1024;
-	client->buffer = calloc(1, client->buffer_size * client->stride);
+	client->buffer = calloc(client->buffer_size, client->stride);
+	if (client->buffer == NULL)
+		return -ENOMEM;
 
 	pw_stream_add_listener(client->stream,
 			&client->stream_listener,

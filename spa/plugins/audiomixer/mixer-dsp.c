@@ -17,6 +17,7 @@
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
+#include <spa/utils/ratelimit.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
@@ -125,6 +126,8 @@ struct impl {
 	unsigned int started:1;
 
 	struct spa_list mix_list;
+
+	struct spa_ratelimit rate_limit;
 };
 
 #define CHECK_ANY_IN(this,d,p)       ((d) == SPA_DIRECTION_INPUT && (p) == SPA_ID_INVALID)
@@ -846,9 +849,12 @@ static int impl_node_process(void *object)
 
 	outb = dequeue_buffer(this, outport);
 	if (SPA_UNLIKELY(outb == NULL)) {
-		if (outport->n_buffers > 0)
-			spa_log_warn(this->log, "%p: out of buffers (%d)", this,
-					outport->n_buffers);
+		int suppressed;
+		if (outport->n_buffers > 0 &&
+		    (suppressed = spa_ratelimit_test(&this->rate_limit,
+				this->position->clock.nsec)) >= 0)
+			spa_log_warn(this->log, "%p: (%d suppressed) out of buffers (%d)", this,
+					suppressed, outport->n_buffers);
 		return -EPIPE;
 	}
 
@@ -983,6 +989,9 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_list_init(&this->port_list);
 	spa_list_init(&this->free_list);
 	spa_list_init(&this->mix_list);
+
+	this->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
+	this->rate_limit.burst = 1;
 
 	this->node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,

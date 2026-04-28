@@ -2942,6 +2942,10 @@ static int do_exec(struct pipe_impl *impl, const char *command)
         while ((len = spa_json_next(&it[0], &value)) > 0) {
                 char *s;
 
+                if (argc >= (int)SPA_N_ELEMENTS(argv) - 1) {
+                        spa_log_error(impl->log, "too many exec arguments");
+                        return -E2BIG;
+                }
                 if ((s = malloc(len+1)) == NULL)
                         return -errno;
 

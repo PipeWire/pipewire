@@ -42,7 +42,7 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 
 	spa_log_info(dev->log, "device is '%s'", path);
 
-	dev->fd = open(path, O_RDWR | O_NONBLOCK, 0);
+	dev->fd = open(path, O_RDWR | O_NONBLOCK | O_CLOEXEC, 0);
 	if (dev->fd == -1) {
 		err = errno;
 		spa_log_error(dev->log, "Cannot open '%s': %d, %s",

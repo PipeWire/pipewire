@@ -9,6 +9,7 @@
 #include "adp.h"
 #include "acmp.h"
 #include "aecp-aem-descriptors.h"
+#include "gptp.h"
 #include "internal.h"
 #include "utils.h"
 
@@ -46,11 +47,32 @@ static void entity_free(struct entity *e)
 	free(e);
 }
 
+static void refresh_gptp_fields(struct server *server, struct avb_packet_adp *p)
+{
+	const struct descriptor *d;
+	struct avb_aem_desc_avb_interface *avb_interface;
+	uint64_t gm_id_be;
+
+	d = server_find_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, 0);
+	avb_interface = d ? descriptor_body(d) : NULL;
+	if (avb_interface == NULL) {
+		return;
+	}
+
+	if (avb_gptp_get_grandmaster_id(server->gptp, &gm_id_be)) {
+		p->gptp_grandmaster_id = gm_id_be;
+	} else {
+		p->gptp_grandmaster_id = avb_interface->clock_identity;
+	}
+	p->gptp_domain_number = avb_interface->domain_number;
+}
+
 static int send_departing(struct adp *adp, uint64_t now, struct entity *e)
 {
 	struct avb_ethernet_header *h = (void*)e->buf;
 	struct avb_packet_adp *p = SPA_PTROFF(h, sizeof(*h), void);
 
+	refresh_gptp_fields(adp->server, p);
 	AVB_PACKET_ADP_SET_MESSAGE_TYPE(p, AVB_ADP_MESSAGE_TYPE_ENTITY_DEPARTING);
 	p->available_index = htonl(adp->available_index++);
 	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, e->buf, e->len);
@@ -63,6 +85,7 @@ static int send_advertise(struct adp *adp, uint64_t now, struct entity *e)
 	struct avb_ethernet_header *h = (void*)e->buf;
 	struct avb_packet_adp *p = SPA_PTROFF(h, sizeof(*h), void);
 
+	refresh_gptp_fields(adp->server, p);
 	AVB_PACKET_ADP_SET_MESSAGE_TYPE(p, AVB_ADP_MESSAGE_TYPE_ENTITY_AVAILABLE);
 	p->available_index = htonl(adp->available_index++);
 	avb_server_send_packet(adp->server, mac, AVB_TSN_ETH, e->buf, e->len);
@@ -269,7 +292,6 @@ static int check_advertise(struct adp *adp, uint64_t now)
 	struct server *server = adp->server;
 	const struct descriptor *d;
 	struct avb_aem_desc_entity *entity;
-	struct avb_aem_desc_avb_interface *avb_interface;
 	struct entity *e;
 	uint64_t entity_id;
 	struct avb_ethernet_header *h;
@@ -288,9 +310,6 @@ static int check_advertise(struct adp *adp, uint64_t now)
 			check_readvertize(adp, now, e);
 		return 0;
 	}
-
-	d = server_find_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, 0);
-	avb_interface = d ? descriptor_body(d) : NULL;
 
 	pw_log_info("entity %s advertise",
 		avb_utils_format_id(buf, sizeof(buf), entity_id));
@@ -321,10 +340,6 @@ static int check_advertise(struct adp *adp, uint64_t now)
 	p->listener_capabilities = entity->listener_capabilities;
 	p->controller_capabilities = entity->controller_capabilities;
 	p->available_index = entity->available_index;
-	if (avb_interface) {
-		p->gptp_grandmaster_id = avb_interface->clock_identity;
-		p->gptp_domain_number = avb_interface->domain_number;
-	}
 	p->identify_control_index = 0;
 	p->interface_index = 0;
 	p->association_id = entity->association_id;

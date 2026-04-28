@@ -1140,11 +1140,15 @@ static void session_event_info(void *data,
 	if (info != NULL) {
 		info->id = update->id;
 		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
-			info->n_params = update->n_params;
 			free(info->params);
-			info->params = malloc(info->n_params * sizeof(struct spa_param_info));
-			memcpy(info->params, update->params,
-				info->n_params * sizeof(struct spa_param_info));
+			info->params = calloc(update->n_params, sizeof(struct spa_param_info));
+			if (update->n_params > 0 && info->params == NULL) {
+				info->n_params = 0;
+			} else {
+				info->n_params = update->n_params;
+				memcpy(info->params, update->params,
+					info->n_params * sizeof(struct spa_param_info));
+			}
 		}
 		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
 			pw_properties_free ((struct pw_properties *)info->props);
@@ -1196,11 +1200,15 @@ static void endpoint_event_info(void *data,
 		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION)
 			info->session_id = update->session_id;
 		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
-			info->n_params = update->n_params;
 			free(info->params);
-			info->params = malloc(info->n_params * sizeof(struct spa_param_info));
-			memcpy(info->params, update->params,
-				info->n_params * sizeof(struct spa_param_info));
+			info->params = calloc(update->n_params, sizeof(struct spa_param_info));
+			if (update->n_params > 0 && info->params == NULL) {
+				info->n_params = 0;
+			} else {
+				info->n_params = update->n_params;
+				memcpy(info->params, update->params,
+					info->n_params * sizeof(struct spa_param_info));
+			}
 		}
 		if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
 			pw_properties_free ((struct pw_properties *)info->props);
@@ -1245,11 +1253,15 @@ static void endpoint_stream_event_info(void *data,
 		info->name = update->name ? strdup(update->name) : NULL;
 
 		if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS) {
-			info->n_params = update->n_params;
 			free(info->params);
-			info->params = malloc(info->n_params * sizeof(struct spa_param_info));
-			memcpy(info->params, update->params,
-				info->n_params * sizeof(struct spa_param_info));
+			info->params = calloc(update->n_params, sizeof(struct spa_param_info));
+			if (update->n_params > 0 && info->params == NULL) {
+				info->n_params = 0;
+			} else {
+				info->n_params = update->n_params;
+				memcpy(info->params, update->params,
+					info->n_params * sizeof(struct spa_param_info));
+			}
 		}
 		if (update->change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) {
 			pw_properties_free ((struct pw_properties *)info->props);

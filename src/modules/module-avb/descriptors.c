@@ -748,7 +748,7 @@ static void init_descriptor_milan_v12(struct server *server)
 	struct avb_aem_desc_avb_interface avb_interface = {
 		.localized_description = htons(DSC_AVB_INTERFACE_LOCALIZED_DESCRIPTION),
 		.interface_flags = htons(DSC_AVB_INTERFACE_INTERFACE_FLAGS),
-		.clock_identity = htobe64(DSC_AVB_INTERFACE_CLOCK_IDENTITY),
+		.clock_identity = htobe64(server->entity_id),
 		.priority1 = DSC_AVB_INTERFACE_PRIORITY1,
 		.clock_class = DSC_AVB_INTERFACE_CLOCK_CLASS,
 		.offset_scaled_log_variance = htons(DSC_AVB_INTERFACE_OFFSET_SCALED_LOG_VARIANCE),

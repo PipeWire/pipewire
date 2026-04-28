@@ -101,7 +101,10 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *    and its ports when setting controls or making links.
  * - `plugin` is the type specific plugin name.
  *    - For LADSPA plugins it will append `.so` to find the shared object with that
- *       name in the LADSPA plugin path.
+ *       name in the LADSPA plugin path ($LADSPA_PATH). If the plugin is an absolute
+ *       path and is inside $LADSPA_PATH, it will be used directly without appending
+ *       `.so`. Note that this makes it impossible to load plugins from outside of the
+ *       $LADSPA_PATH for security reasons.
  *    - For LV2, this is the plugin URI obtained with lv2ls.
  *    - For builtin, sofa and ebur128 this is ignored
  *    - For ffmpeg this should be filtergraph

@@ -145,7 +145,7 @@ static int read_arbitrary(struct message *m, const void **val, size_t *length)
 	int res;
 	if ((res = read_u32(m, &len)) < 0)
 		return res;
-	if (m->offset + len > m->length)
+	if (m->offset > m->length || len > m->length - m->offset)
 		return -ENOSPC;
 	*val = m->data + m->offset;
 	m->offset += len;

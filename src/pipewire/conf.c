@@ -920,7 +920,7 @@ static int parse_objects(void *user_data, const char *location,
 
 static char **pw_strv_insert_at(char **strv, int len, int pos, const char *str)
 {
-	char **n;
+	char **n, *t = NULL;
 
 	if (len < 0) {
 		len = 0;
@@ -933,15 +933,17 @@ static char **pw_strv_insert_at(char **strv, int len, int pos, const char *str)
 	size_t alloc_size;
 	if (spa_overflow_add((size_t)len, (size_t)2, &alloc_size) ||
 	    spa_overflow_mul(alloc_size, sizeof(char*), &alloc_size) ||
+	    (t = strdup(str)) == NULL ||
 	    (n = realloc(strv, alloc_size)) == NULL) {
+		free(t);
 		pw_free_strv(strv);
 		return NULL;
 	}
-
 	strv = n;
 
 	memmove(strv+pos+1, strv+pos, sizeof(char*) * (len+1-pos));
-	strv[pos] = strdup(str);
+	strv[pos] = t;
+
 	return strv;
 }
 

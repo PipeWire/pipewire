@@ -252,20 +252,18 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 	if (gptp->ptp_mgmt_socket_path) {
 		ret = make_unix_ptp_mgmt_socket(gptp->ptp_mgmt_socket_path);
 		if (ret == -1)
-			goto error_free;
+			pw_log_warn("server %p: PTP management socket unavailable, "
+					"continuing without GM tracking; will retry on '%s'",
+					impl, gptp->ptp_mgmt_socket_path);
 		else
 			gptp->ptp_fd = ret;
 	} else {
-		pw_log_error("server %p: ptp.management-socket not set", impl);
-		goto error_free;
+		pw_log_warn("server %p: ptp.management-socket not set, "
+				"continuing without GM tracking", impl);
 	}
 
 	avdecc_server_add_listener(server, &gptp->server_listener, &server_events, gptp);
 
 	return (struct avb_gptp*)gptp;
-
-error_free:
-	gptp_destroy(gptp);
-	return NULL;
 }
 

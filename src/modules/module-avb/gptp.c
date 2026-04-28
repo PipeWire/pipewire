@@ -124,7 +124,8 @@ static bool update_ts_refclk(struct gptp *gptp)
 		return false;
 	}
 	if (ret != sizeof(req)) {
-		pw_log_warn("Incomplete PTP management request: %m");
+		pw_log_warn("Incomplete PTP management request: %zd of %zu bytes",
+				ret, sizeof(req));
 		return false;
 	}
 
@@ -135,7 +136,8 @@ static bool update_ts_refclk(struct gptp *gptp)
 	}
 
 	if (ret != sizeof(buf)) {
-		pw_log_warn("Received incomplete PTP management response: %m");
+		pw_log_warn("Received incomplete PTP management response: %zd of %zu bytes",
+				ret, sizeof(buf));
 		return false;
 	}
 

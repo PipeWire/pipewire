@@ -432,7 +432,7 @@ static int do_negotiate(struct pw_impl_link *this)
 	dir[0] = pw_direction_as_string(info[0]->port->direction),
 	dir[1] = pw_direction_as_string(info[1]->port->direction),
 
-	pw_log_info("%p: %s:%d -> %s:%d", this, dir[0], state[0], dir[1], state[1]);
+	pw_log_debug("%p: %s:%d -> %s:%d", this, dir[0], state[0], dir[1], state[1]);
 
 	if (state[0] != PW_IMPL_PORT_STATE_CONFIGURE && state[1] != PW_IMPL_PORT_STATE_CONFIGURE)
 		return 0;
@@ -540,7 +540,7 @@ static int do_negotiate(struct pw_impl_link *this)
 	SPA_POD_OBJECT_ID(format) = SPA_PARAM_Format;
 	pw_log_debug("%p: doing set format %p fixated:%d", this,
 			format, spa_pod_is_fixated(format));
-	pw_log_pod(SPA_LOG_LEVEL_INFO, format);
+	pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);
 
 	if (state[1] == PW_IMPL_PORT_STATE_CONFIGURE) {
 		pw_log_debug("%p: doing set format on %s", this, dir[1]);
@@ -821,7 +821,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 		goto error_clean;
 
 	impl->activated = true;
-	pw_log_info("(%s) activated", this->name);
+	pw_log_debug("(%s) activated", this->name);
 	link_update_state(this, PW_LINK_STATE_ACTIVE, 0, NULL);
 
 	return 0;
@@ -1005,7 +1005,7 @@ int pw_impl_link_deactivate(struct pw_impl_link *this)
 	port_set_io(this, &impl->input, SPA_IO_Buffers, NULL, 0);
 
 	impl->activated = false;
-	pw_log_info("(%s) deactivated", this->name);
+	pw_log_debug("(%s) deactivated", this->name);
 
 	if (this->info.state < PW_LINK_STATE_PAUSED || this->destroyed)
 		link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);

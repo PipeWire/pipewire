@@ -807,12 +807,12 @@ struct pw_loop *pw_context_acquire_loop(struct pw_context *context, const struct
 	name = props ? spa_dict_lookup(props, PW_KEY_NODE_LOOP_NAME) : NULL;
 	klass = props ? spa_dict_lookup(props, PW_KEY_NODE_LOOP_CLASS) : NULL;
 
-	pw_log_info("%p: looking for name:'%s' class:'%s'", context, name, klass);
+	pw_log_debug("%p: looking for name:'%s' class:'%s'", context, name, klass);
 
 	if ((impl->n_data_loops == 0) ||
 	    (name && fnmatch(name, context->main_loop->name, FNM_EXTMATCH) == 0) ||
 	    (klass && fnmatch(klass, "main", FNM_EXTMATCH) == 0)) {
-		pw_log_info("%p: using main loop num-data-loops:%d", context, impl->n_data_loops);
+		pw_log_debug("%p: using main loop num-data-loops:%d", context, impl->n_data_loops);
 		return context->main_loop;
 	}
 
@@ -829,7 +829,7 @@ void pw_context_release_loop(struct pw_context *context, struct pw_loop *loop)
 	for (i = 0; i < impl->n_data_loops; i++) {
 		struct data_loop *l = &impl->data_loops[i];
 		if (l->impl->loop == loop) {
-			pw_log_info("release name:'%s' class:'%s' last_used:%"PRIu64,
+			pw_log_debug("release name:'%s' class:'%s' last_used:%"PRIu64,
 					l->impl->loop->name, l->impl->class, l->last_used);
 			return;
 		}

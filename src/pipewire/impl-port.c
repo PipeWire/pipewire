@@ -1879,7 +1879,7 @@ int pw_impl_port_recalc_latency(struct pw_impl_port *port)
 	else
 		changed = spa_latency_info_compare(current, &latency) != 0;
 
-	pw_log_info("port %d: %s %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
+	pw_log_debug("port %d: %s %s latency %f-%f %d-%d %"PRIu64"-%"PRIu64,
 			port->info.id, changed ? "set" : "keep",
 			pw_direction_as_string(latency.direction),
 			latency.min_quantum, latency.max_quantum,
@@ -1950,7 +1950,7 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 
 	changed = spa_tag_compare(old, param);
 
-	pw_log_info("port %d: %p %s %s tag %p",
+	pw_log_debug("port %d: %p %s %s tag %p",
 			port->info.id, port, changed ? "set" : "keep",
 			pw_direction_as_string(direction), param);
 
@@ -1958,7 +1958,7 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 		free(old);
 		port->tag[direction] = param ? spa_pod_copy(param) : NULL;
 		if (param)
-			pw_log_pod(SPA_LOG_LEVEL_INFO, param);
+			pw_log_pod(SPA_LOG_LEVEL_DEBUG, param);
 	}
 	spa_pod_dynamic_builder_clean(&b);
 
@@ -2010,7 +2010,7 @@ int pw_impl_port_recalc_capability(struct pw_impl_port *port)
 
 	changed = spa_pod_memcmp(old, param);
 
-	pw_log_info("port %d: %p %s %s cap %p %d",
+	pw_log_debug("port %d: %p %s %s cap %p %d",
 			port->info.id, port, changed ? "set" : "keep",
 			pw_direction_as_string(direction), param, port->have_peer_capability_param);
 
@@ -2018,7 +2018,7 @@ int pw_impl_port_recalc_capability(struct pw_impl_port *port)
 		free(old);
 		port->cap[direction] = param ? spa_pod_copy(param) : NULL;
 		if (param)
-			pw_log_pod(SPA_LOG_LEVEL_INFO, param);
+			pw_log_pod(SPA_LOG_LEVEL_DEBUG, param);
 	}
 	spa_pod_dynamic_builder_clean(&b);
 

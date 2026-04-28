@@ -68,7 +68,7 @@ static bool update_ts_refclk(struct gptp *gptp)
 	uint8_t *cid;
 	uint8_t *gmid;
 	uint8_t tmp;
-	ssize_t ret;
+	ssize_t ret = 0;
 	uint16_t data_len;
 	int avail;
 	bool gmid_changed = false;

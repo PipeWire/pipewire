@@ -198,8 +198,10 @@ static bool update_ts_refclk(struct gptp *gptp)
 	memcpy(gptp->clock_id, cid, 8);
 	memcpy(gptp->gm_id, gmid, 8);
 
-	clock_gettime(CLOCK_REALTIME, &now);
-	server_emit_gm_changed(gptp->server, SPA_TIMESPEC_TO_NSEC(&now), gmid);
+	if (gmid_changed) {
+		clock_gettime(CLOCK_REALTIME, &now);
+		server_emit_gm_changed(gptp->server, SPA_TIMESPEC_TO_NSEC(&now), gmid);
+	}
 
 	return gmid_changed;
 }

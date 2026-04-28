@@ -228,11 +228,6 @@ static const struct server_events server_events = {
 	.periodic = gptp_periodic,
 };
 
-void avb_gptp_destroy(struct avb_gptp *gptp)
-{
-	gptp_destroy(gptp);
-}
-
 struct avb_gptp *avb_gptp_new(struct server *server)
 {
 	struct impl *impl;

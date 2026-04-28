@@ -7,6 +7,7 @@
 #include "aecp-aem-descriptors.h"
 #include "aecp-aem-state.h"
 #include "aecp-aem-cmds-resps/cmd-resp-helpers.h"
+#include "gptp.h"
 #include "utils.h"
 
 /* The headers including the command and response of the system  */
@@ -144,6 +145,8 @@ static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
 	const struct descriptor *desc;
 	uint8_t buf[2048];
 	size_t size, psize;
+	uint64_t gm_id_be;
+	uint8_t flags;
 
 	i = (struct avb_packet_aecp_aem_get_avb_info*)p->payload;
 
@@ -174,13 +177,17 @@ static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
 	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
 
 	i = (struct avb_packet_aecp_aem_get_avb_info*)reply->payload;
-	i->gptp_grandmaster_id = avb_interface->clock_identity;
+	flags = AVB_AEM_AVB_INFO_FLAG_SRP_ENABLED;
+	/* IEEE 1722.1-2021 Section 7.4.40 GET_AVB_INFO. */
+	if (avb_gptp_get_grandmaster_id(server->gptp, &gm_id_be)) {
+		i->gptp_grandmaster_id = gm_id_be;
+		flags |= AVB_AEM_AVB_INFO_FLAG_GPTP_ENABLED;
+	} else {
+		i->gptp_grandmaster_id = avb_interface->clock_identity;
+	}
+	i->flags = flags;
 	i->propagation_delay = htonl(0);
 	i->gptp_domain_number = avb_interface->domain_number;
-	/* IEEE 1722.1-2021 Section 7.4.40: GPTP_ENABLED / GPTP_GRANDMASTER_SUPPORTED
-	 * stay 0 until the gPTP interface lands. SRP_ENABLED is on because
-	 * MSRP is running on every AVB interface this module manages. */
-	i->flags = AVB_AEM_AVB_INFO_FLAG_SRP_ENABLED;
 	i->msrp_mappings_count = htons(0);
 
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);

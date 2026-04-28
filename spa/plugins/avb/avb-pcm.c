@@ -407,7 +407,9 @@ int spa_avb_init(struct state *state, const struct spa_dict *info)
 	}
 
 	state->ringbuffer_size = state->quantum_limit * 64;
-	state->ringbuffer_data = calloc(1, state->ringbuffer_size * 4);
+	state->ringbuffer_data = calloc(state->ringbuffer_size, 4);
+	if (state->ringbuffer_data == NULL)
+		return -ENOMEM;
 	spa_ringbuffer_init(&state->ring);
 	return 0;
 }

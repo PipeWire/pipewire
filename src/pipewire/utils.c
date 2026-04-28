@@ -68,20 +68,37 @@ char **pw_split_strv(const char *str, const char *delimiter, int max_tokens, int
 
 	s = pw_split_walk(str, delimiter, &len, &state);
 	while (s && n + 1 < max_tokens) {
-		pw_array_add_ptr(&arr, strndup(s, len));
+		char *t = strndup(s, len);
+		if (t == NULL || pw_array_add_ptr(&arr, t) < 0) {
+			free(t);
+			goto error;
+		}
 		s = pw_split_walk(str, delimiter, &len, &state);
 		n++;
 	}
 	if (s) {
-		pw_array_add_ptr(&arr, strdup(s));
+		char *t = strdup(s);
+		if (t == NULL || pw_array_add_ptr(&arr, t) < 0) {
+			free(t);
+			goto error;
+		}
 		n++;
 	}
-	pw_array_add_ptr(&arr, NULL);
+	if (pw_array_add_ptr(&arr, NULL) < 0)
+		goto error;
 
 	if (n_tokens != NULL)
 		*n_tokens = n;
 
 	return arr.data;
+
+error:
+	{
+		char **p;
+		pw_array_for_each(p, &arr) free(*p);
+		pw_array_clear(&arr);
+		return NULL;
+	}
 }
 
 /** Split a string in-place based on delimiters

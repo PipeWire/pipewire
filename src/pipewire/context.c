@@ -1030,6 +1030,11 @@ int pw_context_add_spa_lib(struct pw_context *context,
 	}
 
 	entry->lib = strdup(lib);
+	if (entry->lib == NULL) {
+		regfree(&entry->regex);
+		pw_array_remove(&context->factory_lib, entry);
+		return -ENOMEM;
+	}
 	pw_log_debug("%p: map factory regex '%s' to '%s", context,
 			factory_regexp, lib);
 	return 0;

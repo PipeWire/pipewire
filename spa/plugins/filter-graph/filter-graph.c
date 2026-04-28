@@ -1443,6 +1443,17 @@ static int load_node(struct graph *graph, struct spa_json *json)
 	node->output_port = calloc(desc->n_output, sizeof(struct port));
 	node->control_port = calloc(desc->n_control, sizeof(struct port));
 	node->notify_port = calloc(desc->n_notify, sizeof(struct port));
+	if ((desc->n_input > 0 && node->input_port == NULL) ||
+	    (desc->n_output > 0 && node->output_port == NULL) ||
+	    (desc->n_control > 0 && node->control_port == NULL) ||
+	    (desc->n_notify > 0 && node->notify_port == NULL)) {
+		free(node->input_port);
+		free(node->output_port);
+		free(node->control_port);
+		free(node->notify_port);
+		free(node);
+		return -ENOMEM;
+	}
 
 	spa_log_info(impl->log, "loaded n_input:%d n_output:%d n_control:%d n_notify:%d",
 			desc->n_input, desc->n_output,
@@ -2070,6 +2081,8 @@ static int setup_graph(struct graph *graph)
 	if (spa_overflow_mul((size_t)graph->n_nodes, (size_t)n_hndl, &hndl_count))
 		return -ENOMEM;
 	graph->hndl = calloc(hndl_count, sizeof(struct graph_hndl));
+	if (hndl_count > 0 && graph->hndl == NULL)
+		return -ENOMEM;
 	/* order all nodes based on dependencies, first reset fields */
 	sort_reset(graph);
 	while ((node = sort_next_node(graph)) != NULL) {

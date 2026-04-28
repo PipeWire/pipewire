@@ -40,7 +40,8 @@ struct gptp {
 	uint8_t gm_id[8];
 };
 
-static int make_unix_ptp_mgmt_socket(const char *path) {
+static int make_unix_ptp_mgmt_socket(const char *path)
+{
 	struct sockaddr_un addr;
 
 	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
@@ -67,7 +68,21 @@ static int make_unix_ptp_mgmt_socket(const char *path) {
 	return spa_steal_fd(fd);
 }
 
-static bool update_ts_refclk(struct gptp *gptp) {
+static bool update_ts_refclk(struct gptp *gptp)
+{
+	struct ptp_management_msg req;
+	struct ptp_management_msg res;
+	struct ptp_parent_data_set parent;
+	struct timespec now;
+	uint8_t buf[sizeof(struct ptp_management_msg) + sizeof(struct ptp_parent_data_set)];
+	uint8_t *cid;
+	uint8_t *gmid;
+	uint8_t tmp;
+	ssize_t ret;
+	uint16_t data_len;
+	int avail;
+	bool gmid_changed = false;
+
 	if (!gptp->ptp_mgmt_socket_path)
 		return false;
 	if (gptp->ptp_fd < 0) {
@@ -76,11 +91,7 @@ static bool update_ts_refclk(struct gptp *gptp) {
 			return false;
 	}
 
-	// Read if something is left in the socket
-	int avail;
-	uint8_t tmp;
-	ssize_t ret;
-
+	/* Read if something is left in the socket */
 	if (ioctl(gptp->ptp_fd, FIONREAD, &avail) == -1) {
 		pw_log_warn("Failed to get number of byes in ptp_fd input buffer: %m");
 		return false;
@@ -92,7 +103,6 @@ static bool update_ts_refclk(struct gptp *gptp) {
 		return false;
 	}
 
-	struct ptp_management_msg req;
 	spa_zero(req);
 
 	req.major_sdo_id_message_type = PTP_MESSAGE_TYPE_MANAGEMENT;
@@ -108,7 +118,7 @@ static bool update_ts_refclk(struct gptp *gptp) {
 	req.boundary_hops = 1;
 	req.action = PTP_MGMT_ACTION_GET;
 	req.tlv_type_be = htons(PTP_TLV_TYPE_MGMT);
-	// sent empty TLV, only sending management_id
+	/* sent empty TLV, only sending management_id */
 	req.management_message_length_be = htons(2);
 	req.management_id_be = htons(PTP_MGMT_ID_PARENT_DATA_SET);
 
@@ -128,7 +138,6 @@ static bool update_ts_refclk(struct gptp *gptp) {
 		return false;
 	}
 
-	uint8_t buf[sizeof(struct ptp_management_msg) + sizeof(struct ptp_parent_data_set)];
 	ret = read(gptp->ptp_fd, &buf, sizeof(buf));
 	if (ret == -1) {
 		pw_log_warn("Failed to receive PTP management response: %m");
@@ -140,9 +149,8 @@ static bool update_ts_refclk(struct gptp *gptp) {
 		return false;
 	}
 
-	struct ptp_management_msg res = *(struct ptp_management_msg *)buf;
-	struct ptp_parent_data_set parent =
-		*(struct ptp_parent_data_set *)(buf + sizeof(struct ptp_management_msg));
+	res = *(struct ptp_management_msg *)buf;
+	parent = *(struct ptp_parent_data_set *)(buf + sizeof(struct ptp_management_msg));
 
 	if ((res.ver & 0x0f) != 2) {
 		pw_log_warn("PTP major version is %d, expected 2", res.ver);
@@ -169,47 +177,32 @@ static bool update_ts_refclk(struct gptp *gptp) {
 		return false;
 	}
 
-	uint16_t data_len = ntohs(res.management_message_length_be) - 2;
+	data_len = ntohs(res.management_message_length_be) - 2;
 	if (data_len != sizeof(struct ptp_parent_data_set))
-		pw_log_warn("Unexpected PTP GET PARENT_DATA_SET response length %u, expected %zu", data_len, sizeof(struct ptp_parent_data_set));
+		pw_log_warn("Unexpected PTP GET PARENT_DATA_SET response length %u, expected %zu",
+				data_len, sizeof(struct ptp_parent_data_set));
 
-	uint8_t *cid = res.clock_identity;
+	cid = res.clock_identity;
 	if (memcmp(cid, gptp->clock_id, 8) != 0)
-		pw_log_info(
-			"Local clock ID: IEEE1588-2008:%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X:%d",
-			cid[0],
-			cid[1],
-			cid[2],
-			cid[3],
-			cid[4],
-			cid[5],
-			cid[6],
-			cid[7],
-			0 /* domain */
-	  );
+		pw_log_info("Local clock ID: IEEE1588-2008:"
+				"%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X:%d",
+				cid[0], cid[1], cid[2], cid[3],
+				cid[4], cid[5], cid[6], cid[7],
+				0 /* domain */);
 
-	uint8_t *gmid = parent.gm_clock_id;
-	bool gmid_changed = false;
+	gmid = parent.gm_clock_id;
 	if (memcmp(gmid, gptp->gm_id, 8) != 0) {
-		pw_log_info(
-			"GM ID: IEEE1588-2008:%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X:%d",
-			gmid[0],
-			gmid[1],
-			gmid[2],
-			gmid[3],
-			gmid[4],
-			gmid[5],
-			gmid[6],
-			gmid[7],
-			0 /* domain */
-	  );
-	  gmid_changed = true;
+		pw_log_info("GM ID: IEEE1588-2008:"
+				"%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X:%d",
+				gmid[0], gmid[1], gmid[2], gmid[3],
+				gmid[4], gmid[5], gmid[6], gmid[7],
+				0 /* domain */);
+		gmid_changed = true;
 	}
 
-	// When GM is not equal to own clock we are clocked by external master
+	/* When GM is not equal to own clock we are clocked by external master */
 	pw_log_debug("Synced to GM: %s", (memcmp(cid, gmid, 8) != 0) ? "true" : "false");
 
-	struct timespec now;
 	memcpy(gptp->clock_id, cid, 8);
 	memcpy(gptp->gm_id, gmid, 8);
 
@@ -270,7 +263,7 @@ struct avb_gptp *avb_gptp_new(struct server *server)
 	str = pw_properties_get(impl->props, "ptp.management-socket");
 	gptp->ptp_mgmt_socket_path = str ? strdup(str) : NULL;
 
-	if(gptp->ptp_mgmt_socket_path) {
+	if (gptp->ptp_mgmt_socket_path) {
 		ret = make_unix_ptp_mgmt_socket(gptp->ptp_mgmt_socket_path);
 		if (ret == -1)
 			goto error_free;

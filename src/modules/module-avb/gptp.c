@@ -4,19 +4,16 @@
 /* SPDX-License-Identifier: MIT */
 
 #include "gptp.h"
-#include "module-avb/aecp-aem.h"
-#include "pipewire/properties.h"
-#include "pipewire/protocol.h"
 
-#include <asm/termbits.h>  /* Definition of constants */
-#include <bits/time.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <time.h>
+
 #include <pipewire/log.h>
+#include <pipewire/properties.h>
 #include <spa/utils/cleanup.h>
 #include <spa/utils/hook.h>
-#include <time.h>
 
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_gm_changed(s, n, g)	server_emit(s, gm_changed, 0, n, g)

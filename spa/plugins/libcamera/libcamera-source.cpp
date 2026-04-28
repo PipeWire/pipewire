@@ -1322,10 +1322,8 @@ int spa_libcamera_stream_on(struct impl *impl)
 	struct port *port = &impl->out_ports[0];
 	int res;
 
-	if (!port->current_format) {
-		spa_log_error(impl->log, "Exiting %s with -EIO", __FUNCTION__);
+	if (!port->current_format || port->n_buffers == 0)
 		return -EIO;
-	}
 
 	if (impl->active)
 		return 0;
@@ -1571,18 +1569,9 @@ int impl_node_send_command(void *object, const struct spa_command *command)
 
 	switch (SPA_NODE_COMMAND_ID(command)) {
 	case SPA_NODE_COMMAND_Start:
-	{
-		struct port *port = GET_OUT_PORT(impl, 0);
-
-		if (!port->current_format)
-			return -EIO;
-		if (port->n_buffers == 0)
-			return -EIO;
-
 		if ((res = spa_libcamera_stream_on(impl)) < 0)
 			return res;
 		break;
-	}
 	case SPA_NODE_COMMAND_Pause:
 	case SPA_NODE_COMMAND_Suspend:
 		if ((res = spa_libcamera_stream_off(impl)) < 0)

@@ -36,13 +36,13 @@ static int make_unix_ptp_mgmt_socket(const char *path)
 
 	spa_autoclose int fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 	if (fd < 0) {
-		pw_log_warn("Failed to create PTP management socket");
+		pw_log_warn("Failed to create PTP management socket: %m");
 		return -1;
 	}
 
 	int val = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &val, sizeof(val)) < 0) {
-		pw_log_warn("Failed to bind PTP management socket");
+		pw_log_warn("Failed to set SO_PASSCRED on PTP management socket: %m");
 		return -1;
 	}
 
@@ -51,7 +51,7 @@ static int make_unix_ptp_mgmt_socket(const char *path)
 	strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
 	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-		pw_log_warn("Failed to connect PTP management socket");
+		pw_log_warn("Failed to connect PTP management socket: %m");
 		return -1;
 	}
 

@@ -663,7 +663,11 @@ static uint16_t next_management_id(uint32_t tick_count)
 static void gptp_periodic(void *data, uint64_t now)
 {
 	struct gptp *gptp = data;
+	struct timespec mono_ts;
+	uint64_t mono_now;
 	int err;
+
+	(void)now;
 
 	if (!gptp->ptp_mgmt_socket_path) {
 		return;
@@ -673,7 +677,10 @@ static void gptp_periodic(void *data, uint64_t now)
 		return;
 	}
 
-	if (gptp->req_in_flight && (now - gptp->req_sent_ns) > PTP_REQUEST_TIMEOUT_NS) {
+	clock_gettime(CLOCK_MONOTONIC, &mono_ts);
+	mono_now = SPA_TIMESPEC_TO_NSEC(&mono_ts);
+
+	if (gptp->req_in_flight && (mono_now - gptp->req_sent_ns) > PTP_REQUEST_TIMEOUT_NS) {
 		pw_log_debug("PTP management request seq=%u timed out",
 				gptp->req_sequence_id);
 		gptp->req_in_flight = false;
@@ -688,11 +695,11 @@ static void gptp_periodic(void *data, uint64_t now)
 	}
 
 	if (gptp->req_sent_ns != 0 &&
-			(now - gptp->req_sent_ns) < PTP_REQUEST_INTERVAL_NS) {
+			(mono_now - gptp->req_sent_ns) < PTP_REQUEST_INTERVAL_NS) {
 		return;
 	}
 
-	err = send_management_request(gptp, next_management_id(gptp->tick_count), now);
+	err = send_management_request(gptp, next_management_id(gptp->tick_count), mono_now);
 	if (err == 0) {
 		gptp->tick_count++;
 	} else if (err == -ENOTCONN) {

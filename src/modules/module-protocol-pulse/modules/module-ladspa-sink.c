@@ -76,6 +76,7 @@ static int module_ladspa_sink_load(struct module *module)
 	FILE *f;
 	char *args;
 	const char *str, *plugin, *label;
+	char encoded_plugin[1024], encoded_label[1024];
 	size_t size;
 
 	if ((plugin = pw_properties_get(module->props, "plugin")) == NULL)
@@ -95,9 +96,12 @@ static int module_ladspa_sink_load(struct module *module)
 	pw_properties_serialize_dict(f, &module->props->dict, 0);
 	fprintf(f, " filter.graph = {");
 	fprintf(f, " nodes = [ { ");
+	spa_json_encode_string(encoded_plugin, sizeof(encoded_plugin), plugin);
+	spa_json_encode_string(encoded_label, sizeof(encoded_label), label);
+
 	fprintf(f, " type = ladspa ");
-	fprintf(f, " plugin = \"%s\" ", plugin);
-	fprintf(f, " label = \"%s\" ", label);
+	fprintf(f, " plugin = %s ", encoded_plugin);
+	fprintf(f, " label = %s ", encoded_label);
 	if ((str = pw_properties_get(module->props, "control")) != NULL) {
 		size_t len;
 		const char *s, *state = NULL;

@@ -879,6 +879,8 @@ int format_info_to_spec(const struct format_info *info, struct sample_spec *ss,
 			return -EINVAL;
 		while ((*str == '\"' || *str == ',') &&
 		    (len = strcspn(++str, "\",")) > 0) {
+			if (map->channels >= CHANNELS_MAX)
+				return -EINVAL;
 			map->map[map->channels++] = channel_paname2id(str, len);
 			str += len;
 		}

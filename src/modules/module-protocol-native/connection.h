@@ -12,7 +12,7 @@
 
 #define MAX_DICT	1024
 #define MAX_PARAM_INFO	128
-#define MAX_PERMISSIONS	4096
+#define MAX_PERMISSIONS	1024
 
 #ifdef __cplusplus
 extern "C" {

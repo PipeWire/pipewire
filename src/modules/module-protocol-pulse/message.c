@@ -215,7 +215,7 @@ static int read_cvolume(struct message *m, struct volume *vol)
 
 	if ((res = read_u8(m, &vol->channels)) < 0)
 		return res;
-	if (vol->channels > CHANNELS_MAX)
+	if (vol->channels == 0 || vol->channels > CHANNELS_MAX)
 		return -EINVAL;
 	for (i = 0; i < vol->channels; i ++) {
 		if ((res = read_volume(m, &vol->values[i])) < 0)

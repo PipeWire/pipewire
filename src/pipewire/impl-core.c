@@ -171,7 +171,11 @@ static int core_hello(void *object, uint32_t version)
 	struct pw_impl_core *this = client->core;
 	int res;
 
-	pw_log_debug("%p: hello %d from resource %p", context, version, resource);
+	const char *access = spa_dict_lookup(client->info.props, PW_KEY_ACCESS);
+
+	pw_log_debug("%p: hello %d from resource %p access=%s",
+			context, version, resource, access ? access : "(null)");
+
 	pw_map_for_each(&client->objects, destroy_resource, client);
 
 	resource->version = version;
@@ -186,6 +190,40 @@ static int core_hello(void *object, uint32_t version)
 				PW_PERM_ALL, PW_VERSION_CLIENT, PW_ID_CLIENT)) < 0)
 			return res;
 	}
+
+	/* The portal has stolen the fd and handed it to app. Gate the
+	 * client until the session manager sets up permissions
+	 * by removing PW_PERM_R from PW_ID_CORE which triggers
+	 * the busy state. */
+	if (access && spa_streq(access, "portal")) {
+		bool gate_supported = false;
+		struct pw_impl_client *c;
+		spa_list_for_each(c, &context->client_list, link) {
+			const char *gs = spa_dict_lookup(&c->properties->dict,
+					"pipewire.access.portal.gate-supported");
+			if (gs && spa_streq(gs, "true")) {
+				gate_supported = true;
+				break;
+			}
+		}
+		if (gate_supported) {
+			struct pw_permission perms[1];
+			perms[0] = PW_PERMISSION_INIT(PW_ID_CORE, PW_PERM_W|PW_PERM_X);
+			pw_impl_client_update_permissions(client, 1, perms);
+
+			struct spa_dict_item items[2];
+			items[0] = SPA_DICT_ITEM_INIT(
+					"pipewire.access.portal.gated", NULL);
+			items[1] = SPA_DICT_ITEM_INIT(
+					"pipewire.access.portal.gated", "true");
+			pw_impl_client_update_properties(client,
+					&SPA_DICT_INIT(items, 2));
+			pw_log_info("%p: portal client %p gated until session "
+					"manager restores PW_ID_CORE permissions",
+					context, client);
+		}
+	}
+
 	return 0;
 }
 

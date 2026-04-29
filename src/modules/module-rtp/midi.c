@@ -471,9 +471,15 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			memcpy(&impl->buffer[len], data, size);
 			len += size;
 		} else {
+			int res;
 			delta = offset - prev_offset;
 			prev_offset = offset;
-			len += write_event(&impl->buffer[len], BUFFER_SIZE - len, delta, data, size);
+			res = write_event(&impl->buffer[len], BUFFER_SIZE - len, delta, data, size);
+			if (res < 0) {
+				pw_log_warn("write_event error: %d", res);
+				return;
+			}
+			len += res;
 		}
 	}
 	if (len > 0) {

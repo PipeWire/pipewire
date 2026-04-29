@@ -788,8 +788,10 @@ int message_dump(enum spa_log_level level, const char *prefix, struct message *m
 		}
 		case TAG_PROPLIST:
 		{
-			struct pw_properties *props = pw_properties_new(NULL, NULL);
 			const struct spa_dict_item *it;
+			struct pw_properties *props = pw_properties_new(NULL, NULL);
+			if (props == NULL)
+				return -errno;
 			res = read_props(m, props, false);
 			if (res >= 0) {
 				pw_log(level, "%s %u: props: n_items:%u", prefix, o, props->dict.n_items);

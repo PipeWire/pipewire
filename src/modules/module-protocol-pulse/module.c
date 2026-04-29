@@ -147,8 +147,11 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 		for (e = p; *p ;) {
 			if (*p == f)
 				break;
-			if (*p == '\\')
+			if (*p == '\\') {
 				p++;
+				if (*p == '\0')
+					break;
+			}
 			*e++ = *p++;
 		}
 		if (*p != '\0')

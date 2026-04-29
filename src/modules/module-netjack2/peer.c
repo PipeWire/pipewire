@@ -716,10 +716,13 @@ static int netjack2_send_data(struct netjack2_peer *peer, uint32_t nframes,
 	return 0;
 }
 
+#define MAX_RECV_PACKETS 1024
+
 static inline int32_t netjack2_driver_sync_wait(struct netjack2_peer *peer)
 {
 	struct nj2_packet_header sync;
 	ssize_t len;
+	uint32_t tries = 0;
 
 	while (true) {
 		if ((len = recv(peer->fd, &sync, sizeof(sync), 0)) < 0)
@@ -733,6 +736,10 @@ static inline int32_t netjack2_driver_sync_wait(struct netjack2_peer *peer)
 			    ntohl(sync.data_stream) == peer->other_stream &&
 			    ntohl(sync.id) == peer->params.id)
 				break;
+		}
+		if (++tries > MAX_RECV_PACKETS) {
+			pw_log_warn("too many packets in sync wait, aborting");
+			return -ENOENT;
 		}
 	}
 	peer->sync.is_last = ntohl(sync.is_last);
@@ -753,6 +760,7 @@ static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
 	struct nj2_packet_header sync;
 	ssize_t len;
 	int32_t offset;
+	uint32_t tries = 0;
 
 	while (true) {
 		if ((len = recv(peer->fd, &sync, sizeof(sync), MSG_PEEK)) < 0)
@@ -769,6 +777,10 @@ static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
 		}
 		if ((len = recv(peer->fd, &sync, sizeof(sync), 0)) < 0)
 			goto receive_error;
+		if (++tries > MAX_RECV_PACKETS) {
+			pw_log_warn("too many packets in sync wait, aborting");
+			return -ENOENT;
+		}
 	}
 	peer->sync.cycle = ntohl(sync.cycle);
 	peer->sync.is_last = ntohl(sync.is_last);
@@ -1074,7 +1086,6 @@ static int netjack2_recv_data(struct netjack2_peer *peer,
 	ssize_t len;
 	uint32_t i, audio_count = 0, midi_count = 0, packet_count = 0;
 	struct nj2_packet_header header;
-#define MAX_RECV_PACKETS 1024
 
 	while (!peer->sync.is_last) {
 		if (++packet_count > MAX_RECV_PACKETS) {

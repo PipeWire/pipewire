@@ -44,7 +44,8 @@
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_gm_changed(s, n, g)	server_emit(s, gm_changed, 0, n, g)
 
-#define PTP_REQUEST_TIMEOUT_NS	(SPA_NSEC_PER_SEC / 2)
+#define PTP_REQUEST_INTERVAL_NS	(375 * SPA_NSEC_PER_MSEC)
+#define PTP_REQUEST_TIMEOUT_NS	PTP_REQUEST_INTERVAL_NS
 
 struct gptp {
 	struct server *server;
@@ -493,6 +494,11 @@ static void gptp_periodic(void *data, uint64_t now)
 	}
 
 	if (gptp->req_in_flight) {
+		return;
+	}
+
+	if (gptp->req_sent_ns != 0 &&
+			(now - gptp->req_sent_ns) < PTP_REQUEST_INTERVAL_NS) {
 		return;
 	}
 

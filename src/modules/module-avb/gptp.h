@@ -28,6 +28,8 @@ extern "C" {
 #define PTP_MGMT_ID_CURRENT_DATA_SET 0x2001
 #define PTP_MGMT_ID_PARENT_DATA_SET 0x2002
 #define PTP_MGMT_ID_PORT_DATA_SET 0x2004
+#define PTP_MGMT_ID_PATH_TRACE_LIST 0x401C
+#define PTP_AS_PATH_MAX_ENTRIES 16
 
 /**************************************************************************************/
 /* IEEE 1588-2019, Sec. 15.4.1 PTP management message format - Common Fields */
@@ -119,6 +121,9 @@ struct avb_gptp *avb_gptp_new(struct server *server);
 bool avb_gptp_get_clock_id(const struct avb_gptp *gptp, uint64_t *clock_id_be);
 bool avb_gptp_get_grandmaster_id(const struct avb_gptp *gptp, uint64_t *gm_id_be);
 bool avb_gptp_is_grandmaster(const struct avb_gptp *gptp);
+
+uint16_t avb_gptp_get_path_trace(const struct avb_gptp *gptp,
+		uint64_t *path_be, uint16_t max_entries);
 
 #ifdef __cplusplus
 }

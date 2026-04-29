@@ -70,6 +70,10 @@ struct gptp {
 	uint16_t steps_removed;
 	int64_t  offset_from_master_scaled_ns;
 	bool data_valid_current;
+
+	uint64_t path_trace[PTP_AS_PATH_MAX_ENTRIES];
+	uint16_t path_trace_count;
+	bool path_trace_valid;
 };
 
 static int make_bind_path(char *out, size_t out_size, uint64_t entity_id)
@@ -407,6 +411,48 @@ static void handle_current_data_set(struct gptp *gptp,
 	gptp->data_valid_current = true;
 }
 
+/* IEEE 1588-2008 Section 16.2.1 PATH_TRACE_LIST */
+static void handle_path_trace_list(struct gptp *gptp,
+		const struct ptp_management_msg *res,
+		const uint8_t *payload, size_t payload_len)
+{
+	uint16_t data_len;
+	uint16_t entries;
+	uint16_t i;
+	uint64_t new_path[PTP_AS_PATH_MAX_ENTRIES];
+	bool changed;
+
+	data_len = ntohs(res->management_message_length_be) - 2;
+	if ((data_len % 8) != 0 || payload_len < data_len) {
+		pw_log_warn("Unexpected PTP GET PATH_TRACE_LIST response length: "
+				"tlv=%u payload=%zu", data_len, payload_len);
+		return;
+	}
+
+	entries = data_len / 8;
+	if (entries > PTP_AS_PATH_MAX_ENTRIES) {
+		pw_log_warn("PTP PATH_TRACE_LIST has %u entries, capping to %u",
+				entries, PTP_AS_PATH_MAX_ENTRIES);
+		entries = PTP_AS_PATH_MAX_ENTRIES;
+	}
+
+	for (i = 0; i < entries; i++) {
+		memcpy(&new_path[i], payload + i * 8, 8);
+	}
+
+	changed = !gptp->path_trace_valid ||
+			gptp->path_trace_count != entries ||
+			memcmp(gptp->path_trace, new_path,
+					entries * sizeof(uint64_t)) != 0;
+
+	if (changed) {
+		pw_log_info("PTP path_trace updated: %u entries", entries);
+		memcpy(gptp->path_trace, new_path, entries * sizeof(uint64_t));
+		gptp->path_trace_count = entries;
+		gptp->path_trace_valid = true;
+	}
+}
+
 static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 {
 	struct gptp *gptp = data;
@@ -501,6 +547,11 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 					buf + sizeof(struct ptp_management_msg),
 					(size_t)ret - sizeof(struct ptp_management_msg));
 			break;
+		case PTP_MGMT_ID_PATH_TRACE_LIST:
+			handle_path_trace_list(gptp, &res,
+					buf + sizeof(struct ptp_management_msg),
+					(size_t)ret - sizeof(struct ptp_management_msg));
+			break;
 		default:
 			pw_log_debug("Unhandled PTP management ID: %04x", mgmt_id);
 			break;
@@ -511,10 +562,11 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 
 static uint16_t next_management_id(uint32_t tick_count)
 {
-	switch (tick_count % 4) {
+	switch (tick_count % 5) {
 	case 0:  return PTP_MGMT_ID_PARENT_DATA_SET;
-	case 1:  return PTP_MGMT_ID_CURRENT_DATA_SET;
-	case 2:  return PTP_MGMT_ID_DEFAULT_DATA_SET;
+	case 1:  return PTP_MGMT_ID_PATH_TRACE_LIST;
+	case 2:  return PTP_MGMT_ID_CURRENT_DATA_SET;
+	case 3:  return PTP_MGMT_ID_DEFAULT_DATA_SET;
 	default: return PTP_MGMT_ID_PORT_DATA_SET;
 	}
 }
@@ -642,4 +694,21 @@ bool avb_gptp_is_grandmaster(const struct avb_gptp *agptp)
 		return false;
 	}
 	return memcmp(gptp->clock_id, gptp->gm_id, 8) == 0;
+}
+
+uint16_t avb_gptp_get_path_trace(const struct avb_gptp *agptp,
+		uint64_t *path_be, uint16_t max_entries)
+{
+	const struct gptp *gptp = (const struct gptp *)agptp;
+	uint16_t count;
+
+	if (gptp == NULL || !gptp->path_trace_valid) {
+		return 0;
+	}
+	count = gptp->path_trace_count;
+	if (count > max_entries) {
+		count = max_entries;
+	}
+	memcpy(path_be, gptp->path_trace, count * sizeof(uint64_t));
+	return count;
 }

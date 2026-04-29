@@ -41,12 +41,14 @@
 
 #include "aecp-aem-descriptors.h"
 #include "aecp-aem-state.h"
+#include "entity-model-milan-v12.h"
 
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_gm_changed(s, n, g)	server_emit(s, gm_changed, 0, n, g)
 
 #define PTP_REQUEST_INTERVAL_NS	(375 * SPA_NSEC_PER_MSEC)
 #define PTP_REQUEST_TIMEOUT_NS	PTP_REQUEST_INTERVAL_NS
+#define PTP_LOST_TIMEOUT_THRESHOLD	8
 
 struct gptp {
 	struct server *server;
@@ -67,6 +69,8 @@ struct gptp {
 
 	uint32_t tick_count;
 	bool data_valid;
+
+	uint32_t consecutive_timeouts;
 
 	uint16_t steps_removed;
 	int64_t  offset_from_master_scaled_ns;
@@ -218,6 +222,46 @@ static void mark_as_path_dirty(struct gptp *gptp)
 	}
 	ifs = d->ptr;
 	ifs->as_path_dirty = true;
+}
+
+static void gptp_invalidate_state(struct gptp *gptp)
+{
+	bool had_data = gptp->data_valid || gptp->data_valid_current ||
+			gptp->path_trace_valid;
+	struct avb_aem_desc_avb_interface *iface;
+
+	gptp->data_valid = false;
+	gptp->data_valid_current = false;
+	gptp->path_trace_valid = false;
+	gptp->path_trace_count = 0;
+	gptp->steps_removed = 0;
+	gptp->offset_from_master_scaled_ns = 0;
+	memset(gptp->clock_id, 0, sizeof(gptp->clock_id));
+	memset(gptp->gm_id, 0, sizeof(gptp->gm_id));
+	memset(gptp->path_trace, 0, sizeof(gptp->path_trace));
+
+	iface = get_avb_interface(gptp);
+	if (iface != NULL) {
+		iface->clock_identity = htobe64(gptp->server->entity_id);
+		iface->priority1 = DSC_AVB_INTERFACE_PRIORITY1;
+		iface->clock_class = DSC_AVB_INTERFACE_CLOCK_CLASS;
+		iface->clock_accuracy = DSC_AVB_INTERFACE_CLOCK_ACCURACY;
+		iface->offset_scaled_log_variance =
+				htons(DSC_AVB_INTERFACE_OFFSET_SCALED_LOG_VARIANCE);
+		iface->priority2 = DSC_AVB_INTERFACE_PRIORITY2;
+		iface->domain_number = DSC_AVB_INTERFACE_DOMAIN_NUMBER;
+		iface->log_sync_interval = DSC_AVB_INTERFACE_LOG_SYNC_INTERVAL;
+		iface->log_announce_interval = DSC_AVB_INTERFACE_LOG_ANNOUNCE_INTERVAL;
+		iface->log_pdelay_interval = DSC_AVB_INTERFACE_PDELAY_INTERVAL;
+		iface->port_number = DSC_AVB_INTERFACE_PORT_NUMBER;
+	}
+
+	if (had_data) {
+		pw_log_info("PTP management lost contact with ptp4l, "
+				"clearing cached gPTP state");
+		mark_gptp_info_dirty(gptp);
+		mark_as_path_dirty(gptp);
+	}
 }
 
 static void update_avb_interface_default(struct gptp *gptp,
@@ -558,6 +602,8 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 			continue;
 		}
 
+		gptp->consecutive_timeouts = 0;
+
 		switch (mgmt_id) {
 		case PTP_MGMT_ID_PARENT_DATA_SET:
 			handle_parent_data_set(gptp, &res,
@@ -620,6 +666,10 @@ static void gptp_periodic(void *data, uint64_t now)
 		pw_log_debug("PTP management request seq=%u timed out",
 				gptp->req_sequence_id);
 		gptp->req_in_flight = false;
+		gptp->consecutive_timeouts++;
+		if (gptp->consecutive_timeouts >= PTP_LOST_TIMEOUT_THRESHOLD) {
+			gptp_invalidate_state(gptp);
+		}
 	}
 
 	if (gptp->req_in_flight) {
@@ -636,6 +686,7 @@ static void gptp_periodic(void *data, uint64_t now)
 		gptp->tick_count++;
 	} else if (err == -ENOTCONN) {
 		pw_log_info("PTP management socket disconnected, will reopen");
+		gptp_invalidate_state(gptp);
 		gptp_close_socket(gptp);
 	}
 }

@@ -526,6 +526,10 @@ struct spa_bt_midi_server *spa_bt_midi_server_new(const struct spa_bt_midi_serve
 
 	spa_scnprintf(path, sizeof(path), MIDI_CHR_PATH, impl->server_id);
 	impl->this.chr_path = strdup(path);
+	if (impl->this.chr_path == NULL) {
+		res = -ENOMEM;
+		goto fail;
+	}
 
 	return &impl->this;
 

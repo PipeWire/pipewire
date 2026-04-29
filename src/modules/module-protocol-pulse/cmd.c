@@ -73,6 +73,8 @@ static int parse_cmd(void *user_data, const char *location,
 	int res = 0;
 
 	spa_autofree char *s = strndup(str, len);
+	if (s == NULL)
+		return -errno;
 	if (spa_json_begin_array(&it[0], s, len) < 0) {
 		pw_log_error("config file error: pulse.cmd is not an array");
 		return -EINVAL;

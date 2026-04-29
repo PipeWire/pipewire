@@ -173,7 +173,7 @@ static int netjack2_init(struct netjack2_peer *peer)
 			goto error_errno;
 		}
 		peer->max_encoded_size = ((uint64_t)peer->params.kbps * peer->params.period_size * 1024) /
-			(peer->params.sample_rate * 8) + sizeof(uint16_t);
+			((uint64_t)peer->params.sample_rate * 8) + sizeof(uint16_t);
 		if (spa_overflow_mul(peer->max_encoded_size, max_audio_ch, &peer->encoded_size)) {
 			errno = EINVAL;
 			goto error_errno;

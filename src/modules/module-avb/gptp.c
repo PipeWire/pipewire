@@ -588,8 +588,19 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 			continue;
 		}
 
+		if (ntohs(res.tlv_type_be) == PTP_TLV_TYPE_MGMT_ERROR_STATUS) {
+			pw_log_debug("PTP management error TLV for id=%04x seq=%u",
+					mgmt_id, seq);
+			gptp->req_in_flight = false;
+			gptp->consecutive_timeouts++;
+			if (gptp->consecutive_timeouts >= PTP_LOST_TIMEOUT_THRESHOLD) {
+				gptp_invalidate_state(gptp);
+			}
+			continue;
+		}
+
 		if (ntohs(res.tlv_type_be) != PTP_TLV_TYPE_MGMT) {
-			pw_log_warn("PTP management returned tlv type %d, expected management",
+			pw_log_debug("PTP management returned unexpected tlv type %d",
 					ntohs(res.tlv_type_be));
 			gptp->req_in_flight = false;
 			continue;

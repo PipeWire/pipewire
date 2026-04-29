@@ -531,22 +531,31 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 		return -EINVAL;
 	}
 
-	client->source = pw_loop_add_io(client->loop, fd,
+	client->source = pw_loop_add_io(client->loop, spa_steal_fd(fd),
 			SPA_IO_IN | SPA_IO_OUT | SPA_IO_HUP | SPA_IO_ERR,
 			true, on_source_io, client);
 
 	if (client->source == NULL) {
 		res = -errno;
 		pw_log_error("%p: source create failed: %m", client);
-		close(fd);
-		return res;
+		goto error;
 	}
 	client->connecting = true;
 	free(client->session_id);
 	client->session_id = strdup(session_id);
+	if (client->session_id == NULL) {
+		res = -errno;
+		goto error;
+	}
 	pw_log_info("%p: connecting", client);
 
 	return 0;
+error:
+	if (client->source)
+		pw_loop_destroy_source(client->loop, client->source);
+	if (fd >= 0)
+		close(fd);
+	return res;
 }
 
 int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)

@@ -35,8 +35,8 @@ SPA_API_DEBUG_MEM int spa_debugc_mem(struct spa_debug_context *ctx, int indent, 
 
 	for (i = 0; i < size; i++) {
 		if (i % 16 == 0)
-			pos = sprintf(buffer, "%p: ", &t[i]);
-		pos += sprintf(buffer + pos, "%02x ", t[i]);
+			pos = snprintf(buffer, sizeof(buffer), "%p: ", &t[i]);
+		pos += snprintf(buffer + pos, sizeof(buffer) - pos, "%02x ", t[i]);
 		if (i % 16 == 15 || i == size - 1) {
 			spa_debugc(ctx, "%*s" "%s", indent, "", buffer);
 		}

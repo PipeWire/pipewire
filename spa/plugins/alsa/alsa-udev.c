@@ -667,9 +667,12 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 			if (!(str && *str)) {
 				str = udev_device_get_property_value(udev_device, "ID_VENDOR");
 			} else {
-				char *t = alloca(strlen(str) + 1);
-				unescape(str, t);
-				str = t;
+				size_t slen = strlen(str) + 1;
+				if (slen <= 1024) {
+					char *t = alloca(slen);
+					unescape(str, t);
+					str = t;
+				}
 			}
 		}
 		if (str && *str) {
@@ -689,9 +692,12 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 			if (!(str && *str)) {
 				str = udev_device_get_property_value(udev_device, "ID_MODEL");
 			} else {
-				char *t = alloca(strlen(str) + 1);
-				unescape(str, t);
-				str = t;
+				size_t slen = strlen(str) + 1;
+				if (slen <= 1024) {
+					char *t = alloca(slen);
+					unescape(str, t);
+					str = t;
+				}
 			}
 		}
 		if (str && *str)

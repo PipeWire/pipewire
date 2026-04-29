@@ -135,11 +135,15 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	/* Switch default */
 	pw_log_debug("switching to %s", name);
 
-	pw_manager_set_metadata(d->manager, d->metadata_default,
-			PW_ID_CORE,
-			pw_manager_object_is_sink(o) ? METADATA_CONFIG_DEFAULT_SINK
-				: METADATA_CONFIG_DEFAULT_SOURCE,
-			"Spa:String:JSON", "{ \"name\"\"%s\" }", name);
+	{
+		char encoded[1024];
+		spa_json_encode_string(encoded, sizeof(encoded), name);
+		pw_manager_set_metadata(d->manager, d->metadata_default,
+				PW_ID_CORE,
+				pw_manager_object_is_sink(o) ? METADATA_CONFIG_DEFAULT_SINK
+					: METADATA_CONFIG_DEFAULT_SOURCE,
+				"Spa:String:JSON", "{ \"name\" %s }", encoded);
+	}
 }
 
 static void manager_sync(void *data)

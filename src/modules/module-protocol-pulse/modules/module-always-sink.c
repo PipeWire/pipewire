@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/json.h>
 #include <pipewire/pipewire.h>
 
 #include "../module.h"
@@ -50,14 +51,17 @@ static int module_always_sink_load(struct module *module)
 	FILE *f;
 	char *args;
 	const char *str;
+	char encoded[1024];
 	size_t size;
 
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 
 	fprintf(f, "{");
-	if ((str = pw_properties_get(module->props, "sink_name")) != NULL)
-		fprintf(f, " sink.name = \"%s\"", str);
+	if ((str = pw_properties_get(module->props, "sink_name")) != NULL) {
+		spa_json_encode_string(encoded, sizeof(encoded), str);
+		fprintf(f, " sink.name = %s", encoded);
+	}
 	fprintf(f, " }");
 	fclose(f);
 

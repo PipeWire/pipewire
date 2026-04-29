@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/json.h>
 #include <pipewire/pipewire.h>
 
 #include "../module.h"
@@ -58,20 +59,29 @@ static int module_x11_bell_load(struct module *module)
 	FILE *f;
 	char *args;
 	const char *str;
+	char encoded[1024];
 	size_t size;
 
 	if ((f = open_memstream(&args, &size)) == NULL)
 		return -errno;
 
 	fprintf(f, "{");
-	if ((str = pw_properties_get(module->props, "sink")) != NULL)
-		fprintf(f, " sink.name = \"%s\"", str);
-	if ((str = pw_properties_get(module->props, "sample")) != NULL)
-		fprintf(f, " sample.name = \"%s\"", str);
-	if ((str = pw_properties_get(module->props, "display")) != NULL)
-		fprintf(f, " x11.display = \"%s\"", str);
-	if ((str = pw_properties_get(module->props, "xauthority")) != NULL)
-		fprintf(f, " x11.xauthority = \"%s\"", str);
+	if ((str = pw_properties_get(module->props, "sink")) != NULL) {
+		spa_json_encode_string(encoded, sizeof(encoded), str);
+		fprintf(f, " sink.name = %s", encoded);
+	}
+	if ((str = pw_properties_get(module->props, "sample")) != NULL) {
+		spa_json_encode_string(encoded, sizeof(encoded), str);
+		fprintf(f, " sample.name = %s", encoded);
+	}
+	if ((str = pw_properties_get(module->props, "display")) != NULL) {
+		spa_json_encode_string(encoded, sizeof(encoded), str);
+		fprintf(f, " x11.display = %s", encoded);
+	}
+	if ((str = pw_properties_get(module->props, "xauthority")) != NULL) {
+		spa_json_encode_string(encoded, sizeof(encoded), str);
+		fprintf(f, " x11.xauthority = %s", encoded);
+	}
 	fprintf(f, " }");
 	fclose(f);
 

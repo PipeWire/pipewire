@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/json.h>
 #include <pipewire/pipewire.h>
 
 #include "../module.h"
@@ -78,6 +79,7 @@ static int module_native_protocol_tcp_prepare(struct module * const module)
 	struct module_native_protocol_tcp_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
 	const char *port, *listen, *auth;
+	char address[1024], encoded[1024];
 	FILE *f;
 	char *args;
 	size_t size;
@@ -95,9 +97,12 @@ static int module_native_protocol_tcp_prepare(struct module * const module)
 	if (f == NULL)
 		return -errno;
 
+	snprintf(address, sizeof(address), "tcp:%s%s%s",
+			listen ? listen : "", listen ? ":" : "", port);
+	spa_json_encode_string(encoded, sizeof(encoded), address);
+
 	fprintf(f, "[ { ");
-	fprintf(f, " \"address\": \"tcp:%s%s%s\" ",
-			   listen ? listen : "", listen ? ":" : "", port);
+	fprintf(f, " \"address\": %s ", encoded);
 	if (auth && module_args_parse_bool(auth))
 		fprintf(f, " \"client.access\": \"unrestricted\" ");
 	fprintf(f, "} ]");

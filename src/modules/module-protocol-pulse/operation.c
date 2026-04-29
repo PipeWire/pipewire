@@ -69,6 +69,7 @@ void operation_complete(struct operation *o)
 	pw_log_info("[%s]: tag:%u complete", client->name, o->tag);
 
 	spa_list_remove(&o->link);
+	client->n_operations--;
 
 	if (o->callback)
 		o->callback(o->data, client, o->tag);

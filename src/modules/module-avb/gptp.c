@@ -4,6 +4,27 @@
 /* SPDX-FileCopyrightText: Copyright © 2026 Alexandre Malki <alexandre.malki@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
+/*
+ * Companion ptp4l invocation (gPTP profile, UDS management enabled,
+ * Announce path trace recorded):
+ *
+ *     ptp4l -i <iface> -f /etc/linuxptp/gPTP.cfg \
+ *           --uds_address=/var/run/ptp4l \
+ *           --path_trace_enabled=1 \
+ *           -m
+ *
+ * pipewire-avb.conf must point ptp.management-socket at the same path:
+ *
+ *     ptp.management-socket = "/var/run/ptp4l"
+ *
+ * Equivalent pmc(8) probe to confirm ptp4l accepts our management
+ * messages (-t 1 forces transportSpecific = 1 / TS_IEEE_8021AS,
+ * matching PTP_GPTP_MANAGEMENT_TYPE in this file):
+ *
+ *     pmc -u -b 0 -t 1 -s /var/run/ptp4l "GET PARENT_DATA_SET"
+ *     pmc -u -b 0 -t 1 -s /var/run/ptp4l "GET PATH_TRACE_LIST"
+ */
+
 #include "gptp.h"
 
 #include <errno.h>

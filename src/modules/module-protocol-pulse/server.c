@@ -45,7 +45,6 @@
 #endif
 
 #define LISTEN_BACKLOG 32
-#define MAX_CLIENTS 64
 
 PW_LOG_TOPIC_EXTERN(pulse_conn);
 

@@ -63,6 +63,11 @@ struct stream *stream_new(struct client *client, enum stream_type type, uint32_t
 	struct defs *defs = &client->impl->defs;
 	const char *str;
 
+	if (pw_map_get_size(&client->streams) >= defs->max_streams) {
+		errno = ENOSPC;
+		return NULL;
+	}
+
 	struct stream *stream = calloc(1, sizeof(*stream));
 	if (stream == NULL)
 		return NULL;

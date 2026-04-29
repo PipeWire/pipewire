@@ -5605,6 +5605,7 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_format(props, "pulse.default.format", DEFAULT_FORMAT, &def->sample_spec);
 	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
 	parse_uint32(props, "pulse.idle.timeout", DEFAULT_IDLE_TIMEOUT, &def->idle_timeout);
+	parse_uint32(props, "pulse.max-streams", SPA_STRINGIFY(MAX_STREAMS), &def->max_streams);
 	def->sample_spec.channels = def->channel_map.channels;
 	def->quantum_limit = 8192;
 }

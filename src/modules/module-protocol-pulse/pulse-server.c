@@ -4518,7 +4518,7 @@ static int do_set_stream_buffer_attr(struct client *client, uint32_t command, ui
 			commands[command].name, tag, channel);
 
 	stream = pw_map_lookup(&client->streams, channel);
-	if (stream == NULL)
+	if (stream == NULL || stream->create_tag != SPA_ID_INVALID)
 		return -ENOENT;
 
 	if (command == COMMAND_SET_PLAYBACK_STREAM_BUFFER_ATTR) {

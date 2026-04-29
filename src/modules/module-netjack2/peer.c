@@ -1072,10 +1072,16 @@ static int netjack2_recv_data(struct netjack2_peer *peer,
 		struct data_info *audio, uint32_t n_audio)
 {
 	ssize_t len;
-	uint32_t i, audio_count = 0, midi_count = 0;
+	uint32_t i, audio_count = 0, midi_count = 0, packet_count = 0;
 	struct nj2_packet_header header;
+#define MAX_RECV_PACKETS 1024
 
 	while (!peer->sync.is_last) {
+		if (++packet_count > MAX_RECV_PACKETS) {
+			pw_log_warn("too many packets in cycle (%u), aborting",
+					MAX_RECV_PACKETS);
+			break;
+		}
 		if ((len = recv(peer->fd, &header, sizeof(header), MSG_PEEK)) < 0)
 			goto receive_error;
 

@@ -104,6 +104,9 @@ struct aecp_aem_avb_interface_state {
 	 * has elapsed, then clears dirty and updates last_counters_emit_ns. */
 	bool counters_dirty;
 	int64_t last_counters_emit_ns;
+
+	bool gptp_info_dirty;
+	bool as_path_dirty;
 };
 
 

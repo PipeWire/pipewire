@@ -89,10 +89,10 @@ extern "C" {
  * \code{.c}
  *
  * static void bar_stdout(struct foo *f, const char *msg) {
- *     printf(msg);
+ *     printf("%s", msg);
  * }
  * static void bar_stderr(struct foo *f, const char *msg) {
- *     fprintf(stderr, msg);
+ *     fprintf(stderr, "%s", msg);
  * }
  *
  * struct foo* get_foo_from_somewhere() {

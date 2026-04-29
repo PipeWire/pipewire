@@ -676,11 +676,11 @@ on_data_io(void *data, int fd, uint32_t mask)
 	}
 	if (mask & SPA_IO_IN) {
 		bool source_running, sink_running;
-		uint32_t nframes;
+		int32_t nframes;
 		uint64_t nsec;
 
 		nframes = netjack2_driver_sync_wait(&impl->peer);
-		if (nframes == 0)
+		if (nframes <= 0)
 			return;
 
 		nsec = get_time_nsec(impl);

@@ -128,7 +128,8 @@ static int handle_memblock(struct client *client, struct message *msg)
 		     client, channel, offset, flags, msg->length);
 
 	stream = pw_map_lookup(&client->streams, channel);
-	if (stream == NULL || stream->type == STREAM_TYPE_RECORD) {
+	if (stream == NULL || stream->type == STREAM_TYPE_RECORD ||
+	    stream->create_tag != SPA_ID_INVALID) {
 		pw_log_info("client %p [%s]: received memblock for unknown channel %d",
 			    client, client->name, channel);
 		goto finish;

@@ -25,6 +25,7 @@ extern "C" {
 #define PTP_MGMT_ACTION_RESPONSE 2
 #define PTP_TLV_TYPE_MGMT 0x0001
 #define PTP_MGMT_ID_DEFAULT_DATA_SET 0x2000
+#define PTP_MGMT_ID_CURRENT_DATA_SET 0x2001
 #define PTP_MGMT_ID_PARENT_DATA_SET 0x2002
 #define PTP_MGMT_ID_PORT_DATA_SET 0x2004
 
@@ -89,6 +90,13 @@ struct ptp_default_data_set {
 	uint8_t  clock_identity[8];
 	uint8_t  domain_number;
 	uint8_t  reserved2;
+} __attribute__((packed));
+
+/* IEEE 1588-2008 Section 15.5.1.2 currentDS */
+struct ptp_current_data_set {
+	uint16_t steps_removed_be;
+	int64_t  offset_from_master_be;
+	int64_t  mean_path_delay_be;
 } __attribute__((packed));
 
 /* IEEE 1588-2008 Section 15.5.1.4 portDS */

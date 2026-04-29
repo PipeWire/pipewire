@@ -66,6 +66,10 @@ struct gptp {
 
 	uint32_t tick_count;
 	bool data_valid;
+
+	uint16_t steps_removed;
+	int64_t  offset_from_master_scaled_ns;
+	bool data_valid_current;
 };
 
 static int make_bind_path(char *out, size_t out_size, uint64_t entity_id)
@@ -368,6 +372,41 @@ static void handle_port_data_set(struct gptp *gptp,
 	update_avb_interface_port(gptp, pds);
 }
 
+static void handle_current_data_set(struct gptp *gptp,
+		const struct ptp_management_msg *res,
+		const uint8_t *payload, size_t payload_len)
+{
+	const struct ptp_current_data_set *cds;
+	uint16_t data_len;
+	uint16_t steps_removed;
+	int64_t offset_from_master;
+
+	data_len = ntohs(res->management_message_length_be) - 2;
+	if (data_len != sizeof(struct ptp_current_data_set) ||
+			payload_len < sizeof(struct ptp_current_data_set)) {
+		pw_log_warn("Unexpected PTP GET CURRENT_DATA_SET response length: "
+				"tlv=%u payload=%zu expected=%zu",
+				data_len, payload_len,
+				sizeof(struct ptp_current_data_set));
+		return;
+	}
+
+	cds = (const struct ptp_current_data_set *)payload;
+	steps_removed = ntohs(cds->steps_removed_be);
+	offset_from_master = (int64_t)be64toh((uint64_t)cds->offset_from_master_be);
+
+	if (!gptp->data_valid_current ||
+			gptp->steps_removed != steps_removed) {
+		pw_log_info("PTP currentDS: steps_removed=%u offset_from_master=%"
+				PRId64 " (scaled ns)",
+				steps_removed, offset_from_master);
+	}
+
+	gptp->steps_removed = steps_removed;
+	gptp->offset_from_master_scaled_ns = offset_from_master;
+	gptp->data_valid_current = true;
+}
+
 static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 {
 	struct gptp *gptp = data;
@@ -457,6 +496,11 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 					buf + sizeof(struct ptp_management_msg),
 					(size_t)ret - sizeof(struct ptp_management_msg));
 			break;
+		case PTP_MGMT_ID_CURRENT_DATA_SET:
+			handle_current_data_set(gptp, &res,
+					buf + sizeof(struct ptp_management_msg),
+					(size_t)ret - sizeof(struct ptp_management_msg));
+			break;
 		default:
 			pw_log_debug("Unhandled PTP management ID: %04x", mgmt_id);
 			break;
@@ -467,10 +511,11 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 
 static uint16_t next_management_id(uint32_t tick_count)
 {
-	switch (tick_count % 10) {
-	case 0:  return PTP_MGMT_ID_DEFAULT_DATA_SET;
-	case 5:  return PTP_MGMT_ID_PORT_DATA_SET;
-	default: return PTP_MGMT_ID_PARENT_DATA_SET;
+	switch (tick_count % 4) {
+	case 0:  return PTP_MGMT_ID_PARENT_DATA_SET;
+	case 1:  return PTP_MGMT_ID_CURRENT_DATA_SET;
+	case 2:  return PTP_MGMT_ID_DEFAULT_DATA_SET;
+	default: return PTP_MGMT_ID_PORT_DATA_SET;
 	}
 }
 
@@ -587,7 +632,13 @@ bool avb_gptp_get_grandmaster_id(const struct avb_gptp *agptp, uint64_t *gm_id_b
 bool avb_gptp_is_grandmaster(const struct avb_gptp *agptp)
 {
 	const struct gptp *gptp = (const struct gptp *)agptp;
-	if (gptp == NULL || !gptp->data_valid) {
+	if (gptp == NULL) {
+		return false;
+	}
+	if (gptp->data_valid_current) {
+		return gptp->steps_removed == 0;
+	}
+	if (!gptp->data_valid) {
 		return false;
 	}
 	return memcmp(gptp->clock_id, gptp->gm_id, 8) == 0;

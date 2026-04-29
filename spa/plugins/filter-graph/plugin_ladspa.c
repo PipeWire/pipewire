@@ -156,6 +156,8 @@ static const struct spa_fga_descriptor *ladspa_plugin_make_desc(void *plugin, co
 		return NULL;
 
 	desc = calloc(1, sizeof(*desc));
+	if (desc == NULL)
+		return NULL;
 	desc->d = d;
 
 	desc->desc.instantiate = ladspa_instantiate;
@@ -172,6 +174,10 @@ static const struct spa_fga_descriptor *ladspa_plugin_make_desc(void *plugin, co
 
 	desc->desc.n_ports = d->PortCount;
 	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct spa_fga_port));
+	if (desc->desc.ports == NULL) {
+		free(desc);
+		return NULL;
+	}
 
 	for (i = 0; i < desc->desc.n_ports; i++) {
 		desc->desc.ports[i].index = i;

@@ -7,6 +7,7 @@
 #include "aecp-aem-descriptors.h"
 #include "aecp-aem-state.h"
 #include "aecp-aem-cmds-resps/cmd-resp-helpers.h"
+#include "aecp-aem-cmds-resps/reply-unsol-helpers.h"
 #include "gptp.h"
 #include "utils.h"
 
@@ -131,6 +132,25 @@ static int handle_read_descriptor_common(struct aecp *aecp, int64_t now, const v
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
 }
 
+static void fill_get_avb_info_body(struct server *server,
+	struct avb_aem_desc_avb_interface *avb_interface,
+	struct avb_packet_aecp_aem_get_avb_info *i)
+{
+	uint64_t gm_id_be;
+	uint8_t flags = AVB_AEM_AVB_INFO_FLAG_SRP_ENABLED;
+
+	if (avb_gptp_get_grandmaster_id(server->gptp, &gm_id_be)) {
+		i->gptp_grandmaster_id = gm_id_be;
+		flags |= AVB_AEM_AVB_INFO_FLAG_GPTP_ENABLED;
+	} else {
+		i->gptp_grandmaster_id = avb_interface->clock_identity;
+	}
+	i->flags = flags;
+	i->propagation_delay = htonl(0);
+	i->gptp_domain_number = avb_interface->domain_number;
+	i->msrp_mappings_count = htons(0);
+}
+
 /* GET_AVB_INFO */
 static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
 	const void *m, int len)
@@ -145,8 +165,6 @@ static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
 	const struct descriptor *desc;
 	uint8_t buf[2048];
 	size_t size, psize;
-	uint64_t gm_id_be;
-	uint8_t flags;
 
 	i = (struct avb_packet_aecp_aem_get_avb_info*)p->payload;
 
@@ -177,20 +195,47 @@ static int handle_get_avb_info_common(struct aecp *aecp, int64_t now,
 	AVB_PACKET_SET_LENGTH(&reply->aecp.hdr, psize + 12);
 
 	i = (struct avb_packet_aecp_aem_get_avb_info*)reply->payload;
-	flags = AVB_AEM_AVB_INFO_FLAG_SRP_ENABLED;
-	/* IEEE 1722.1-2021 Section 7.4.40 GET_AVB_INFO. */
-	if (avb_gptp_get_grandmaster_id(server->gptp, &gm_id_be)) {
-		i->gptp_grandmaster_id = gm_id_be;
-		flags |= AVB_AEM_AVB_INFO_FLAG_GPTP_ENABLED;
-	} else {
-		i->gptp_grandmaster_id = avb_interface->clock_identity;
-	}
-	i->flags = flags;
-	i->propagation_delay = htonl(0);
-	i->gptp_domain_number = avb_interface->domain_number;
-	i->msrp_mappings_count = htons(0);
+	fill_get_avb_info_body(server, avb_interface, i);
 
 	return avb_server_send_packet(server, h->src, AVB_TSN_ETH, buf, size);
+}
+
+#define GET_AVB_INFO_PACKET_LEN \
+	(int)(sizeof(struct avb_ethernet_header) + \
+		sizeof(struct avb_packet_aecp_aem) + \
+		sizeof(struct avb_packet_aecp_aem_get_avb_info))
+
+static void emit_unsol_get_avb_info(struct aecp *aecp, uint16_t desc_index)
+{
+	struct server *server = aecp->server;
+	uint8_t buf[GET_AVB_INFO_PACKET_LEN];
+	struct avb_ethernet_header *h;
+	struct avb_packet_aecp_aem *p;
+	struct avb_packet_aecp_aem_get_avb_info *body;
+	struct descriptor *desc;
+	struct aecp_aem_base_info b_state = { 0 };
+
+	desc = server_find_descriptor(server, AVB_AEM_DESC_AVB_INTERFACE, desc_index);
+	if (desc == NULL) {
+		return;
+	}
+
+	memset(buf, 0, sizeof(buf));
+	h = (struct avb_ethernet_header *)buf;
+	p = SPA_PTROFF(h, sizeof(*h), void);
+	body = (struct avb_packet_aecp_aem_get_avb_info *)p->payload;
+
+	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
+	AVB_PACKET_AECP_SET_STATUS(&p->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
+	p->cmd1 = 0;
+	p->cmd2 = AVB_AECP_AEM_CMD_GET_AVB_INFO;
+
+	body->descriptor_type = htons(AVB_AEM_DESC_AVB_INTERFACE);
+	body->descriptor_id = htons(desc_index);
+	fill_get_avb_info_body(server, descriptor_body(desc), body);
+
+	(void)reply_unsolicited_notifications(aecp, &b_state, buf,
+			GET_AVB_INFO_PACKET_LEN, true);
 }
 
 /* AEM_COMMAND */
@@ -584,6 +629,18 @@ void avb_aecp_aem_periodic(struct aecp *aecp, int64_t now)
 				cmd_get_stream_info_emit_unsol_milan_v12(srv,
 						AVB_AEM_DESC_STREAM_OUTPUT, i);
 				so->stream_info_dirty = false;
+			}
+		}
+		for (i = 0; i < UINT16_MAX; i++) {
+			struct descriptor *d = server_find_descriptor(srv,
+					AVB_AEM_DESC_AVB_INTERFACE, i);
+			struct aecp_aem_avb_interface_state *ifs;
+			if (d == NULL)
+				break;
+			ifs = d->ptr;
+			if (ifs->gptp_info_dirty) {
+				emit_unsol_get_avb_info(aecp, i);
+				ifs->gptp_info_dirty = false;
 			}
 		}
 	}

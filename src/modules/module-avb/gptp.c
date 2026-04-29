@@ -40,6 +40,7 @@
 #include <spa/utils/hook.h>
 
 #include "aecp-aem-descriptors.h"
+#include "aecp-aem-state.h"
 
 #define server_emit(s,m,v,...) spa_hook_list_call(&s->listener_list, struct server_events, m, v, ##__VA_ARGS__)
 #define server_emit_gm_changed(s, n, g)	server_emit(s, gm_changed, 0, n, g)
@@ -193,6 +194,19 @@ static void update_avb_interface_clock_identity(struct gptp *gptp,
 	memcpy(&iface->clock_identity, cid, sizeof(iface->clock_identity));
 }
 
+static void mark_gptp_info_dirty(struct gptp *gptp)
+{
+	struct descriptor *d = server_find_descriptor(gptp->server,
+			AVB_AEM_DESC_AVB_INTERFACE, 0);
+	struct aecp_aem_avb_interface_state *ifs;
+
+	if (d == NULL) {
+		return;
+	}
+	ifs = d->ptr;
+	ifs->gptp_info_dirty = true;
+}
+
 static void update_avb_interface_default(struct gptp *gptp,
 		const struct ptp_default_data_set *dds)
 {
@@ -323,10 +337,12 @@ static void handle_parent_data_set(struct gptp *gptp,
 	memcpy(gptp->gm_id, gmid, 8);
 	gptp->data_valid = true;
 
-	/* IEEE 1722.1-2021 Section 7.2.8: AVB_INTERFACE.clock_identity is
-	 * the local gPTP clock. */
 	if (cid_changed) {
 		update_avb_interface_clock_identity(gptp, cid);
+	}
+
+	if (cid_changed || gmid_changed) {
+		mark_gptp_info_dirty(gptp);
 	}
 
 	if (gmid_changed) {
@@ -354,6 +370,7 @@ static void handle_default_data_set(struct gptp *gptp,
 	}
 	dds = (const struct ptp_default_data_set *)payload;
 	update_avb_interface_default(gptp, dds);
+	mark_gptp_info_dirty(gptp);
 }
 
 static void handle_port_data_set(struct gptp *gptp,
@@ -404,6 +421,7 @@ static void handle_current_data_set(struct gptp *gptp,
 		pw_log_info("PTP currentDS: steps_removed=%u offset_from_master=%"
 				PRId64 " (scaled ns)",
 				steps_removed, offset_from_master);
+		mark_gptp_info_dirty(gptp);
 	}
 
 	gptp->steps_removed = steps_removed;

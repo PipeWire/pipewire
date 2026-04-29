@@ -124,7 +124,7 @@ static struct partition *partition_new(struct convolver *conv, int block,
 	struct spa_fga_dsp *dsp = conv->dsp;
 	int i, j;
 
-	if (block == 0)
+	if (block <= 0)
 		return NULL;
 
 	part = calloc(1, sizeof(*part));
@@ -283,7 +283,8 @@ struct convolver *convolver_new_many(struct spa_fga_dsp *dsp, int head_block, in
 	if (head_block == 0 || tail_block == 0)
 		return NULL;
 
-	head_block = SPA_MAX(1, head_block);
+	head_block = SPA_CLAMP(head_block, 1, (1<<16));
+	tail_block = SPA_CLAMP(tail_block, 1, (1<<16));
 	if (head_block > tail_block)
 		SPA_SWAP(head_block, tail_block);
 

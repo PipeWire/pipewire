@@ -826,7 +826,7 @@ static void impulse_clear(struct impulse *ir)
 static int finfo_read_samples(struct plugin *pl, struct finfo *info, struct impulse *ir)
 {
 	float *samples, v;
-	int i, n, h, delay = (int)(ir->delay * info->rate);
+	int i, n, h, delay = (int)(ir->delay * info->rate), alloc_size;
 
 	if (ir->length <= 0)
 		ir->length = info->def_frames;
@@ -835,11 +835,13 @@ static int finfo_read_samples(struct plugin *pl, struct finfo *info, struct impu
 
 	ir->length -= SPA_MIN(ir->offset, ir->length);
 
-	n = delay + ir->length;
-	if (n == 0)
+	if (spa_overflow_add(delay, ir->length, &n) || n == 0)
 		return -EINVAL;
 
-	samples = calloc(n * info->channels, sizeof(float));
+	if (spa_overflow_mul(n, info->channels, &alloc_size))
+		return -ENOMEM;
+
+	samples = calloc(alloc_size, sizeof(float));
 	if (samples == NULL)
 		return -errno;
 
@@ -948,9 +950,14 @@ static float *resample_buffer(struct plugin *pl, float *samples, int *n_samples,
 #ifdef HAVE_SPA_PLUGINS
 	uint32_t in_len, out_len, total_out = 0;
 	int out_n_samples;
-	float *out_samples, *out_buf, *in_buf;
+	float *out_samples = NULL, *out_buf, *in_buf;
 	struct resample r;
 	int res;
+
+	if (*n_samples <= 0 || in_rate == 0 || out_rate == 0) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	spa_zero(r);
 	r.channels = 1;
@@ -961,10 +968,15 @@ static float *resample_buffer(struct plugin *pl, float *samples, int *n_samples,
 	if ((res = resample_native_init(&r)) < 0) {
 		spa_log_error(pl->log, "resampling failed: %s", spa_strerror(res));
 		errno = -res;
-		return NULL;
+		goto error;
 	}
 
-	out_n_samples = SPA_ROUND_UP(*n_samples * out_rate, in_rate) / in_rate;
+	if (spa_overflow_mul(*n_samples, out_rate, &out_n_samples) ||
+	    spa_overflow_add(out_n_samples, in_rate-1, &out_n_samples)) {
+		errno = ENOMEM;
+		goto error;
+	}
+	out_n_samples /= in_rate;
 	out_samples = calloc(out_n_samples, sizeof(float));
 	if (out_samples == NULL)
 		goto error;
@@ -1099,8 +1111,8 @@ static int convolver_read_impulse(struct plugin *pl, struct spa_json *obj,
 		goto error;
 	}
 
-	if (ir->delay < 0.0f)
-		ir->delay = 0.0f;
+	/* 10 seconds delay max */
+	ir->delay = SPA_CLAMPF(ir->delay, 0.0f, 10.0f);
 	if (ir->offset < 0)
 		ir->offset = 0;
 

@@ -28,6 +28,7 @@
 #include <spa/param/props.h>
 #include <spa/utils/ringbuffer.h>
 #include <spa/utils/json.h>
+#include <spa/utils/overflow.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
@@ -3177,7 +3178,8 @@ static int do_set_port_latency_offset(struct client *client, uint32_t command, u
 	if (port_name == NULL)
 		return -EINVAL;
 
-	value = offset * 1000;  /* to nsec */
+	if (spa_overflow_mul(offset, (int64_t)1000, &value))
+		return -EINVAL;
 
 	if ((card = select_object(manager, &sel)) == NULL)
 		return -ENOENT;

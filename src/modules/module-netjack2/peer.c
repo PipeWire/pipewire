@@ -500,9 +500,14 @@ static int netjack2_send_float(struct netjack2_peer *peer, uint32_t nframes,
 		sub_period_size = nframes;
 	} else {
 		uint32_t max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
-		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
-				(active_ports * sizeof(float))) / logf(2.f)));
-		sub_period_size = SPA_MIN(period, nframes);
+		uint32_t overhead = active_ports * sizeof(int32_t);
+		if (max_size <= overhead) {
+			sub_period_size = 1;
+		} else {
+			uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)(max_size - overhead) /
+					(active_ports * sizeof(float))) / logf(2.f)));
+			sub_period_size = SPA_CLAMP(period, 1u, nframes);
+		}
 	}
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
 	num_packets = nframes / sub_period_size;
@@ -850,17 +855,23 @@ static int netjack2_recv_float(struct netjack2_peer *peer, struct nj2_packet_hea
 	if (active_ports == 0 || active_ports > MAX_CHANNELS)
 		return 0;
 
+	uint32_t nframes = SPA_MIN((uint32_t)peer->sync.frames, peer->quantum_limit);
 	uint32_t max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
-	uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)max_size /
-			(active_ports * sizeof(float))) / logf(2.f)));
-	sub_period_size = SPA_MIN(period, (uint32_t)peer->sync.frames);
+	uint32_t overhead = active_ports * sizeof(int32_t);
+	if (max_size <= overhead) {
+		sub_period_size = 1;
+	} else {
+		uint32_t period = (uint32_t) powf(2.f, (uint32_t) (logf((float)(max_size - overhead) /
+				(active_ports * sizeof(float))) / logf(2.f)));
+		sub_period_size = SPA_CLAMP(period, 1u, nframes);
+	}
 	sub_period_bytes = sub_period_size * sizeof(float) + sizeof(int32_t);
 
 	if ((size_t)len < (size_t)active_ports * sub_period_bytes + sizeof(*header))
 		return 0;
 
 	sub_cycle = ntohl(header->sub_cycle);
-	if (sub_period_size == 0 || sub_cycle > peer->quantum_limit / sub_period_size)
+	if (sub_cycle >= nframes / sub_period_size)
 		return 0;
 
 	for (i = 0; i < active_ports; i++) {

@@ -38,6 +38,7 @@
 #define MAX_NAME		1024u
 
 #define SCACHE_ENTRY_SIZE_MAX	(1024*1024*16)
+#define MAX_SAMPLE_CACHE	(1024u*1024*64)	/* 64MB */
 
 #define MAX_CLIENTS		64u
 #define MAX_STREAMS		64u

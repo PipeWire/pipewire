@@ -37,6 +37,7 @@ struct defs {
 	uint32_t quantum_limit;
 	uint32_t idle_timeout;
 	uint32_t max_streams;
+	uint32_t max_sample_cache;
 };
 
 struct stats {

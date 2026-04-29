@@ -77,6 +77,7 @@
  *     #pulse.default.position = [ FL FR ]
  *     #pulse.idle.timeout     = 0
  *     #pulse.max-streams      = 64
+ *     #pulse.max-sample-cache   = 67108864
  * }
  *
  * pulse.properties.rules = [
@@ -253,6 +254,13 @@
  *\endcode
  *
  * The maximum number of streams a single client can create. Default is 64.
+ *
+ *\code{.unparsed}
+ *     pulse.max-sample-cache = 67108864
+ *\endcode
+ *
+ * The maximum total size in bytes of all sample cache entries. Default is
+ * 67108864 (64MB).
  *
  * ## Command execution
  *

@@ -2413,6 +2413,12 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 			channel, name);
 
 	struct sample *old = find_sample(impl, SPA_ID_INVALID, name);
+	uint32_t new_length = stream->attr.maxlength;
+	uint32_t old_length = old != NULL ? old->length : 0;
+	if (impl->stat.sample_cache + new_length - old_length > impl->defs.max_sample_cache) {
+		res = -ENOSPC;
+		goto error;
+	}
 	if (old == NULL || old->ref > 1) {
 		sample = calloc(1, sizeof(*sample));
 		if (sample == NULL)
@@ -5606,6 +5612,7 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
 	parse_uint32(props, "pulse.idle.timeout", DEFAULT_IDLE_TIMEOUT, &def->idle_timeout);
 	parse_uint32(props, "pulse.max-streams", SPA_STRINGIFY(MAX_STREAMS), &def->max_streams);
+	parse_uint32(props, "pulse.max-sample-cache", SPA_STRINGIFY(MAX_SAMPLE_CACHE), &def->max_sample_cache);
 	def->sample_spec.channels = def->channel_map.channels;
 	def->quantum_limit = 8192;
 }

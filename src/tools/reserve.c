@@ -357,6 +357,10 @@ rd_device_new(DBusConnection *connection, const char *device_name, const char *a
 	d->data = data;
 
 	d->application_name = strdup(application_name);
+	if (d->application_name == NULL) {
+		res = -ENOMEM;
+		goto error_free;
+	}
 
 	d->object_path = spa_aprintf(OBJECT_PREFIX "%s", device_name);
 	if (d->object_path == NULL) {

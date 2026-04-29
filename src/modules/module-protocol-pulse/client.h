@@ -80,6 +80,7 @@ struct client {
 	struct spa_list out_messages;
 
 	struct spa_list operations;
+	uint32_t n_operations;
 
 	struct spa_list pending_samples;
 

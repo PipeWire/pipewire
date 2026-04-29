@@ -42,6 +42,7 @@
 
 #define MAX_CLIENTS		64u
 #define MAX_STREAMS		64u
+#define MAX_OPERATIONS		64u
 
 #define MODULE_INDEX_MASK	0xfffffffu
 #define MODULE_FLAG		(1u << 29)

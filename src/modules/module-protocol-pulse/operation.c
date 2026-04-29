@@ -8,6 +8,7 @@
 #include <pipewire/log.h>
 
 #include "client.h"
+#include "defs.h"
 #include "log.h"
 #include "manager.h"
 #include "operation.h"
@@ -19,6 +20,9 @@ int operation_new_cb(struct client *client, uint32_t tag,
 {
 	struct operation *o;
 
+	if (client->n_operations >= MAX_OPERATIONS)
+		return -ENOSPC;
+
 	if ((o = calloc(1, sizeof(*o))) == NULL)
 		return -errno;
 
@@ -28,6 +32,7 @@ int operation_new_cb(struct client *client, uint32_t tag,
 	o->data = data;
 
 	spa_list_append(&client->operations, &o->link);
+	client->n_operations++;
 	pw_manager_sync(client->manager);
 
 	pw_log_debug("client %p [%s]: new operation tag:%u", client, client->name, tag);
@@ -42,6 +47,7 @@ int operation_new(struct client *client, uint32_t tag)
 
 void operation_free(struct operation *o)
 {
+	o->client->n_operations--;
 	spa_list_remove(&o->link);
 	free(o);
 }

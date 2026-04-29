@@ -274,6 +274,10 @@ static int do_read(struct client *client)
 			message_free(client->message, false, false);
 
 		client->message = message_alloc(impl, channel, length);
+		if (client->message == NULL) {
+			res = -ENOMEM;
+			goto exit;
+		}
 	} else if (client->message &&
 	    client->in_index >= client->message->length + sizeof(client->desc)) {
 		struct message * const msg = client->message;

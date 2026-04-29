@@ -1003,9 +1003,9 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	nj2_session_params_ntoh(&peer->params, params);
 
 	pw_properties_setf(follower->source.props, PW_KEY_NODE_DESCRIPTION, "%s NETJACK2 from %s",
-			params->name, params->follower_name);
+			peer->params.name, peer->params.follower_name);
 	pw_properties_setf(follower->sink.props, PW_KEY_NODE_DESCRIPTION, "%s NETJACK2 to %s",
-			params->name, params->follower_name);
+			peer->params.name, peer->params.follower_name);
 
 	peer->params.mtu = impl->mtu;
 	peer->params.id = follower->id;

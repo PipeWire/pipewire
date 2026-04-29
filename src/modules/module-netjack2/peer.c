@@ -967,14 +967,18 @@ static int netjack2_recv_opus(struct netjack2_peer *peer, struct nj2_packet_head
 
 	for (i = 0; i < active_ports; i++) {
 		uint16_t *ap = SPA_PTROFF(encoded_data, i * max_encoded, uint16_t);
+		uint16_t encoded_len = ntohs(ap[0]);
 		void *pcm;
 		int res;
 
 		if (i >= n_info || (pcm = info[i].data) == NULL)
 			continue;
 
+		if (encoded_len > max_encoded - sizeof(uint16_t))
+			continue;
+
 		res = opus_custom_decode_float(peer->opus_dec[i],
-				(unsigned char*)&ap[1], ntohs(ap[0]),
+				(unsigned char*)&ap[1], encoded_len,
 				pcm, peer->sync.frames);
 
 		if (res < 0 || res > 0xffff || res != peer->sync.frames)

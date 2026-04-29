@@ -982,10 +982,16 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	follower->sink.direction = PW_DIRECTION_INPUT;
 	follower->sink.props = pw_properties_copy(impl->sink_props);
 
+	if (follower->source.props == NULL || follower->sink.props == NULL) {
+		res = -errno;
+		pw_log_error("can't create properties: %m");
+		goto cleanup;
+	}
+
 	if ((res = parse_audio_info(follower->source.props, &follower->source.info)) < 0 ||
 	    (res = parse_audio_info(follower->sink.props, &follower->sink.info)) < 0) {
 		pw_log_error("can't parse format: %s", spa_strerror(res));
-		return res;
+		goto cleanup;
 	}
 
 	follower->source.n_audio = pw_properties_get_uint32(follower->source.props,
@@ -1117,7 +1123,10 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	peer->send_volume = &follower->sink.volume;
 	peer->recv_volume = &follower->source.volume;
 	peer->quantum_limit = impl->quantum_limit;
-	netjack2_init(peer);
+	if ((res = netjack2_init(peer)) < 0) {
+		pw_log_error("can't init peer: %s", spa_strerror(res));
+		goto cleanup;
+	}
 
 	int bufsize = SPA_MIN((size_t)NETWORK_MAX_LATENCY * (peer->params.mtu +
 		(size_t)follower->period_size * sizeof(float) *

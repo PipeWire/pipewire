@@ -675,6 +675,8 @@ static DBusHandlerResult hsphfpd_new_audio_connection(DBusConnection *conn, DBus
 
 	transport_data = transport->user_data;
 	transport_data->transport_path = strdup(transport_path);
+	if (transport_data->transport_path == NULL)
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	transport_data->rx_soft_volume = (rx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE);
 	transport_data->tx_soft_volume = (tx_volume_control != HSPHFPD_VOLUME_CONTROL_REMOTE);
 	transport_data->rx_volume_gain = rx_volume_gain;
@@ -974,11 +976,15 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 				{
 					const char *value;
 					dbus_message_iter_get_basic(&value_i, &value);
-					if (spa_streq(key, "RemoteAddress"))
+					if (spa_streq(key, "RemoteAddress")) {
 						endpoint->remote_address = strdup(value);
-					else if (spa_streq(key, "LocalAddress"))
+						if (endpoint->remote_address == NULL)
+							return DBUS_HANDLER_RESULT_NEED_MEMORY;
+					} else if (spa_streq(key, "LocalAddress")) {
 						endpoint->local_address = strdup(value);
-					else if (spa_streq(key, "Profile")) {
+						if (endpoint->local_address == NULL)
+							return DBUS_HANDLER_RESULT_NEED_MEMORY;
+					} else if (spa_streq(key, "Profile")) {
 						if (endpoint->profile)
 							spa_log_warn(backend->log, "Endpoint %s received a duplicate '%s' property, ignoring", endpoint->path, key);
 						else if (spa_streq(value, "headset"))
@@ -1076,6 +1082,8 @@ static DBusHandlerResult hsphfpd_parse_endpoint_properties(struct impl *backend,
 	}
 
 	char *t_path = strdup(endpoint->path);
+	if (t_path == NULL)
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	t = spa_bt_transport_create(backend->monitor, t_path, sizeof(struct hsphfpd_transport_data));
 	if (t == NULL) {
 		spa_log_warn(backend->log, "can't create transport: %m");
@@ -1138,7 +1146,13 @@ static DBusHandlerResult hsphfpd_parse_interfaces(struct impl *backend, DBusMess
 			endpoint = endpoint_find(backend, path);
 			if (!endpoint) {
 				endpoint = calloc(1, sizeof(struct hsphfpd_endpoint));
+				if (endpoint == NULL)
+					return DBUS_HANDLER_RESULT_NEED_MEMORY;
 				endpoint->path = strdup(path);
+				if (endpoint->path == NULL) {
+					free(endpoint);
+					return DBUS_HANDLER_RESULT_NEED_MEMORY;
+				}
 				spa_list_append(&backend->endpoint_list, &endpoint->link);
 				spa_log_debug(backend->log, "Found endpoint %s", path);
 			}
@@ -1224,6 +1238,8 @@ static int hsphfpd_register(struct impl *backend)
 	}
 
 	backend->hsphfpd_service_id = strdup(dbus_message_get_sender(r));
+	if (backend->hsphfpd_service_id == NULL)
+		return -ENOMEM;
 
 	spa_log_debug(backend->log, "Registered to hsphfpd");
 

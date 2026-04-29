@@ -17,6 +17,8 @@
 struct message *reply_new(const struct client *client, uint32_t tag)
 {
 	struct message *reply = message_alloc(client->impl, -1, 0);
+	if (reply == NULL)
+		return NULL;
 
 	pw_log_debug("client %p: new reply tag:%u", client, tag);
 
@@ -55,6 +57,9 @@ int reply_error(struct client *client, uint32_t command, uint32_t tag, int res)
 	       client, client->name, command, name, tag, error, spa_strerror(res));
 
 	reply = message_alloc(impl, -1, 0);
+	if (reply == NULL)
+		return -ENOMEM;
+
 	message_put(reply,
 		TAG_U32, COMMAND_ERROR,
 		TAG_U32, tag,

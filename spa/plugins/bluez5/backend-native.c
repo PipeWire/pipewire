@@ -584,6 +584,8 @@ static ssize_t rfcomm_send_cmd(struct rfcomm *rfcomm, int next_state, DBusMessag
 	va_list args;
 
 	cmd = calloc(1, sizeof(struct rfcomm_cmd));
+	if (cmd == NULL)
+		return -ENOMEM;
 
 	va_start(args, format);
 	len = vsnprintf(cmd->cmd, RFCOMM_MESSAGE_MAX_LENGTH + 1, format, args);
@@ -2342,6 +2344,8 @@ static bool rfcomm_hfp_hf(struct rfcomm *rfcomm, char* token)
 		if (SPA_LIKELY (parsed)) {
 			struct updated_call *updated_call;
 			updated_call = calloc(1, sizeof(struct updated_call));
+			if (updated_call == NULL)
+				return false;
 			updated_call->id = idx;
 			spa_list_append(&rfcomm->updated_call_list, &updated_call->link);
 

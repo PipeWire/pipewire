@@ -304,8 +304,11 @@ static int do_extension_stream_restore_write(struct module *module, struct clien
 		}
 		if (device_name != NULL && device_name[0] &&
 		    (client->default_source == NULL || !spa_streq(device_name, client->default_source)) &&
-		    (client->default_sink == NULL || !spa_streq(device_name, client->default_sink)))
-			fprintf(f, ", \"target-node\": \"%s\"", device_name);
+		    (client->default_sink == NULL || !spa_streq(device_name, client->default_sink))) {
+			char target[1024];
+			spa_json_encode_string(target, sizeof(target), device_name);
+			fprintf(f, ", \"target-node\": %s", target);
+		}
 		fprintf(f, " }");
 		fclose(f);
 		if (key_from_name(name, key, sizeof(key)) >= 0) {

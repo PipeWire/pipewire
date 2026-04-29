@@ -4684,6 +4684,9 @@ static int do_update_stream_sample_rate(struct client *client, uint32_t command,
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 		return -ENOENT;
 
+	if (rate == 0 || rate > RATE_MAX)
+		return -EINVAL;
+
 	stream->rate = rate;
 
 	corr = (float)rate/(float)stream->ss.rate;

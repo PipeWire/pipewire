@@ -83,6 +83,7 @@ struct client {
 	uint32_t n_operations;
 
 	struct spa_list pending_samples;
+	uint32_t n_pending_samples;
 
 	unsigned int disconnect:1;
 	unsigned int new_msg_since_last_flush:1;

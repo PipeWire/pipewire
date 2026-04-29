@@ -9,6 +9,7 @@
 #include "client.h"
 #include "collect.h"
 #include "commands.h"
+#include "defs.h"
 #include "internal.h"
 #include "log.h"
 #include "message.h"
@@ -106,7 +107,12 @@ static const struct client_events client_events = {
 int pending_sample_new(struct client *client, struct sample *sample, struct pw_properties *props, uint32_t tag)
 {
 	struct pending_sample *ps;
-	struct sample_play *p = sample_play_new(client->core, sample, props, sizeof(*ps));
+	struct sample_play *p;
+
+	if (client->n_pending_samples >= MAX_PENDING_SAMPLES)
+		return -ENOSPC;
+
+	p = sample_play_new(client->core, sample, props, sizeof(*ps));
 	if (!p)
 		return -errno;
 
@@ -117,6 +123,7 @@ int pending_sample_new(struct client *client, struct sample *sample, struct pw_p
 	sample_play_add_listener(p, &ps->listener, &sample_play_events, ps);
 	client_add_listener(client, &ps->client_listener, &client_events, ps);
 	spa_list_append(&client->pending_samples, &ps->link);
+	client->n_pending_samples++;
 	client->ref++;
 
 	return 0;
@@ -127,6 +134,7 @@ void pending_sample_free(struct pending_sample *ps)
 	struct client * const client = ps->client;
 	struct impl * const impl = client->impl;
 
+	client->n_pending_samples--;
 	spa_list_remove(&ps->link);
 	spa_hook_remove(&ps->listener);
 	spa_hook_remove(&ps->client_listener);

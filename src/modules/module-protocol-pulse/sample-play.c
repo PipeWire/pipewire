@@ -100,7 +100,7 @@ static void sample_play_stream_process(void *data)
 	if (b->requested)
 		size = SPA_MIN(size, b->requested * p->stride);
 
-	memcpy(d, s->buffer + p->offset, size);
+	memcpy(d, s->buffer + (p->offset % MAXLENGTH), size);
 
 	p->offset += size;
 

@@ -207,6 +207,19 @@ static void mark_gptp_info_dirty(struct gptp *gptp)
 	ifs->gptp_info_dirty = true;
 }
 
+static void mark_as_path_dirty(struct gptp *gptp)
+{
+	struct descriptor *d = server_find_descriptor(gptp->server,
+			AVB_AEM_DESC_AVB_INTERFACE, 0);
+	struct aecp_aem_avb_interface_state *ifs;
+
+	if (d == NULL) {
+		return;
+	}
+	ifs = d->ptr;
+	ifs->as_path_dirty = true;
+}
+
 static void update_avb_interface_default(struct gptp *gptp,
 		const struct ptp_default_data_set *dds)
 {
@@ -468,6 +481,7 @@ static void handle_path_trace_list(struct gptp *gptp,
 		memcpy(gptp->path_trace, new_path, entries * sizeof(uint64_t));
 		gptp->path_trace_count = entries;
 		gptp->path_trace_valid = true;
+		mark_as_path_dirty(gptp);
 	}
 }
 

@@ -642,6 +642,10 @@ void avb_aecp_aem_periodic(struct aecp *aecp, int64_t now)
 				emit_unsol_get_avb_info(aecp, i);
 				ifs->gptp_info_dirty = false;
 			}
+			if (ifs->as_path_dirty) {
+				cmd_get_as_path_emit_unsol_milan_v12(aecp, i);
+				ifs->as_path_dirty = false;
+			}
 		}
 	}
 }

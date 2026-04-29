@@ -5162,13 +5162,15 @@ static int do_load_module(struct client *client, uint32_t command, uint32_t tag,
 	pw_log_info("[%s] %s name:%s argument:%s",
 			client->name, commands[command].name, name, argument);
 
-	module = module_create(impl, name, argument);
-	if (module == NULL)
-		return -errno;
-
 	pm = calloc(1, sizeof(*pm));
 	if (pm == NULL)
 		return -errno;
+
+	module = module_create(impl, name, argument);
+	if (module == NULL) {
+		free(pm);
+		return -errno;
+	}
 
 	pm->tag = tag;
 	pm->client = client;

@@ -4802,10 +4802,12 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 		else if (spa_strendswith(name, ".monitor"))
 			name = strndupa(name, strlen(name)-8);
 
+		char val[1024];
+		spa_json_encode_string(val, sizeof(val), name);
 		res = pw_manager_set_metadata(manager, client->metadata_default,
 				PW_ID_CORE,
 				sink ? METADATA_CONFIG_DEFAULT_SINK : METADATA_CONFIG_DEFAULT_SOURCE,
-				"Spa:String:JSON", "{ \"name\": \"%s\" }", name);
+				"Spa:String:JSON", "{ \"name\": %s }", val);
 	} else {
 		res = pw_manager_set_metadata(manager, client->metadata_default,
 				PW_ID_CORE,

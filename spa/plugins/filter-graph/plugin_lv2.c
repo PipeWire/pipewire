@@ -74,10 +74,19 @@ static LV2_URID uri_table_map(LV2_URID_Map_Handle handle, const char *uri)
 			return i+1;
 
 	if (table->len == table->alloc) {
+		char **p;
 		table->alloc += 64;
-		table->data = realloc(table->data, table->alloc * sizeof(char *));
+		p = realloc(table->data, table->alloc * sizeof(char *));
+		if (p == NULL) {
+			table->alloc -= 64;
+			return 0;
+		}
+		table->data = p;
  	}
-	table->data[table->len++] = strdup(uri);
+	table->data[table->len] = strdup(uri);
+	if (table->data[table->len] == NULL)
+		return 0;
+	table->len++;
 	return table->len;
 }
 
@@ -323,7 +332,12 @@ static const void *state_retrieve_function(LV2_State_Handle handle,
 			if ((len = spa_json_container_len(&it[0], val, len)) <= 0)
 				return NULL;
 
-		sd->tmp = realloc(sd->tmp, len+1);
+		{
+			char *tmp = realloc(sd->tmp, len+1);
+			if (tmp == NULL)
+				return NULL;
+			sd->tmp = tmp;
+		}
 		spa_json_parse_stringn(val, len, sd->tmp, len+1);
 
 		spa_log_info(p->log, "lv2: restore %d %s %s", key, uri, sd->tmp);

@@ -2707,6 +2707,8 @@ static int do_cork_stream(struct client *client, uint32_t command, uint32_t tag,
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
 		return -ENOENT;
+	if (stream->create_tag != SPA_ID_INVALID)
+		return -ENOENT;
 
 	stream_set_corked(stream, cork);
 	if (cork) {
@@ -2736,6 +2738,8 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
+		return -ENOENT;
+	if (stream->create_tag != SPA_ID_INVALID)
 		return -ENOENT;
 
 	switch (command) {
@@ -3237,6 +3241,8 @@ static int do_set_stream_name(struct client *client, uint32_t command, uint32_t 
 
 	stream = pw_map_lookup(&client->streams, channel);
 	if (stream == NULL || stream->type == STREAM_TYPE_UPLOAD)
+		return -ENOENT;
+	if (stream->create_tag != SPA_ID_INVALID)
 		return -ENOENT;
 
 	items[0] = SPA_DICT_ITEM_INIT(PW_KEY_MEDIA_NAME, name);

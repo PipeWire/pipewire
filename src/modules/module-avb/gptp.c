@@ -224,7 +224,7 @@ static int send_management_request(struct gptp *gptp, uint16_t management_id,
 	spa_zero(req);
 
 	seq = gptp->ptp_seq++;
-	req.major_sdo_id_message_type = PTP_MESSAGE_TYPE_MANAGEMENT;
+	req.major_sdo_id_message_type = PTP_GPTP_MANAGEMENT_TYPE;
 	req.ver = PTP_VERSION_1588_2008_2_1;
 	req.message_length_be = htons(sizeof(struct ptp_management_msg));
 	spa_zero(req.clock_identity);

@@ -2287,16 +2287,28 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 	if (pinputs != NULL) {
 		graph->n_input_names = count_array(pinputs);
 		graph->input_names = calloc(graph->n_input_names, sizeof(char *));
+		if (graph->input_names == NULL)
+			return -ENOMEM;
 		graph->n_input_names = 0;
-		while (spa_json_get_string(pinputs, key, sizeof(key)) > 0)
-			graph->input_names[graph->n_input_names++] = strdup(key);
+		while (spa_json_get_string(pinputs, key, sizeof(key)) > 0) {
+			graph->input_names[graph->n_input_names] = strdup(key);
+			if (graph->input_names[graph->n_input_names] == NULL)
+				return -ENOMEM;
+			graph->n_input_names++;
+		}
 	}
 	if (poutputs != NULL) {
 		graph->n_output_names = count_array(poutputs);
 		graph->output_names = calloc(graph->n_output_names, sizeof(char *));
+		if (graph->output_names == NULL)
+			return -ENOMEM;
 		graph->n_output_names = 0;
-		while (spa_json_get_string(poutputs, key, sizeof(key)) > 0)
-			graph->output_names[graph->n_output_names++] = strdup(key);
+		while (spa_json_get_string(poutputs, key, sizeof(key)) > 0) {
+			graph->output_names[graph->n_output_names] = strdup(key);
+			if (graph->output_names[graph->n_output_names] == NULL)
+				return -ENOMEM;
+			graph->n_output_names++;
+		}
 	}
 	if ((res = setup_graph_controls(graph)) < 0)
 		return res;

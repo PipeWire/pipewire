@@ -739,6 +739,7 @@ static inline int32_t netjack2_driver_sync_wait(struct netjack2_peer *peer)
 	peer->sync.frames = ntohl(sync.frames);
 	if (peer->sync.frames == -1)
 		peer->sync.frames = peer->params.period_size;
+	peer->sync.frames = SPA_MIN(peer->sync.frames, (int32_t)peer->quantum_limit);
 
 	return peer->sync.frames;
 
@@ -774,6 +775,7 @@ static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
 	peer->sync.frames = ntohl(sync.frames);
 	if (peer->sync.frames == -1)
 		peer->sync.frames = peer->params.period_size;
+	peer->sync.frames = SPA_MIN(peer->sync.frames, (int32_t)peer->quantum_limit);
 
 	offset = peer->cycle - peer->sync.cycle;
 	if (offset < (int32_t)peer->params.network_latency) {
@@ -864,7 +866,7 @@ static int netjack2_recv_float(struct netjack2_peer *peer, struct nj2_packet_hea
 	if (active_ports == 0 || active_ports > MAX_CHANNELS)
 		return 0;
 
-	uint32_t nframes = SPA_MIN((uint32_t)peer->sync.frames, peer->quantum_limit);
+	uint32_t nframes = peer->sync.frames;
 	uint32_t max_size = PACKET_AVAILABLE_SIZE(peer->params.mtu);
 	uint32_t overhead = active_ports * sizeof(int32_t);
 	if (max_size <= overhead) {

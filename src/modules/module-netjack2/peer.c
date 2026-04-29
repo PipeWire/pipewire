@@ -365,26 +365,35 @@ static inline void netjack2_to_midi(float *dst, uint32_t size, struct nj2_midi_b
 	struct spa_pod_builder b = { 0, };
 	uint32_t i;
 	struct spa_pod_frame f;
-	size_t offset = size - buf->write_pos - sizeof(*buf) -
-			(buf->event_count * sizeof(struct nj2_midi_event));
+	size_t used = sizeof(*buf) +
+			(buf->event_count * sizeof(struct nj2_midi_event)) +
+			buf->write_pos;
 
 	spa_pod_builder_init(&b, dst, size);
 	spa_pod_builder_push_sequence(&b, &f, 0);
+
+	if (used > size)
+		goto done;
+
+	size_t offset = size - used;
 
 	for (i = 0; i < buf->event_count; i++) {
 		struct nj2_midi_event *ev = &buf->event[i];
 		uint8_t *data;
 
-		if (ev->size <= MIDI_INLINE_MAX)
+		if (ev->size <= MIDI_INLINE_MAX) {
 			data = ev->buffer;
-		else if (ev->offset > offset)
+		} else if (ev->offset > offset &&
+			   ev->offset - offset + ev->size <= used) {
 			data = SPA_PTROFF(buf, ev->offset - offset, void);
-		else
+		} else {
 			continue;
+		}
 
 		spa_pod_builder_control(&b, ev->time, SPA_CONTROL_Midi);
                 spa_pod_builder_bytes(&b, data, ev->size);
 	}
+done:
 	spa_pod_builder_pop(&b, &f);
 }
 

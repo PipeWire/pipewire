@@ -1545,21 +1545,19 @@ static int parse_sdp_m(struct impl *impl, char *c, struct sdp_info *info)
  * This is Audinate format. TODO: parse RAVENNA `i=CH1,CH2,CH3` format */
 static int parse_sdp_i(struct impl *impl, char *c, struct sdp_info *info)
 {
-	if (!strstr(c, " channels: ")) {
+	char *chstr;
+	uint32_t channels;
+
+	chstr = strstr(c, " channels: ");
+	if (chstr == NULL)
 		return 0;
-	}
 
 	c += strlen("i=");
-	c[strcspn(c, " ")] = '\0';
-
-	uint32_t channels;
 	if (sscanf(c, "%u", &channels) != 1 || channels <= 0 || channels > MAX_CHANNELS)
 		return 0;
 
-	c += strcspn(c, "\0");
-	c += strlen(" channels: ");
-
-	strncpy(info->channelmap, c, sizeof(info->channelmap) - 1);
+	chstr += strlen(" channels: ");
+	strncpy(info->channelmap, chstr, sizeof(info->channelmap) - 1);
 
 	return 0;
 }
@@ -1875,7 +1873,7 @@ finish:
 	return res;
 
 error:
-	if (fd > 0)
+	if (fd >= 0)
 		close(fd);
 	goto finish;
 }

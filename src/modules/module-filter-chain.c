@@ -1359,8 +1359,10 @@ static void do_process(struct impl *impl)
 				bd->chunk->stride = sizeof(float);
 			}
 		}
-		pw_log_trace_fp("%p: size:%d requested:%"PRIu64, impl,
-				data_size, out->requested);
+		if (out != NULL) {
+			pw_log_trace_fp("%p: size:%d requested:%"PRIu64, impl,
+					data_size, out->requested);
+		}
 	}
 
 	for (; n_in < impl->n_inputs; i++)
@@ -2096,7 +2098,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	} else if (impl->capture_info.rate && !impl->playback_info.rate)
 		impl->playback_info.rate = impl->capture_info.rate;
 	else if (impl->playback_info.rate && !impl->capture_info.rate)
-		impl->capture_info.rate = !impl->playback_info.rate;
+		impl->capture_info.rate = impl->playback_info.rate;
 	else if (impl->capture_info.rate != impl->playback_info.rate) {
 		pw_log_warn("Both capture and playback rate are set, but"
 			" they are different. Using the highest of two. This behaviour"

@@ -1902,7 +1902,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.ts-refclk");
 	copy_props(impl, props, "sess.ts-direct");
 
-	impl->mtu = pw_properties_get_uint32(impl->props, "net.mtu", 1448);
+	impl->mtu = SPA_MIN(pw_properties_get_uint32(impl->props, "net.mtu", 1448), 9000u);
 	impl->sync_period = impl->rate / (impl->mtu / impl->stride);
 	impl->core = pw_context_get_object(impl->context, PW_TYPE_INTERFACE_Core);
 	if (impl->core == NULL) {

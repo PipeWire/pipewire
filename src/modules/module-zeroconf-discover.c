@@ -241,6 +241,8 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 
 	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 	type = spa_dict_lookup(info, PW_KEY_ZEROCONF_TYPE);
+	if (name == NULL || type == NULL)
+		goto done;
 	mode = strstr(type, "sink") ? "sink" : "source";
 
 	tinfo = TUNNEL_INFO(.name = name, .mode = mode);
@@ -267,6 +269,8 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 		pw_properties_from_zeroconf(it->key, it->value, props);
 
 	host_name = spa_dict_lookup(info, PW_KEY_ZEROCONF_HOSTNAME);
+	if (host_name == NULL)
+		host_name = "unknown";
 
 	if ((device = pw_properties_get(props, PW_KEY_TARGET_OBJECT)) != NULL)
 		pw_properties_setf(props, PW_KEY_NODE_NAME,
@@ -277,9 +281,14 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 
 	pw_properties_set(props, "tunnel.mode", mode);
 
-	pw_properties_setf(props, "pulse.server.address", " [%s]:%s",
-			spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS),
-			spa_dict_lookup(info, PW_KEY_ZEROCONF_PORT));
+	{
+		const char *address = spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS);
+		const char *port = spa_dict_lookup(info, PW_KEY_ZEROCONF_PORT);
+		if (address == NULL || port == NULL)
+			goto done;
+		pw_properties_setf(props, "pulse.server.address", " [%s]:%s",
+				address, port);
+	}
 
 	desc = pw_properties_get(props, "tunnel.remote.description");
 	if (desc == NULL)
@@ -349,6 +358,8 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 
 	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 	type = spa_dict_lookup(info, PW_KEY_ZEROCONF_TYPE);
+	if (name == NULL || type == NULL)
+		return;
 	mode = strstr(type, "sink") ? "sink" : "source";
 
 	tinfo = TUNNEL_INFO(.name = name, .mode = mode);

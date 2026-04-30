@@ -1065,7 +1065,7 @@ int servers_create_and_start(struct impl *impl, const char *addresses, struct pw
 				continue;
 			}
 
-			server->max_clients = max_clients;
+			server->max_clients = SPA_MAX(max_clients, 0);
 			server->listen_backlog = listen_backlog;
 			memcpy(server->client_access, client_access, sizeof(client_access));
 

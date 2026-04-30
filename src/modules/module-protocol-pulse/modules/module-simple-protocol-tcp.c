@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/json.h>
 #include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
 
@@ -169,8 +170,13 @@ static int module_simple_protocol_tcp_prepare(struct module * const module)
 		port = "4711";
 	listen = pw_properties_get(props, "listen");
 
-	pw_properties_setf(module_props, "server.address", "[ \"tcp:%s%s%s\" ]",
-			listen ? listen : "", listen ? ":" : "", port);
+	{
+		char address[1024], encoded[1024];
+		snprintf(address, sizeof(address), "tcp:%s%s%s",
+				listen ? listen : "", listen ? ":" : "", port);
+		spa_json_encode_string(encoded, sizeof(encoded), address);
+		pw_properties_setf(module_props, "server.address", "[ %s ]", encoded);
+	}
 
 	d->module = module;
 	d->module_props = module_props;

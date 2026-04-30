@@ -750,16 +750,17 @@ static int format_info_iec958_from_param(struct format_info *info, struct spa_po
 	if (val->type != SPA_TYPE_Id)
 		return -ENOTSUP;
 
-	if (index >= n_values)
-		return -ENOENT;
-
 	values = SPA_POD_BODY(val);
 
 	switch (choice) {
 	case SPA_CHOICE_None:
+		if (index >= n_values)
+			return -ENOENT;
 		info->encoding = format_encoding_from_id(values[index]);
 		break;
 	case SPA_CHOICE_Enum:
+		if (index + 1 >= n_values)
+			return -ENOENT;
 		info->encoding = format_encoding_from_id(values[index+1]);
 		break;
 	default:

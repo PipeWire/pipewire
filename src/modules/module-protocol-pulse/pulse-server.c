@@ -586,6 +586,8 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 			client->name, stream->create_tag, stream->index, missing, lat_usec);
 
 	reply = reply_new(client, stream->create_tag);
+	if (reply == NULL)
+		return -ENOMEM;
 	message_put(reply,
 		TAG_U32, stream->channel,		/* stream index/channel */
 		TAG_U32, stream->index,			/* sink_input/stream index */
@@ -742,6 +744,8 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 			client->name, stream->create_tag, stream->index, lat_usec);
 
 	reply = reply_new(client, stream->create_tag);
+	if (reply == NULL)
+		return -ENOMEM;
 	message_put(reply,
 		TAG_U32, stream->channel,	/* stream index/channel */
 		TAG_U32, stream->index,		/* source_output/stream index */

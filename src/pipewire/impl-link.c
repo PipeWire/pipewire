@@ -457,7 +457,12 @@ static int do_negotiate(struct pw_impl_link *this)
 		goto error;
 	}
 
-	format = spa_pod_copy(format);
+	if ((format = spa_pod_copy(format)) == NULL) {
+		error = spa_aprintf("error copy format: %m");
+		res = -errno;
+		goto error;
+	}
+
 	pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);
 	spa_pod_fixate(format);
 	pw_log_pod(SPA_LOG_LEVEL_DEBUG, format);

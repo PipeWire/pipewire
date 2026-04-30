@@ -2572,7 +2572,10 @@ static struct pw_manager_object *find_device(struct client *client,
 	if (name != NULL) {
 		if (spa_strendswith(name, ".monitor")) {
 			if (!sink) {
-				name = strndupa(name, strlen(name)-8);
+				size_t len = strlen(name) - 8;
+				if (len > MAX_NAME)
+					return NULL;
+				name = strndupa(name, len);
 				allow_monitor = true;
 			}
 		}
@@ -4818,8 +4821,12 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 			return -ENOENT;
 		if (o->props && (str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) != NULL)
 			name = str;
-		else if (spa_strendswith(name, ".monitor"))
-			name = strndupa(name, strlen(name)-8);
+		else if (spa_strendswith(name, ".monitor")) {
+			size_t len = strlen(name) - 8;
+			if (len > MAX_NAME)
+				return -ENAMETOOLONG;
+			name = strndupa(name, len);
+		}
 
 		struct spa_json_builder b;
 		char *val;

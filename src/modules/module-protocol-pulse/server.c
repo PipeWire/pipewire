@@ -447,10 +447,10 @@ on_connect(void *data, int fd, uint32_t mask)
 
 #ifdef SO_PRIORITY
 		val = 6;
-		if (setsockopt(client_fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
+		if (setsockopt(client->source->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(SO_PRIORITY) failed: %m");
 #endif
-		pid = get_client_pid(client, client_fd);
+		pid = get_client_pid(client, client->source->fd);
 		if (pid != 0 && pw_check_flatpak(pid, &app_id, &instance_id, &devices) == 1) {
 			/*
 			 * XXX: we should really use Portal client access here
@@ -486,7 +486,7 @@ on_connect(void *data, int fd, uint32_t mask)
 		}
 		// check SNAP permissions
 #ifdef HAVE_SNAP
-		snap_access = pw_snap_get_audio_permissions(client, client_fd, &snap_app_id);
+		snap_access = pw_snap_get_audio_permissions(client, client->source->fd, &snap_app_id);
 		if ((snap_access & PW_SANDBOX_ACCESS_NOT_A_SANDBOX) == 0) {
 			pw_properties_set(client->props, PW_KEY_SNAP_ID, snap_app_id);
 
@@ -503,12 +503,12 @@ on_connect(void *data, int fd, uint32_t mask)
 	else if (server->addr.ss_family == AF_INET || server->addr.ss_family == AF_INET6) {
 
 		val = 1;
-		if (setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) < 0)
+		if (setsockopt(client->source->fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(TCP_NODELAY) failed: %m");
 
 		if (server->addr.ss_family == AF_INET) {
 			val = IPTOS_LOWDELAY;
-			if (setsockopt(client_fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
+			if (setsockopt(client->source->fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
 				pw_log_warn("setsockopt(IP_TOS) failed: %m");
 		}
 		if (client_access == NULL)

@@ -257,6 +257,9 @@ static int module_switch_on_connect_prepare(struct module * const module)
 	if ((str = pw_properties_get(props, "blocklist")) == NULL)
 		str = DEFAULT_BLOCKLIST;
 
+	if (strlen(str) > 1024)
+		return -EINVAL;
+
 	if (regcomp(&d->blocklist, str, REG_NOSUB | REG_EXTENDED) != 0)
 		return -EINVAL;
 

@@ -361,6 +361,8 @@ int message_get(struct message *m, ...)
 			if ((res = read_format_info(m, va_arg(va, struct format_info*))) < 0)
 				goto done;
 			break;
+		default:
+			goto invalid;
 		}
 	}
 	res = 0;

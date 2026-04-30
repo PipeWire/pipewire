@@ -389,6 +389,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args_str)
 	pw_context_conf_update_props(context, "module."NAME".args", args);
 
 	impl->socket_access = pw_properties_new(NULL, NULL);
+	if (impl->socket_access == NULL) {
+		res = -errno;
+		goto error;
+	}
 
 	if ((res = parse_args(impl, props, args)) < 0)
 		goto error;

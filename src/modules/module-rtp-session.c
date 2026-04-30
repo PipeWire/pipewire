@@ -1417,9 +1417,11 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 
 	if ((res = pw_net_parse_address(address, port, &sess->ctrl_addr, &sess->ctrl_len)) < 0) {
 		pw_log_error("invalid address %s: %s", address, spa_strerror(res));
+		goto error;
 	}
 	if ((res = pw_net_parse_address(address, port+1, &sess->data_addr, &sess->data_len)) < 0) {
 		pw_log_error("invalid address %s: %s", address, spa_strerror(res));
+		goto error;
 	}
 	return;
 error:

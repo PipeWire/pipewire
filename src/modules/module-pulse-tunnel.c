@@ -1149,6 +1149,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	spa_ringbuffer_init(&impl->ring);
 	impl->buffer = calloc(1, RINGBUFFER_SIZE);
+	if (impl->buffer == NULL) {
+		res = -errno;
+		goto error;
+	}
 	spa_dll_init(&impl->dll);
 	impl->rate_limit.interval = 2 * SPA_NSEC_PER_SEC;
 	impl->rate_limit.burst = 1;

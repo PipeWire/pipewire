@@ -741,6 +741,8 @@ static struct spa_thread *impl_create(void *object, const struct spa_dict *props
 	struct spa_thread *thread;
 
 	this = calloc(1, sizeof(*this));
+	if (this == NULL)
+		return NULL;
 	this->impl = impl;
 	this->start = start_routine;
 	this->arg = arg;

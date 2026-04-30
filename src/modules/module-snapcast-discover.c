@@ -351,7 +351,7 @@ static int process_input(struct tunnel *t)
 	int res = 0;
 
 	while (true) {
-		res = read(t->source->fd, buffer, sizeof(buffer));
+		res = read(t->source->fd, buffer, sizeof(buffer) - 1);
 		if (res == 0)
 			return -EPIPE;
 		if (res < 0) {
@@ -362,6 +362,7 @@ static int process_input(struct tunnel *t)
 				return res;
 			break;
 		}
+		buffer[res] = '\0';
 	}
 
 	pw_log_info("received: %s", buffer);

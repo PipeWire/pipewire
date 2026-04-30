@@ -185,7 +185,9 @@ static int module_combine_sink_load(struct module *module)
 	} else {
 		for (i = 0; data->sink_names[i] != NULL; i++) {
 			char name[1024];
-			spa_json_encode_string(name, sizeof(name)-1, data->sink_names[i]);
+			if (spa_json_encode_string(name, sizeof(name), data->sink_names[i]) >= (int)sizeof(name))
+				continue;
+
 			fprintf(f, "  { matches = [ { media.class = \"Audio/Sink\" ");
 			fprintf(f, " node.name = %s } ]", name);
 			fprintf(f, "    actions = { create-stream = { } } }");

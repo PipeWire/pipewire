@@ -287,11 +287,17 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 		switch (p->id) {
 		case SPA_PARAM_EnumFormat:
 		{
-			struct spa_pod *copy = spa_pod_copy(p->param);
-			spa_pod_fixate(copy);
-			format_parse_param(copy, true, &dev_info->ss, &dev_info->map,
+			struct spa_pod *to_free = NULL, *c = p->param;
+			if (!spa_pod_is_fixated(c)) {
+				to_free = spa_pod_copy(c);
+				if (to_free == NULL)
+					break;
+				spa_pod_fixate(to_free);
+				c = to_free;
+			}
+			format_parse_param(c, true, &dev_info->ss, &dev_info->map,
 					&defs->sample_spec, &defs->channel_map);
-			free(copy);
+			free(to_free);
 			break;
 		}
 		case SPA_PARAM_Format:

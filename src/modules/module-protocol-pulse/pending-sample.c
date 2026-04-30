@@ -50,7 +50,6 @@ static void sample_play_ready_reply(void *data, struct client *client, uint32_t 
 			message_put(reply,
 				TAG_U32, index,
 				TAG_INVALID);
-
 		client_queue_message(client, reply);
 		ps->replied = true;
 	}

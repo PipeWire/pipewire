@@ -33,7 +33,7 @@ static gboolean check_is_same_snap(gchar *snap1, gchar *snap2)
 	strings1 = g_strsplit(snap1, ".", 3);
 	strings2 = g_strsplit(snap2, ".", 3);
 
-	if (g_str_equal(strings1[1], strings2[1]) && (strings1[1] != NULL)) {
+	if (strings1[1] != NULL && strings2[1] != NULL && g_str_equal(strings1[1], strings2[1])) {
 		return TRUE;
 	}
 	return FALSE;

@@ -633,11 +633,11 @@ const struct spa_pod *format_build_param(struct spa_pod_builder *b, uint32_t id,
 			SPA_FORMAT_AUDIO_channels,      SPA_POD_Int(spec->channels), 0);
 
 		if (map && map->channels == spec->channels) {
-			uint32_t positions[spec->channels];
-			channel_map_to_positions(map, positions, spec->channels);
+			uint32_t positions[map->channels];
+			channel_map_to_positions(map, positions, map->channels);
                         spa_pod_builder_add(b, SPA_FORMAT_AUDIO_position,
                                 SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id,
-                                        spec->channels, positions), 0);
+                                        map->channels, positions), 0);
                 }
         }
         return spa_pod_builder_pop(b, &f);

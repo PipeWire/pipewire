@@ -124,6 +124,8 @@ static struct pw_manager_param *add_param(struct spa_list *params,
 static bool has_param(struct spa_list *param_list, struct pw_manager_param *p)
 {
 	struct pw_manager_param *t;
+	if (p->param == NULL)
+		return false;
 	spa_list_for_each(t, param_list, link) {
 		if (p->id == t->id &&
 		   SPA_POD_SIZE(p->param) == SPA_POD_SIZE(t->param) &&

@@ -590,7 +590,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	} else if (impl->capture_info.rate && !impl->playback_info.rate)
 		impl->playback_info.rate = impl->capture_info.rate;
 	else if (impl->playback_info.rate && !impl->capture_info.rate)
-		impl->capture_info.rate = !impl->playback_info.rate;
+		impl->capture_info.rate = impl->playback_info.rate;
 	else if (impl->capture_info.rate != impl->playback_info.rate) {
 		pw_log_warn("Both capture and playback rate are set, but"
 			" they are different. Using the highest of two. This behaviour"

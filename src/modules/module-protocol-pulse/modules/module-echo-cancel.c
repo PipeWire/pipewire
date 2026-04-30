@@ -269,6 +269,10 @@ static int module_echo_cancel_prepare(struct module * const module)
 
 	if ((str = pw_properties_get(props, "aec_method")) == NULL)
 		str = "webrtc";
+	if (strstr(str, "..") != NULL || strchr(str, '/') != NULL) {
+		res = -EINVAL;
+		goto out;
+	}
 	pw_properties_setf(global_props, "library.name", "aec/libspa-aec-%s", str);
 
 	if ((str = pw_properties_get(props, "source_name")) != NULL) {

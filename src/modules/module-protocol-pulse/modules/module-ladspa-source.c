@@ -215,7 +215,8 @@ static int module_ladspa_source_prepare(struct module * const module)
 
 	if ((str = pw_properties_get(playback_props, PW_KEY_NODE_DESCRIPTION)) == NULL) {
 		str = pw_properties_get(playback_props, PW_KEY_NODE_NAME);
-		pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
+		if (str != NULL)
+			pw_properties_setf(props, PW_KEY_NODE_DESCRIPTION,
 					"%s Source", str);
 	} else {
 		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);

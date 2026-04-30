@@ -12,7 +12,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/pod.h>
 #include <spa/utils/defs.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/utils/string.h>
 
 #include <pipewire/pipewire.h>
@@ -67,17 +67,18 @@ static int bluez_card_object_message_handler(struct client *client, struct pw_ma
 				SPA_PARAM_Props, 0, param);
 	} else if (spa_streq(message, "list-codecs")) {
 		uint32_t i;
-		bool first = true;
+		struct spa_json_builder b;
 
-		fputc('[', response);
+		spa_json_builder_file(&b, response, 0);
+		spa_json_builder_array_push(&b, "[");
 		for (i = 0; i < n_codecs; ++i) {
 			const char *desc = codecs[i].description;
-			fprintf(response, "%s{\"name\":\"%d\",\"description\":\"%s\"}",
-					first ? "" : ",",
-					(int)codecs[i].id, desc ? desc : "Unknown");
-			first = false;
+			spa_json_builder_array_push(&b, "{");
+			spa_json_builder_object_stringf(&b, "name", "%d", (int)codecs[i].id);
+			spa_json_builder_object_string(&b, "description", desc ? desc : "Unknown");
+			spa_json_builder_pop(&b, "}");
 		}
-		fputc(']', response);
+		spa_json_builder_pop(&b, "]");
 	} else if (spa_streq(message, "get-codec")) {
 		if (active == SPA_ID_INVALID)
 			fputs("null", response);
@@ -194,18 +195,19 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 				"  pipewire-pulse:bluetooth-headset-autoswitch	use bluetooth headset mic if available"
 				);
 	} else if (spa_streq(message, "list-handlers")) {
-		bool first = true;
+		struct spa_json_builder b;
 
-		fputc('[', response);
+		spa_json_builder_file(&b, response, 0);
+		spa_json_builder_array_push(&b, "[");
 		spa_list_for_each(o, &client->manager->object_list, link) {
 			if (o->message_object_path) {
-				fprintf(response, "%s{\"name\":\"%s\",\"description\":\"%s\"}",
-						first ? "" : ",",
-						o->message_object_path, o->type);
-				first = false;
+				spa_json_builder_array_push(&b, "{");
+				spa_json_builder_object_string(&b, "name", o->message_object_path);
+				spa_json_builder_object_string(&b, "description", o->type);
+				spa_json_builder_pop(&b, "}");
 			}
 		}
-		fputc(']', response);
+		spa_json_builder_pop(&b, "]");
 #ifdef HAVE_MALLOC_INFO
 	} else if (spa_streq(message, "pipewire-pulse:malloc-info")) {
 		malloc_info(0, response);
@@ -219,15 +221,17 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 		int res = pw_log_set_level_string(params);
 		fprintf(response, "%d", res);
 	} else if (spa_streq(message, "pipewire-pulse:list-modules")) {
-		bool first = true;
 		const struct module_info *i = NULL;
-		fputc('[', response);
+		struct spa_json_builder b;
+
+		spa_json_builder_file(&b, response, 0);
+		spa_json_builder_array_push(&b, "[");
 		while ((i = module_info_next(client->impl, i)) != NULL) {
-			fprintf(response, "%s{\"name\":\"%s\"}",
-						first ? "" : ",\n", i->name);
-				first = false;
+			spa_json_builder_array_push(&b, "{");
+			spa_json_builder_object_string(&b, "name", i->name);
+			spa_json_builder_pop(&b, "}");
 		}
-		fputc(']', response);
+		spa_json_builder_pop(&b, "]");
 	} else if (spa_streq(message, "pipewire-pulse:describe-module")) {
 		const struct module_info *i = module_info_find(client->impl, params);
 

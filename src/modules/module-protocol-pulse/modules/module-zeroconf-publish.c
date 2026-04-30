@@ -241,6 +241,8 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 	s->cm = dev_info.map;
 
 	s->props = pw_properties_new(NULL, NULL);
+	if (s->props == NULL)
+		return;
 
 	txt_record_server_data(s->userdata->manager->info, s->props);
 

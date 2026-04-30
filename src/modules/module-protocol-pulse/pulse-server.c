@@ -572,7 +572,8 @@ static int reply_create_playback_stream(struct stream *stream, struct pw_manager
 	const char *peer_name;
 	uint64_t lat_usec;
 
-	stream->buffer = calloc(1, MAXLENGTH);
+	stream->bufsize = MAXLENGTH;
+	stream->buffer = calloc(1, stream->bufsize);
 	if (stream->buffer == NULL)
 		return -errno;
 
@@ -731,7 +732,8 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 	uint32_t peer_index;
 	uint64_t lat_usec;
 
-	stream->buffer = calloc(1, MAXLENGTH);
+	stream->bufsize = MAXLENGTH;
+	stream->buffer = calloc(1, stream->bufsize);
 	if (stream->buffer == NULL)
 		return -errno;
 
@@ -1399,8 +1401,8 @@ do_process_done(struct spa_loop *loop,
 					return -errno;
 
 				spa_ringbuffer_read_data(&stream->ring,
-						stream->buffer, MAXLENGTH,
-						index % MAXLENGTH,
+						stream->buffer, stream->bufsize,
+						index % stream->bufsize,
 						msg->data, towrite);
 
 				client_queue_message(client, msg);
@@ -1472,8 +1474,8 @@ static void stream_process(void *data)
 				if (avail > 0) {
 					avail = SPA_MIN((uint32_t)avail, size);
 					spa_ringbuffer_read_data(&stream->ring,
-						stream->buffer, MAXLENGTH,
-						index % MAXLENGTH,
+						stream->buffer, stream->bufsize,
+						index % stream->bufsize,
 						p, avail);
 					empty = false;
 				}
@@ -1502,8 +1504,8 @@ static void stream_process(void *data)
 			size = SPA_MIN(size, minreq);
 
 			spa_ringbuffer_read_data(&stream->ring,
-					stream->buffer, MAXLENGTH,
-					index % MAXLENGTH,
+					stream->buffer, stream->bufsize,
+					index % stream->bufsize,
 					p, size);
 
 			index += size;
@@ -1539,10 +1541,10 @@ static void stream_process(void *data)
 		}
 
 		spa_ringbuffer_write_data(&stream->ring,
-				stream->buffer, MAXLENGTH,
-				index % MAXLENGTH,
+				stream->buffer, stream->bufsize,
+				index % stream->bufsize,
 				SPA_PTROFF(p, offs, void),
-				SPA_MIN(size, MAXLENGTH));
+				SPA_MIN(size, stream->bufsize));
 
 		index += size;
 		pd.write_inc = size;
@@ -2361,7 +2363,8 @@ static int do_create_upload_stream(struct client *client, uint32_t command, uint
 
 	stream->props = props;
 
-	stream->buffer = calloc(1, MAXLENGTH);
+	stream->bufsize = stream->attr.maxlength;
+	stream->buffer = calloc(1, stream->bufsize);
 	if (stream->buffer == NULL)
 		goto error_errno;
 

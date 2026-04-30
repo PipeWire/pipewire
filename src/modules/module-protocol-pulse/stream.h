@@ -55,6 +55,7 @@ struct stream {
 	struct spa_io_position *position;
 	struct spa_ringbuffer ring;
 	void *buffer;
+	uint32_t bufsize;
 
 	int64_t read_index;
 	int64_t write_index;

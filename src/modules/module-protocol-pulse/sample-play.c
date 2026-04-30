@@ -100,8 +100,7 @@ static void sample_play_stream_process(void *data)
 	if (b->requested)
 		size = SPA_MIN(size, b->requested * p->stride);
 
-	spa_ringbuffer_read_data(NULL, s->buffer, MAXLENGTH,
-			p->offset % MAXLENGTH, d, size);
+	memcpy(d, s->buffer + p->offset, size);
 
 	p->offset += size;
 

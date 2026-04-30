@@ -163,8 +163,7 @@ void stream_free(struct stream *stream)
 
 	pw_work_queue_cancel(impl->work_queue, stream, SPA_ID_INVALID);
 
-	if (stream->buffer)
-		free(stream->buffer);
+	free(stream->buffer);
 
 	pw_properties_free(stream->props);
 

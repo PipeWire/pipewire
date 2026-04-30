@@ -103,7 +103,7 @@ finish:
 static void stream_clear_data(struct stream *stream,
 		uint32_t offset, uint32_t len)
 {
-	uint32_t l0 = SPA_MIN(len, MAXLENGTH - offset), l1 = len - l0;
+	uint32_t l0 = SPA_MIN(len, stream->bufsize - offset), l1 = len - l0;
 	sample_spec_silence(&stream->ss, SPA_PTROFF(stream->buffer, offset, void), l0);
 	if (SPA_UNLIKELY(l1 > 0))
 		sample_spec_silence(&stream->ss, stream->buffer, l1);
@@ -162,7 +162,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 		 * play back old data. FIXME, if the write pointer goes backwards and
 		 * forwards, this might clear valid data. We should probably keep track of
 		 * the highest write pointer and only clear when we go past that one. */
-		stream_clear_data(stream, index % MAXLENGTH, SPA_MIN(diff, MAXLENGTH));
+		stream_clear_data(stream, index % stream->bufsize, SPA_MIN(diff, stream->bufsize));
 	}
 
 	index += diff;
@@ -181,10 +181,10 @@ static int handle_memblock(struct client *client, struct message *msg)
 	/* always write data to ringbuffer, we expect the other side
 	 * to recover */
 	spa_ringbuffer_write_data(&stream->ring,
-			stream->buffer, MAXLENGTH,
-			index % MAXLENGTH,
+			stream->buffer, stream->bufsize,
+			index % stream->bufsize,
 			msg->data,
-			SPA_MIN(msg->length, MAXLENGTH));
+			SPA_MIN(msg->length, stream->bufsize));
 	index += msg->length;
 	spa_ringbuffer_write_update(&stream->ring, index);
 

@@ -21,7 +21,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/pod/pod.h>
 #include <spa/pod/builder.h>
 #include <spa/debug/types.h>
@@ -961,7 +961,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_properties *props;
 	struct impl *impl;
 	struct server *s;
-	FILE *f;
+	struct spa_json_builder b;
 	char *str;
 	size_t size;
 	int res;
@@ -994,13 +994,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if ((res = parse_params(impl)) < 0)
 		goto error_free;
 
-	if ((f = open_memstream(&str, &size)) == NULL) {
-		res = -errno;
+	if ((res = spa_json_builder_memstream(&b, &str, &size, 0)) < 0) {
 		pw_log_error("Can't open memstream: %m");
 		goto error_free;
 	}
 
-	fprintf(f, "[");
+	spa_json_builder_array_push(&b, "[");
 
 	spa_list_for_each(s, &impl->server_list, link) {
 		char ip[128];
@@ -1010,10 +1009,11 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		if (pw_net_get_ip(&s->addr, ip, sizeof(ip), &ipv4, &port) < 0)
 			continue;
 
-		fprintf(f, " \"%s%s%s:%d\"", ipv4 ? "" : "[", ip, ipv4 ? "" : "]", port);
+		spa_json_builder_array_stringf(&b, "%s%s%s:%d",
+				ipv4 ? "" : "[", ip, ipv4 ? "" : "]", port);
 	}
-	fprintf(f, " ]");
-	fclose(f);
+	spa_json_builder_pop(&b, "]");
+	spa_json_builder_close(&b);
 
 	pw_log_info("listening on %s", str);
 	it[0] = SPA_DICT_ITEM_INIT("server.address", str);

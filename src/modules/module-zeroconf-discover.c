@@ -14,7 +14,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/param/audio/format-utils.h>
 
 #include <pipewire/impl.h>
@@ -233,7 +233,7 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 	struct tunnel *t;
 	struct tunnel_info tinfo;
 	const struct spa_dict_item *it;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
 	struct pw_impl_module *mod;
@@ -309,17 +309,17 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 	if ((str = pw_properties_get(impl->properties, "pulse.latency")) != NULL)
 		pw_properties_set(props, "pulse.latency", str);
 
-	if ((f = open_memstream(&args, &size)) == NULL) {
+	if (spa_json_builder_memstream(&b, &args, &size, 0) < 0) {
 		pw_log_error("Can't open memstream: %m");
 		goto done;
 	}
 
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &props->dict, 0);
-	fprintf(f, " stream.props = {");
-	fprintf(f, " }");
-	fprintf(f, "}");
-        fclose(f);
+	spa_json_builder_array_push(&b, "{");
+	pw_properties_serialize_dict(b.f, &props->dict, 0);
+	spa_json_builder_object_push(&b,  "stream.props", "{");
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	pw_log_info("loading module args:'%s'", args);
 	mod = pw_context_load_module(impl->context,

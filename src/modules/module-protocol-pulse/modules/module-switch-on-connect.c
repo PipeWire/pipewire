@@ -4,7 +4,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/utils/hook.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/utils/string.h>
 
 #include <regex.h>
@@ -136,13 +136,23 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	pw_log_debug("switching to %s", name);
 
 	{
-		char encoded[1024];
-		spa_json_encode_string(encoded, sizeof(encoded), name);
-		pw_manager_set_metadata(d->manager, d->metadata_default,
-				PW_ID_CORE,
-				pw_manager_object_is_sink(o) ? METADATA_CONFIG_DEFAULT_SINK
-					: METADATA_CONFIG_DEFAULT_SOURCE,
-				"Spa:String:JSON", "{ \"name\" %s }", encoded);
+		struct spa_json_builder b;
+		char *val;
+		size_t val_size;
+
+		if (spa_json_builder_memstream(&b, &val, &val_size, 0) >= 0) {
+			spa_json_builder_array_push(&b,  "{");
+			spa_json_builder_object_string(&b, "name", name);
+			spa_json_builder_pop(&b,         "}");
+			spa_json_builder_close(&b);
+
+			pw_manager_set_metadata(d->manager, d->metadata_default,
+					PW_ID_CORE,
+					pw_manager_object_is_sink(o) ? METADATA_CONFIG_DEFAULT_SINK
+						: METADATA_CONFIG_DEFAULT_SOURCE,
+					"Spa:String:JSON", "%s", val);
+			free(val);
+		}
 	}
 }
 

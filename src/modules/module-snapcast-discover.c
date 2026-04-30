@@ -21,7 +21,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/raw-json.h>
 #include <spa/debug/types.h>
@@ -523,7 +523,7 @@ static int parse_audio_info(struct pw_properties *props, struct spa_audio_info_r
 static int create_stream(struct impl *impl, struct pw_properties *props,
 		struct tunnel *t)
 {
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
 	int res = 0;
@@ -548,16 +548,15 @@ static int create_stream(struct impl *impl, struct pw_properties *props,
 		goto done;
 	}
 
-	if ((f = open_memstream(&args, &size)) == NULL) {
-		res = -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0) {
 		pw_log_error("Can't open memstream: %m");
 		goto done;
 	}
 
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &props->dict, 0);
-	fprintf(f, "}");
-        fclose(f);
+	spa_json_builder_array_push(&b, "{");
+	pw_properties_serialize_dict(b.f, &props->dict, 0);
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	pw_log_info("loading module args:'%s'", args);
 	mod = pw_context_load_module(impl->context,

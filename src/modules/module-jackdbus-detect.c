@@ -17,6 +17,7 @@
 
 #include <spa/utils/string.h>
 #include <spa/utils/result.h>
+#include <spa/utils/json-builder.h>
 #include <spa/support/dbus.h>
 #include <spa-private/dbus-helpers.h>
 
@@ -116,22 +117,21 @@ static const struct pw_impl_module_events tunnelmodule_events = {
 
 static int load_jack_tunnel(struct impl *impl)
 {
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
 	int res = 0;
 
-	if ((f = open_memstream(&args, &size)) == NULL) {
-		res = -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0) {
 		pw_log_error("Can't open memstream: %m");
 		goto done;
 	}
 
-	fprintf(f, "{");
+	spa_json_builder_array_push(&b, "{");
 	if (impl->properties != NULL)
-		pw_properties_serialize_dict(f, &impl->properties->dict, 0);
-	fprintf(f, " }");
-	fclose(f);
+		pw_properties_serialize_dict(b.f, &impl->properties->dict, 0);
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	pw_log_info("loading module args:'%s'", args);
 	impl->jack_tunnel = pw_context_load_module(impl->context,

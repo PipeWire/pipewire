@@ -5,6 +5,7 @@
 
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/utils.h>
@@ -155,8 +156,9 @@ static const struct pw_impl_module_events module_events = {
 static int module_combine_sink_load(struct module *module)
 {
 	struct module_combine_sink_data *data = module->user_data;
+	struct spa_json_builder b;
 	uint32_t i;
-	FILE *f;
+	int res;
 	char *args;
 	size_t size;
 
@@ -169,33 +171,41 @@ static int module_combine_sink_load(struct module *module)
 	pw_properties_setf(data->stream_props, "pulse.module.id", "%u",
 			module->index);
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &data->props->dict, 0);
-	fprintf(f, " combine.props = {");
-	pw_properties_serialize_dict(f, &data->combine_props->dict, 0);
-	fprintf(f, " } stream.props = {");
-	pw_properties_serialize_dict(f, &data->stream_props->dict, 0);
-	fprintf(f, " } stream.rules = [");
+	spa_json_builder_array_push(&b, "{");
+	pw_properties_serialize_dict(b.f, &data->props->dict, 0);
+	spa_json_builder_object_push(&b,  "combine.props", "{");
+	pw_properties_serialize_dict(b.f, &data->combine_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_object_push(&b,  "stream.props", "{");
+	pw_properties_serialize_dict(b.f, &data->stream_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_object_push(&b,  "stream.rules", "[");
+	spa_json_builder_array_push(&b,     "{");
+	spa_json_builder_object_push(&b,       "matches", "[");
 	if (data->sink_names == NULL) {
-		fprintf(f, "  { matches = [ { media.class = \"Audio/Sink\" } ]");
-		fprintf(f, "    actions = { create-stream = { } } }");
+		spa_json_builder_array_push(&b,  "{");
+		spa_json_builder_object_string(&b, "media.class", "Audio/Sink");
+		spa_json_builder_pop(&b,         "}");
 	} else {
 		for (i = 0; data->sink_names[i] != NULL; i++) {
-			char name[1024];
-			if (spa_json_encode_string(name, sizeof(name), data->sink_names[i]) >= (int)sizeof(name))
-				continue;
-
-			fprintf(f, "  { matches = [ { media.class = \"Audio/Sink\" ");
-			fprintf(f, " node.name = %s } ]", name);
-			fprintf(f, "    actions = { create-stream = { } } }");
+			spa_json_builder_array_push(&b,  "{");
+			spa_json_builder_object_string(&b, "media.class", "Audio/Sink");
+			spa_json_builder_object_string(&b, "node.name", data->sink_names[i]);
+			spa_json_builder_pop(&b,         "}");
 		}
 	}
-	fprintf(f, " ]");
-	fprintf(f, "}");
-	fclose(f);
+	spa_json_builder_pop(&b,               "]");
+	spa_json_builder_object_push(&b,       "actions", "{");
+	spa_json_builder_object_push(&b,         "create-stream", "{");
+	spa_json_builder_pop(&b,                 "}");
+	spa_json_builder_pop(&b,               "}");
+	spa_json_builder_pop(&b,             "}");
+	spa_json_builder_pop(&b,          "]");
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-combine-stream",

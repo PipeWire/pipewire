@@ -2,7 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
 #include "../module.h"
@@ -79,10 +79,10 @@ static int module_native_protocol_tcp_prepare(struct module * const module)
 	struct module_native_protocol_tcp_data * const d = module->user_data;
 	struct pw_properties * const props = module->props;
 	const char *port, *listen, *auth;
-	char address[1024], encoded[1024];
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
+	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
@@ -93,20 +93,18 @@ static int module_native_protocol_tcp_prepare(struct module * const module)
 
 	auth = pw_properties_get(props, "auth-anonymous");
 
-	f = open_memstream(&args, &size);
-	if (f == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	snprintf(address, sizeof(address), "tcp:%s%s%s",
+	spa_json_builder_array_push(&b, "[");
+	spa_json_builder_array_push(&b,   "{");
+	spa_json_builder_object_stringf(&b,  "address", "tcp:%s%s%s",
 			listen ? listen : "", listen ? ":" : "", port);
-	spa_json_encode_string(encoded, sizeof(encoded), address);
-
-	fprintf(f, "[ { ");
-	fprintf(f, " \"address\": %s ", encoded);
 	if (auth && module_args_parse_bool(auth))
-		fprintf(f, " \"client.access\": \"unrestricted\" ");
-	fprintf(f, "} ]");
-	fclose(f);
+		spa_json_builder_object_string(&b, "client.access", "unrestricted");
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "]");
+	spa_json_builder_close(&b);
 
 	pw_properties_set(props, "pulse.tcp", args);
 	free(args);

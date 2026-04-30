@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/utils/hook.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
 #include "../defs.h"
@@ -54,18 +55,19 @@ static const struct pw_impl_module_events module_events = {
 static int module_raop_discover_load(struct module *module)
 {
 	struct module_raop_discover_data *data = module->user_data;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
+	int res;
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
+	spa_json_builder_array_push(&b, "{");
 	if (data->latency_msec > 0)
-		fprintf(f, " raop.latency.ms = %u ", data->latency_msec);
-	fprintf(f, "}");
-	fclose(f);
+		spa_json_builder_object_uint(&b, "raop.latency.ms", data->latency_msec);
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-raop-discover",

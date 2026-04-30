@@ -2,7 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
 #include "../module.h"
@@ -48,22 +48,20 @@ static const struct pw_impl_module_events module_events = {
 static int module_always_sink_load(struct module *module)
 {
 	struct module_always_sink_data *data = module->user_data;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	const char *str;
-	char encoded[1024];
 	size_t size;
+	int res;
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
-	if ((str = pw_properties_get(module->props, "sink_name")) != NULL) {
-		spa_json_encode_string(encoded, sizeof(encoded), str);
-		fprintf(f, " sink.name = %s", encoded);
-	}
-	fprintf(f, " }");
-	fclose(f);
+	spa_json_builder_array_push(&b, "{");
+	if ((str = pw_properties_get(module->props, "sink_name")) != NULL)
+		spa_json_builder_object_string(&b, "sink.name", str);
+	spa_json_builder_pop(&b, "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-fallback-sink",

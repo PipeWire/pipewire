@@ -15,7 +15,7 @@
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/debug/file.h>
 
 #include <pipewire/pipewire.h>
@@ -92,10 +92,10 @@ int main(int argc, char *argv[])
 	struct data data = { 0 };
 	struct pw_loop *l;
 	const char *opt_remote = NULL, *remote_name;
-	char cname[256], value[256];
+	char cname[256];
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
-	FILE *f;
 	static const struct option long_options[] = {
 		{ "help",		no_argument,		NULL, 'h' },
 		{ "version",		no_argument,		NULL, 'V' },
@@ -214,42 +214,44 @@ int main(int argc, char *argv[])
 	}
 
 
-	if ((f = open_memstream(&args, &size)) == NULL) {
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0) {
 		fprintf(stderr, "can't open memstream: %m\n");
 		goto exit;
 	}
-
-	fprintf(f, "{");
 
 	remote_name = "[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]";
 	if (opt_remote)
 		remote_name = opt_remote;
 
-	fprintf(f, " remote.name = \"%s\"", remote_name);
+	spa_json_builder_array_push(&b, "{");
+
+	spa_json_builder_object_string(&b, "remote.name", remote_name);
 
 	if (data.latency != 0)
-		fprintf(f, " node.latency = %u/%u", data.latency, DEFAULT_RATE);
+		spa_json_builder_object_stringf(&b, "node.latency", "%u/%u",
+				data.latency, DEFAULT_RATE);
 	if (data.delay != 0.0f)
-		fprintf(f, " target.delay.sec = %s",
-				spa_json_format_float(value, sizeof(value), data.delay));
+		spa_json_builder_object_double(&b, "target.delay.sec", data.delay);
 	if (data.channels != 0)
-		fprintf(f, " audio.channels = %u", data.channels);
+		spa_json_builder_object_uint(&b, "audio.channels", data.channels);
 	if (data.opt_channel_map != NULL)
-		fprintf(f, " audio.position = %s", data.opt_channel_map);
+		spa_json_builder_object_value(&b, true, "audio.position", data.opt_channel_map);
 	if (data.opt_node_name != NULL)
-		fprintf(f, " node.name = %s", data.opt_node_name);
+		spa_json_builder_object_string(&b, "node.name", data.opt_node_name);
 
 	if (data.opt_group_name != NULL) {
 		pw_properties_set(data.capture_props, PW_KEY_NODE_GROUP, data.opt_group_name);
 		pw_properties_set(data.playback_props, PW_KEY_NODE_GROUP, data.opt_group_name);
 	}
 
-	fprintf(f, " capture.props = {");
-	pw_properties_serialize_dict(f, &data.capture_props->dict, 0);
-	fprintf(f, " } playback.props = {");
-	pw_properties_serialize_dict(f, &data.playback_props->dict, 0);
-	fprintf(f, " } }");
-	fclose(f);
+	spa_json_builder_object_push(&b,  "capture.props", "{");
+	pw_properties_serialize_dict(b.f, &data.capture_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_object_push(&b,  "playback.props", "{");
+	pw_properties_serialize_dict(b.f, &data.playback_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	pw_log_info("loading module with %s", args);
 

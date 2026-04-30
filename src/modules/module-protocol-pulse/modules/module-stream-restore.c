@@ -64,7 +64,7 @@ enum {
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/log.h>
 #include <pipewire/properties.h>
 
@@ -262,10 +262,9 @@ static int do_extension_stream_restore_write(struct module *module, struct clien
 		struct volume vol;
 		bool mute = false;
 		uint32_t i;
-		FILE *f;
 		char *ptr;
 		size_t size;
-		char key[1024], buf[128];
+		char key[1024];
 
 		spa_zero(map);
 		spa_zero(vol);
@@ -282,35 +281,36 @@ static int do_extension_stream_restore_write(struct module *module, struct clien
 		if (name == NULL || name[0] == '\0')
 			return -EPROTO;
 
-		if ((f = open_memstream(&ptr, &size)) == NULL)
-			return -errno;
+		{
+		struct spa_json_builder b;
+		int bres;
 
-		fprintf(f, "{");
-		fprintf(f, " \"mute\": %s", mute ? "true" : "false");
+		if ((bres = spa_json_builder_memstream(&b, &ptr, &size, 0)) < 0)
+			return bres;
+
+		spa_json_builder_array_push(&b, "{");
+		spa_json_builder_object_bool(&b, "mute", mute);
 		if (vol.channels > 0) {
-			fprintf(f, ", \"volumes\": [");
+			spa_json_builder_object_push(&b, "volumes", "[");
 			for (i = 0; i < vol.channels; i++)
-				fprintf(f, "%s%s", (i == 0 ? " ":", "),
-						spa_json_format_float(buf, sizeof(buf), vol.values[i]));
-			fprintf(f, " ]");
+				spa_json_builder_array_double(&b, vol.values[i]);
+			spa_json_builder_pop(&b, "]");
 		}
 		if (map.channels > 0) {
 			char pos[8];
-			fprintf(f, ", \"channels\": [");
+			spa_json_builder_object_push(&b, "channels", "[");
 			for (i = 0; i < map.channels; i++)
-				fprintf(f, "%s\"%s\"", (i == 0 ? " ":", "),
+				spa_json_builder_array_string(&b,
 						channel_id2name(map.map[i], pos, sizeof(pos)));
-			fprintf(f, " ]");
+			spa_json_builder_pop(&b, "]");
 		}
 		if (device_name != NULL && device_name[0] &&
 		    (client->default_source == NULL || !spa_streq(device_name, client->default_source)) &&
-		    (client->default_sink == NULL || !spa_streq(device_name, client->default_sink))) {
-			char target[1024];
-			spa_json_encode_string(target, sizeof(target), device_name);
-			fprintf(f, ", \"target-node\": %s", target);
+		    (client->default_sink == NULL || !spa_streq(device_name, client->default_sink)))
+			spa_json_builder_object_string(&b, "target-node", device_name);
+		spa_json_builder_pop(&b, "}");
+		spa_json_builder_close(&b);
 		}
-		fprintf(f, " }");
-		fclose(f);
 		if (key_from_name(name, key, sizeof(key)) >= 0) {
 			pw_log_debug("%s -> %s: %s", name, key, ptr);
 			if ((res = pw_manager_set_metadata(client->manager,

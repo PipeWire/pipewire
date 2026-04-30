@@ -5,7 +5,7 @@
 
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/hook.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
 #include "../defs.h"
@@ -87,33 +87,38 @@ static const struct pw_impl_module_events module_events = {
 static int module_echo_cancel_load(struct module *module)
 {
 	struct module_echo_cancel_data *data = module->user_data;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
+	int res;
 
 	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
 	pw_properties_setf(data->source_props, "pulse.module.id", "%u", module->index);
 	pw_properties_setf(data->sink_props, "pulse.module.id", "%u", module->index);
 	pw_properties_setf(data->playback_props, "pulse.module.id", "%u", module->index);
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
-	fprintf(f, " aec.args = {");
-	pw_properties_serialize_dict(f, &data->props->dict, 0);
-	fprintf(f, " }");
-	fprintf(f, " capture.props = {");
-	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
-	fprintf(f, " } source.props = {");
-	pw_properties_serialize_dict(f, &data->source_props->dict, 0);
-	fprintf(f, " } sink.props = {");
-	pw_properties_serialize_dict(f, &data->sink_props->dict, 0);
-	fprintf(f, " } playback.props = {");
-	pw_properties_serialize_dict(f, &data->playback_props->dict, 0);
-	fprintf(f, " } }");
-	fclose(f);
+	spa_json_builder_array_push(&b, "{");
+	pw_properties_serialize_dict(b.f, &data->global_props->dict, 0);
+	spa_json_builder_object_push(&b, "aec.args", "{");
+	pw_properties_serialize_dict(b.f, &data->props->dict, 0);
+	spa_json_builder_pop(&b, "}");
+	spa_json_builder_object_push(&b, "capture.props", "{");
+	pw_properties_serialize_dict(b.f, &data->capture_props->dict, 0);
+	spa_json_builder_pop(&b, "}");
+	spa_json_builder_object_push(&b, "source.props", "{");
+	pw_properties_serialize_dict(b.f, &data->source_props->dict, 0);
+	spa_json_builder_pop(&b, "}");
+	spa_json_builder_object_push(&b, "sink.props", "{");
+	pw_properties_serialize_dict(b.f, &data->sink_props->dict, 0);
+	spa_json_builder_pop(&b, "}");
+	spa_json_builder_object_push(&b, "playback.props", "{");
+	pw_properties_serialize_dict(b.f, &data->playback_props->dict, 0);
+	spa_json_builder_pop(&b, "}");
+	spa_json_builder_pop(&b, "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-echo-cancel",
@@ -176,40 +181,41 @@ static int parse_point(const char **point, float f[3])
 static int rename_geometry(struct pw_properties *props, const char *pa_key, const char *pw_key)
 {
 	const char *str;
-	int i = 0, len;
+	int i = 0, len, res;
 	char *args;
 	size_t size;
-	FILE *f;
+	struct spa_json_builder b;
 
 	if ((str = pw_properties_get(props, pa_key)) == NULL)
 		return 0;
 
 	pw_log_info("geometry: %s", str);
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "[");
+	spa_json_builder_array_push(&b, "[");
 	while (true) {
 		float p[3];
-		char ps0[64], ps1[64], ps2[64];
 		if ((len = parse_point(&str, p)) < 0)
 			break;
 
 		pw_log_info("Got mic #%d position: (%g, %g, %g)", i, p[0], p[1], p[2]);
 
-		fprintf(f, "%s [ %s, %s, %s ]", i == 0 ?  "" : ",",
-				spa_dtoa(ps0, sizeof(ps0), p[0]),
-				spa_dtoa(ps1, sizeof(ps1), p[1]),
-				spa_dtoa(ps2, sizeof(ps2), p[2]));
+		spa_json_builder_array_push(&b, "[");
+		spa_json_builder_array_double(&b, p[0]);
+		spa_json_builder_array_double(&b, p[1]);
+		spa_json_builder_array_double(&b, p[2]);
+		spa_json_builder_pop(&b, "]");
+
 		str += len;
 		if (*str != ',')
 			break;
 		str++;
 		i++;
 	}
-	fprintf(f, " ]");
-	fclose(f);
+	spa_json_builder_pop(&b, "]");
+	spa_json_builder_close(&b);
 
 	pw_properties_set(props, pw_key, args);
 	free(args);

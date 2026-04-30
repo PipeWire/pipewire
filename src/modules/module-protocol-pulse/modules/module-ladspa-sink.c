@@ -3,7 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/utils/hook.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <spa/param/audio/format-utils.h>
 
 #include <pipewire/pipewire.h>
@@ -73,11 +73,11 @@ static const struct pw_impl_module_events module_events = {
 static int module_ladspa_sink_load(struct module *module)
 {
 	struct module_ladspa_sink_data *data = module->user_data;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	const char *str, *plugin, *label;
-	char encoded_plugin[1024], encoded_label[1024];
 	size_t size;
+	int res;
 
 	if ((plugin = pw_properties_get(module->props, "plugin")) == NULL)
 		return -EINVAL;
@@ -89,43 +89,59 @@ static int module_ladspa_sink_load(struct module *module)
 	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
 	pw_properties_setf(data->playback_props, "pulse.module.id", "%u", module->index);
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &module->props->dict, 0);
-	fprintf(f, " filter.graph = {");
-	fprintf(f, " nodes = [ { ");
-	spa_json_encode_string(encoded_plugin, sizeof(encoded_plugin), plugin);
-	spa_json_encode_string(encoded_label, sizeof(encoded_label), label);
-
-	fprintf(f, " type = ladspa ");
-	fprintf(f, " plugin = %s ", encoded_plugin);
-	fprintf(f, " label = %s ", encoded_label);
+	spa_json_builder_array_push(&b, "{");
+	pw_properties_serialize_dict(b.f, &module->props->dict, 0);
+	spa_json_builder_object_push(&b,  "filter.graph", "{");
+	spa_json_builder_object_push(&b,    "nodes", "[");
+	spa_json_builder_array_push(&b,       "{");
+	spa_json_builder_object_string(&b,      "type", "ladspa");
+	spa_json_builder_object_string(&b,      "plugin", plugin);
+	spa_json_builder_object_string(&b,      "label", label);
 	if ((str = pw_properties_get(module->props, "control")) != NULL) {
+		int count = 0;
 		size_t len;
 		const char *s, *state = NULL;
-		int count = 0;
 
-		fprintf(f, " control = {");
+		spa_json_builder_object_push(&b, "control", "{");
 		while ((s = pw_split_walk(str, ", ", &len, &state))) {
-			fprintf(f, " \"%d\" = %.*s", count, (int)len, s);
+			char key[16];
+			snprintf(key, sizeof(key), "%d", count);
+			spa_json_builder_object_value_full(&b, false,
+					key, INT_MAX, s, len);
 			count++;
 		}
-		fprintf(f, " }");
+		spa_json_builder_pop(&b,         "}");
 	}
-	fprintf(f, " } ]");
-	if ((str = pw_properties_get(module->props, "inputs")) != NULL)
-		fprintf(f, " inputs = [ %s ] ", str);
-	if ((str = pw_properties_get(module->props, "outputs")) != NULL)
-		fprintf(f, " outputs = [ %s ] ", str);
-	fprintf(f, " }");
-	fprintf(f, " capture.props = {");
-	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
-	fprintf(f, " } playback.props = {");
-	pw_properties_serialize_dict(f, &data->playback_props->dict, 0);
-	fprintf(f, " } }");
-	fclose(f);
+	spa_json_builder_pop(&b,              "}");
+	spa_json_builder_pop(&b,            "]");
+	if ((str = pw_properties_get(module->props, "input_ladspaport_map")) != NULL) {
+		const char *s, *state = NULL;
+		size_t len;
+		spa_json_builder_object_push(&b, "inputs", "[");
+		while ((s = pw_split_walk(str, ", ", &len, &state)))
+			spa_json_builder_add_simple(&b, NULL, 0, 'S', s, len);
+		spa_json_builder_pop(&b,         "]");
+	}
+	if ((str = pw_properties_get(module->props, "output_ladspaport_map")) != NULL) {
+		const char *s, *state = NULL;
+		size_t len;
+		spa_json_builder_object_push(&b, "outputs", "[");
+		while ((s = pw_split_walk(str, ", ", &len, &state)))
+			spa_json_builder_add_simple(&b, NULL, 0, 'S', s, len);
+		spa_json_builder_pop(&b,         "]");
+	}
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_object_push(&b,  "capture.props", "{");
+	pw_properties_serialize_dict(b.f, &data->capture_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_object_push(&b,  "playback.props", "{");
+	pw_properties_serialize_dict(b.f, &data->playback_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-filter-chain",

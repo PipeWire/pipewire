@@ -4,7 +4,7 @@
 
 #include <spa/param/audio/format-utils.h>
 #include <spa/utils/hook.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
 #include "../defs.h"
@@ -66,26 +66,29 @@ static const struct pw_impl_module_events module_events = {
 static int module_virtual_sink_load(struct module *module)
 {
 	struct module_virtual_sink_data *data = module->user_data;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
+	int res;
 
 	pw_properties_setf(data->capture_props, PW_KEY_NODE_GROUP, "virtual-sink-%u", module->index);
 	pw_properties_setf(data->playback_props, PW_KEY_NODE_GROUP, "virtual-sink-%u", module->index);
 	pw_properties_setf(data->capture_props, "pulse.module.id", "%u", module->index);
 	pw_properties_setf(data->playback_props, "pulse.module.id", "%u", module->index);
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &data->global_props->dict, 0);
-	fprintf(f, " capture.props = {");
-	pw_properties_serialize_dict(f, &data->capture_props->dict, 0);
-	fprintf(f, " } playback.props = {");
-	pw_properties_serialize_dict(f, &data->playback_props->dict, 0);
-	fprintf(f, " } }");
-	fclose(f);
+	spa_json_builder_array_push(&b, "{");
+	pw_properties_serialize_dict(b.f, &data->global_props->dict, 0);
+	spa_json_builder_object_push(&b,  "capture.props", "{");
+	pw_properties_serialize_dict(b.f, &data->capture_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_object_push(&b,  "playback.props", "{");
+	pw_properties_serialize_dict(b.f, &data->playback_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-loopback",

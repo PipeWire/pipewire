@@ -4,6 +4,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/utils/hook.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
 #include "../defs.h"
@@ -67,22 +68,24 @@ static const struct pw_impl_module_events module_events = {
 static int module_roc_source_load(struct module *module)
 {
 	struct module_roc_source_data *data = module->user_data;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	size_t size;
+	int res;
 
 	pw_properties_setf(data->source_props, "pulse.module.id",
 			"%u", module->index);
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
-	pw_properties_serialize_dict(f, &data->roc_props->dict, 0);
-	fprintf(f, " source.props = {");
-	pw_properties_serialize_dict(f, &data->source_props->dict, 0);
-	fprintf(f, " } }");
-	fclose(f);
+	spa_json_builder_array_push(&b, "{");
+	pw_properties_serialize_dict(b.f, &data->roc_props->dict, 0);
+	spa_json_builder_object_push(&b,  "source.props", "{");
+	pw_properties_serialize_dict(b.f, &data->source_props->dict, 0);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-roc-source",

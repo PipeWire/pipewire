@@ -9,7 +9,7 @@
 #include <limits.h>
 
 #include <spa/utils/result.h>
-#include <spa/utils/json-core.h>
+#include <spa/utils/json-builder.h>
 #include <spa/param/audio/raw.h>
 
 #include <pipewire/impl.h>
@@ -162,7 +162,7 @@ static const struct pw_impl_module_events filter_chain_module_events = {
 
 static int enhance_properties(struct pw_properties *props, const char *key, ...)
 {
-	FILE *f;
+	struct spa_json_builder b;
 	spa_autoptr(pw_properties) p = NULL;
 	char *args = NULL;
 	const char *str;
@@ -187,13 +187,12 @@ static int enhance_properties(struct pw_properties *props, const char *key, ...)
         }
         va_end(varargs);
 
-	if ((f = open_memstream(&args, &size)) == NULL) {
-		res = -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0) {
 		pw_log_error("Can't open memstream: %m");
 		return res;
 	}
-	pw_properties_serialize_dict(f, &p->dict, PW_PROPERTIES_FLAG_ENCLOSE);
-	fclose(f);
+	pw_properties_serialize_dict(b.f, &p->dict, PW_PROPERTIES_FLAG_ENCLOSE);
+	spa_json_builder_close(&b);
 
 	pw_properties_set(props, key, args);
 	free(args);
@@ -202,12 +201,11 @@ static int enhance_properties(struct pw_properties *props, const char *key, ...)
 
 static int create_eq_filter(struct impl *impl, const char *filename)
 {
-	FILE *f = NULL;
+	struct spa_json_builder b;
 	const char* str;
 	char *args = NULL;
 	size_t size;
 	int32_t res = 0;
-	char path[PATH_MAX];
 
 	if ((str = pw_properties_get(impl->props, "equalizer.description")) != NULL) {
 		if (pw_properties_get(impl->props, PW_KEY_NODE_DESCRIPTION) == NULL)
@@ -216,47 +214,47 @@ static int create_eq_filter(struct impl *impl, const char *filename)
 			pw_properties_set(impl->props, PW_KEY_MEDIA_NAME, str);
 	}
 
-	spa_json_encode_string(path, sizeof(path), filename);
-	pw_properties_setf(impl->props, "filter.graph",
-			"{"
-			"  nodes = [ "
-			"    { type = builtin name = eq label = param_eq "
-			"      config = { filename = %s } "
-			"    } "
-			"  ] "
-			"}", path);
-
 	enhance_properties(impl->props, "capture.props", PW_KEY_MEDIA_CLASS, "Audio/Sink", NULL);
 	enhance_properties(impl->props, "playback.props", PW_KEY_NODE_PASSIVE, "true", NULL);
 
-	if ((f = open_memstream(&args, &size)) == NULL) {
-		res = -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0) {
 		pw_log_error("Can't open memstream: %m");
-		goto done;
+		return res;
 	}
-	pw_properties_serialize_dict(f, &impl->props->dict, PW_PROPERTIES_FLAG_ENCLOSE);
-	fclose(f);
+
+	spa_json_builder_array_push(&b, "{");
+	spa_json_builder_object_push(&b,  "filter.graph", "{");
+	spa_json_builder_object_push(&b,    "nodes", "[");
+	spa_json_builder_array_push(&b,       "{");
+	spa_json_builder_object_string(&b,      "type", "builtin");
+	spa_json_builder_object_string(&b,      "name", "eq");
+	spa_json_builder_object_string(&b,      "label", "param_eq");
+	spa_json_builder_object_push(&b,        "config", "{");
+	spa_json_builder_object_string(&b,        "filename", filename);
+	spa_json_builder_pop(&b,                "}");
+	spa_json_builder_pop(&b,              "}");
+	spa_json_builder_pop(&b,            "]");
+	spa_json_builder_pop(&b,          "}");
+	pw_properties_serialize_dict(b.f, &impl->props->dict, 0);
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	pw_log_info("loading new module-filter-chain with args: %s", args);
 	impl->eq_module = pw_context_load_module(impl->context,
 				"libpipewire-module-filter-chain",
 				args, NULL);
+	free(args);
+
 	if (!impl->eq_module) {
-		res = -errno;
 		pw_log_error("Can't load module: %m");
-		goto done;
+		return -errno;
 	}
 	pw_log_info("loaded new module-filter-chain");
 
 	pw_impl_module_add_listener(impl->eq_module,
 			&impl->eq_module_listener,
 			&filter_chain_module_events, impl);
-
-	res = 0;
-
-done:
-	free(args);
-	return res;
+	return 0;
 }
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)

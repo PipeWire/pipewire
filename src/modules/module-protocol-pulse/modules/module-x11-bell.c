@@ -2,7 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
 #include "../module.h"
@@ -56,34 +56,26 @@ static const struct pw_impl_module_events module_events = {
 static int module_x11_bell_load(struct module *module)
 {
 	struct module_x11_bell_data *data = module->user_data;
-	FILE *f;
+	struct spa_json_builder b;
 	char *args;
 	const char *str;
-	char encoded[1024];
 	size_t size;
+	int res;
 
-	if ((f = open_memstream(&args, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &args, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "{");
-	if ((str = pw_properties_get(module->props, "sink")) != NULL) {
-		spa_json_encode_string(encoded, sizeof(encoded), str);
-		fprintf(f, " sink.name = %s", encoded);
-	}
-	if ((str = pw_properties_get(module->props, "sample")) != NULL) {
-		spa_json_encode_string(encoded, sizeof(encoded), str);
-		fprintf(f, " sample.name = %s", encoded);
-	}
-	if ((str = pw_properties_get(module->props, "display")) != NULL) {
-		spa_json_encode_string(encoded, sizeof(encoded), str);
-		fprintf(f, " x11.display = %s", encoded);
-	}
-	if ((str = pw_properties_get(module->props, "xauthority")) != NULL) {
-		spa_json_encode_string(encoded, sizeof(encoded), str);
-		fprintf(f, " x11.xauthority = %s", encoded);
-	}
-	fprintf(f, " }");
-	fclose(f);
+	spa_json_builder_array_push(&b, "{");
+	if ((str = pw_properties_get(module->props, "sink")) != NULL)
+		spa_json_builder_object_string(&b, "sink.name", str);
+	if ((str = pw_properties_get(module->props, "sample")) != NULL)
+		spa_json_builder_object_string(&b, "sample.name", str);
+	if ((str = pw_properties_get(module->props, "display")) != NULL)
+		spa_json_builder_object_string(&b, "x11.display", str);
+	if ((str = pw_properties_get(module->props, "xauthority")) != NULL)
+		spa_json_builder_object_string(&b, "x11.xauthority", str);
+	spa_json_builder_pop(&b,        "}");
+	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-x11-bell",

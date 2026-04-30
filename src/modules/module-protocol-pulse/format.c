@@ -8,7 +8,7 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw.h>
 #include <spa/param/audio/raw-json.h>
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 
 #include "format.h"
 
@@ -703,18 +703,19 @@ static int add_int(struct format_info *info, const char *k, struct spa_pod *para
 		break;
 	case SPA_CHOICE_Enum:
 	{
+		struct spa_json_builder b;
 		char *ptr;
 		size_t size;
-		FILE *f;
+		int res;
 
-		if ((f = open_memstream(&ptr, &size)) == NULL)
-			return -errno;
+		if ((res = spa_json_builder_memstream(&b, &ptr, &size, 0)) < 0)
+			return res;
 
-		fprintf(f, "[");
+		spa_json_builder_array_push(&b, "[");
 		for (i = 1; i < n_values; i++)
-			fprintf(f, "%s %d", i == 1 ? "" : ",", values[i]);
-		fprintf(f, " ]");
-		fclose(f);
+			spa_json_builder_array_int(&b, values[i]);
+		spa_json_builder_pop(&b, "]");
+		spa_json_builder_close(&b);
 
 		pw_properties_set(info->props, k, ptr);
 		free(ptr);

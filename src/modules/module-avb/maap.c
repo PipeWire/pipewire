@@ -4,7 +4,7 @@
 
 #include <unistd.h>
 
-#include <spa/utils/json.h>
+#include <spa/utils/json-builder.h>
 
 #include <pipewire/pipewire.h>
 
@@ -298,23 +298,26 @@ static int load_state(struct maap *maap)
 
 static int save_state(struct maap *maap)
 {
+	struct spa_json_builder b;
 	char *ptr;
 	size_t size;
-	FILE *f;
 	char key[512];
 	uint32_t count;
+	int res;
 
-	if ((f = open_memstream(&ptr, &size)) == NULL)
-		return -errno;
+	if ((res = spa_json_builder_memstream(&b, &ptr, &size, 0)) < 0)
+		return res;
 
-	fprintf(f, "[ ");
-	fprintf(f, "{ \"start\": \"%02x:%02x:%02x:%02x:%02x:%02x\", ",
+	spa_json_builder_array_push(&b, "[");
+	spa_json_builder_array_push(&b,   "{");
+	spa_json_builder_object_stringf(&b, "start", "%02x:%02x:%02x:%02x:%02x:%02x",
 			maap_base[0], maap_base[1], maap_base[2],
 			maap_base[3], (maap->offset >> 8) & 0xff,
 			maap->offset & 0xff);
-	fprintf(f, " \"count\": %u } ", maap->count);
-	fprintf(f, "]");
-	fclose(f);
+	spa_json_builder_object_uint(&b,    "count", maap->count);
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "]");
+	spa_json_builder_close(&b);
 
 	count = pw_properties_set(maap->props, "maap.addresses", ptr);
 	free(ptr);

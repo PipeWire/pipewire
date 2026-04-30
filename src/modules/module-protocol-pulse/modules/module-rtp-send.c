@@ -266,8 +266,27 @@ out:
 	return res;
 }
 
+static const char* const valid_args[] = {
+	"source",
+	"format",
+	"channels",
+	"rate",
+	"destination_ip",
+	"source_ip",
+	"port",
+	"mtu",
+	"loop",
+	"ttl",
+	"inhibit_auto_suspend",
+	"stream_name",
+	"stream_properties",
+	"enable_opus",
+	NULL
+};
+
 DEFINE_MODULE_INFO(module_rtp_send) = {
 	.name = "module-rtp-send",
+	.valid_args = valid_args,
 	.prepare = module_rtp_send_prepare,
 	.load = module_rtp_send_load,
 	.unload = module_rtp_send_unload,

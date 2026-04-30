@@ -199,8 +199,22 @@ out:
 	return res;
 }
 
+static const char* const valid_args[] = {
+	"sink",
+	"sink_input_properties",
+	"resampler_profile",
+	"fec_code",
+	"sess_latency_msec",
+	"local_ip",
+	"local_source_port",
+	"local_repair_port",
+	"local_control_port",
+	NULL
+};
+
 DEFINE_MODULE_INFO(module_roc_sink_input) = {
 	.name = "module-roc-sink-input",
+	.valid_args = valid_args,
 	.prepare = module_roc_sink_input_prepare,
 	.load = module_roc_sink_input_load,
 	.unload = module_roc_sink_input_unload,

@@ -118,6 +118,8 @@ static void emit_event(struct subscribe *s, uint32_t type, uint32_t idx)
 {
 	struct client *client = s->client;
 	struct message *msg = message_alloc(client->impl, -1, 0);
+	if (msg == NULL)
+		return;
 
 	pw_log_info("[%s] EVENT index:%u name:%s %d/%d", client->name,
 			s->data->module->index, s->data->module->info->name, type, idx);
@@ -161,7 +163,7 @@ static void manager_updated(void *data, struct pw_manager_object *object)
 	}
 }
 
-struct pw_manager_events manager_events = {
+static const struct pw_manager_events manager_events = {
 	PW_VERSION_MANAGER_EVENTS,
 	.added = manager_updated,
 	.updated = manager_updated,

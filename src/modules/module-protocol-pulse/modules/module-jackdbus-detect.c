@@ -86,13 +86,13 @@ static int module_jackdbus_detect_load(struct module *module)
 
 	spa_json_builder_array_push(&b, "{");
 	pw_properties_serialize_dict(b.f, &data->props->dict, 0);
-	spa_json_builder_object_push(&b, "source.props", "{");
+	spa_json_builder_object_push(&b,  "source.props", "{");
 	pw_properties_serialize_dict(b.f, &data->source_props->dict, 0);
-	spa_json_builder_pop(&b, "}");
-	spa_json_builder_object_push(&b, "sink.props", "{");
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_object_push(&b,  "sink.props", "{");
 	pw_properties_serialize_dict(b.f, &data->sink_props->dict, 0);
-	spa_json_builder_pop(&b, "}");
-	spa_json_builder_pop(&b, "}");
+	spa_json_builder_pop(&b,          "}");
+	spa_json_builder_pop(&b,        "}");
 	spa_json_builder_close(&b);
 
 	data->mod = pw_context_load_module(module->impl->context,
@@ -119,6 +119,10 @@ static int module_jackdbus_detect_unload(struct module *module)
 		pw_impl_module_destroy(d->mod);
 		d->mod = NULL;
 	}
+
+	pw_properties_free(d->props);
+	pw_properties_free(d->sink_props);
+	pw_properties_free(d->source_props);
 
 	return 0;
 }
@@ -172,7 +176,7 @@ static int module_jackdbus_detect_prepare(struct module * const module)
 	spa_zero(info);
 	if ((res = module_args_to_audioinfo_keys(module->impl, props, NULL, NULL,
 			"sink_channels", "sink_channel_map", &info)) < 0) {
-		return res;
+		goto out;
 	} else {
 		audioinfo_to_properties(&info, sink_props);
 	}
@@ -194,7 +198,7 @@ static int module_jackdbus_detect_prepare(struct module * const module)
 	spa_zero(info);
 	if ((res = module_args_to_audioinfo_keys(module->impl, props, NULL, NULL,
 			"source_channels", "source_channel_map", &info)) < 0) {
-		return res;
+		goto out;
 	} else {
 		audioinfo_to_properties(&info, source_props);
 	}

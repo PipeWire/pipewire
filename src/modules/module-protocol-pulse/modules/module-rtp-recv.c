@@ -168,8 +168,17 @@ out:
 	return res;
 }
 
+static const char* const valid_args[] = {
+	"sink",
+	"sap_address",
+	"latency_msec",
+	"stream_properties",
+	NULL
+};
+
 DEFINE_MODULE_INFO(module_rtp_recv) = {
 	.name = "module-rtp-recv",
+	.valid_args = valid_args,
 	.prepare = module_rtp_recv_prepare,
 	.load = module_rtp_recv_load,
 	.unload = module_rtp_recv_unload,

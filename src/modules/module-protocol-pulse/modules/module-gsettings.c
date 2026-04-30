@@ -115,6 +115,10 @@ static int load_group(struct module_gsettings_data *d, const struct info *info)
 			return -errno;
 
 		g->name = strdup(info->name);
+		if (g->name == NULL) {
+			free(g);
+			return -errno;
+		}
 		g->module = module_create(d->module->impl, info->module[i], info->args[i]);
 		if (g->module == NULL) {
 			pw_log_info("can't create module:%s args:%s: %m",

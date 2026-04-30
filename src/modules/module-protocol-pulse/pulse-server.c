@@ -58,15 +58,17 @@
 #include "volume.h"
 
 #define DEFAULT_ALLOW_MODULE_LOADING 	"true"
-#define DEFAULT_MIN_REQ		"256/48000"
-#define DEFAULT_DEFAULT_REQ	"960/48000"
-#define DEFAULT_MIN_FRAG	"256/48000"
-#define DEFAULT_DEFAULT_FRAG	"96000/48000"
-#define DEFAULT_DEFAULT_TLENGTH	"96000/48000"
-#define DEFAULT_MIN_QUANTUM	"256/48000"
-#define DEFAULT_FORMAT		"F32"
-#define DEFAULT_POSITION	"[ FL FR ]"
-#define DEFAULT_IDLE_TIMEOUT	"0"
+#define DEFAULT_MIN_REQ			"256/48000"
+#define DEFAULT_DEFAULT_REQ		"960/48000"
+#define DEFAULT_MIN_FRAG		"256/48000"
+#define DEFAULT_DEFAULT_FRAG		"96000/48000"
+#define DEFAULT_DEFAULT_TLENGTH		"96000/48000"
+#define DEFAULT_MIN_QUANTUM		"256/48000"
+#define DEFAULT_FORMAT			"F32"
+#define DEFAULT_POSITION		"[ FL FR ]"
+#define DEFAULT_IDLE_TIMEOUT		"0"
+#define DEFAULT_MAX_STREAMS		"64"
+#define DEFAULT_MAX_SAMPLE_CACHE	"67108864"
 
 #define MAX_FORMATS	32
 /* The max amount of data we send in one block when capturing. In PulseAudio this
@@ -5628,8 +5630,8 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_format(props, "pulse.default.format", DEFAULT_FORMAT, &def->sample_spec);
 	parse_position(props, "pulse.default.position", DEFAULT_POSITION, &def->channel_map);
 	parse_uint32(props, "pulse.idle.timeout", DEFAULT_IDLE_TIMEOUT, &def->idle_timeout);
-	parse_uint32(props, "pulse.max-streams", SPA_STRINGIFY(MAX_STREAMS), &def->max_streams);
-	parse_uint32(props, "pulse.max-sample-cache", SPA_STRINGIFY(MAX_SAMPLE_CACHE), &def->max_sample_cache);
+	parse_uint32(props, "pulse.max-streams", DEFAULT_MAX_STREAMS, &def->max_streams);
+	parse_uint32(props, "pulse.max-sample-cache", DEFAULT_MAX_SAMPLE_CACHE, &def->max_sample_cache);
 	def->sample_spec.channels = def->channel_map.channels;
 	def->quantum_limit = 8192;
 }

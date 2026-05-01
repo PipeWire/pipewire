@@ -323,12 +323,16 @@ static int handle_connect(struct tunnel *t, int fd)
 
 	str = spa_aprintf("{\"id\":%u,\"jsonrpc\": \"2.0\",\"method\":\"Server.GetRPCVersion\"}\r\n",
 			impl->id++);
+	if (str == NULL)
+		return -errno;
 	res = write(t->source->fd, str, strlen(str));
 	pw_log_info("wrote %s: %d", str, res);
 	free(str);
 
 	str = spa_aprintf("{\"id\":%u,\"jsonrpc\":\"2.0\",\"method\":\"Stream.RemoveStream\","
 			"\"params\":{\"id\":\"%s\"}}\r\n", impl->id++, t->stream_name);
+	if (str == NULL)
+		return -errno;
 	res = write(t->source->fd, str, strlen(str));
 	pw_log_info("wrote %s: %d", str, res);
 	free(str);
@@ -338,6 +342,8 @@ static int handle_connect(struct tunnel *t, int fd)
 		"sampleformat=%d:%d:%d&codec=pcm&chunk_ms=20\"}}\r\n", impl->id++,
 		t->server_address, t->stream_name, t->audio_info.rate,
 		get_bps(t->audio_info.format), t->audio_info.channels);
+	if (str == NULL)
+		return -errno;
 	res = write(t->source->fd, str, strlen(str));
 	pw_log_info("wrote %s: %d", str, res);
 	free(str);

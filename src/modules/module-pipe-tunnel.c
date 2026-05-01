@@ -664,12 +664,20 @@ static int create_fifo(struct impl *impl)
 			impl->info.channels, impl->info.rate);
 
 	impl->filename = strdup(filename);
+	if (impl->filename == NULL) {
+		res = -errno;
+		goto error;
+	}
 	impl->unlink_fifo = do_unlink_fifo;
 	impl->fd = fd;
 
 	return 0;
 
 error:
+	if (impl->timer)
+		pw_loop_destroy_source(impl->data_loop, impl->timer);
+	if (impl->socket)
+		pw_loop_destroy_source(impl->data_loop, impl->socket);
 	if (do_unlink_fifo)
 		unlink(filename);
 	if (fd >= 0)

@@ -539,6 +539,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	} else {
 		data->local_ip = strdup(PW_ROC_DEFAULT_IP);
 	}
+	if (data->local_ip == NULL) {
+		res = -errno;
+		goto out;
+	}
 
 	if ((str = pw_properties_get(props, "local.source.port")) != NULL) {
 		data->local_source_port = pw_properties_parse_int(str);

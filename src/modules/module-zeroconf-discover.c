@@ -100,6 +100,8 @@ struct tunnel {
 	struct spa_hook module_listener;
 };
 
+static void tunnel_free(struct tunnel *t);
+
 static struct tunnel *tunnel_new(struct impl *impl, const struct tunnel_info *info)
 {
 	struct tunnel *t;
@@ -112,6 +114,11 @@ static struct tunnel *tunnel_new(struct impl *impl, const struct tunnel_info *in
 	t->info.mode = strdup(info->mode);
 	spa_list_append(&impl->tunnel_list, &t->link);
 
+	if (t->info.name == NULL || t->info.mode == NULL) {
+		tunnel_free(t);
+		errno = ENOMEM;
+		return NULL;
+	}
 	return t;
 }
 

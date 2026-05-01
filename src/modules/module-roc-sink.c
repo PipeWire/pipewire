@@ -462,7 +462,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		data->remote_ip = strdup(str);
 	} else {
 		pw_log_error("Remote IP not specified");
-		res = -EINVAL;
+		errno = EINVAL;
+	}
+	if (data->remote_ip == NULL) {
+		res = -errno;
 		goto out;
 	}
 

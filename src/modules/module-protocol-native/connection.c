@@ -144,6 +144,8 @@ static void *connection_ensure_size(struct pw_protocol_native_connection *conn, 
 		if (np == NULL) {
 			res = -errno;
 			free(buf->buffer_data);
+			buf->buffer_data = NULL;
+			buf->buffer_size = 0;
 			buf->buffer_maxsize = 0;
 			spa_hook_list_call(&conn->listener_list,
 					struct pw_protocol_native_connection_events,

@@ -1256,6 +1256,8 @@ static const struct spa_dict_item module_props[] = {
 
 #define DEFAULT_RATE	48000
 
+#define MAX_DATAS	1024u
+
 struct impl {
 	struct pw_context *context;
 
@@ -1309,8 +1311,8 @@ static void do_process(struct impl *impl)
 	struct pw_buffer *in, *out;
 	uint32_t i, n_in = 0, n_out = 0, data_size = 0;
 	struct spa_data *bd;
-	const void *cin[128];
-	void *cout[128];
+	const void *cin[MAX_DATAS];
+	void *cout[MAX_DATAS];
 
 	in = out = NULL;
 	if (impl->capture) {
@@ -1325,7 +1327,8 @@ static void do_process(struct impl *impl)
 		if (in == NULL) {
 			pw_log_debug("%p: out of capture buffers: %m", impl);
 		} else {
-			for (i = 0; i < in->buffer->n_datas; i++) {
+			uint32_t n_datas = SPA_MIN(MAX_DATAS, in->buffer->n_datas);
+			for (i = 0; i < n_datas; i++) {
 				uint32_t offs, size;
 
 				bd = &in->buffer->datas[i];
@@ -1344,10 +1347,12 @@ static void do_process(struct impl *impl)
 		if (out == NULL) {
 			pw_log_debug("%p: out of playback buffers: %m", impl);
 		} else {
+			uint32_t n_datas = SPA_MIN(MAX_DATAS, out->buffer->n_datas);
+
 			if (data_size == 0)
 				data_size = out->requested * sizeof(float);
 
-			for (i = 0; i < out->buffer->n_datas; i++) {
+			for (i = 0; i < n_datas; i++) {
 				bd = &out->buffer->datas[i];
 
 				data_size = SPA_MIN(data_size, bd->maxsize);
@@ -1365,13 +1370,14 @@ static void do_process(struct impl *impl)
 		}
 	}
 
-	for (; n_in < impl->n_inputs; i++)
-		cin[n_in++] = NULL;
-	for (; n_out < impl->n_outputs; i++)
-		cout[n_out++] = NULL;
+	if (impl->graph_active) {
+		for (; n_in < impl->n_inputs; i++)
+			cin[n_in++] = NULL;
+		for (; n_out < impl->n_outputs; i++)
+			cout[n_out++] = NULL;
 
-	if (impl->graph_active)
 		spa_filter_graph_process(impl->graph, cin, cout, data_size / sizeof(float));
+	}
 
 	if (in != NULL)
 		pw_stream_queue_buffer(impl->capture, in);
@@ -1845,10 +1851,23 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 {
 	struct impl *impl = object;
 	struct spa_dict *props = info->props;
-	uint32_t i, val = 0;
+	uint32_t i, val = 0, n_inputs, n_outputs;
 
-	impl->n_inputs = info->n_inputs;
-	impl->n_outputs = info->n_outputs;
+	n_inputs = info->n_inputs;
+	n_outputs = info->n_outputs;
+
+	if (n_inputs > MAX_DATAS) {
+		pw_log_warn("filter has too many inputs %d > %d",
+				n_inputs, MAX_DATAS);
+		n_inputs = MAX_DATAS;
+	}
+	if (n_outputs > MAX_DATAS) {
+		pw_log_warn("filter has too many outputs %d > %d",
+				n_outputs, MAX_DATAS);
+		n_outputs = MAX_DATAS;
+	}
+	impl->n_inputs = n_inputs;
+	impl->n_outputs = n_outputs;
 
 	for (i = 0; props && i < props->n_items; i++) {
 		const char *k = props->items[i].key;

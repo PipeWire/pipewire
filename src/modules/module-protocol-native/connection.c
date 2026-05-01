@@ -704,11 +704,14 @@ pw_protocol_native_connection_end(struct pw_protocol_native_connection *conn,
 	struct buffer *buf = &impl->out;
 	int res;
 
+	if (size > 0xffffff)
+		return -ENOSPC;
+
 	if ((p = connection_ensure_size(conn, buf, impl->hdr_size + size)) == NULL)
 		return -errno;
 
 	p[0] = buf->msg.id;
-	p[1] = (buf->msg.opcode << 24) | (size & 0xffffff);
+	p[1] = (buf->msg.opcode << 24) | size;
 	if (impl->version >= 3) {
 		p[2] = buf->msg.seq;
 		p[3] = buf->msg.n_fds;

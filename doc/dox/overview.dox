@@ -71,7 +71,7 @@ and the remaining two channels as stereo output.
 \image html Routing-Remap.drawio.svg
 
 Most of these settings need configuration files, there is no GUI yet.
-To unlock the full power of PipeWire, you will have to dive into the deeper areas of Lake Audio!
+To unlock the full power of PipeWire, you will have to dive into the deeper areas of Lake Config!
 
 # What do I need?
 
@@ -85,8 +85,132 @@ PipeWire, as well as WirePlumber, run in *userspace,* so interfacing with them w
 happens in *user context* with the `--user` flag, for example
 `systemctl --user status pipewire.service` or `journalctl --user -fu wireplumber.service`.
 
-**WirePlumber** provides [Session Management](https://pipewire.pages.freedesktop.org/wireplumber/design/understanding_session_management.html): It enables new devices when they appear on ALSA, creates and configures nodes,
+The session manager is normally **WirePlumber** – it describes its work on [Session Management](https://pipewire.pages.freedesktop.org/wireplumber/design/understanding_session_management.html):
+It enables new devices when they appear on ALSA, creates and configures nodes,
 create links between nodes to route sound from an application to a consumer, etc.
+
+## PipeWire Tools
+
+PipeWire alone includes a \ref page_programs "considerable number of programs".
+This is just a short selection of tools that you will need more often.
+
+- [qpwgraph](https://gitlab.freedesktop.org/rncbc/qpwgraph) gives a quick visual overview over the current system configuration with nodes and links between them.
+  It also allows creating and deleting links on the fly.
+- `pw-dump` dumps the whole configuration as JSON, which is extremely helpful for debugging.
+- `pw-cli` allows to query and configure PipeWire, for example setting a sound card profile (like Stereo, Pro Audio, 7.1 Surround) with
+  the command `pw-cli s Profile CARD_ID "{index: PROFILE_ID, save: true}"`. You can also do it in the interactive mode of `pw-cli`. **Important:** In interactive mode, do *not* use quotes around JSON data.
+- `wpctl` interfaces with WirePlumber, for example `wpctl status` shows an ASCII representation of the nodes, sources, sinks, and routing.
+
+# Configuration Basics
+
+This section gives a short configuration overview, for the complete reference see the \ref page_config "Configuration" reference.
+
+Both PipeWire and WirePlumber have a set of config files for configuring different *sections* like `node.rules`.
+They use the same “SPA JSON” format.
+Configuration files are loaded from different files/directories and then merged based on their priority.
+For example, settings from `$HOME/.config/pipewire/pipewire.conf` have priority over those in `/etc/pipewire/pipewire.conf`,
+and all settings in config files in `$HOME/.config/pipewire/pipewire.conf.d/` have least priority.
+<!-- TODO is that really true? Manpage says so. -->
+
+## PipeWire Server Configuration
+
+The **PipeWire server configuration** configures the PipeWire instance, defines which modules PipeWire should load, adds device rules, etc.
+
+- Location: `pipewire/pipewire.conf`
+- Docs: \ref page_man_pipewire_conf_5 "pipewire.conf"
+- Configures: `context.exec`,  `context.modules`, `context.properties`, `context.spa-libs`, `device.rules`, `node.rules`
+
+## PipeWire Client Configuration
+
+The **PipeWire client configuration** contains configuration for PipeWire and ALSA clients.
+For example, if VLC uses the PipeWire or ALSA backend, its runtime behaviour can be modified with a rule in `stream.rules`
+which defines to always route `vlc` sound output to Bluetooth earbuds and `pw-play` to a stereo headset.
+
+- Location: `pipewire/client.conf`, for example `~/.config/pipewire/client.conf.d/`
+- Docs: \ref page_man_pipewire-client_conf_5 "client.conf"
+- Docs: \ref page_man_pipewire-props_7 "PipeWire object property reference" (also contains WirePlumber related options!)
+- Configures: `alsa.properties`, `alsa.rules`, `stream.properties`, `stream.rules`
+
+## PulseAudio, JACK, and other Configuration
+
+The **PulseAudio/JACK configuration** contains configuration for PipeWire’s PulseAudio and JACK servers.
+
+- Docs: \ref page_man_pipewire-pulse_conf_5 "pipewire-pulse.conf"
+- Docs: \ref page_man_pipewire-jack_conf_5 "jack.conf"
+
+## WirePlumber Configuration
+
+The **WirePlumber configuration** configures general WirePlumber aspects (should it even bring up ALSA devices
+or save/restore user settings configured with e.g. `pavucontrol`) and also ALSA/Bluetooth monitor aspects
+(choosing a default profile like Stereo or 7.1, setting device priorities that affect default routing, setting device properties, etc.).
+
+- Location: `wireplumber.conf`, e.g. `~/.config/wireplumber/wireplumber.conf.d/`
+- Docs: [WirePlumber daemon configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration.html)
+- Docs: [ALSA configuration](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/alsa.html) and more
+- Configures: `context`, `device`, `linking`, `wireplumber`, `monitor` (like `monitor.alsa.properties`, `monitor.alsa.rules`), `node` (like `node.software-dsp`),`support`, `policy`
+
+
+
+Rules in config file can define default outputs for specific nodes (e.g. VLC sound always goes to the 7.1 sound card).
+[ArchLinux: WirePlumber](https://wiki.archlinux.org/title/WirePlumber) gives a short introduction to using them.
+
+## Writing Rules and Examples
+
+Rules often need IDs of nodes or other components.
+One way to find them is by using the `pwdump` tool and then searching in the JSON output with `pwdump | less`.
+It can also print specific types only, for example `pwdump Node | less`.
+
+Rules can use regular expression when strings start with `~`, for example `"~alsa.*"`.
+This is explained in [PipeWire: Working with rules](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/modifying_configuration.html#working-with-rules).
+
+```text
+# Goes to e.g. ~/.config/wireplumber/wireplumber.conf.d/wireplumber-default-device.conf
+# Restart wireplumber.service so it loads the rules:
+#   systemctl restart --user wireplumber.service
+# This sample rule increases the priority of the stereo output on a Raspberry Pi,
+# so it is used by default.
+monitor.alsa.rules = [
+  {
+    matches = [
+      {
+        # An exact match could be the following name:
+        # node.name = "alsa_output.platform-fe00b840.mailbox.stereo-fallback"
+        # Instead, let’s use a regular expression to keep the configuration portable:
+        node.name = "~alsa_output.platform-.*.mailbox.stereo-fallback"
+      }
+    ]
+    actions = {
+      update-props = {
+        priority.driver = 3000
+        priority.session = 3000
+      }
+    }
+  }
+]
+
+```
+
+```text
+# Goes to ~/.config/pipewire/client.conf.d/default-pw-play-output.conf
+# Restart wireplumber.service so it loads the rules
+# This sample rule uses a specific sound card for playback with pw-play.
+# If it does not exist, WirePlumber takes the next suitable one.
+stream.rules = [
+  {
+    matches = [
+      {
+        application.name = "pw-play"
+      }
+    ]
+    actions = {
+      update-props = {
+        target.object = "alsa_output.usb-PreSonus_Audio_AudioBox_USB-01.pro-output-0"
+      }
+    }
+  }
+]
+
+```
 
 # Concepts
 

@@ -331,6 +331,8 @@ static struct port *alloc_port(struct filter *filter,
 	struct port *p;
 
 	p = calloc(1, sizeof(struct port) + user_data_size);
+	if (p == NULL)
+		return NULL;
 	p->filter = filter;
 	p->direction = direction;
 	p->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);

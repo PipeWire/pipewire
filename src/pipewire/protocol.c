@@ -38,6 +38,8 @@ struct pw_protocol *pw_protocol_new(struct pw_context *context,
 
 	protocol->context = context;
 	protocol->name = strdup(name);
+	if (protocol->name == NULL)
+		goto error;
 
 	spa_list_init(&protocol->marshal_list);
 	spa_list_init(&protocol->server_list);
@@ -52,6 +54,9 @@ struct pw_protocol *pw_protocol_new(struct pw_context *context,
 	pw_log_debug("%p: Created protocol %s", protocol, name);
 
 	return protocol;
+error:
+	free(protocol);
+	return NULL;
 }
 
 SPA_EXPORT

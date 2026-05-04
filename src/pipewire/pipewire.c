@@ -128,7 +128,10 @@ open_plugin(struct registry *registry,
 
 	pw_log_debug("loaded plugin:'%s'", filename);
 	plugin->ref = 1;
-	plugin->filename = strdup(filename);
+	if ((plugin->filename = strdup(filename)) == NULL) {
+		res = -errno;
+		goto error_free;
+	}
 	plugin->hnd = hnd;
 	plugin->enum_func = enum_func;
 	plugin->log_topic_enum = dlsym(hnd, SPA_LOG_TOPIC_ENUM_NAME);
@@ -139,6 +142,8 @@ open_plugin(struct registry *registry,
 
 	return plugin;
 
+error_free:
+	free(plugin);
 error_dlclose:
 	dlclose(hnd);
 error_out:
@@ -278,6 +283,11 @@ static struct spa_handle *load_spa_handle(const char *lib,
 	handle->ref = 1;
 	handle->plugin = plugin;
 	handle->factory_name = strdup(factory_name);
+	if (handle->factory_name == NULL) {
+		pthread_mutex_unlock(&support_lock);
+		res = -errno;
+		goto error_free_handle;
+	}
 	spa_list_prepend(&sup->registry.handles, &handle->link);
 
 	return &handle->handle;

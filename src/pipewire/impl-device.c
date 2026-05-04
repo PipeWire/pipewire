@@ -184,7 +184,10 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 	impl->cache_params = true;
 
 	this = &impl->this;
-	this->name = strdup("device");
+	if ((this->name = strdup("device")) == NULL) {
+		res = -errno;
+		goto error_free;
+	}
 	pw_log_debug("%p: new", this);
 
 	if (properties == NULL)
@@ -210,6 +213,7 @@ struct pw_impl_device *pw_context_create_device(struct pw_context *context,
 	return this;
 
 error_free:
+	free(this->name);
 	free(impl);
 error_cleanup:
 	pw_properties_free(properties);

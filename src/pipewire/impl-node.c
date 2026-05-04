@@ -1649,7 +1649,10 @@ struct pw_impl_node *pw_context_create_node(struct pw_context *context,
 
 	this = &impl->this;
 	this->context = context;
-	this->name = strdup("node");
+	if ((this->name = strdup("node")) == NULL) {
+		res = -errno;
+		goto error_clean;
+	}
 	this->source.fd = -1;
 
 	if (properties == NULL)

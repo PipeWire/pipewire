@@ -163,7 +163,7 @@ static int send_packet(struct maap *maap, uint64_t now,
 		maap_message_debug(maap, p);
 	}
 
-	if (send(maap->source->fd, p, sizeof(*h) + sizeof(*p), 0) < 0) {
+	if (send(maap->source->fd, h, sizeof(*h) + sizeof(*p), 0) < 0) {
 		res = -errno;
 		pw_log_warn("got send error: %m");
 	}

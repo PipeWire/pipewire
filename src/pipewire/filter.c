@@ -969,6 +969,8 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 
 	if ((port = get_port(impl, SPA_DIRECTION_OUTPUT, port_id)) == NULL)
 		return -EINVAL;
+	if (buffer_id >= port->n_buffers)
+		return -EINVAL;
 
 	pw_log_trace("%p: recycle buffer %d", impl, buffer_id);
 	push_queue(port, &port->queued, &port->buffers[buffer_id]);

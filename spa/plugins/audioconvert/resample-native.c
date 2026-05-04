@@ -184,10 +184,9 @@ static inline double sinc(double x, double cutoff)
 }
 
 static int build_filter(struct resample *r, float *taps, uint32_t stride, uint32_t n_taps,
-		uint32_t n_phases, double cutoff)
+		uint32_t n_phases, double cutoff, double *window)
 {
 	uint32_t i, j, n_taps12 = n_taps/2;
-	double window[n_taps12+1];
 
 	for (i = 0; i <= n_phases; i++) {
 		double t = (double) i / (double) n_phases;
@@ -567,7 +566,8 @@ int resample_native_init(struct resample *r)
 		spa_memcpy(d->filter, precomp_coeffs[i].filter, filter_size);
 	} else {
 #endif
-		build_filter(r, d->filter, d->filter_stride, n_taps, n_phases, scale);
+		build_filter(r, d->filter, d->filter_stride, n_taps, n_phases, scale,
+				(double *)d->hist_mem);
 #ifndef RESAMPLE_DISABLE_PRECOMP
 	}
 #endif

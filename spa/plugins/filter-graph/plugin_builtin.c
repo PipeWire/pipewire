@@ -1339,6 +1339,10 @@ static void * convolver2_instantiate(const struct spa_fga_plugin *plugin, const 
 			}
 			spa_json_enter(&it[0], &it[1]);
 			while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+				if (n_ir >= (int)SPA_N_ELEMENTS(ir)) {
+					spa_log_error(pl->log, "convolver2:too many impulses (%d)", n_ir);
+					goto error;
+				}
 				ir[n_ir] = IMPULSE_INIT(n_ir);
 				if ((res = convolver_read_impulse(pl, &it[2], SampleRate, &ir[n_ir])) < 0)
 					return NULL;

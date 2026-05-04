@@ -177,6 +177,12 @@ static int open_read(struct midi_file *mf, const char *filename, struct midi_fil
 	if ((res = read_mthd(mf)) < 0)
 		goto exit_close;
 
+	if (mf->info.ntracks > SPA_N_ELEMENTS(mf->tracks) ||
+	    mf->info.division == 0) {
+		res = -EINVAL;
+		goto exit_close;
+	}
+
 	mf->tempo = DEFAULT_TEMPO;
 	mf->tick = 0;
 

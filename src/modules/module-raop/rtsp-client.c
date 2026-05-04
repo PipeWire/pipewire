@@ -580,6 +580,10 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 		spa_list_remove(&msg->link);
 		free(msg);
 	}
+	spa_list_consume(msg, &client->pending, link) {
+		spa_list_remove(&msg->link);
+		free(msg);
+	}
 	pw_rtsp_client_emit_disconnected(client);
 	return 0;
 }

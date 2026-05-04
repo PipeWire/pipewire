@@ -760,6 +760,8 @@ static void handle_aaf_packet(struct stream *stream,
 
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
 	n_bytes = ntohs(p->data_len);
+	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)))
+		return;
 
 	/* IEEE 1722.1 Section 7.4.42 / Milan Section 5.4.5.3: FRAMES_RX counts every valid
 	 * AVTPDU received on the wire — independent of whether the listener

@@ -153,8 +153,8 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 			if (e == NULL)
 				return -errno;
 
-			memcpy(e->buf, message, len);
-			e->len = len;
+			e->len = SPA_MIN((size_t)len, sizeof(e->buf));
+			memcpy(e->buf, message, e->len);
 			e->valid_time = AVB_PACKET_ADP_GET_VALID_TIME(p);
 			e->entity_id = entity_id;
 			spa_list_append(&adp->entities, &e->link);
@@ -199,7 +199,8 @@ static int adp_message(void *data, uint64_t now, const void *message, int len)
 					}
 				}
 
-				memcpy(e->buf, message, len);
+				e->len = SPA_MIN((size_t)len, sizeof(e->buf));
+				memcpy(e->buf, message, e->len);
 			}
 		}
 		e->last_time = now;

@@ -154,8 +154,8 @@ static struct acmp_lt_timers *acmp_lt_add_timer_milan_v12(struct acmp_milan_v12 
 	if (tmr == NULL)
 		return NULL;
 	if (m) {
-		memcpy(tmr->saved_packet, m, len);
-		tmr->saved_packet_len = len;
+		tmr->saved_packet_len = SPA_MIN(len, sizeof(tmr->saved_packet));
+		memcpy(tmr->saved_packet, m, tmr->saved_packet_len);
 	}
 
 	tmr->timeout = timeout;

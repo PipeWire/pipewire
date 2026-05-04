@@ -406,7 +406,7 @@ static void source_process(void *d, struct spa_io_position *position)
 		src = jack.port_get_buffer (p->jack_port, n_samples);
 
 		if (SPA_UNLIKELY(p->is_midi))
-			jack_to_midi(dst, src, n_samples);
+			jack_to_midi(dst, src, n_samples * sizeof(float));
 		else
 			do_volume(dst, src, &s->volume, i, n_samples);
 	}

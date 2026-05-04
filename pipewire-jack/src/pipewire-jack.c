@@ -3790,7 +3790,8 @@ static void registry_event_global(void *data, uint32_t id,
 		if ((str = spa_dict_lookup(props, PW_KEY_SEC_PID)) != NULL) {
 			pw_log_debug("%p: pid of \"%s\" is \"%s\"", c, app, str);
 		} else {
-			pw_log_debug("%p: pid of \"%s\" is unknown", c, app);
+			pw_log_warn("%p: pid of \"%s\" is unknown", c, app);
+			str = "0";
 		}
 
 		o = alloc_object(c, INTERFACE_Client);
@@ -5986,7 +5987,8 @@ const char * jack_port_short_name (const jack_port_t *port)
 	return_val_if_fail(o != NULL, NULL);
 	if (o->type != INTERFACE_Port)
 		return NULL;
-	return strchr(port_name(o), ':') + 1;
+	const char *p = strchr(port_name(o), ':');
+	return p ? p + 1 : port_name(o);
 }
 
 SPA_EXPORT
@@ -6581,8 +6583,6 @@ int jack_disconnect (jack_client_t *client,
 
 	src = find_port_by_name(c, source_port);
 	dst = find_port_by_name(c, destination_port);
-
-	pw_log_debug("%p: %d %d", client, src->id, dst->id);
 
 	if (src == NULL || dst == NULL ||
 	    !(src->port.flags & JackPortIsOutput) ||

@@ -1082,6 +1082,8 @@ static int impl_port_use_buffers(void *object,
 static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct stream *d = object;
+	if (buffer_id >= d->n_buffers)
+		return -EINVAL;
 	pw_log_trace("%p: recycle buffer %d", d, buffer_id);
 	queue_push(d, &d->queued, &d->buffers[buffer_id]);
 	return 0;

@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <limits.h>
 
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>

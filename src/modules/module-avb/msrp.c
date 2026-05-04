@@ -126,7 +126,7 @@ static int process_talker(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 
 	return 0;
 }
-static int encode_talker(struct msrp *msrp, struct attr *a, void *m)
+static int encode_talker(struct msrp *msrp, struct attr *a, void *m, size_t maxsize)
 {
 	struct avb_packet_msrp_msg *msg = m;
 	struct avb_packet_mrp_vector *v;
@@ -134,6 +134,9 @@ static int encode_talker(struct msrp *msrp, struct attr *a, void *m)
 	struct avb_packet_mrp_footer *f;
 	uint8_t *ev;
 	size_t attr_list_length = sizeof(*v) + sizeof(*t) + sizeof(*f) + 1;
+
+	if (attr_list_length + sizeof(*msg) > maxsize)
+		return -ENOSPC;
 
 	msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE;
 	msg->attribute_length = sizeof(*t);
@@ -261,7 +264,7 @@ static int process_listener(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 		}
 	return 0;
 }
-static int encode_listener(struct msrp *msrp, struct attr *a, void *m)
+static int encode_listener(struct msrp *msrp, struct attr *a, void *m, size_t maxsize)
 {
 	struct avb_packet_msrp_msg *msg = m;
 	struct avb_packet_mrp_vector *v;
@@ -269,6 +272,9 @@ static int encode_listener(struct msrp *msrp, struct attr *a, void *m)
 	struct avb_packet_mrp_footer *f;
 	uint8_t *ev;
 	size_t attr_list_length = sizeof(*v) + sizeof(*l) + sizeof(*f) + 1 + 1;
+
+	if (attr_list_length + sizeof(*msg) > maxsize)
+		return -ENOSPC;
 
 	msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_LISTENER;
 	msg->attribute_length = sizeof(*l);
@@ -342,7 +348,7 @@ static int process_domain(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 	return 0;
 }
 
-static int encode_domain(struct msrp *msrp, struct attr *a, void *m)
+static int encode_domain(struct msrp *msrp, struct attr *a, void *m, size_t maxsize)
 {
 	struct avb_packet_msrp_msg *msg = m;
 	struct avb_packet_mrp_vector *v;
@@ -350,6 +356,9 @@ static int encode_domain(struct msrp *msrp, struct attr *a, void *m)
 	struct avb_packet_mrp_footer *f;
 	uint8_t *ev;
 	size_t attr_list_length = sizeof(*v) + sizeof(*d) + sizeof(*f) + 1;
+
+	if (attr_list_length + sizeof(*msg) > maxsize)
+		return -ENOSPC;
 
 	msg->attribute_type = AVB_MSRP_ATTRIBUTE_TYPE_DOMAIN;
 	msg->attribute_length = sizeof(*d);
@@ -375,7 +384,7 @@ static const struct {
 	const char *name;
 	int (*process) (struct msrp *msrp, uint64_t now, uint8_t attr_type,
 			const void *m, uint8_t event, uint8_t param, int num);
-	int (*encode) (struct msrp *msrp, struct attr *attr, void *m);
+	int (*encode) (struct msrp *msrp, struct attr *attr, void *m, size_t maxsize);
 	void (*notify) (struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify);
 } dispatch[] = {
 	[AVB_MSRP_ATTRIBUTE_TYPE_TALKER_ADVERTISE] = { "talker", process_talker, encode_talker, notify_talker, },
@@ -514,7 +523,7 @@ static void msrp_event(void *data, uint64_t now, uint8_t event)
 	void *msg = SPA_PTROFF(buffer, sizeof(*p), void);
 	struct attr *a;
 	int len, count = 0;
-	size_t total = sizeof(*p) + 2;
+	size_t total = sizeof(*p) + sizeof(*f);
 
 	p->version = AVB_MRP_PROTOCOL_VERSION;
 
@@ -528,7 +537,8 @@ static void msrp_event(void *data, uint64_t now, uint8_t event)
 				dispatch[a->attr->type].name,
 				avb_mrp_send_name(a->attr->mrp->pending_send));
 
-		len = dispatch[a->attr->type].encode(msrp, a, msg);
+		len = dispatch[a->attr->type].encode(msrp, a, msg,
+				sizeof(buffer) - total);
 		if (len < 0)
 			break;
 

@@ -64,7 +64,7 @@ static int process_vid(struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
 	return mvrp_attr_event(mvrp, now, attr_type, event);
 }
 
-static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m)
+static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m, size_t maxsize)
 {
 	struct avb_packet_mvrp_msg *msg = m;
 	struct avb_packet_mrp_vector *v;
@@ -72,6 +72,9 @@ static int encode_vid(struct mvrp *mvrp, struct attr *a, void *m)
 	struct avb_packet_mrp_footer *f;
 	uint8_t *ev;
 	size_t attr_list_length = sizeof(*v) + sizeof(*d) + sizeof(*f) + 1;
+
+	if (attr_list_length + sizeof(*msg) > maxsize)
+		return -ENOSPC;
 
 	msg->attribute_type = AVB_MVRP_ATTRIBUTE_TYPE_VID;
 	msg->attribute_length = sizeof(*d);
@@ -102,7 +105,7 @@ static const struct {
 	const char *name;
 	int (*process) (struct mvrp *mvrp, uint64_t now, uint8_t attr_type,
 			const void *m, uint8_t event, uint8_t param, int num);
-	int (*encode) (struct mvrp *mvrp, struct attr *attr, void *m);
+	int (*encode) (struct mvrp *mvrp, struct attr *attr, void *m, size_t maxsize);
 	void (*notify) (struct mvrp *mvrp, uint64_t now, struct attr *attr, uint8_t notify);
 } dispatch[] = {
 	[AVB_MVRP_ATTRIBUTE_TYPE_VID] = { "vid", process_vid, encode_vid, notify_vid },
@@ -214,7 +217,7 @@ static void mvrp_event(void *data, uint64_t now, uint8_t event)
 	void *msg = SPA_PTROFF(buffer, sizeof(*p), void);
 	struct attr *a;
 	int len, count = 0;
-	size_t total = sizeof(*p) + 2;
+	size_t total = sizeof(*p) + sizeof(*f);
 
 	p->version = AVB_MRP_PROTOCOL_VERSION;
 
@@ -227,7 +230,8 @@ static void mvrp_event(void *data, uint64_t now, uint8_t event)
 		pw_log_debug("send %s %s", dispatch[a->attr->type].name,
 				avb_mrp_send_name(a->attr->mrp->pending_send));
 
-		len = dispatch[a->attr->type].encode(mvrp, a, msg);
+		len = dispatch[a->attr->type].encode(mvrp, a, msg,
+				sizeof(buffer) - total);
 		if (len < 0)
 			break;
 

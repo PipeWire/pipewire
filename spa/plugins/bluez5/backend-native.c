@@ -106,6 +106,8 @@ struct impl {
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
 
+	DBusPendingCall *pending_register_profile;
+
 	const struct media_codec * const * codecs;
 
 #define DEFAULT_ENABLED_PROFILES (SPA_BT_PROFILE_HFP_HF | SPA_BT_PROFILE_HFP_AG)
@@ -3685,7 +3687,8 @@ static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct impl *backend = user_data;
 
-	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
+	spa_assert(backend->pending_register_profile == pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&backend->pending_register_profile);
 	if (r == NULL)
 		return;
 
@@ -3714,6 +3717,9 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 
 	if (!(backend->enabled_profiles & spa_bt_profile_from_uuid(uuid)))
 		return -ECANCELED;
+
+	if (backend->pending_register_profile)
+		return -EBUSY;
 
 	spa_log_debug(backend->log, "Registering Profile %s %s", profile, uuid);
 
@@ -3813,7 +3819,8 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 	}
 	dbus_message_iter_close_container(&it[0], &it[1]);
 
-	if (!send_with_reply(backend->conn, m, register_profile_reply, backend))
+	backend->pending_register_profile = send_with_reply(backend->conn, m, register_profile_reply, backend);
+	if (!backend->pending_register_profile)
 		return -EIO;
 
 	return 0;
@@ -3879,6 +3886,8 @@ static void sco_close(struct impl *backend)
 static int backend_native_unregister_profiles(void *data)
 {
 	struct impl *backend = data;
+
+	cancel_and_unref(&backend->pending_register_profile);
 
 	sco_close(backend);
 
@@ -4059,6 +4068,8 @@ static int backend_native_free(void *data)
 	struct impl *backend = data;
 
 	struct rfcomm *rfcomm;
+
+	cancel_and_unref(&backend->pending_register_profile);
 
 	sco_close(backend);
 

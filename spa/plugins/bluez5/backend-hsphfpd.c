@@ -43,7 +43,8 @@ struct impl {
 
 	char *hsphfpd_service_id;
 
-	bool acquire_in_progress;
+	DBusPendingCall *pending_acquire;
+	DBusPendingCall *pending_get_managed_objects;
 
 	unsigned int filters_added:1;
 	unsigned int msbc_supported:1;
@@ -822,9 +823,8 @@ static void hsphfpd_audio_acquire_reply(DBusPendingCall *pending, void *user_dat
 	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 	int ret = 0;
 
-	backend->acquire_in_progress = false;
-
-	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
+	spa_assert(backend->pending_acquire == pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&backend->pending_acquire);
 	if (r == NULL)
 		return;
 
@@ -883,7 +883,7 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 	spa_log_debug(backend->log, "transport %p: Acquire %s",
 			transport, transport->path);
 
-	if (backend->acquire_in_progress)
+	if (backend->pending_acquire)
 		return -EINPROGRESS;
 
 	if (transport->media_codec->codec_id == HFP_AUDIO_CODEC_MSBC) {
@@ -899,10 +899,9 @@ static int hsphfpd_audio_acquire(void *data, bool optional)
 		return -ENOMEM;
 	dbus_message_append_args(m, DBUS_TYPE_STRING, &air_codec, DBUS_TYPE_STRING, &agent_codec, DBUS_TYPE_INVALID);
 
-	if (!send_with_reply(backend->conn, m, hsphfpd_audio_acquire_reply, transport))
+	backend->pending_acquire = send_with_reply(backend->conn, m, hsphfpd_audio_acquire_reply, transport);
+	if (!backend->pending_acquire)
 		return -EIO;
-
-	backend->acquire_in_progress = true;
 
 	return 0;
 }
@@ -1171,7 +1170,8 @@ static void hsphfpd_get_endpoints_reply(DBusPendingCall *pending, void *user_dat
 	struct impl *backend = user_data;
 	DBusMessageIter i, array_i;
 
-	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
+	spa_assert(backend->pending_get_managed_objects == pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&backend->pending_get_managed_objects);
 	if (r == NULL)
 		return;
 
@@ -1250,12 +1250,16 @@ static int hsphfpd_get_endpoints(struct impl *backend)
 {
 	spa_autoptr(DBusMessage) m = NULL;
 
+	if (backend->pending_get_managed_objects)
+		return -EBUSY;
+
 	m = dbus_message_new_method_call(HSPHFPD_SERVICE, "/",
 			DBUS_INTERFACE_OBJECTMANAGER, "GetManagedObjects");
 	if (m == NULL)
 		return -ENOMEM;
 
-	if (!send_with_reply(backend->conn, m, hsphfpd_get_endpoints_reply, backend))
+	backend->pending_get_managed_objects = send_with_reply(backend->conn, m, hsphfpd_get_endpoints_reply, backend);
+	if (!backend->pending_get_managed_objects)
 		return -EIO;
 
 	return 0;
@@ -1278,6 +1282,9 @@ static int backend_hsphfpd_unregistered(void *data)
 {
 	struct impl *backend = data;
 	struct hsphfpd_endpoint *endpoint;
+
+	cancel_and_unref(&backend->pending_get_managed_objects);
+	cancel_and_unref(&backend->pending_acquire);
 
 	if (backend->hsphfpd_service_id) {
 		free(backend->hsphfpd_service_id);
@@ -1430,6 +1437,9 @@ static int backend_hsphfpd_free(void *data)
 {
 	struct impl *backend = data;
 	struct hsphfpd_endpoint *endpoint;
+
+	cancel_and_unref(&backend->pending_get_managed_objects);
+	cancel_and_unref(&backend->pending_acquire);
 
 	if (backend->filters_added) {
 		dbus_connection_remove_filter(backend->conn, hsphfpd_filter_cb, backend);

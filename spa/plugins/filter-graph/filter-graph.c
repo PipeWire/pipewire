@@ -1946,6 +1946,10 @@ static int setup_graph(struct graph *graph)
 			desc = first->desc;
 			d = desc->desc;
 			for (j = 0; j < desc->n_input; j++) {
+				if (graph->n_input >= input_count) {
+					res = -ENOSPC;
+					goto error;
+				}
 				gp = &graph->input[graph->n_input++];
 				spa_log_info(impl->log, "input port %s[%d]:%s",
 						first->name, i, d->ports[desc->input[j]].name);
@@ -1958,6 +1962,10 @@ static int setup_graph(struct graph *graph)
 			for (n = 0; n < graph->n_input_names; n++) {
 				pname = graph->input_names[n];
 				if (spa_streq(pname, "null")) {
+					if (graph->n_input >= input_count) {
+						res = -ENOSPC;
+						goto error;
+					}
 					gp = &graph->input[graph->n_input++];
 					gp->desc = NULL;
 					spa_log_info(impl->log, "ignore input port %d", graph->n_input);
@@ -1993,6 +2001,10 @@ static int setup_graph(struct graph *graph)
 							spa_list_for_each(link, &p->link_list, output_link) {
 								struct port *peer = link->input;
 
+								if (graph->n_input >= input_count) {
+									res = -ENOSPC;
+									goto error;
+								}
 								spa_log_info(impl->log, "copy input port %s[%d]:%s",
 									port->node->name, i,
 									d->ports[port->p].name);
@@ -2011,6 +2023,10 @@ static int setup_graph(struct graph *graph)
 						port->node->disabled = disabled;
 					}
 					if (!disabled) {
+						if (graph->n_input >= input_count) {
+							res = -ENOSPC;
+							goto error;
+						}
 						spa_log_info(impl->log, "input port %s[%d]:%s",
 							port->node->name, i, d->ports[port->p].name);
 						port->external = graph->n_input;
@@ -2028,6 +2044,10 @@ static int setup_graph(struct graph *graph)
 			desc = last->desc;
 			d = desc->desc;
 			for (j = 0; j < desc->n_output; j++) {
+				if (graph->n_output >= output_count) {
+					res = -ENOSPC;
+					goto error;
+				}
 				gp = &graph->output[graph->n_output++];
 				spa_log_info(impl->log, "output port %s[%d]:%s",
 						last->name, i, d->ports[desc->output[j]].name);
@@ -2039,6 +2059,10 @@ static int setup_graph(struct graph *graph)
 		} else {
 			for (n = 0; n < graph->n_output_names; n++) {
 				pname = graph->output_names[n];
+				if (graph->n_output >= output_count) {
+					res = -ENOSPC;
+					goto error;
+				}
 				gp = &graph->output[graph->n_output];
 				if (spa_streq(pname, "null")) {
 					gp->desc = NULL;

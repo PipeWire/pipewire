@@ -951,6 +951,8 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 
 	map = calloc(1, sizeof(snd_pcm_chmap_t) +
 				 channels * sizeof(unsigned int));
+	if (map == NULL)
+		return NULL;
 	map->channels = channels;
 	for (i = 0; i < channels; i++)
 		map->pos[i] = channel_to_chmap(position[i]);
@@ -958,33 +960,39 @@ static snd_pcm_chmap_t * snd_pcm_pipewire_get_chmap(snd_pcm_ioplug_t * io)
 	return map;
 }
 
-static void make_map(snd_pcm_chmap_query_t **maps, int index, int channels, ...)
+static void make_map(snd_pcm_chmap_query_t **maps, int *index, int channels, ...)
 {
 	va_list args;
-	int i;
+	int i, idx = *index;
 
-	maps[index] = malloc(sizeof(snd_pcm_chmap_query_t) + (channels * sizeof(unsigned int)));
-	maps[index]->type = SND_CHMAP_TYPE_FIXED;
-	maps[index]->map.channels = channels;
+	maps[idx] = malloc(sizeof(snd_pcm_chmap_query_t) + (channels * sizeof(unsigned int)));
+	if (maps[idx] == NULL)
+		return;
+	maps[idx]->type = SND_CHMAP_TYPE_FIXED;
+	maps[idx]->map.channels = channels;
 	va_start(args, channels);
 	for (i = 0; i < channels; i++)
-		maps[index]->map.pos[i] = va_arg(args, int);
+		maps[idx]->map.pos[i] = va_arg(args, int);
 	va_end(args);
+	(*index)++;
 }
 
 static snd_pcm_chmap_query_t **snd_pcm_pipewire_query_chmaps(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_chmap_query_t **maps;
+	int idx = 0;
 
 	maps = calloc(7, sizeof(*maps));
-	make_map(maps,  0, 1, SND_CHMAP_MONO);
-	make_map(maps,  1, 2, SND_CHMAP_FL, SND_CHMAP_FR);
-	make_map(maps,  2, 4, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR);
-	make_map(maps,  3, 5, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
+	if (maps == NULL)
+		return NULL;
+	make_map(maps,  &idx, 1, SND_CHMAP_MONO);
+	make_map(maps,  &idx, 2, SND_CHMAP_FL, SND_CHMAP_FR);
+	make_map(maps,  &idx, 4, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR);
+	make_map(maps,  &idx, 5, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
 			SND_CHMAP_FC);
-	make_map(maps,  4, 6, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
+	make_map(maps,  &idx, 6, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
 			SND_CHMAP_FC, SND_CHMAP_LFE);
-	make_map(maps,  5, 8, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
+	make_map(maps,  &idx, 8, SND_CHMAP_FL, SND_CHMAP_FR, SND_CHMAP_RL, SND_CHMAP_RR,
 			SND_CHMAP_FC, SND_CHMAP_LFE, SND_CHMAP_SL, SND_CHMAP_SR);
 
 	return maps;

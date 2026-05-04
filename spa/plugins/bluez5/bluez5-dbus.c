@@ -1697,8 +1697,10 @@ static void adapter_free(struct spa_bt_adapter *adapter)
 		}
 	}
 
-	SPA_FOR_EACH_ELEMENT_VAR(adapter->apps, app)
+	SPA_FOR_EACH_ELEMENT_VAR(adapter->apps, app) {
 		cancel_and_unref(&app->register_call);
+		cancel_and_unref(&app->register_adv_call);
+	}
 
 	spa_bt_player_destroy(adapter->dummy_player);
 
@@ -5779,6 +5781,160 @@ static DBusHandlerResult object_manager_handler_bap(DBusConnection *c, DBusMessa
 	return object_manager_handler(c, m, user_data, true);
 }
 
+static int append_le_service_data(struct spa_bt_monitor *monitor, DBusMessageIter *iter)
+{
+	struct bap_ascs_adv *adv;
+	int adv_len;
+	struct ltv_writer writer;
+	DBusMessageIter array_it;
+
+	adv_len = sizeof(struct bap_ascs_adv) + 4;
+	adv = malloc(adv_len);
+	if (!adv)
+		return -1;
+
+	adv->announcement_type = BAP_ANNOUNCEMENT_GENERAL;
+	adv->available_sink_contexts = htobs(monitor->bap_sink_qos.supported_context);
+	adv->available_source_contexts = htobs(monitor->bap_source_qos.supported_context);
+	adv->metadata_length = 4;
+	writer = LTV_WRITER(adv->metadata, 4);
+	ltv_writer_uint16(&writer, BAP_META_TYPE_PREFERRED_CONTEXT, htobs(BAP_CONTEXT_UNSPECIFIED));
+
+	dbus_message_iter_open_container(iter, DBUS_TYPE_ARRAY, "{sv}", &array_it);
+	append_basic_array_variant_dict_entry(&array_it, BT_ASCS_UUID, "ay", "y", DBUS_TYPE_BYTE, adv, adv_len);
+	dbus_message_iter_close_container(iter, &array_it);
+
+	return 0;
+}
+
+static DBusHandlerResult object_manager_handler_bap_adv(DBusConnection *c, DBusMessage *m, void *user_data)
+{
+	struct spa_bt_monitor *monitor = user_data;
+	const char *path, *interface, *member;
+	DBusHandlerResult res = DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+
+	path = dbus_message_get_path(m);
+	interface = dbus_message_get_interface(m);
+	member = dbus_message_get_member(m);
+
+	spa_log_debug(monitor->log, "dbus: path=%s, interface=%s, member=%s", path, interface, member);
+
+	if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "Get")) {
+		const char *iface, *name;
+		DBusMessage *r;
+		DBusMessageIter i, v;
+
+		if (!dbus_message_get_args(m, NULL,
+						DBUS_TYPE_STRING, &iface,
+						DBUS_TYPE_STRING, &name,
+						DBUS_TYPE_INVALID))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+		if (!spa_streq(iface, BLUEZ_LE_ADVERTISEMENT_INTERFACE)) {
+			r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS,
+					"No such interface");
+			if (!dbus_connection_send(c, r, NULL))
+				return DBUS_HANDLER_RESULT_NEED_MEMORY;
+			return DBUS_HANDLER_RESULT_HANDLED;
+		}
+
+		r = dbus_message_new_method_return(m);
+		if (r == NULL)
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+		if (spa_streq(name, "Type")) {
+			const char *str = "peripheral";
+
+			dbus_message_iter_init_append(r, &i);
+			dbus_message_iter_append_basic(&i, DBUS_TYPE_STRING, &str);
+		} else if (spa_streq(name, "ServiceUUIDs")) {
+			const char *str = BT_ASCS_UUID;
+
+			dbus_message_iter_init_append(r, &i);
+			dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "s", &v);
+			dbus_message_iter_append_basic(&v, DBUS_TYPE_STRING, &str);
+			dbus_message_iter_close_container(&i, &v);
+		} else if (spa_streq(name, "ServiceData")) {
+			dbus_message_iter_init_append(r, &i);
+			if (append_le_service_data(monitor, &i))
+				return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		} else if (spa_streq(name, "SecondaryChannel")) {
+			const char *str = "2M";
+
+			dbus_message_iter_init_append(r, &i);
+			dbus_message_iter_append_basic(&i, DBUS_TYPE_STRING, &str);
+		} else {
+			return res;
+		}
+
+		if (!dbus_connection_send(monitor->conn, r, NULL))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		res = DBUS_HANDLER_RESULT_HANDLED;
+	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "GetAll")) {
+		const char *iface;
+		DBusMessage *r;
+		DBusMessageIter i, v;
+		DBusMessageIter dict_entry_it, variant_it, array_it;
+		char *str;
+
+		if (!dbus_message_get_args(m, NULL, DBUS_TYPE_STRING, &iface, DBUS_TYPE_INVALID))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+		if (!spa_streq(iface, BLUEZ_LE_ADVERTISEMENT_INTERFACE)) {
+			r = dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS,
+					"No such interface");
+			if (!dbus_connection_send(c, r, NULL))
+				return DBUS_HANDLER_RESULT_NEED_MEMORY;
+			return DBUS_HANDLER_RESULT_HANDLED;
+		}
+
+		r = dbus_message_new_method_return(m);
+		if (r == NULL)
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+		dbus_message_iter_init_append(r, &i);
+		dbus_message_iter_open_container(&i, DBUS_TYPE_ARRAY, "{sv}", &v);
+		str = "peripheral";
+		append_basic_variant_dict_entry(&v, "Type", DBUS_TYPE_STRING, "s", &str);
+		str = "2M";
+		append_basic_variant_dict_entry(&v, "SecondaryChannel", DBUS_TYPE_STRING, "s", &str);
+
+		dbus_message_iter_open_container(&v, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
+		str = "ServiceUUIDs";
+		dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, &str);
+		dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, "as", &variant_it);
+		dbus_message_iter_open_container(&variant_it, DBUS_TYPE_ARRAY, "s", &array_it);
+		str = BT_ASCS_UUID;
+		dbus_message_iter_append_basic(&array_it, DBUS_TYPE_STRING, &str);
+		dbus_message_iter_close_container(&variant_it, &array_it);
+		dbus_message_iter_close_container(&dict_entry_it, &variant_it);
+		dbus_message_iter_close_container(&v, &dict_entry_it);
+
+		dbus_message_iter_open_container(&v, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
+		str = "ServiceData";
+		dbus_message_iter_append_basic(&dict_entry_it, DBUS_TYPE_STRING, &str);
+		dbus_message_iter_open_container(&dict_entry_it, DBUS_TYPE_VARIANT, "a{sv}", &variant_it);
+		if (append_le_service_data(monitor, &variant_it))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		dbus_message_iter_close_container(&dict_entry_it, &variant_it);
+		dbus_message_iter_close_container(&v, &dict_entry_it);
+
+		dbus_message_iter_close_container(&i, &v);
+
+		if (!dbus_connection_send(monitor->conn, r, NULL))
+			return DBUS_HANDLER_RESULT_NEED_MEMORY;
+		res = DBUS_HANDLER_RESULT_HANDLED;
+	} else if (dbus_message_is_method_call(m, DBUS_INTERFACE_PROPERTIES, "Set")) {
+		spa_log_info(monitor->log, "Set property is not supported");
+		res = DBUS_HANDLER_RESULT_HANDLED;
+	} else if (dbus_message_is_method_call(m, BLUEZ_LE_ADVERTISEMENT_INTERFACE, "Release")) {
+		spa_log_info(monitor->log, "Release property is not supported");
+		res = DBUS_HANDLER_RESULT_HANDLED;
+	}
+
+	return res;
+}
+
 static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_adapter *adapter = user_data;
@@ -5804,11 +5960,35 @@ static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void
 	app->registered = true;
 }
 
+static void bluez_register_le_advertisement_reply(DBusPendingCall *pending, void *user_data)
+{
+	struct spa_bt_adapter *adapter = user_data;
+	struct spa_bt_monitor *monitor = adapter->monitor;
+	struct bluez_app *app = &adapter->apps[BLUEZ_APP_BAP];
+
+	spa_assert(app->register_adv_call == pending);
+	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&app->register_adv_call);
+	if (r == NULL)
+		return;
+
+	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
+		spa_log_warn(monitor->log, "BlueZ D-Bus ObjectManager not available");
+		return;
+	}
+	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
+		spa_log_error(monitor->log, "RegisterAdvertisement() failed: %s",
+				dbus_message_get_error_name(r));
+		return;
+	}
+}
+
 static void bluez_register_application_bap_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct spa_bt_adapter *adapter = user_data;
 	struct spa_bt_monitor *monitor = adapter->monitor;
 	struct bluez_app *app = &adapter->apps[BLUEZ_APP_BAP];
+	DBusMessageIter object_it, dict_it;
+	const char *object_path = BAP_ADVERTISEMENT_PATH;
 
 	spa_assert(app->register_call == pending);
 	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&app->register_call);
@@ -5822,6 +6002,22 @@ static void bluez_register_application_bap_reply(DBusPendingCall *pending, void 
 	}
 
 	app->registered = true;
+
+	spa_autoptr(DBusMessage) m = dbus_message_new_method_call(BLUEZ_SERVICE,
+	                                 adapter->path,
+	                                 BLUEZ_LE_ADVERTISING_MANAGER_INTERFACE,
+	                                 "RegisterAdvertisement");
+	if (m == NULL)
+		return;
+
+	dbus_message_iter_init_append(m, &object_it);
+	dbus_message_iter_append_basic(&object_it, DBUS_TYPE_OBJECT_PATH, &object_path);
+	dbus_message_iter_open_container(&object_it, DBUS_TYPE_ARRAY, "{sv}", &dict_it);
+	dbus_message_iter_close_container(&object_it, &dict_it);
+
+	app->register_adv_call = send_with_reply(monitor->conn, m, bluez_register_le_advertisement_reply, adapter);
+	if (!app->register_adv_call)
+		return;
 }
 
 static int register_media_endpoint(struct spa_bt_monitor *monitor,
@@ -5859,6 +6055,10 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 	static const DBusObjectPathVTable vtable_object_manager_bap = {
 		.message_function = object_manager_handler_bap,
 	};
+	static const DBusObjectPathVTable vtable_object_manager_bap_adv = {
+		.message_function = object_manager_handler_bap_adv,
+	};
+	bool le_audio;
 
 	spa_log_info(monitor->log, "Registering DBus media object manager: %s",
 			A2DP_OBJECT_MANAGER_PATH);
@@ -5884,8 +6084,20 @@ static int register_media_application(struct spa_bt_monitor * monitor)
 		if (codec->kind == MEDIA_CODEC_BAP) {
 			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST);
 			register_media_endpoint(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST);
+			le_audio = true;
 		}
 	}
+
+	if (!le_audio)
+		return 0;
+
+	spa_log_info(monitor->log, "Registering DBus BAP advertisement : %s",
+			BAP_ADVERTISEMENT_PATH);
+
+	if (!dbus_connection_register_object_path(monitor->conn,
+	                                          BAP_ADVERTISEMENT_PATH,
+	                                          &vtable_object_manager_bap_adv, monitor))
+		return -EIO;
 
 	return 0;
 }
@@ -5923,6 +6135,7 @@ static void unregister_media_application(struct spa_bt_monitor * monitor)
 		}
 	}
 
+	dbus_connection_unregister_object_path(monitor->conn, BAP_ADVERTISEMENT_PATH);
 	dbus_connection_unregister_object_path(monitor->conn, BAP_OBJECT_MANAGER_PATH);
 	dbus_connection_unregister_object_path(monitor->conn, A2DP_OBJECT_MANAGER_PATH);
 }

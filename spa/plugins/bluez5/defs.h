@@ -34,6 +34,8 @@ extern "C" {
 #define BLUEZ_MEDIA_TRANSPORT_INTERFACE BLUEZ_SERVICE ".MediaTransport1"
 #define BLUEZ_INTERFACE_BATTERY_PROVIDER BLUEZ_SERVICE ".BatteryProvider1"
 #define BLUEZ_INTERFACE_BATTERY_PROVIDER_MANAGER BLUEZ_SERVICE ".BatteryProviderManager1"
+#define BLUEZ_LE_ADVERTISING_MANAGER_INTERFACE BLUEZ_SERVICE ".LEAdvertisingManager1"
+#define BLUEZ_LE_ADVERTISEMENT_INTERFACE BLUEZ_SERVICE ".LEAdvertisement1"
 
 #define DBUS_INTERFACE_OBJECT_MANAGER "org.freedesktop.DBus.ObjectManager"
 #define DBUS_SIGNAL_INTERFACES_ADDED "InterfacesAdded"
@@ -153,6 +155,8 @@ extern "C" {
 #define BAP_SOURCE_ENDPOINT	BAP_OBJECT_MANAGER_PATH "/BAPSource"
 #define BAP_BROADCAST_SOURCE_ENDPOINT	BAP_OBJECT_MANAGER_PATH "/BAPBroadcastSource"
 #define BAP_BROADCAST_SINK_ENDPOINT		BAP_OBJECT_MANAGER_PATH "/BAPBroadcastSink"
+
+#define BAP_ADVERTISEMENT_PATH	"/MediaLEAdvertisement"
 
 #define SPA_BT_UNKNOWN_DELAY			0
 
@@ -376,6 +380,7 @@ struct spa_bt_adapter {
 	struct bluez_app {
 		DBusPendingCall *register_call;
 		bool registered;
+		DBusPendingCall *register_adv_call;
 	} apps[BLUEZ_APP_LAST];
 
 	unsigned int has_msbc:1;

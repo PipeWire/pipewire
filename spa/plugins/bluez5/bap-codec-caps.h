@@ -146,6 +146,9 @@
 
 #define BAP_CONTEXT_ALL			0x0fff
 
+#define BAP_ANNOUNCEMENT_GENERAL	0x00
+#define BAP_ANNOUNCEMENT_TARGETED	0x01
+
 #define BT_ISO_QOS_CIG_UNSET    0xff
 #define BT_ISO_QOS_CIS_UNSET    0xff
 
@@ -153,6 +156,8 @@
 #define BT_ISO_QOS_TARGET_LATENCY_BALANCED	0x02
 #define BT_ISO_QOS_TARGET_LATENCY_RELIABILITY	0x03
 
+
+#define BT_ASCS_UUID		"0000184e-0000-1000-8000-00805f9b34fb"
 
 #define BT_TMAP_UUID		"00001855-0000-1000-8000-00805f9b34fb"
 
@@ -284,5 +289,13 @@ static const struct {
 	{ BAP_CHANNEL_LS,   SPA_AUDIO_CHANNEL_SL }, /* is it the right mapping? */
 	{ BAP_CHANNEL_RS,   SPA_AUDIO_CHANNEL_SR }, /* is it the right mapping? */
 };
+
+struct bap_ascs_adv {
+	uint8_t	announcement_type;
+	uint16_t available_sink_contexts;
+	uint16_t available_source_contexts;
+	uint8_t metadata_length;
+	uint8_t metadata[];
+} __attribute__((packed));
 
 #endif

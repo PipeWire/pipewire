@@ -175,9 +175,13 @@ static int handle_connect(struct pw_rtsp_client *client, int fd)
 		return res;
 
 	if (ip_version == 4)
-		asprintf(&client->url, "rtsp://%s/%s", local_ip, client->session_id);
+		res = asprintf(&client->url, "rtsp://%s/%s", local_ip, client->session_id);
 	else
-		asprintf(&client->url, "rtsp://[%s]/%s", local_ip, client->session_id);
+		res = asprintf(&client->url, "rtsp://[%s]/%s", local_ip, client->session_id);
+	if (res < 0) {
+		client->url = NULL;
+		return -ENOMEM;
+	}
 
 	pw_log_info("connected local ip %s", local_ip);
 

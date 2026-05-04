@@ -239,7 +239,6 @@ static void pwtest_backtrace(pid_t p)
 }
 
 SPA_PRINTF_FUNC(6, 7)
-SPA_NORETURN
 void _pwtest_fail_condition(int exitstatus,
 			    const char *file, int line, const char *func,
 			    const char *condition, const char *message, ...)
@@ -259,7 +258,6 @@ void _pwtest_fail_condition(int exitstatus,
 	exit(exitstatus);
 }
 
-SPA_NORETURN
 void _pwtest_fail_comparison_bool(const char *file, int line, const char *func,
 				 const char *operator, bool a, bool b,
 				 const char *astr, const char *bstr)
@@ -271,7 +269,6 @@ void _pwtest_fail_comparison_bool(const char *file, int line, const char *func,
 	exit(PWTEST_FAIL);
 }
 
-SPA_NORETURN
 void _pwtest_fail_errno(const char *file, int line, const char *func,
 			int expected, int err_no)
 {
@@ -283,7 +280,6 @@ void _pwtest_fail_errno(const char *file, int line, const char *func,
 }
 
 
-SPA_NORETURN
 void _pwtest_fail_comparison_int(const char *file, int line, const char *func,
 				 const char *operator, int a, int b,
 				 const char *astr, const char *bstr)
@@ -295,7 +291,6 @@ void _pwtest_fail_comparison_int(const char *file, int line, const char *func,
 	exit(PWTEST_FAIL);
 }
 
-SPA_NORETURN
 void _pwtest_fail_comparison_double(const char *file, int line, const char *func,
 				   const char *operator, double a, double b,
 				   const char *astr, const char *bstr)
@@ -307,7 +302,6 @@ void _pwtest_fail_comparison_double(const char *file, int line, const char *func
 	exit(PWTEST_FAIL);
 }
 
-SPA_NORETURN
 void _pwtest_fail_comparison_ptr(const char *file, int line, const char *func,
 				const char *comparison)
 {
@@ -317,7 +311,6 @@ void _pwtest_fail_comparison_ptr(const char *file, int line, const char *func,
 	exit(PWTEST_FAIL);
 }
 
-SPA_NORETURN
 void _pwtest_fail_comparison_str(const char *file, int line, const char *func,
 				 const char *comparison, const char *a, const char *b)
 {

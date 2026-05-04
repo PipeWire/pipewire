@@ -10,30 +10,37 @@
 /* This header should never be included on its own, it merely exists to make
  * the user-visible pwtest.h header more readable */
 
+SPA_NORETURN
 void
 _pwtest_fail_condition(int exitstatus, const char *file, int line, const char *func,
 		      const char *condition, const char *message, ...);
+SPA_NORETURN
 void
 _pwtest_fail_comparison_int(const char *file, int line, const char *func,
 			   const char *operator, int a, int b,
 			   const char *astr, const char *bstr);
+SPA_NORETURN
 void
 _pwtest_fail_comparison_double(const char *file, int line, const char *func,
 			      const char *operator, double a, double b,
 			      const char *astr, const char *bstr);
+SPA_NORETURN
 void
 _pwtest_fail_comparison_ptr(const char *file, int line, const char *func,
 			   const char *comparison);
 
+SPA_NORETURN
 void
 _pwtest_fail_comparison_str(const char *file, int line, const char *func,
 			   const char *comparison, const char *a, const char *b);
 
+SPA_NORETURN
 void
 _pwtest_fail_comparison_bool(const char *file, int line, const char *func,
 			     const char *operator, bool a, bool b,
 			     const char *astr, const char *bstr);
 
+SPA_NORETURN
 void
 _pwtest_fail_errno(const char *file, int line, const char *func,
 		   int expected, int err_no);

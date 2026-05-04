@@ -90,6 +90,10 @@ struct pw_rtsp_client *pw_rtsp_client_new(struct pw_loop *main_loop,
 	spa_list_init(&client->pending);
 	spa_hook_list_init(&client->listener_list);
 	client->headers = pw_properties_new(NULL, NULL);
+	if (client->headers == NULL) {
+		free(client);
+		return NULL;
+	}
 	pw_array_init(&client->content, 4096);
 	client->recv_state = CLIENT_RECV_NONE;
 

@@ -133,7 +133,7 @@ struct nj2_packet_header {
 
 static inline void nj2_dump_packet_header(struct nj2_packet_header *header)
 {
-	pw_log_info("Type:         %s", header->type);
+	pw_log_info("Type:         %.*s", (int)sizeof(header->type), header->type);
 	pw_log_info("Data Type:    %c", ntohl(header->data_type));
 	pw_log_info("Data Stream:  %c", ntohl(header->data_stream));
 	pw_log_info("ID:           %u", ntohl(header->id));

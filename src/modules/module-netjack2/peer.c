@@ -156,6 +156,12 @@ static int netjack2_init(struct netjack2_peer *peer)
 		errno = EINVAL;
 		goto error_errno;
 	}
+	if (peer->params.mtu < UDP_HEADER_SIZE + sizeof(struct nj2_packet_header) ||
+	    sizeof(struct nj2_packet_header) +
+		    peer->params.recv_audio_channels * sizeof(int32_t) > peer->params.mtu) {
+		errno = EINVAL;
+		goto error_errno;
+	}
 
 	if (peer->params.sample_encoder == NJ2_ENCODER_INT) {
 		if (spa_overflow_mul(peer->params.period_size, (uint32_t)sizeof(int16_t), &peer->max_encoded_size) ||

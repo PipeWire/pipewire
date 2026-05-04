@@ -5,6 +5,8 @@
 #include <dlfcn.h>
 #include <math.h>
 
+#define MAX_PORTS	512
+
 #include <lilv/lilv.h>
 
 #include <spa/utils/defs.h>
@@ -536,7 +538,15 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 	desc->desc.flags = 0;
 
 	desc->desc.n_ports = lilv_plugin_get_num_ports(p->p);
+	if (desc->desc.n_ports > MAX_PORTS) {
+		free(desc);
+		return NULL;
+	}
 	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct spa_fga_port));
+	if (desc->desc.ports == NULL) {
+		free(desc);
+		return NULL;
+	}
 
 	mins = alloca(desc->desc.n_ports * sizeof(float));
 	maxes = alloca(desc->desc.n_ports * sizeof(float));

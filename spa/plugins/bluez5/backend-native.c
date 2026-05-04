@@ -3505,6 +3505,10 @@ static DBusHandlerResult profile_new_connection(DBusConnection *conn, DBusMessag
 	rfcomm->profile = profile;
 	rfcomm->device = d;
 	rfcomm->path = strdup(path);
+	if (rfcomm->path == NULL) {
+		free(rfcomm);
+		return DBUS_HANDLER_RESULT_NEED_MEMORY;
+	}
 	rfcomm->source.func = rfcomm_event;
 	rfcomm->source.data = rfcomm;
 	rfcomm->source.fd = spa_steal_fd(fd);

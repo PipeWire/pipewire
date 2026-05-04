@@ -3497,8 +3497,15 @@ filter_bluez_device_setting(struct impl *this, const struct spa_dict *dict)
 	{
 		const struct spa_dict_item *it = &dict->items[i];
 		if (it->key != NULL && strncmp(it->key, "bluez", 5) == 0 && it->value != NULL) {
+			char *key = strdup(it->key);
+			char *value = strdup(it->value);
+			if (key == NULL || value == NULL) {
+				free(key);
+				free(value);
+				continue;
+			}
 			this->setting_items[n_items++] =
-				SPA_DICT_ITEM_INIT(strdup(it->key), strdup(it->value));
+				SPA_DICT_ITEM_INIT(key, value);
 		}
 	}
 	this->setting_dict = SPA_DICT_INIT(this->setting_items, n_items);

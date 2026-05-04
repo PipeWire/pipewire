@@ -1569,6 +1569,8 @@ static inline int midi_event_append(void *port_buffer, const jack_midi_data_t *d
 	size_t old_size;
 	uint8_t *old, *buf;
 
+	if (mb->event_count == 0)
+		return -ENOBUFS;
 	ev = &events[--mb->event_count];
 	mb->write_pos -= ev->size;
 	old_size = ev->size;

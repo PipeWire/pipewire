@@ -667,8 +667,17 @@ client_node_port_use_buffers(void *_data,
 		for (j = 0; j < b->n_metas; j++) {
 			struct spa_meta *m = &b->metas[j];
 			memcpy(m, &buffers[i].buffer->metas[j], sizeof(struct spa_meta));
+			if (offset + m->size > mm->size) {
+				res = -EINVAL;
+				goto error_exit_cleanup;
+			}
 			m->data = SPA_PTROFF(mm->ptr, offset, void);
 			offset += SPA_ROUND_UP_N(m->size, 8);
+		}
+
+		if (offset + sizeof(struct spa_chunk) * b->n_datas > mm->size) {
+			res = -EINVAL;
+			goto error_exit_cleanup;
 		}
 
 		for (j = 0; j < b->n_datas; j++) {
@@ -701,6 +710,10 @@ client_node_port_use_buffers(void *_data,
 						j, bm->id, bm->fd, d->maxsize, d->flags);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
+				if (offs < 0 || (uint32_t)offs + d->maxsize > mm->size) {
+					res = -EINVAL;
+					goto error_exit_cleanup;
+				}
 				d->data = SPA_PTROFF(mm->ptr, offs, void);
 				d->fd = -1;
 				pw_log_debug(" data %d id:%u -> mem:%p offs:%d maxsize:%d flags:%08x",

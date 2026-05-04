@@ -2962,10 +2962,13 @@ static int do_exec(struct pipe_impl *impl, const char *command)
 
                 if (argc >= (int)SPA_N_ELEMENTS(argv) - 1) {
                         spa_log_error(impl->log, "too many exec arguments");
-                        return -E2BIG;
+                        res = -E2BIG;
+                        goto error_argv;
                 }
-                if ((s = malloc(len+1)) == NULL)
-                        return -errno;
+                if ((s = malloc(len+1)) == NULL) {
+                        res = -errno;
+                        goto error_argv;
+                }
 
                 spa_json_parse_stringn(value, len, s, len+1);
 
@@ -2973,8 +2976,18 @@ static int do_exec(struct pipe_impl *impl, const char *command)
         }
 	argv[argc++] = NULL;
 
-	pipe2(stdin_pipe, 0);
-	pipe2(stdout_pipe, 0);
+	if (pipe2(stdin_pipe, 0) < 0) {
+		res = -errno;
+		spa_log_error(impl->log, "pipe2 error: %m");
+		goto error_argv;
+	}
+	if (pipe2(stdout_pipe, 0) < 0) {
+		res = -errno;
+		spa_log_error(impl->log, "pipe2 error: %m");
+		close(stdin_pipe[0]);
+		close(stdin_pipe[1]);
+		goto error_argv;
+	}
 
 	impl->write_fd = stdin_pipe[1];
 	impl->read_fd = stdout_pipe[0];
@@ -3016,13 +3029,19 @@ done:
 		spa_log_error(impl->log, "fork error: %m");
 	} else {
 		int status = 0;
+		close(stdin_pipe[0]);
+		close(stdout_pipe[1]);
 		do {
 			errno = 0;
 			res = waitpid(pid, &status, 0);
 		} while (res < 0 && errno == EINTR);
 		spa_log_debug(impl->log, "exec got pid %d res:%d status:%d", (int)pid, res, status);
 	}
-	return 0;
+	res = 0;
+error_argv:
+	while (argc > 0)
+		free(argv[--argc]);
+	return res;
 }
 
 static void pipe_transfer(struct pipe_impl *impl, float *in, float *out, int count)

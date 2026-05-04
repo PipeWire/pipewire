@@ -107,7 +107,7 @@ static inline int weakjack_load_by_path(struct weakjack *jack, const char *path)
 
 #define LOAD_SYM(name) ({					\
 	if ((jack->name =  dlsym(hnd, "jack_"#name )) == NULL)	\
-		return -ENOSYS;					\
+		goto error;					\
 })
 	spa_zero(*jack);
 	LOAD_SYM(cycle_wait);
@@ -153,6 +153,9 @@ static inline int weakjack_load_by_path(struct weakjack *jack, const char *path)
 #undef LOAD_SYM
 
 	return 0;
+error:
+	dlclose(hnd);
+	return -ENOSYS;
 }
 
 static inline int weakjack_load(struct weakjack *jack, const char *lib)

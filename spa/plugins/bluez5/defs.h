@@ -350,6 +350,12 @@ struct spa_bt_monitor;
 struct spa_bt_backend;
 struct spa_bt_player;
 
+enum bluez_app_id {
+	BLUEZ_APP_A2DP,
+	BLUEZ_APP_BAP,
+	BLUEZ_APP_LAST
+};
+
 struct spa_bt_adapter {
 	struct spa_list link;
 	struct spa_bt_monitor *monitor;
@@ -366,10 +372,14 @@ struct spa_bt_adapter {
 	uint32_t bluetooth_class;
 	uint32_t profiles;
 	int powered;
+
+	struct bluez_app {
+		DBusPendingCall *register_call;
+		bool registered;
+	} apps[BLUEZ_APP_LAST];
+
 	unsigned int has_msbc:1;
 	unsigned int msbc_probed:1;
-	unsigned int a2dp_application_registered:1;
-	unsigned int bap_application_registered:1;
 	unsigned int player_registered:1;
 	unsigned int has_battery_provider:1;
 	unsigned int battery_provider_unavailable:1;

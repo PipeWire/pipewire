@@ -134,6 +134,8 @@ struct spa_bt_monitor {
 
 	struct bap_features bap_features;
 
+	uint8_t bap_ascs_announcement;
+
 	struct spa_bt_quirks *quirks;
 
 #define MAX_SETTINGS 128
@@ -5793,7 +5795,7 @@ static int append_le_service_data(struct spa_bt_monitor *monitor, DBusMessageIte
 	if (!adv)
 		return -1;
 
-	adv->announcement_type = BAP_ANNOUNCEMENT_GENERAL;
+	adv->announcement_type = monitor->bap_ascs_announcement;
 	adv->available_sink_contexts = htobs(monitor->bap_sink_qos.supported_context);
 	adv->available_source_contexts = htobs(monitor->bap_source_qos.supported_context);
 	adv->metadata_length = 4;
@@ -7478,6 +7480,17 @@ static void parse_bap_features(struct spa_bt_monitor *this, const struct spa_dic
 	bap_feature_parse(this, gmap_uuid, spa_dict_lookup(info, "bluez5.bap-server-gmap-features"));
 }
 
+static void parse_ascs_announcement(struct spa_bt_monitor *this, const struct spa_dict *info)
+{
+	const char *str;
+
+	str = spa_dict_lookup(info, "bluez5.bap-server.ascs-announcement");
+	if (spa_streq(str, "targeted"))
+		this->bap_ascs_announcement = BAP_ANNOUNCEMENT_TARGETED;
+	else if (spa_streq(str, "general"))
+		this->bap_ascs_announcement = BAP_ANNOUNCEMENT_GENERAL;
+}
+
 static void bap_init_qos(struct spa_bt_monitor *this)
 {
 	/* BlueZ has default values for phy/rtn/latency/delays */
@@ -7554,6 +7567,7 @@ static void parse_bap_server(struct spa_bt_monitor *this, const struct spa_dict 
 	bap_clamp_qos_delay(&this->bap_source_qos);
 
 	parse_bap_features(this, info);
+	parse_ascs_announcement(this, info);
 }
 
 static void get_global_settings(struct spa_bt_monitor *this, const struct spa_dict *dict)

@@ -1402,6 +1402,11 @@ If not set or set to "balanced", both low-latency and high-reliability QoS confi
 This property is experimental.
 Available: low-latency, high-reliability, balanced
 
+@PAR@ device-prop  bluez5.bap-server.ascs-announcement = "general" # string
+BAP server announcement forced for ASCS advertisement. By default this is set to "general".
+This property is experimental.
+Available: general, targeted
+
 ## Node properties
 
 @PAR@ node-prop  bluez5.media-source-role   # string

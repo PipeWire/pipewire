@@ -416,6 +416,8 @@ int spa_avb_init(struct state *state, const struct spa_dict *info)
 
 int spa_avb_clear(struct state *state)
 {
+	free(state->ringbuffer_data);
+	state->ringbuffer_data = NULL;
 	return 0;
 }
 

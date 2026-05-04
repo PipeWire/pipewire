@@ -2818,12 +2818,9 @@ bool spa_bt_device_supports_media_codec(struct spa_bt_device *device, const stru
 	if (!codec_target_profile)
 		return false;
 
-	if (!device->adapter->a2dp_application_registered && is_a2dp) {
-		/* Codec switching not supported: only plain SBC allowed */
-		return (codec->codec_id == A2DP_CODEC_SBC && spa_streq(codec->name, "sbc") &&
-				device->adapter->legacy_endpoints_registered);
-	}
-	if (!device->adapter->bap_application_registered && codec->kind == MEDIA_CODEC_BAP)
+	if (is_a2dp && !device->adapter->a2dp_application_registered)
+		return false;
+	if (is_bap && !device->adapter->bap_application_registered)
 		return false;
 
 	/* Check codec quirks */
@@ -5504,28 +5501,6 @@ static DBusHandlerResult endpoint_handler(DBusConnection *c, DBusMessage *m, voi
 	return res;
 }
 
-static void bluez_register_endpoint_legacy_reply(DBusPendingCall *pending, void *user_data)
-{
-	struct spa_bt_adapter *adapter = user_data;
-	struct spa_bt_monitor *monitor = adapter->monitor;
-
-	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
-	if (r == NULL)
-		return;
-
-	if (dbus_message_is_error(r, DBUS_ERROR_UNKNOWN_METHOD)) {
-		spa_log_warn(monitor->log, "BlueZ D-Bus ObjectManager not available");
-		return;
-	}
-	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
-		spa_log_error(monitor->log, "RegisterEndpoint() failed: %s",
-				dbus_message_get_error_name(r));
-		return;
-	}
-
-	adapter->legacy_endpoints_registered = true;
-}
-
 static void append_basic_variant_dict_entry(DBusMessageIter *dict, const char* key, int variant_type_int, const char* variant_type_str, void* variant) {
 	DBusMessageIter dict_entry_it, variant_it;
 	dbus_message_iter_open_container(dict, DBUS_TYPE_DICT_ENTRY, NULL, &dict_entry_it);
@@ -5548,112 +5523,6 @@ static void append_basic_array_variant_dict_entry(DBusMessageIter *dict, const c
 	dbus_message_iter_close_container(&variant_it, &array_it);
 	dbus_message_iter_close_container(&dict_entry_it, &variant_it);
 	dbus_message_iter_close_container(dict, &dict_entry_it);
-}
-
-static int bluez_register_endpoint_legacy(struct spa_bt_adapter *adapter,
-				   enum spa_bt_media_direction direction,
-				   const char *uuid, const struct media_codec *codec)
-{
-	struct spa_bt_monitor *monitor = adapter->monitor;
-	const char *path = adapter->path;
-	spa_autofree char *object_path = NULL;
-	spa_autoptr(DBusMessage) m = NULL;
-	DBusMessageIter object_it, dict_it;
-	uint8_t caps[A2DP_MAX_CAPS_SIZE];
-	int ret, caps_size;
-	uint16_t codec_id = codec->codec_id;
-	bool sink = (direction == SPA_BT_MEDIA_SINK);
-
-	spa_assert(codec->fill_caps);
-
-	ret = media_codec_to_endpoint(codec, direction, &object_path);
-	if (ret < 0)
-		return ret;
-
-	ret = caps_size = codec->fill_caps(codec, sink ? MEDIA_CODEC_FLAG_SINK : 0, &monitor->global_settings, caps);
-	if (ret < 0)
-		return ret;
-
-	m = dbus_message_new_method_call(BLUEZ_SERVICE,
-	                                 path,
-	                                 BLUEZ_MEDIA_INTERFACE,
-	                                 "RegisterEndpoint");
-	if (m == NULL)
-		return -EIO;
-
-	dbus_message_iter_init_append(m, &object_it);
-	dbus_message_iter_append_basic(&object_it, DBUS_TYPE_OBJECT_PATH, &object_path);
-
-	dbus_message_iter_open_container(&object_it, DBUS_TYPE_ARRAY, "{sv}", &dict_it);
-
-	append_basic_variant_dict_entry(&dict_it,"UUID", DBUS_TYPE_STRING, "s", &uuid);
-	append_basic_variant_dict_entry(&dict_it, "Codec", DBUS_TYPE_BYTE, "y", &codec_id);
-	append_basic_array_variant_dict_entry(&dict_it, "Capabilities", "ay", "y", DBUS_TYPE_BYTE, caps, caps_size);
-
-	dbus_message_iter_close_container(&object_it, &dict_it);
-
-	if (!send_with_reply(monitor->conn, m, bluez_register_endpoint_legacy_reply, adapter))
-		return -EIO;
-
-	return 0;
-}
-
-static int adapter_register_endpoints_legacy(struct spa_bt_adapter *a)
-{
-	struct spa_bt_monitor *monitor = a->monitor;
-	const struct media_codec * const * const media_codecs = monitor->media_codecs;
-	int i;
-	int err = 0;
-	bool registered = false;
-
-	if (a->legacy_endpoints_registered)
-	    return err;
-
-	/* The legacy bluez5 api doesn't support codec switching
-	 * It doesn't make sense to register codecs other than SBC
-	 * as bluez5 will probably use SBC anyway and we have no control over it
-	 * let's incentivize users to upgrade their bluez5 daemon
-	 * if they want proper media codec support
-	 * */
-	spa_log_warn(monitor->log,
-		     "Using legacy bluez5 API for A2DP - only SBC will be supported. "
-		     "Please upgrade bluez5.");
-
-	for (i = 0; media_codecs[i]; i++) {
-		const struct media_codec *codec = media_codecs[i];
-
-		if (codec->id != SPA_BLUETOOTH_AUDIO_CODEC_SBC)
-			continue;
-
-		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE)) {
-			if ((err = bluez_register_endpoint_legacy(a, SPA_BT_MEDIA_SOURCE,
-									SPA_BT_UUID_A2DP_SOURCE,
-									codec)))
-				goto out;
-		}
-
-		if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK)) {
-			if ((err = bluez_register_endpoint_legacy(a, SPA_BT_MEDIA_SINK,
-									SPA_BT_UUID_A2DP_SINK,
-									codec)))
-				goto out;
-		}
-
-		registered = true;
-		break;
-	}
-
-	if (!registered) {
-		/* Should never happen as SBC support is always enabled */
-		spa_log_error(monitor->log, "Broken PipeWire build - unable to locate SBC codec");
-		err = -ENOSYS;
-	}
-
-out:
-	if (err) {
-		spa_log_error(monitor->log, "Failed to register bluez5 endpoints");
-	}
-	return err;
 }
 
 static void append_supported_features(DBusMessageIter *dict, struct bap_features *features)
@@ -5911,7 +5780,6 @@ static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void
 {
 	struct spa_bt_adapter *adapter = user_data;
 	struct spa_bt_monitor *monitor = adapter->monitor;
-	bool fallback = true;
 
 	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&pending);
 	if (r == NULL)
@@ -5919,21 +5787,16 @@ static void bluez_register_application_a2dp_reply(DBusPendingCall *pending, void
 
 	if (dbus_message_is_error(r, BLUEZ_ERROR_NOT_SUPPORTED)) {
 		spa_log_warn(monitor->log, "Registering media applications for adapter %s is disabled in bluez5", adapter->path);
-		goto finish;
+		return;
 	}
 
 	if (dbus_message_get_type(r) == DBUS_MESSAGE_TYPE_ERROR) {
 		spa_log_error(monitor->log, "RegisterApplication() failed: %s",
 		        dbus_message_get_error_name(r));
-		goto finish;
+		return;
 	}
 
-	fallback = false;
 	adapter->a2dp_application_registered = true;
-
-finish:
-	if (fallback)
-		adapter_register_endpoints_legacy(adapter);
 }
 
 static void bluez_register_application_bap_reply(DBusPendingCall *pending, void *user_data)

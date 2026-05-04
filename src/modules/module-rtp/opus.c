@@ -167,8 +167,8 @@ static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 				write, expected_write);
 	}
 
-	if (filled + plen > BUFFER_SIZE2 / stride) {
-		pw_log_debug("capture overrun %u + %zd > %u", filled, plen,
+	if (filled + 2880 > (int32_t)(BUFFER_SIZE2 / stride)) {
+		pw_log_debug("capture overrun %u + %d > %u", filled, 2880,
 				BUFFER_SIZE2 / stride);
 		impl->have_sync = false;
 	} else {

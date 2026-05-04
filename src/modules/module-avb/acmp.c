@@ -177,8 +177,12 @@ static int acmp_message(void *data, uint64_t now, const void *message, int len)
 
 	mtype = AVB_PACKET_ACMP_GET_MESSAGE_TYPE(p);
 
-	pw_log_info("got ACMP message %s", acmp_cmd_names[mtype]);
-	avb_log_state(server, acmp_cmd_names[mtype]);
+	if (mtype < 0 || (size_t)mtype >= SPA_N_ELEMENTS(acmp_cmd_names)) {
+		pw_log_info("got ACMP message %d (unknown)", mtype);
+	} else {
+		pw_log_info("got ACMP message %s", acmp_cmd_names[mtype]);
+		avb_log_state(server, acmp_cmd_names[mtype]);
+	}
 
 	switch (mtype) {
 	case AVB_ACMP_MESSAGE_TYPE_CONNECT_RX_COMMAND:

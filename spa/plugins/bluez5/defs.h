@@ -368,7 +368,6 @@ struct spa_bt_adapter {
 	int powered;
 	unsigned int has_msbc:1;
 	unsigned int msbc_probed:1;
-	unsigned int legacy_endpoints_registered:1;
 	unsigned int a2dp_application_registered:1;
 	unsigned int bap_application_registered:1;
 	unsigned int player_registered:1;

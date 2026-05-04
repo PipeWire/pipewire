@@ -105,23 +105,25 @@ static void dot_data_clear(struct dot_data * dd)
 	dd->size = 0;
 }
 
-static void dot_data_ensure_max_size (struct dot_data * dd, size_t size)
+static bool dot_data_ensure_max_size (struct dot_data * dd, size_t size)
 {
 	size_t new_size = dd->size + size + 1;
 	if (new_size > dd->max_size) {
 		size_t next_size = new_size * 2;
 		void *p = realloc (dd->data, next_size);
 		if (p == NULL)
-			return;
+			return false;
 		dd->data = p;
 		dd->max_size = next_size;
 	}
+	return true;
 }
 
 static void dot_data_add_uint32 (struct dot_data * dd, uint32_t value)
 {
 	int size;
-	dot_data_ensure_max_size (dd, 16);
+	if (!dot_data_ensure_max_size (dd, 16))
+		return;
 	size = snprintf (dd->data + dd->size, dd->max_size - dd->size, "%u", value);
 	dd->size += size;
 }
@@ -129,7 +131,8 @@ static void dot_data_add_uint32 (struct dot_data * dd, uint32_t value)
 static void dot_data_add_string (struct dot_data * dd, const char *value)
 {
 	int size;
-	dot_data_ensure_max_size (dd, strlen (value));
+	if (!dot_data_ensure_max_size (dd, strlen (value)))
+		return;
 	size = snprintf (dd->data + dd->size, dd->max_size - dd->size, "%s", value);
 	dd->size += size;
 }
@@ -974,6 +977,10 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 
 	/* set the global data */
 	g = calloc(1, sizeof(struct global));
+	if (g == NULL) {
+		pw_proxy_destroy(proxy);
+		return;
+	}
 	g->data = d;
 	g->proxy = proxy;
 

@@ -48,6 +48,8 @@ static struct card *ensure_card(uint32_t index, bool ucm, bool ucm_split)
 		return c;
 
 	c = calloc(1, sizeof(*c));
+	if (c == NULL)
+		return NULL;
 	c->ref = 1;
 	c->index = index;
 

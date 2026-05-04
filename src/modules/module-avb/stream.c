@@ -567,6 +567,8 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 			htons(index);
 
 	stream->buffer_data = calloc(1, BUFFER_SIZE);
+	if (stream->buffer_data == NULL)
+		goto error_free;
 	stream->buffer_size = BUFFER_SIZE;
 	spa_ringbuffer_init(&stream->ring);
 

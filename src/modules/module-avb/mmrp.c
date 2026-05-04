@@ -166,6 +166,8 @@ struct avb_mmrp_attribute *avb_mmrp_attribute_new(struct avb_mmrp *m,
 	struct attr *a;
 
 	attr = avb_mrp_attribute_new(mmrp->server->mrp, sizeof(struct attr));
+	if (attr == NULL)
+		return NULL;
 
 	a = attr->user_data;
 	a->attr.mrp = attr;

@@ -245,6 +245,9 @@ static void vban_midi_flush_packets(struct impl *impl,
 		if (c.type != SPA_CONTROL_Midi)
 			continue;
 
+		if (size > impl->mtu)
+			continue;
+
 		if (len == 0) {
 			/* start new packet */
 			header.n_frames++;

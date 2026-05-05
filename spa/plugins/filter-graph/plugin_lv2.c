@@ -503,10 +503,12 @@ static void lv2_free(const struct spa_fga_descriptor *desc)
 {
 	struct descriptor *d = (struct descriptor*)desc;
 	uint32_t i;
-	for (i = 0; i <  d->desc.n_ports; i++)
-		free((void*)d->desc.ports[i].name);
+	if (d->desc.ports) {
+		for (i = 0; i <  d->desc.n_ports; i++)
+			free((void*)d->desc.ports[i].name);
+		free(d->desc.ports);
+	}
 	free((char*)d->desc.name);
-	free(d->desc.ports);
 	free(d);
 }
 
@@ -535,18 +537,18 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 	desc->desc.free = lv2_free;
 
 	desc->desc.name = strdup(name);
+	if (desc->desc.name == NULL)
+		goto error_free;
+
 	desc->desc.flags = 0;
 
 	desc->desc.n_ports = lilv_plugin_get_num_ports(p->p);
-	if (desc->desc.n_ports > MAX_PORTS) {
-		free(desc);
-		return NULL;
-	}
+	if (desc->desc.n_ports > MAX_PORTS)
+		goto error_free;
+
 	desc->desc.ports = calloc(desc->desc.n_ports, sizeof(struct spa_fga_port));
-	if (desc->desc.ports == NULL) {
-		free(desc);
-		return NULL;
-	}
+	if (desc->desc.ports == NULL)
+		goto error_free;
 
 	mins = alloca(desc->desc.n_ports * sizeof(float));
 	maxes = alloca(desc->desc.n_ports * sizeof(float));
@@ -564,6 +566,8 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 
 		fp->index = i;
 		fp->name = strdup(lilv_node_as_string(symbol));
+		if (fp->name == NULL)
+			goto error_free;
 
 		fp->flags = 0;
 		if (lilv_port_is_a(p->p, port, c->lv2_InputPort))
@@ -597,6 +601,10 @@ static const struct spa_fga_descriptor *lv2_plugin_make_desc(void *plugin, const
 			fp->min = -FLT_MAX;
 	}
 	return &desc->desc;
+
+error_free:
+	lv2_free(&desc->desc);
+	return NULL;
 }
 
 static struct spa_fga_plugin_methods impl_plugin = {

@@ -211,10 +211,14 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 
 	impl->tmp[0] = calloc(impl->plugin->quantum_limit, sizeof(float));
 	impl->tmp[1] = calloc(impl->plugin->quantum_limit, sizeof(float));
+	if (impl->tmp[0] == NULL || impl->tmp[1] == NULL)
+		goto error;
 	impl->rate = SampleRate;
 
 	return impl;
 error:
+	free(impl->tmp[0]);
+	free(impl->tmp[1]);
 	if (impl->sofa)
 		mysofa_close_cached(impl->sofa);
 	free(impl);
@@ -246,6 +250,12 @@ static void spatializer_reload(void * Instance)
 	float right_delay;
 	float coords[3];
 	struct convolver_ir ir[2];
+
+	if (left_ir == NULL || right_ir == NULL) {
+		free(left_ir);
+		free(right_ir);
+		return;
+	}
 
 	for (uint8_t i = 0; i < 3; i++)
 		coords[i] = impl->port[3 + i][0];

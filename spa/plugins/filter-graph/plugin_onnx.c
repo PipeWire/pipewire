@@ -475,6 +475,8 @@ static const struct spa_fga_descriptor *onnx_plugin_make_desc(void *plugin, cons
 	desc->desc.run = onnx_run;
 
 	desc->desc.name = strdup(name);
+	if (desc->desc.name == NULL)
+		goto error;
 	desc->desc.flags = 0;
 
 	spa_log_info(p->log, "onnx: loading model %s", path);
@@ -568,6 +570,8 @@ static const struct spa_fga_descriptor *onnx_plugin_make_desc(void *plugin, cons
 	}
 
 	desc->desc.ports = calloc(desc->n_tensors, sizeof(struct spa_fga_port));
+	if (desc->desc.ports == NULL)
+		goto error;
 	desc->desc.n_ports = 0;
 
 	/* make ports */

@@ -524,7 +524,8 @@ do_update_port(struct impl *impl,
 			port->info = *info;
 			if (info->props) {
 				port->properties = pw_properties_new_dict(info->props);
-				port->info.props = &port->properties->dict;
+				if (port->properties != NULL)
+					port->info.props = &port->properties->dict;
 			}
 			port->info.n_params = 0;
 			port->info.params = NULL;

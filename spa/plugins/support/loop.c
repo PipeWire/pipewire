@@ -605,15 +605,19 @@ static void loop_enter(void *object)
 
 	spa_assert_se(pthread_mutex_lock(&impl->lock) == 0);
 	if (impl->enter_count == 0) {
-		spa_return_if_fail(impl->thread == 0);
+		spa_goto_if_fail(impl->thread == 0, unlock_error);
 		impl->thread = thread_id;
 		impl->enter_count = 1;
 	} else {
-		spa_return_if_fail(impl->enter_count > 0);
-		spa_return_if_fail(pthread_equal(impl->thread, thread_id));
+		spa_goto_if_fail(impl->enter_count > 0, unlock_error);
+		spa_goto_if_fail(pthread_equal(impl->thread, thread_id), unlock_error);
 		impl->enter_count++;
 	}
 	spa_log_trace_fp(impl->log, "%p: enter %p", impl, (void *) impl->thread);
+	return;
+
+unlock_error:
+	pthread_mutex_unlock(&impl->lock);
 }
 
 static void loop_leave(void *object)

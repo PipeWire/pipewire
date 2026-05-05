@@ -386,6 +386,16 @@ struct spa_error_location {
 		}							\
 	} while(false)
 
+#define spa_goto_if_fail(expr, label)					\
+	do {								\
+		if (SPA_UNLIKELY(!(expr))) {				\
+			fprintf(stderr, "'%s' failed at %s:%u %s()\n",	\
+				#expr , __FILE__, __LINE__, __func__);	\
+			goto label;					\
+		}							\
+	} while(false)
+
+
 /* spa_assert_se() is an assert which guarantees side effects of x,
  * i.e. is never optimized away, regardless of NDEBUG or FASTPATH. */
 #ifndef __COVERITY__

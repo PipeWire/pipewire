@@ -1580,11 +1580,11 @@ stream_new(struct pw_context *context, const char *name,
 	this = &impl->this;
 	pw_log_debug("%p: new \"%s\"", impl, name);
 
-	if (props == NULL) {
+	if (props == NULL)
 		props = pw_properties_new(PW_KEY_MEDIA_NAME, name, NULL);
-	} else if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL) {
+	else if (pw_properties_get(props, PW_KEY_MEDIA_NAME) == NULL)
 		pw_properties_set(props, PW_KEY_MEDIA_NAME, name);
-	}
+
 	if (props == NULL) {
 		res = -errno;
 		goto error_properties;
@@ -1610,6 +1610,10 @@ stream_new(struct pw_context *context, const char *name,
 	pw_context_conf_update_props(context, "stream.properties", props);
 
 	this->name = name ? strdup(name) : NULL;
+	if (name != NULL && this->name == NULL) {
+		res = -errno;
+		goto error_properties;
+	}
 	this->node_id = SPA_ID_INVALID;
 
 	spa_ringbuffer_init(&impl->dequeued.ring);

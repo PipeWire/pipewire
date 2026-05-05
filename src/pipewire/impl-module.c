@@ -216,12 +216,15 @@ pw_context_load_module(struct pw_context *context,
 
 	pw_properties_set(this->properties, PW_KEY_MODULE_NAME, name);
 
+	spa_list_prepend(&context->module_list, &this->link);
+
 	this->info.name = name ? strdup(name) : NULL;
-	this->info.filename = filename;
-	filename = NULL;
+	this->info.filename = spa_steal_ptr(filename);
 	this->info.args = args ? strdup(args) : NULL;
 
-	spa_list_prepend(&context->module_list, &this->link);
+	if ((name != NULL && this->info.name == NULL) ||
+	    (args != NULL && this->info.args == NULL))
+		goto error_strdup_fail;
 
 	this->global = pw_global_new(context,
 				     PW_TYPE_INTERFACE_Module,
@@ -272,6 +275,9 @@ error_no_mem:
 	res = -errno;
 	pw_log_error("can't allocate module: %m");
 	goto error_close;
+error_strdup_fail:
+	res = -errno;
+	goto error_free_module;
 error_no_global:
 	res = -errno;
 	pw_log_error("\"%s\": failed to create global: %m", this->info.filename);

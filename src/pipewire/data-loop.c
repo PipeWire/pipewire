@@ -85,6 +85,19 @@ static int do_stop(struct spa_loop *loop, bool async, uint32_t seq,
 	return 0;
 }
 
+static void data_loop_free(struct pw_data_loop *loop)
+{
+	if (loop->loop && loop->created)
+		pw_loop_destroy(loop->loop);
+
+	spa_hook_list_clean(&loop->listener_list);
+
+	free(loop->affinity);
+	free(loop->class);
+	pw_free_strv(loop->classes);
+	free(loop);
+}
+
 static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict *props)
 {
 	struct pw_data_loop *this;
@@ -98,6 +111,7 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 	}
 
 	pw_log_debug("%p: new", this);
+	spa_hook_list_init(&this->listener_list);
 
 	if (loop == NULL) {
 		loop = pw_loop_new(props);
@@ -142,14 +156,17 @@ static struct pw_data_loop *loop_new(struct pw_loop *loop, const struct spa_dict
 		goto error_free;
 	}
 	this->classes = pw_strv_parse(class, strlen(class), INT_MAX, NULL);
+	if (this->classes == NULL) {
+		res = -ENOMEM;
+		goto error_free;
+	}
 	if (!this->loop->name[0])
 		pw_loop_set_name(this->loop, name);
-	spa_hook_list_init(&this->listener_list);
 
 	return this;
 
 error_free:
-	free(this);
+	data_loop_free(this);
 error_cleanup:
 	errno = -res;
 	return NULL;
@@ -165,7 +182,6 @@ struct pw_data_loop *pw_data_loop_new(const struct spa_dict *props)
 	return loop_new(NULL, props);
 }
 
-
 /** Destroy a data loop
  * \param loop the data loop to destroy
  */
@@ -178,15 +194,7 @@ void pw_data_loop_destroy(struct pw_data_loop *loop)
 
 	pw_data_loop_stop(loop);
 
-	if (loop->created)
-		pw_loop_destroy(loop->loop);
-
-	spa_hook_list_clean(&loop->listener_list);
-
-	free(loop->affinity);
-	free(loop->class);
-	pw_free_strv(loop->classes);
-	free(loop);
+	data_loop_free(loop);
 }
 
 SPA_EXPORT

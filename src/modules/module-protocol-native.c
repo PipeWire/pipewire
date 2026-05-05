@@ -1675,6 +1675,8 @@ static int create_servers(struct pw_protocol *this, struct pw_impl_core *core,
 	const char *sockets = args ? pw_properties_get(args, "sockets") : NULL;
 	struct spa_json it[2];
 	spa_autoptr(pw_properties) p = pw_properties_copy(props);
+	if (p == NULL)
+		return -errno;
 
 	if (sockets == NULL) {
 		struct socket_info info = {0};

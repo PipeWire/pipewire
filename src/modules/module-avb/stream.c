@@ -902,7 +902,6 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 		if (stream->source == NULL) {
 			res = -errno;
 			pw_log_error("stream %p: can't create source: %m", stream);
-			close(fd);
 			return res;
 		}
 	}
@@ -1017,10 +1016,8 @@ int stream_activate_virtual(struct stream *stream, uint16_t index)
 
 		stream->source = pw_loop_add_io(server->impl->loop, fd,
 				SPA_IO_IN, true, on_socket_data, stream);
-		if (stream->source == NULL) {
-			close(fd);
+		if (stream->source == NULL)
 			return -errno;
-		}
 	}
 	pw_stream_set_active(stream->stream, true);
 	return 0;

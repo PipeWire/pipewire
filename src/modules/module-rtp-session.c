@@ -1197,10 +1197,8 @@ static int setup_apple_session(struct impl *impl)
 	impl->ctrl_source = pw_loop_add_io(impl->loop, fd,
 					SPA_IO_IN, true, on_ctrl_io, impl);
 
-	if (impl->ctrl_source == NULL) {
-		close(fd);
+	if (impl->ctrl_source == NULL)
 		return -errno;
-	}
 
 	if ((fd = make_socket(&impl->data_addr, impl->data_len,
 				impl->mcast_loop, impl->ttl, impl->ifname)) < 0)
@@ -1208,10 +1206,8 @@ static int setup_apple_session(struct impl *impl)
 
 	impl->data_source = pw_loop_add_io(impl->data_loop, fd,
 				SPA_IO_IN, true, on_data_io, impl);
-	if (impl->data_source == NULL) {
-		close(fd);
+	if (impl->data_source == NULL)
 		return -errno;
-	}
 	return 0;
 }
 

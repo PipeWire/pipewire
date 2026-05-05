@@ -1079,7 +1079,6 @@ static int create_netjack2_socket(struct impl *impl)
 	if (impl->setup_socket == NULL) {
 		res = -errno;
 		pw_log_error("can't create setup source: %m");
-		close(fd);
 		goto out;
 	}
 

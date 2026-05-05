@@ -525,7 +525,7 @@ invalid_version:
 
 static int listen_start(struct impl *impl)
 {
-	int fd;
+	int fd, res;
 
 	if (impl->source != NULL)
 		return 0;
@@ -534,16 +534,16 @@ static int listen_start(struct impl *impl)
 
 	if ((fd = make_socket((const struct sockaddr *)&impl->src_addr,
 					impl->src_len, impl->ifname)) < 0) {
-		pw_log_error("failed to create socket: %m");
+		pw_log_error("failed to create socket: %s", spa_strerror(fd));
 		return fd;
 	}
 
 	impl->source = pw_loop_add_io(impl->data_loop, fd,
 				SPA_IO_IN, true, on_vban_io, impl);
 	if (impl->source == NULL) {
+		res = -errno;
 		pw_log_error("can't create io source: %m");
-		close(fd);
-		return -errno;
+		return res;
 	}
 	return 0;
 }

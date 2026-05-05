@@ -693,9 +693,8 @@ static void stream_open_connection(void *data, int *result)
 	impl->source = pw_loop_add_io(impl->data_loop, fd,
 				SPA_IO_IN, true, on_rtp_io, impl);
 	if (impl->source == NULL) {
-		pw_log_error("can't create io source: %m");
-		close(fd);
 		res = -errno;
+		pw_log_error("can't create io source: %m");
 		goto finish;
 	}
 

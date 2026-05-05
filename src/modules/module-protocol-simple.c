@@ -761,12 +761,10 @@ static struct server *create_server(struct impl *impl, const char *address)
 	if (server->source == NULL) {
 		res = -errno;
 		pw_log_error("%p: can't create server source: %m", impl);
-		goto error_close;
+		goto error;
 	}
 	return server;
 
-error_close:
-	close(fd);
 error:
 	server_free(server);
 	errno = -res;

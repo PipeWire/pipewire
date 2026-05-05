@@ -1111,7 +1111,7 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	if (follower->setup_socket == NULL) {
 		res = -errno;
 		pw_log_error("can't create setup source: %m");
-		goto socket_failed;
+		goto cleanup;
 	}
 
 	follower->socket = pw_loop_add_io(impl->data_loop, fd,
@@ -1119,7 +1119,7 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 	if (follower->socket == NULL) {
 		res = -errno;
 		pw_log_error("can't create data source: %m");
-		goto socket_failed;
+		goto cleanup;
 	}
 	peer->fd = fd;
 	peer->our_stream = 's';

@@ -850,6 +850,7 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	    peer->params.recv_midi_channels < 0 ||
 	    peer->params.sample_rate == 0 ||
 	    peer->params.period_size == 0 ||
+	    peer->params.period_size > impl->quantum_limit ||
 	    peer->params.mtu == 0 ||
 	    peer->params.mtu > MAX_MTU ||
 	    !encoding_supported(peer->params.sample_encoder)) {

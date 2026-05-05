@@ -353,6 +353,8 @@ static int rule_matched(void *data, const char *location, const char *action,
 	i->matched = true;
 	if (spa_streq(action, "create-stream")) {
 		struct pw_properties *p = pw_properties_copy(i->props);
+		if (p == NULL)
+			return -errno;
 		pw_properties_update_string(p, str, len);
 		create_stream(i->stream, p);
 	}
@@ -373,6 +375,8 @@ do_setup_stream(struct spa_loop *loop,
 	uint16_t port = 0;
 
 	props = pw_properties_copy(impl->stream_props);
+	if (props == NULL)
+		return -errno;
 
 	pw_net_get_ip(&s->sa, addr, sizeof(addr), NULL, &port);
 

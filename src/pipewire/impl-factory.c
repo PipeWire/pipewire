@@ -43,6 +43,10 @@ struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 	this->properties = properties;
 
 	this->info.name = strdup(name);
+	if (this->info.name == NULL) {
+		res = -errno;
+		goto error_free;
+	}
 	this->info.type = type;
 	this->info.version = version;
 	this->info.props = &properties->dict;
@@ -55,6 +59,8 @@ struct pw_impl_factory *pw_context_create_factory(struct pw_context *context,
 
 	return this;
 
+error_free:
+	free(this);
 error_exit:
 	pw_properties_free(properties);
 	errno = -res;

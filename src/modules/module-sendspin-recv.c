@@ -352,6 +352,8 @@ static int create_stream(struct client *client)
 	struct spa_pod_builder b;
 	const char *server_id, *ip, *port, *server_name;
 	struct pw_properties *props = pw_properties_copy(client->props);
+	if (props == NULL)
+		return -errno;
 
 	ip = pw_properties_get(props, "sendspin.ip");
 	port = pw_properties_get(props, "sendspin.port");
@@ -1090,6 +1092,8 @@ static void on_websocket_connected(void *data, void *user,
 				(struct sockaddr*)&addr, sizeof(addr));
 
 		props = pw_properties_copy(impl->stream_props);
+		if (props == NULL)
+			return;
 		if (pw_net_get_ip(&addr, ip, sizeof(ip), &ipv4, &port) >= 0) {
 			pw_properties_set(props, "sendspin.ip", ip);
 			pw_properties_setf(props, "sendspin.port", "%u", port);
@@ -1137,6 +1141,8 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 		return;
 
 	props = pw_properties_copy(impl->stream_props);
+	if (props == NULL)
+		return;
 	pw_properties_update(props, info);
 
 	addr = spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS);
@@ -1377,6 +1383,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				path = DEFAULT_SENDSPIN_PATH;
 
 			p = pw_properties_copy(impl->stream_props);
+			if (p == NULL) {
+				res = -errno;
+				goto out;
+			}
 			pw_properties_set(p, "sendspin.ip", hostname);
 			pw_properties_set(p, "sendspin.port", port);
 			pw_properties_set(p, "sendspin.path", path);

@@ -3334,13 +3334,17 @@ static int codec_switch_start_timer(struct rfcomm *rfcomm, int timeout_msec)
 {
 	struct impl *backend = rfcomm->backend;
 	struct itimerspec ts;
+	int res;
 
 	spa_log_debug(backend->log, "rfcomm %p: start timer", rfcomm);
 	if (rfcomm->timer.data == NULL) {
+		res = spa_system_timerfd_create(backend->main_system,
+				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+		if (res < 0)
+			return res;
+		rfcomm->timer.fd  = res;
 		rfcomm->timer.data = rfcomm;
 		rfcomm->timer.func = codec_switch_timer_event;
-		rfcomm->timer.fd = spa_system_timerfd_create(backend->main_system,
-				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 		rfcomm->timer.mask = SPA_IO_IN;
 		rfcomm->timer.rmask = 0;
 		spa_loop_add_source(backend->main_loop, &rfcomm->timer);

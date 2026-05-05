@@ -588,14 +588,13 @@ on_connect(void *data, int fd, uint32_t mask)
 		goto error;
 
 	if (server->n_clients >= MAX_CLIENTS) {
-		close(client_fd);
 		errno = ECONNREFUSED;
-		goto error;
+		goto error_close;
 	}
 
 	client = calloc(1, sizeof(struct client));
 	if (client == NULL)
-		goto error;
+		goto error_close;
 
 	client->impl = impl;
 	client->server = server;
@@ -654,6 +653,9 @@ on_connect(void *data, int fd, uint32_t mask)
 	create_streams(impl, client);
 
 	return;
+
+error_close:
+	close(client_fd);
 error:
 	pw_log_error("%p: failed to create client: %m", impl);
 	pw_properties_free(props);

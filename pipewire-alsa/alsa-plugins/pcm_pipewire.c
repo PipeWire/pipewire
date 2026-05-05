@@ -1269,6 +1269,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 		struct pw_properties *props, snd_pcm_stream_t stream, int mode)
 {
 	snd_pcm_pipewire_t *pw;
+	struct pw_properties *props2;
 	int err;
 	const char *str, *node_name = NULL;
 	struct pw_loop *loop;
@@ -1284,8 +1285,7 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	pw->log_file = fopencookie(pw, "w", io_funcs);
 	if (pw->log_file == NULL) {
 		pw_log_error("can't create log file: %m");
-		err = -errno;
-		goto error;
+		goto error_errno;
 	}
 	if ((err = snd_output_stdio_attach(&pw->output, pw->log_file, 0)) < 0) {
 		pw_log_error("can't attach log file: %s", snd_strerror(err));
@@ -1293,20 +1293,17 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	}
 
 	pw->main_loop = pw_thread_loop_new("alsa-pipewire", NULL);
-	if (pw->main_loop == NULL) {
-		err = -errno;
-		goto error;
-	}
+	if (pw->main_loop == NULL)
+		goto error_errno;
+
 	loop = pw_thread_loop_get_loop(pw->main_loop);
 	pw->system = loop->system;
 	if ((pw->context = pw_context_new(loop,
 					pw_properties_new(
 						PW_KEY_CLIENT_API, "alsa",
 						NULL),
-					0)) == NULL) {
-		err = -errno;
-		goto error;
-	}
+					0)) == NULL)
+		goto error_errno;
 
 	pw_context_conf_update_props(pw->context, "alsa.properties", pw->props);
 
@@ -1356,12 +1353,14 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 		goto error;
 
 	pw_thread_loop_lock(pw->main_loop);
-	pw->core = pw_context_connect(pw->context, pw_properties_copy(pw->props), 0);
-	if (pw->core == NULL) {
-		err = -errno;
-		pw_thread_loop_unlock(pw->main_loop);
-		goto error;
-	}
+	props2 = pw_properties_copy(pw->props);
+	if (props2 == NULL)
+		goto error_unlock_errno;
+
+	pw->core = pw_context_connect(pw->context, props2, 0);
+	if (pw->core == NULL)
+		goto error_unlock_errno;
+
 	pw_core_add_listener(pw->core, &pw->core_listener, &core_events, pw);
 	pw_thread_loop_unlock(pw->main_loop);
 
@@ -1399,6 +1398,12 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 
 	return 0;
 
+error_unlock_errno:
+	err = -errno;
+	pw_thread_loop_unlock(pw->main_loop);
+	goto error;
+error_errno:
+	err = -errno;
 error:
 	pw_log_debug("%p: failed to open %s :%s", pw, node_name, spa_strerror(err));
 	snd_pcm_pipewire_free(pw);

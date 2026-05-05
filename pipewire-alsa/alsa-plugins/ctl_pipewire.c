@@ -1248,6 +1248,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	int err;
 	const char *str;
 	snd_ctl_pipewire_t *ctl;
+	struct pw_properties *props2;
 	struct pw_loop *loop;
 
         pw_init(NULL, NULL);
@@ -1392,20 +1393,20 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		goto error;
 
 	pw_thread_loop_lock(ctl->mainloop);
-	ctl->core = pw_context_connect(ctl->context, pw_properties_copy(ctl->props), 0);
-	if (ctl->core == NULL) {
-		err = -errno;
-		goto error_unlock;
-	}
+	if ((props2 = pw_properties_copy(ctl->props)) == NULL)
+		goto error_unlock_errno;
+
+	ctl->core = pw_context_connect(ctl->context, props2, 0);
+	if (ctl->core == NULL)
+		goto error_unlock_errno;
+
 	pw_core_add_listener(ctl->core,
 			&ctl->core_listener,
 			&core_events, ctl);
 
 	ctl->registry = pw_core_get_registry(ctl->core, PW_VERSION_REGISTRY, 0);
-	if (ctl->registry == NULL) {
-		err = -errno;
-		goto error_unlock;
-	}
+	if (ctl->registry == NULL)
+		goto error_unlock_errno;
 
 	pw_registry_add_listener(ctl->registry,
 			&ctl->registry_listener,
@@ -1437,6 +1438,8 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 
 	return 0;
 
+error_unlock_errno:
+	err = -errno;
 error_unlock:
 	pw_thread_loop_unlock(ctl->mainloop);
 error:

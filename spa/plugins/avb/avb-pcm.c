@@ -710,16 +710,20 @@ int spa_avb_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t
 	state->timerfd = res;
 
 	if ((res = setup_packet(state, fmt)) < 0)
-		return res;
+		goto error_close_timerfd;
 
 	if ((res = setup_msg(state)) < 0)
-		return res;
+		goto error_free_pdu;
 
 	state->pdu_period = SPA_NSEC_PER_SEC * p->frames_per_pdu /
                           state->rate;
 
 	return 0;
 
+error_free_pdu:
+	free(state->pdu);
+error_close_timerfd:
+	close(state->timerfd);
 error_close_sockfd:
 	close(state->sockfd);
 	return res;

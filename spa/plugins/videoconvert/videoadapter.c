@@ -65,7 +65,7 @@ struct impl {
 	struct spa_node *convert;
 	struct spa_hook convert_listener;
 	uint64_t convert_port_flags;
-	char *convertname;
+	char convertname[64];
 
 	uint32_t n_buffers;
 	struct spa_buffer **buffers;
@@ -1945,7 +1945,7 @@ static int load_converter(struct impl *this, const struct spa_dict *info,
 
 	this->hnd_convert = hnd_convert;
 	this->convert = iface_conv;
-	this->convertname = strdup(factory_name);
+	snprintf(this->convertname, sizeof(this->convertname), "%s", factory_name);
 
 	return 0;
 }
@@ -1978,10 +1978,8 @@ static int impl_clear(struct spa_handle *handle)
 	spa_hook_remove(&this->follower_listener);
 	spa_node_set_callbacks(this->follower, NULL, NULL);
 
-	if (this->hnd_convert) {
+	if (this->hnd_convert)
 		spa_plugin_loader_unload(this->ploader, this->hnd_convert);
-		free(this->convertname);
-	}
 
 	clear_buffers(this);
 	return 0;

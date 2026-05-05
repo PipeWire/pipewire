@@ -121,6 +121,8 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 {
 	spa_autofree char *s = strdup(str);
 	char *p = s, *e, f;
+	if (s == NULL)
+		return;
 	const char *k, *v;
 	const struct str_map *map;
 

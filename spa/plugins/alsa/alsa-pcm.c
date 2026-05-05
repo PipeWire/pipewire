@@ -1158,25 +1158,32 @@ static int probe_pitch_ctl(struct state *state)
 	if (err < 0) {
 		spa_log_debug(state->log, "%s: did not find ctl: %s",
 				 elem_name, snd_strerror(err));
-
-		snd_ctl_elem_value_free(state->pitch_elem);
-		state->pitch_elem = NULL;
-
-		if (opened) {
-			snd_ctl_close(state->ctl);
-			state->ctl = NULL;
-		}
-
 		goto error;
 	}
 
 	snd_ctl_elem_value_set_integer(state->pitch_elem, 0, 1000000);
-	CHECK(snd_ctl_elem_write(state->ctl, state->pitch_elem), "snd_ctl_elem_write");
+	err = snd_ctl_elem_write(state->ctl, state->pitch_elem);
+	if (err < 0) {
+		spa_log_error(state->log, "snd_ctl_elem_write: %s", snd_strerror(err));
+		goto error;
+	}
 	state->last_rate = 1.0;
 
 	spa_log_info(state->log, "found ctl %s", elem_name);
-	err = 0;
+
+	snd_lib_error_set_handler(NULL);
+
+	return 0;
+
 error:
+	if (state->pitch_elem != NULL) {
+		snd_ctl_elem_value_free(state->pitch_elem);
+		state->pitch_elem = NULL;
+	}
+	if (opened) {
+		snd_ctl_close(state->ctl);
+		state->ctl = NULL;
+	}
 	snd_lib_error_set_handler(NULL);
 	return err;
 }

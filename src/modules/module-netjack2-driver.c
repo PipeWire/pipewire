@@ -461,6 +461,10 @@ static void make_stream_ports(struct stream *s)
 
 			is_midi = true;
 		}
+		if (props == NULL) {
+			pw_log_error("Can't create properties: %m");
+			return;
+		}
 		latency = SPA_LATENCY_INFO(s->direction,
 				.min_quantum = impl->latency,
 				.max_quantum = impl->latency);

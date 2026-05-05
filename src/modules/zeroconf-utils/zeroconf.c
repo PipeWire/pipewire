@@ -530,6 +530,10 @@ static struct entry *entry_new(struct pw_zeroconf *zc, uint32_t type, const void
 	e->type = type;
 	e->user = user;
 	e->props = pw_properties_new_dict(info);
+	if (e->props == NULL) {
+		free(e);
+		return NULL;
+	}
 	spa_list_append(&zc->entries, &e->link);
 	spa_list_init(&e->services);
 
@@ -588,6 +592,10 @@ struct pw_zeroconf * pw_zeroconf_new(struct pw_context *context,
 	spa_hook_list_init(&zc->listener_list);
 	spa_list_init(&zc->entries);
 	zc->props = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
+	if (zc->props == NULL) {
+		free(zc);
+		return NULL;
+	}
 	zc->discover_local = true;
 
 	for (i = 0; props && i < props->n_items; i++) {

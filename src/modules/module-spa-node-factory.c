@@ -115,7 +115,7 @@ static const struct pw_proxy_events core_proxy_events = {
 	.removed = core_removed,
 };
 
-static int export_node(struct node_data *nd, struct pw_properties *props)
+static int export_node(struct node_data *nd, const struct pw_properties *props)
 {
 	const char *str;
 
@@ -200,7 +200,7 @@ static void *create_object(void *_data,
 	int res;
 	struct pw_impl_client *client;
 	bool linger;
-	spa_autoptr(pw_properties) copy = NULL;
+	const struct pw_properties *p;
 
 	if (properties == NULL)
 		goto error_properties;
@@ -219,8 +219,6 @@ static void *create_object(void *_data,
 		pw_properties_setf(properties, PW_KEY_CLIENT_ID, "%u",
 			pw_global_get_id(pw_impl_client_get_global(client)));
 	}
-
-	copy = pw_properties_copy(properties);
 
 	node = pw_spa_node_load(context,
 				factory_name,
@@ -249,8 +247,9 @@ static void *create_object(void *_data,
 
 		pw_resource_add_listener(nd->resource, &nd->resource_listener, &resource_events, nd);
 	}
-	if (pw_properties_get_bool(copy, PW_KEY_OBJECT_EXPORT, false)) {
-		res = export_node(nd, copy);
+	p = pw_impl_node_get_properties(node);
+	if (pw_properties_get_bool(p, PW_KEY_OBJECT_EXPORT, false)) {
+		res = export_node(nd, p);
 		if (res < 0)
 			goto error_export;
 	}

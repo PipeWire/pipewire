@@ -1392,6 +1392,8 @@ static void node_initialized(void *data)
 
 	impl->data_source.fd = spa_system_eventfd_create(data_system,
 			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (impl->data_source.fd < 0)
+		return;
 
 	spa_loop_add_source(impl->data_loop, &impl->data_source);
 	pw_log_debug("%p: transport read-fd:%d write-fd:%d", impl,

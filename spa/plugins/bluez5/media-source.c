@@ -2270,6 +2270,8 @@ impl_init(const struct spa_handle_factory *factory,
 
 	this->timerfd = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (this->timerfd < 0)
+		return this->timerfd;
 
 	this->node_latency = 512;
 

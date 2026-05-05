@@ -930,6 +930,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->timer_source.data = this;
 	this->timer_source.fd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
 							  SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (this->timer_source.fd < 0)
+		return this->timer_source.fd;
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
 

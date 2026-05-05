@@ -26,13 +26,6 @@ static jack_description_t *find_description(jack_uuid_t subject)
 	return NULL;
 }
 
-static void set_property(jack_property_t *prop, const char *key, const char *value, const char *type)
-{
-	prop->key = strdup(key);
-	prop->data = strdup(value);
-	prop->type = strdup(type);
-}
-
 static void clear_property(jack_property_t *prop)
 {
 	free((char*)prop->key);
@@ -40,16 +33,41 @@ static void clear_property(jack_property_t *prop)
 	free((char*)prop->type);
 }
 
+static int set_property(jack_property_t *prop, const char *key, const char *value, const char *type)
+{
+	prop->key = strdup(key);
+	prop->data = strdup(value);
+	prop->type = strdup(type);
+	if (prop->key == NULL || prop->data == NULL || prop->type == NULL) {
+		int err = errno;
+		clear_property(prop);
+		spa_zero(*prop);
+		return -err;
+	}
+	return 0;
+}
+
+
 static jack_property_t *copy_properties(jack_property_t *src, uint32_t cnt)
 {
 	jack_property_t *dst;
 	uint32_t i;
-	dst = malloc(sizeof(jack_property_t) * cnt);
-	if (dst != NULL) {
-		for (i = 0; i < cnt; i++)
-			set_property(&dst[i], src[i].key, src[i].data, src[i].type);
+
+	dst = pw_reallocarray(NULL, cnt, sizeof(jack_property_t));
+	if (dst == NULL)
+		return NULL;
+
+	for (i = 0; i < cnt; i++) {
+		if (set_property(&dst[i], src[i].key, src[i].data, src[i].type) < 0)
+			goto cleanup;
 	}
 	return dst;
+
+cleanup:
+	while (i > 0)
+		clear_property(&dst[--i]);
+	free(dst);
+	return NULL;
 }
 
 static int copy_description(jack_description_t *dst, jack_description_t *src)
@@ -106,8 +124,10 @@ static jack_property_t *add_property(jack_description_t *desc, const char *key,
 		desc->property_size = ns;
 		desc->properties = np;
 	}
-	prop = &desc->properties[desc->property_cnt++];
-	set_property(prop, key, value, type);
+	prop = &desc->properties[desc->property_cnt];
+	if (set_property(prop, key, value, type) < 0)
+		return NULL;
+	desc->property_cnt++;
 	return prop;
 }
 
@@ -127,13 +147,19 @@ static int change_property(jack_property_t *prop, const char *value, const char 
 {
 	int changed = 0;
 	if (!spa_streq(prop->data, value)) {
+		char *v = strdup(value);
+		if (v == NULL)
+			return -errno;
 		free((char*)prop->data);
-		prop->data = strdup(value);
+		prop->data = v;
 		changed++;
 	}
 	if (!spa_streq(prop->type, type)) {
+		char *t = strdup(type);
+		if (t == NULL)
+			return -errno;
 		free((char*)prop->type);
-		prop->type = strdup(type);
+		prop->type = t;
 		changed++;
 	}
 	return changed;
@@ -245,26 +271,38 @@ int jack_get_property(jack_uuid_t subject,
 {
 	jack_description_t *desc;
 	jack_property_t *prop;
-	int res = -1;
+	char *v, *t;
 
 	pthread_mutex_lock(&globals.lock);
 	desc = find_description(subject);
 	if (desc == NULL)
-		goto done;
+		goto error;
 
 	prop = find_property(desc, key);
 	if (prop == NULL)
-		goto done;
+		goto error;
 
-	*value = strdup(prop->data);
-	*type = strdup(prop->type);
-	res = 0;
+	v = strdup(prop->data);
+	t = strdup(prop->type);
+	if (v == NULL || t == NULL)
+		goto cleanup;
+
+	pthread_mutex_unlock(&globals.lock);
+
+	*value = v;
+	*type = t;
 
 	pw_log_debug("subject:%"PRIu64" key:'%s' value:'%s' type:'%s'",
-			subject, key, *value, *type);
-done:
+			subject, key, v, t);
+
+	return 0;
+
+cleanup:
+	free(v);
+	free(t);
+error:
 	pthread_mutex_unlock(&globals.lock);
-	return res;
+	return -1;
 }
 
 SPA_EXPORT
@@ -312,12 +350,26 @@ int jack_get_all_properties (jack_description_t** result)
 	len = pw_array_get_len(descriptions, jack_description_t);
 	src = descriptions->data;
 	dst = malloc(descriptions->size);
-	for (i = 0; i < len; i++)
-		copy_description(&dst[i], &src[i]);
+	if (dst == NULL)
+		goto error;
+
+	for (i = 0; i < len; i++) {
+		if (copy_description(&dst[i], &src[i]) < 0)
+			goto cleanup;
+	}
 	*result = dst;
 	pthread_mutex_unlock(&globals.lock);
 
 	return len;
+
+cleanup:
+	while (i > 0)
+		jack_free_description(&dst[--i], false);
+	free(dst);
+error:
+	*result = NULL;
+	pthread_mutex_unlock(&globals.lock);
+	return 0;
 }
 
 SPA_EXPORT

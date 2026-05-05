@@ -2549,6 +2549,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	struct port *port;
 	const char *str;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -2671,22 +2672,37 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 
-	this->timerfd = spa_system_timerfd_create(this->data_system,
-			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if ((res = spa_system_timerfd_create(this->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		return res;
+	this->timerfd = res;
 
-	this->flush_timerfd = spa_system_timerfd_create(this->data_system,
-			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if ((res = spa_system_timerfd_create(this->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_close_timerfd;
+	this->flush_timerfd = res;
 
 	if (this->codec->kind == MEDIA_CODEC_ASHA) {
 		this->asha = calloc(1, sizeof(struct spa_bt_asha));
-		if (this->asha == NULL)
-			return -ENOMEM;
-
-		this->asha->timerfd = spa_system_timerfd_create(this->data_system,
-				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+		if (this->asha == NULL) {
+			res = -errno;
+			goto error_close_flush_timerfd;
+		}
+		if ((res = spa_system_timerfd_create(this->data_system,
+				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+			goto error_free_asha;
+		this->asha->timerfd = res;
 	}
-
 	return 0;
+
+error_free_asha:
+	free(this->asha);
+	this->asha = NULL;
+error_close_flush_timerfd:
+	spa_system_close(this->data_system, this->flush_timerfd);
+error_close_timerfd:
+	spa_system_close(this->data_system, this->timerfd);
+	return res;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {

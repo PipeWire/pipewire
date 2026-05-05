@@ -2265,13 +2265,17 @@ static int device_start_timer(struct spa_bt_device *device)
 {
 	struct spa_bt_monitor *monitor = device->monitor;
 	struct itimerspec ts;
+	int res;
 
 	spa_log_debug(monitor->log, "device %p: start timer", device);
 	if (device->timer.data == NULL) {
+		res = spa_system_timerfd_create(monitor->main_system,
+				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+		if (res < 0)
+			return res;
+		device->timer.fd = res;
 		device->timer.data = device;
 		device->timer.func = device_timer_event;
-		device->timer.fd = spa_system_timerfd_create(monitor->main_system,
-				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 		device->timer.mask = SPA_IO_IN;
 		device->timer.rmask = 0;
 		spa_loop_add_source(monitor->main_loop, &device->timer);
@@ -3538,11 +3542,15 @@ static int start_timeout_timer(struct spa_bt_monitor *monitor,
 		time_t timeout_msec, void *data)
 {
 	struct itimerspec ts;
+	int res;
 	if (timer->data == NULL) {
+		res = spa_system_timerfd_create(
+			monitor->main_system, CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+		if (res < 0)
+			return res;
+		timer->fd = res;
 		timer->data = data;
 		timer->func = timer_event;
-		timer->fd = spa_system_timerfd_create(
-			monitor->main_system, CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 		timer->mask = SPA_IO_IN;
 		timer->rmask = 0;
 		spa_loop_add_source(monitor->main_loop, timer);

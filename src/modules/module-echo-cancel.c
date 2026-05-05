@@ -1544,7 +1544,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		aec_props = pw_properties_new_string(str);
 	else
 		aec_props = pw_properties_new(NULL, NULL);
-
+	if (aec_props == NULL)
+		goto error_errno;
 
 	if (spa_interface_callback_check(&impl->aec->iface, struct spa_audio_aec_methods, init2, 3)) {
 		impl->rec_info = impl->capture_info;
@@ -1657,6 +1658,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	return 0;
 
+error_errno:
+	res = -errno;
 error:
 	pw_properties_free(props);
 	impl_destroy(impl);

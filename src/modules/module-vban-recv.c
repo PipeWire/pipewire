@@ -380,7 +380,7 @@ do_setup_stream(struct spa_loop *loop,
 
 	pw_net_get_ip(&s->sa, addr, sizeof(addr), NULL, &port);
 
-	pw_properties_setf(props, "sess.name", "%s", s->header.stream_name);
+	pw_properties_setf(props, "sess.name", "%.*s", VBAN_STREAM_NAME_SIZE, s->header.stream_name);
 	pw_properties_setf(props, "vban.ip", "%s", addr);
 	pw_properties_setf(props, "vban.port", "%u", port);
 

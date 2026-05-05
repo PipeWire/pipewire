@@ -178,6 +178,10 @@ static struct service *service_new(struct entry *e,
 	s->e = e;
 	spa_list_append(&e->services, &s->link);
 
+	if (info->name == NULL || info->type == NULL ||
+	    info->domain == NULL || info->host_name == NULL)
+		goto error;
+
 	s->info.interface = info->interface;
 	s->info.protocol = info->protocol;
 	s->info.name = strdup(info->name);

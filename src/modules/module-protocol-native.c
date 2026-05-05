@@ -841,7 +841,7 @@ close_data(void *data, int fd, uint32_t mask)
 static int write_socket_address(struct server *s)
 {
 	long v;
-	int fd, res = 0;
+	int fd, res;
 	char *endptr;
 	const char *env = getenv("PIPEWIRE_NOTIFICATION_FD");
 
@@ -855,24 +855,25 @@ static int write_socket_address(struct server *s)
 	if (errno != 0) {
 		res = -errno;
 		pw_log_error("server %p: strtol() failed with error: %m", s);
-		goto error;
+		goto exit;
 	}
 	fd = (int)v;
-	if (v != fd) {
+	if (fd < 0 || v != fd) {
 		res = -ERANGE;
 		pw_log_error("server %p: invalid fd %ld: %s", s, v, spa_strerror(res));
-		goto error;
+		goto exit;
 	}
 	if (dprintf(fd, "%s\n", s->addr.sun_path) < 0) {
 		res = -errno;
 		pw_log_error("server %p: dprintf() failed with error: %m", s);
-		goto error;
+		goto exit_close;
 	}
-	close(fd);
-	unsetenv("PIPEWIRE_NOTIFICATION_FD");
-	return 0;
+	res = 0;
 
-error:
+exit_close:
+	close(fd);
+exit:
+	unsetenv("PIPEWIRE_NOTIFICATION_FD");
 	return res;
 }
 

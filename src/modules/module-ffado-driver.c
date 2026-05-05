@@ -1410,7 +1410,10 @@ static void parse_devices(struct impl *impl, const char *val, size_t len)
 	impl->n_devices = 0;
 	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0 &&
 	    impl->n_devices < FFADO_MAX_SPECSTRINGS) {
-		impl->devices[impl->n_devices++] = strdup(v);
+		char *s = strdup(v);
+		if (s == NULL)
+			return;
+		impl->devices[impl->n_devices++] = s;
 	}
 }
 

@@ -2015,6 +2015,8 @@ static int port_set_peer_enum_format(void *object,
 	if (formats) {
 		uint32_t count = 0;
 		port->peer_format_pod = spa_pod_copy(formats);
+		if (port->peer_format_pod == NULL)
+			return -errno;
 
 		for (i = 0; i < SPA_N_ELEMENTS(subtypes); i++) {
 			state = NULL;
@@ -2028,6 +2030,8 @@ static int port_set_peer_enum_format(void *object,
 			}
 		}
 		port->peer_formats = calloc(count, sizeof(struct spa_pod *));
+		if (port->peer_formats == NULL)
+			return -errno;
 		for (i = 0; i < SPA_N_ELEMENTS(subtypes); i++) {
 			state = NULL;
 			while (spa_peer_param_parse(port->peer_format_pod, &info, sizeof(info), &state) > 0) {

@@ -497,6 +497,8 @@ static int add_snapcast_stream(struct impl *impl, struct tunnel *t,
 
 	while (spa_json_get_string(&it[0], v, sizeof(v)) > 0) {
 		t->server_address = strdup(v);
+		if (t->server_address == NULL)
+			return -errno;
 		snapcast_connect(t);
 		return 0;
 	}
@@ -544,6 +546,8 @@ static int create_stream(struct impl *impl, struct pw_properties *props,
 	if ((str = pw_properties_get(props, "snapcast.stream-name")) == NULL)
 		str = "PipeWire";
 	t->stream_name = strdup(str);
+	if (t->stream_name == NULL)
+		return -errno;
 
 	if ((str = pw_properties_get(props, "capture")) == NULL)
 		pw_properties_set(props, "capture", "true");
@@ -662,6 +666,8 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 
 	free((char*)t->info.host);
 	t->info.host = strdup(pw_properties_get(props, "snapcast.ip"));
+	if (t->info.host == NULL)
+		return;
 
 	family = protocol == 4 ? AF_INET : AF_INET6;
 

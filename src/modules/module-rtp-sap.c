@@ -1532,6 +1532,8 @@ static int parse_sdp_m(struct impl *impl, char *c, struct sdp_info *info)
 		return -EINVAL;
 
 	info->media_type = strdup(media_type);
+	if (info->media_type == NULL)
+		return -errno;
 	info->dst_port = (uint16_t) port;
 	info->payload = (uint8_t) payload;
 
@@ -1583,6 +1585,8 @@ static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 	c += len;
 	c[strcspn(c, "/")] = 0;
 	info->mime_type = strdup(c);
+	if (info->mime_type == NULL)
+		return -errno;
 	c += strlen(c) + 1;
 
 	if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
@@ -1647,6 +1651,8 @@ static int parse_sdp_a_ts_refclk(struct impl *impl, char *c, struct sdp_info *in
 
 	c += strlen("a=ts-refclk:");
 	info->ts_refclk = strdup(c);
+	if (info->ts_refclk == NULL)
+		return -errno;
 	return 0;
 }
 
@@ -1668,11 +1674,15 @@ static int parse_sdp(struct impl *impl, char *sdp, struct sdp_info *info)
 		if (count++ == 0 && strcmp(s, "v=0") != 0)
 			goto invalid_version;
 
-		if (spa_strstartswith(s, "o="))
+		if (spa_strstartswith(s, "o=")) {
 			info->origin = strdup(&s[2]);
-		else if (spa_strstartswith(s, "s="))
+			if (info->origin == NULL)
+				res = -errno;
+		} else if (spa_strstartswith(s, "s=")) {
 			info->session_name = strdup(&s[2]);
-		else if (spa_strstartswith(s, "c="))
+			if (info->session_name == NULL)
+				res = -errno;
+		} else if (spa_strstartswith(s, "c="))
 			res = parse_sdp_c(impl, s, info);
 		else if (spa_strstartswith(s, "m="))
 			res = parse_sdp_m(impl, s, info);

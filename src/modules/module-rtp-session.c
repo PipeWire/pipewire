@@ -622,6 +622,12 @@ static struct session *make_session(struct impl *impl, struct service_info *info
 	str = pw_properties_get(props, "sess.name");
 	sess->name = str ? strdup(str) : strdup("RTP Session");
 
+	if (sess->info.name == NULL || sess->info.type == NULL ||
+	    sess->info.domain == NULL || sess->name == NULL) {
+		free_session(sess);
+		goto error;
+	}
+
 	if (impl->ts_refclk != NULL)
 		pw_properties_setf(props, "rtp.sender-ts-offset", "%u", impl->ts_offset);
 	pw_properties_setf(props, "rtp.sender-ssrc", "%u", sess->ssrc);

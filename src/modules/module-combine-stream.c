@@ -931,6 +931,8 @@ static int create_stream(struct stream_info *info)
 
 	if (info->on_demand_id) {
 		s->on_demand_id = strdup(info->on_demand_id);
+		if (s->on_demand_id == NULL)
+			goto error_errno;
 		pw_properties_set(info->stream_props, "combine.on-demand-id", s->on_demand_id);
 	} else {
 		if (pw_properties_get(info->stream_props, PW_KEY_TARGET_OBJECT) == NULL)

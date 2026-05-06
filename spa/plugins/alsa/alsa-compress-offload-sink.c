@@ -1971,7 +1971,7 @@ impl_init(const struct spa_handle_factory *factory, struct spa_handle *handle,
 		if (spa_streq(k, SPA_KEY_API_ALSA_PATH)) {
 			snprintf(this->props.device, sizeof(this->props.device), "%s", s);
 			if ((res = parse_device(this)) < 0)
-				return res;
+				goto error;
 		}
 	}
 

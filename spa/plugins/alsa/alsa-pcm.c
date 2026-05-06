@@ -714,16 +714,18 @@ int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params)
 static ssize_t log_write(void *cookie, const char *buf, size_t size)
 {
 	struct state *state = cookie;
-	int len;
 
 	for (size_t left = size; left > 0; ) {
-		len = strcspn(buf, "\n");
+		const char *end = memchr(buf, '\n', left);
+		size_t len = end ? end - buf : left;
 
 		if (len > 0)
 			spa_log_debug(state->log, "%.*s", (int)len, buf);
-		buf += len + 1;
-		left -= len + 1;
+
+		buf += len + !!end;
+		left -= len + !!end;
 	}
+
 	return size;
 }
 

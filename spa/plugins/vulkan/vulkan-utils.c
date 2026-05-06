@@ -718,10 +718,18 @@ int vulkan_import_dmabuf(struct vulkan_base *s, struct external_buffer_info *inf
 			vk_buf->image, &memoryRequirements);
 
 	vk_buf->fd = fcntl(info->spa_buf->datas[0].fd, F_DUPFD_CLOEXEC, 0);
+	if (vk_buf->fd < 0)
+		return -errno;
+	int import_fd = fcntl(info->spa_buf->datas[0].fd, F_DUPFD_CLOEXEC, 0);
+	if (import_fd < 0) {
+		close(vk_buf->fd);
+		vk_buf->fd = -1;
+		return -errno;
+	}
 	VkImportMemoryFdInfoKHR importInfo = {
 		.sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
 		.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
-		.fd = fcntl(info->spa_buf->datas[0].fd, F_DUPFD_CLOEXEC, 0),
+		.fd = import_fd,
 	};
 
 	VkMemoryAllocateInfo allocateInfo = {

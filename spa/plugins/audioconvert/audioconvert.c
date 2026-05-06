@@ -2266,10 +2266,12 @@ static void set_volume(struct impl *this)
 
 static char *format_position(char *str, size_t len, uint32_t channels, uint32_t *position)
 {
-	uint32_t i, idx = 0;
+	uint32_t i;
 	char buf[8];
+	struct spa_strbuf b;
+	spa_strbuf_init(&b, str, len);
 	for (i = 0; i < channels; i++)
-		idx += snprintf(str + idx, len - idx, "%s%s", i == 0 ? "" : " ",
+		spa_strbuf_append(&b, "%s%s", i == 0 ? "" : " ",
 				spa_type_audio_channel_make_short_name(position[i],
 				buf, sizeof(buf), "UNK"));
 	return str;

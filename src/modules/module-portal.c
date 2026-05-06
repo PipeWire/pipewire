@@ -123,22 +123,27 @@ static const struct pw_context_events context_events = {
 	.check_access = context_check_access,
 };
 
-static void module_destroy(void *data)
+static void impl_destroy(struct impl *impl)
 {
-	struct impl *impl = data;
-
-	spa_hook_remove(&impl->context_listener);
-	spa_hook_remove(&impl->module_listener);
+	if (impl->context)
+		spa_hook_remove(&impl->context_listener);
 
 	cancel_and_unref(&impl->portal_pid_pending);
 
 	if (impl->bus)
 		dbus_connection_unref(impl->bus);
-	spa_dbus_connection_destroy(impl->conn);
+	if (impl->conn)
+		spa_dbus_connection_destroy(impl->conn);
 
 	pw_properties_free(impl->properties);
-
 	free(impl);
+}
+
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->module_listener);
+	impl_destroy(impl);
 }
 
 static const struct pw_impl_module_events module_events = {
@@ -297,24 +302,25 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_log_debug("module %p: new", impl);
 
 	impl->context = context;
+	pw_context_add_listener(context, &impl->context_listener, &context_events, impl);
+
 	impl->properties = args ? pw_properties_new_string(args) : NULL;
 
 	impl->conn = spa_dbus_get_connection(dbus, SPA_DBUS_TYPE_SESSION);
 	if (impl->conn == NULL) {
 		res = -errno;
+		pw_log_error("Failed to connect to session bus: %s", spa_strerror(res));
 		goto error;
 	}
 
 	if ((res = init_dbus_connection(impl)) < 0)
 		goto error;
 
-	pw_context_add_listener(context, &impl->context_listener, &context_events, impl);
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	return 0;
 
-      error:
-	free(impl);
-	pw_log_error("Failed to connect to session bus: %s", spa_strerror(res));
+error:
+	impl_destroy(impl);
 	return res;
 }

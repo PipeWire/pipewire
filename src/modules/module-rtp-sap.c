@@ -591,13 +591,13 @@ static bool update_ts_refclk(struct impl *impl)
 			return false;
 	}
 
-	// Read if something is left in the socket
-	int avail;
+	int avail = 0;
 	uint8_t tmp;
 
-	ioctl(impl->ptp_fd, FIONREAD, &avail);
-	pw_log_debug("Flushing stale data: %u bytes", avail);
-	while (avail-- && read(impl->ptp_fd, &tmp, 1));
+	if (ioctl(impl->ptp_fd, FIONREAD, &avail) == 0 && avail > 0) {
+		pw_log_debug("Flushing stale data: %d bytes", avail);
+		while (avail-- > 0 && read(impl->ptp_fd, &tmp, 1) == 1);
+	}
 
 	struct ptp_management_msg req;
 	spa_zero(req);

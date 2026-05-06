@@ -3114,8 +3114,11 @@ static void *pipe_instantiate(const struct spa_fga_plugin *plugin, const struct 
 
 	do_exec(impl, command);
 
-	fcntl(impl->write_fd, F_SETFL, fcntl(impl->write_fd, F_GETFL) | O_NONBLOCK);
-	fcntl(impl->read_fd, F_SETFL, fcntl(impl->read_fd, F_GETFL) | O_NONBLOCK);
+	int flags;
+	if ((flags = fcntl(impl->write_fd, F_GETFL)) >= 0)
+		fcntl(impl->write_fd, F_SETFL, flags | O_NONBLOCK);
+	if ((flags = fcntl(impl->read_fd, F_GETFL)) >= 0)
+		fcntl(impl->read_fd, F_SETFL, flags | O_NONBLOCK);
 
 	return impl;
 }

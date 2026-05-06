@@ -288,13 +288,15 @@ void audioinfo_to_properties(struct spa_audio_info_raw *info, struct pw_properti
 	if (info->rate)
 		pw_properties_setf(props, SPA_KEY_AUDIO_RATE, "%u", info->rate);
 	if (info->channels) {
-		char *s, *p, pos[8];
+		char *s, pos[8];
+		struct spa_strbuf b;
 
 		pw_properties_setf(props, SPA_KEY_AUDIO_CHANNELS, "%u", info->channels);
 
-		p = s = alloca(info->channels * 8);
+		s = alloca(info->channels * 8);
+		spa_strbuf_init(&b, s, info->channels * 8);
 		for (i = 0; i < info->channels; i++)
-			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ", ",
+			spa_strbuf_append(&b, "%s%s", i == 0 ? "" : ", ",
 				channel_id2name(info->position[i], pos, sizeof(pos)));
 		pw_properties_setf(props, SPA_KEY_AUDIO_POSITION, "[ %s ]", s);
 	}

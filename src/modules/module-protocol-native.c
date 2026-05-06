@@ -632,13 +632,15 @@ static struct client_data *client_new(struct server *s, int fd)
 			pw_log_warn("server %p: security label error: %m", s);
 	} else {
 		if (!check_print(buffer, len)) {
-			char *hex, *p;
+			char *hex;
+			struct spa_strbuf b;
 			static const char *ch = "0123456789abcdef";
 
-			p = hex = alloca(len * 2 + 10);
-			p += snprintf(p, 5, "hex:");
+			hex = alloca(len * 2 + 10);
+			spa_strbuf_init(&b, hex, len * 2 + 10);
+			spa_strbuf_append(&b, "hex:");
 			for(i = 0; i < (int)len; i++)
-				p += snprintf(p, 3, "%c%c",
+				spa_strbuf_append(&b, "%c%c",
 						ch[buffer[i] >> 4], ch[buffer[i] & 0xf]);
 			pw_properties_set(props, PW_KEY_SEC_LABEL, hex);
 

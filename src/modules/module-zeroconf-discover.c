@@ -184,18 +184,20 @@ static void pw_properties_from_zeroconf(const char *key, const char *value,
 	else if (spa_streq(key, "channel_map")) {
 		struct channel_map channel_map;
 		uint32_t i, pos[CHANNELS_MAX];
-		char *p, *s, buf[8];
+		char *s, buf[8];
 
 		spa_zero(channel_map);
 		channel_map_parse(value, &channel_map);
 		channel_map_to_positions(&channel_map, pos, CHANNELS_MAX);
 
-		p = s = alloca(4 + channel_map.channels * 8);
-		p += spa_scnprintf(p, 2, "[");
+		s = alloca(4 + channel_map.channels * 8);
+		struct spa_strbuf b;
+		spa_strbuf_init(&b, s, 4 + channel_map.channels * 8);
+		spa_strbuf_append(&b, "[");
 		for (i = 0; i < channel_map.channels; i++)
-			p += spa_scnprintf(p, 8, "%s%s", i == 0 ? "" : ",",
+			spa_strbuf_append(&b, "%s%s", i == 0 ? "" : ",",
 				channel_id2name(pos[i], buf, sizeof(buf)));
-		p += spa_scnprintf(p, 2, "]");
+		spa_strbuf_append(&b, "]");
 		pw_properties_set(props, SPA_KEY_AUDIO_POSITION, s);
 	}
 	else if (spa_streq(key, "format")) {

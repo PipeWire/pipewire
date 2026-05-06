@@ -8,6 +8,7 @@
 #include <inttypes.h>
 
 #include <spa/debug/context.h>
+#include <spa/utils/string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,13 +31,15 @@ SPA_API_DEBUG_MEM int spa_debugc_mem(struct spa_debug_context *ctx, int indent, 
 {
 	const uint8_t *t = (const uint8_t*)data;
 	char buffer[512];
+	struct spa_strbuf b;
 	size_t i;
-	int pos = 0;
 
 	for (i = 0; i < size; i++) {
-		if (i % 16 == 0)
-			pos = snprintf(buffer, sizeof(buffer), "%p: ", &t[i]);
-		pos += snprintf(buffer + pos, sizeof(buffer) - pos, "%02x ", t[i]);
+		if (i % 16 == 0) {
+			spa_strbuf_init(&b, buffer, sizeof(buffer));
+			spa_strbuf_append(&b, "%p: ", &t[i]);
+		}
+		spa_strbuf_append(&b, "%02x ", t[i]);
 		if (i % 16 == 15 || i == size - 1) {
 			spa_debugc(ctx, "%*s" "%s", indent, "", buffer);
 		}

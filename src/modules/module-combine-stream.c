@@ -981,6 +981,8 @@ static int rule_matched(void *data, const char *location, const char *action,
 
 	if (spa_streq(action, "create-stream")) {
 		i->stream_props = pw_properties_copy(impl->stream_props);
+		if (i->stream_props == NULL)
+			return -errno;
 
 		pw_properties_update_string(i->stream_props, str, len);
 
@@ -1026,6 +1028,8 @@ static int metadata_property(void *data, uint32_t id,
 		info.id = SPA_ID_INVALID;
 		info.on_demand_id = on_demand_id;
 		info.stream_props = pw_properties_copy(impl->stream_props);
+		if (info.stream_props == NULL)
+			return -errno;
 
 		pw_properties_update_string(info.stream_props, value, strlen(value));
 

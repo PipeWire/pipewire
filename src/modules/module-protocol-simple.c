@@ -975,14 +975,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	pw_log_debug("module %p: new %s", impl, args);
 
-	if (args)
-		props = pw_properties_new_string(args);
-	else
-		props = pw_properties_new(NULL, NULL);
-
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
-	impl->props = props;
 	spa_list_init(&impl->server_list);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
@@ -990,6 +984,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
 
 	impl->work_queue = pw_context_get_work_queue(context);
+
+	if (args)
+		props = pw_properties_new_string(args);
+	else
+		props = pw_properties_new(NULL, NULL);
+	if (props == NULL) {
+		res = -errno;
+		goto error_free;
+	}
+	impl->props = props;
 
 	if ((res = parse_params(impl)) < 0)
 		goto error_free;

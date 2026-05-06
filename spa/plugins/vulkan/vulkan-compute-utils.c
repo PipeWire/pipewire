@@ -176,6 +176,11 @@ static VkShaderModule createShaderModule(struct vulkan_compute_state *s, const c
 	}
 
 	data = mmap(NULL, stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (data == MAP_FAILED) {
+		spa_log_error(s->log, "can't mmap %s: %m", shaderFile);
+		close(fd);
+		return VK_NULL_HANDLE;
+	}
 
 	const VkShaderModuleCreateInfo shaderModuleCreateInfo = {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,

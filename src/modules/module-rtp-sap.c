@@ -2189,6 +2189,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 
 	impl->registry = pw_core_get_registry(impl->core, PW_VERSION_REGISTRY, 0);
+	if (impl->registry == NULL) {
+		res = -errno;
+		goto out;
+	}
 	pw_registry_add_listener(impl->registry, &impl->registry_listener,
 			&registry_events, impl);
 

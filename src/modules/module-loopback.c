@@ -1003,6 +1003,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	pw_properties_free(props);
+	props = NULL;
 
 	pw_proxy_add_listener((struct pw_proxy*)impl->core,
 			&impl->core_proxy_listener,
@@ -1011,7 +1012,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	setup_streams(impl);
+	if ((res = setup_streams(impl)) < 0)
+		goto error;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

@@ -1098,12 +1098,8 @@ int spa_alsa_clear(struct state *state)
 	state->card = NULL;
 	state->card_index = SPA_ID_INVALID;
 
-	if ((err = snd_output_close(state->output)) < 0)
-		spa_log_warn(state->log, "output close failed: %s", snd_strerror(err));
-	fclose(state->log_file);
-
-	free(state->tag[0]);
-	free(state->tag[1]);
+	spa_clear_ptr(state->tag[0], free);
+	spa_clear_ptr(state->tag[1], free);
 
 	if (state->ctl) {
 		for (int i = 0; i < state->ctl_n_fds; i++) {
@@ -1124,6 +1120,10 @@ int spa_alsa_clear(struct state *state)
 			}
 		}
 	}
+
+	if ((err = snd_output_close(state->output)) < 0)
+		spa_log_warn(state->log, "output close failed: %s", snd_strerror(err));
+	spa_clear_ptr(state->log_file, fclose);
 
 	spa_clear_ptr(state->alsa_chmap, free);
 

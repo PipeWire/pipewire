@@ -718,12 +718,13 @@ static ssize_t log_write(void *cookie, const char *buf, size_t size)
 	struct state *state = cookie;
 	int len;
 
-	while (size > 0) {
+	for (size_t left = size; left > 0; ) {
 		len = strcspn(buf, "\n");
+
 		if (len > 0)
 			spa_log_debug(state->log, "%.*s", (int)len, buf);
 		buf += len + 1;
-		size -= len + 1;
+		left -= len + 1;
 	}
 	return size;
 }

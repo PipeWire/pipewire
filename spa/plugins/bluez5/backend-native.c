@@ -2759,13 +2759,13 @@ static void sco_ready(struct spa_bt_transport *t)
 	}
 
 	/* Clear nonblocking flag we set for connect() */
-	err = fcntl(t->fd, F_GETFL, O_NONBLOCK);
+	err = fcntl(t->fd, F_GETFL);
 	if (err < 0) {
 		td->err = -errno;
 		goto done;
 	}
 	err &= ~O_NONBLOCK;
-	err = fcntl(t->fd, F_SETFL, O_NONBLOCK, err);
+	err = fcntl(t->fd, F_SETFL, err);
 	if (err < 0) {
 		td->err = -errno;
 		goto done;

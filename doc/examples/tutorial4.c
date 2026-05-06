@@ -56,7 +56,7 @@ static void on_process(void *userdata)
 		 * Another common method to convert a double to
 		 * 16 bits is to multiple by 32768.0 and then clamp to
 		 * [-32768 32767] to get the full 16 bits range. */
-		val = sin(data->accumulator) * DEFAULT_VOLUME * 32767.0;
+		val = (int16_t) (sin(data->accumulator) * DEFAULT_VOLUME * 32767.0);
 		for (c = 0; c < DEFAULT_CHANNELS; c++)
 			*dst++ = val;
 	}

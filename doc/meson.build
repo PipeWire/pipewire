@@ -169,18 +169,14 @@ cssfiles = [
 ]
 
 # Example files (in order from simple to esoteric)
-example_files = [
-  'tutorial1.c',
-  'tutorial2.c',
-  'tutorial3.c',
-  'tutorial4.c',
-  'tutorial5.c',
-  'tutorial6.c',
-  'tutorial7.c',
-]
+example_files = []
 example_dep_files = []
-foreach h : example_files
-  example_dep_files += ['examples/' + h]
+
+subdir('examples')
+
+foreach h : tutorials
+  example_files += [h + '.c']
+  example_dep_files += ['examples/' + h + '.c']
 endforeach
 foreach h : examples
   example_files += [h + '.c']

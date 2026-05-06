@@ -726,7 +726,7 @@ static ssize_t log_write(void *cookie, const char *buf, size_t size)
 	return size;
 }
 
-static cookie_io_functions_t io_funcs = {
+static const cookie_io_functions_t io_funcs = {
 	.write = log_write,
 };
 

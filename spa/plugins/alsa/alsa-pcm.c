@@ -717,6 +717,9 @@ static ssize_t log_write(void *cookie, const char *buf, size_t size)
 {
 	struct state *state = cookie;
 
+	if (!spa_log_level_topic_enabled(state->log, SPA_LOG_TOPIC_DEFAULT, SPA_LOG_LEVEL_DEBUG))
+		return size;
+
 	for (size_t left = size; left > 0; ) {
 		const char *end = memchr(buf, '\n', left);
 		size_t len = end ? end - buf : left;

@@ -1068,7 +1068,7 @@ int spa_alsa_init(struct state *state, const struct spa_dict *info)
 
 int spa_alsa_clear(struct state *state)
 {
-	int err;
+	int err = 0;
 	struct state *follower;
 
 	spa_list_remove(&state->link);
@@ -1094,10 +1094,6 @@ int spa_alsa_clear(struct state *state)
 	state->card = NULL;
 	state->card_index = SPA_ID_INVALID;
 
-	if ((err = snd_output_close(state->output)) < 0)
-		spa_log_warn(state->log, "output close failed: %s", snd_strerror(err));
-	fclose(state->log_file);
-
 	free(state->tag[0]);
 	free(state->tag[1]);
 
@@ -1120,6 +1116,13 @@ int spa_alsa_clear(struct state *state)
 			}
 		}
 	}
+
+	if (state->output) {
+		if ((err = snd_output_close(state->output)) < 0)
+			spa_log_warn(state->log, "output close failed: %s", snd_strerror(err));
+	}
+	if (state->log_file)
+		fclose(state->log_file);
 
 	spa_clear_ptr(state->alsa_chmap, free);
 

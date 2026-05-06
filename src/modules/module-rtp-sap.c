@@ -1756,9 +1756,11 @@ static int parse_sap(struct impl *impl, void *data, size_t len)
 	if (spa_strstartswith(mime, "v=0")) {
 		sdp = mime;
 		mime = SAP_MIME_TYPE;
-	} else if (spa_streq(mime, SAP_MIME_TYPE))
+	} else if (spa_streq(mime, SAP_MIME_TYPE)) {
 		sdp = SPA_PTROFF(mime, strlen(mime)+1, char);
-	else
+		if (sdp >= SPA_PTROFF(data, len, char))
+			return -EINVAL;
+	} else
 		return -EINVAL;
 
 	pw_log_debug("got SAP: %s %s", mime, sdp);

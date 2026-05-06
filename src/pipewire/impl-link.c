@@ -601,10 +601,10 @@ static int do_negotiate(struct pw_impl_link *this)
 error:
 	pw_context_debug_port_params(context, node[0],
 			info[0]->port->direction, port_id[0],
-			SPA_PARAM_EnumFormat, res, "input format (%s)", error);
+			SPA_PARAM_EnumFormat, res, "%s format (%s)", dir[0], error);
 	pw_context_debug_port_params(context, node[1],
 			info[1]->port->direction, port_id[1],
-			SPA_PARAM_EnumFormat, res, "output format (%s)", error);
+			SPA_PARAM_EnumFormat, res, "%s format (%s)", dir[1], error);
 	link_update_state(this, PW_LINK_STATE_ERROR, res, error);
 	free(format);
 	return res;

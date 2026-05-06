@@ -2084,7 +2084,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			&impl->core_listener,
 			&core_events, impl);
 
-	setup_streams(impl);
+	if ((res = setup_streams(impl)) < 0)
+		goto error;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

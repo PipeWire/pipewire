@@ -631,7 +631,7 @@ static bool update_ts_refclk(struct impl *impl)
 	}
 
 	uint8_t buf[sizeof(struct ptp_management_msg) + sizeof(struct ptp_parent_data_set)];
-	if (read(impl->ptp_fd, &buf, sizeof(buf)) == -1) {
+	if (read(impl->ptp_fd, buf, sizeof(buf)) != (ssize_t)sizeof(buf)) {
 		pw_log_warn("Failed to receive PTP management response: %m");
 		return false;
 	}

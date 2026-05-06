@@ -2523,10 +2523,13 @@ static int impl_clear(struct spa_handle *handle)
 		this->codec->clear_props(this->codec_props);
 	if (this->transport)
 		spa_hook_remove(&this->transport_listener);
-	spa_system_close(this->data_system, this->timerfd);
-	spa_system_close(this->data_system, this->flush_timerfd);
-	if (this->codec->kind == MEDIA_CODEC_ASHA) {
-		spa_system_close(this->data_system, this->asha->timerfd);
+	if (this->timerfd > 0)
+		spa_system_close(this->data_system, this->timerfd);
+	if (this->flush_timerfd > 0)
+		spa_system_close(this->data_system, this->flush_timerfd);
+	if (this->codec->kind == MEDIA_CODEC_ASHA && this->asha) {
+		if (this->asha->timerfd > 0)
+			spa_system_close(this->data_system, this->asha->timerfd);
 		free(this->asha);
 	}
 	return 0;
@@ -2674,38 +2677,30 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if ((res = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
-		goto error_remove_listener;
+		goto error;
 	this->timerfd = res;
 
 	if ((res = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
-		goto error_close_timerfd;
+		goto error;
 	this->flush_timerfd = res;
 
 	if (this->codec->kind == MEDIA_CODEC_ASHA) {
 		this->asha = calloc(1, sizeof(struct spa_bt_asha));
 		if (this->asha == NULL) {
 			res = -errno;
-			goto error_close_flush_timerfd;
+			goto error;
 		}
+		this->asha->timerfd = -1;
 		if ((res = spa_system_timerfd_create(this->data_system,
 				CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
-			goto error_free_asha;
+			goto error;
 		this->asha->timerfd = res;
 	}
 	return 0;
 
-error_free_asha:
-	free(this->asha);
-	this->asha = NULL;
-error_close_flush_timerfd:
-	spa_system_close(this->data_system, this->flush_timerfd);
-error_close_timerfd:
-	spa_system_close(this->data_system, this->timerfd);
-error_remove_listener:
-	spa_hook_remove(&this->transport_listener);
-	if (this->codec_props && this->codec->clear_props)
-		this->codec->clear_props(this->codec_props);
+error:
+	impl_clear(handle);
 	return res;
 }
 

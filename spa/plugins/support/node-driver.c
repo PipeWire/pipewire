@@ -927,9 +927,10 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	spa_loop_locked(this->data_loop, do_remove_timer, 0, NULL, 0, this);
-	spa_system_close(this->data_system, this->timer_source.fd);
-
+	if (this->timer_source.data) {
+		spa_loop_locked(this->data_loop, do_remove_timer, 0, NULL, 0, this);
+		spa_system_close(this->data_system, this->timer_source.fd);
+	}
 	if (this->clock_fd != -1)
 		close(this->clock_fd);
 
@@ -952,6 +953,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	uint32_t i;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -1038,19 +1040,22 @@ impl_init(const struct spa_handle_factory *factory,
 	this->nsec_offset.offset = get_nsec_offset(this, NULL);
 	this->nsec_offset.err = 0;
 
+	if ((res = spa_system_timerfd_create(this->data_system,
+			this->timer_clockid, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error;
+
 	this->timer_source.func = on_timeout;
 	this->timer_source.data = this;
-	this->timer_source.fd = spa_system_timerfd_create(this->data_system,
-			this->timer_clockid, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (this->timer_source.fd < 0)
-		return this->timer_source.fd;
-
+	this->timer_source.fd = res;
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
 
 	spa_loop_add_source(this->data_loop, &this->timer_source);
 
 	return 0;
+error:
+	impl_clear(handle);
+	return res;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {

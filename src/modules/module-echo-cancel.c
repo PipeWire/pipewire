@@ -1509,7 +1509,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->loader = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_PluginLoader);
 	if (impl->loader == NULL) {
 		pw_log_error("a plugin loader is needed");
-		return -EINVAL;
+		res = -EINVAL;
+		goto error;
 	}
 
 	struct spa_dict_item dict_items[] = {
@@ -1520,15 +1521,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	handle = spa_plugin_loader_load(impl->loader, SPA_NAME_AEC, &dict);
 	if (handle == NULL) {
 		pw_log_error("aec plugin %s not available library.name %s", SPA_NAME_AEC, path);
-		return -ENOENT;
+		res = -ENOENT;
+		goto error;
 	}
+	impl->spa_handle = handle;
 
 	if ((res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_AUDIO_AEC, &iface)) < 0) {
 		pw_log_error("can't get %s interface %d", SPA_TYPE_INTERFACE_AUDIO_AEC, res);
-		return res;
+		goto error;
 	}
 	impl->aec = iface;
-	impl->spa_handle = handle;
 
 	if (impl->aec->iface.version > SPA_VERSION_AUDIO_AEC) {
 		pw_log_error("codec plugin %s has incompatible ABI version (%d > %d)",

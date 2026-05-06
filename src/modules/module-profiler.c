@@ -472,22 +472,27 @@ global_bind(void *object, struct pw_impl_client *client, uint32_t permissions,
 	return 0;
 }
 
-static void module_destroy(void *data)
+static void impl_destroy(struct impl *impl)
 {
-	struct impl *impl = data;
-
 	if (impl->global != NULL)
 		pw_global_destroy(impl->global);
 
-	spa_hook_remove(&impl->context_listener);
-	spa_hook_remove(&impl->module_listener);
+	if (impl->context != NULL)
+		spa_hook_remove(&impl->context_listener);
+
+	if (impl->flush_event != NULL)
+		pw_loop_destroy_source(impl->main_loop, impl->flush_event);
 
 	pw_properties_free(impl->properties);
-
-	pw_loop_destroy_source(impl->main_loop, impl->flush_event);
-
 	free(impl->flush);
 	free(impl);
+}
+
+static void module_destroy(void *data)
+{
+	struct impl *impl = data;
+	spa_hook_remove(&impl->module_listener);
+	impl_destroy(impl);
 }
 
 static const struct pw_impl_module_events module_events = {
@@ -516,18 +521,18 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct pw_context *context = pw_impl_module_get_context(module);
 	struct pw_properties *props;
 	struct impl *impl;
+	int res;
 
 	PW_LOG_TOPIC_INIT(mod_topic);
 
 	impl = calloc(1, sizeof(struct impl));
 	if (impl == NULL)
 		return -errno;
+
 	impl->flush_size = FLUSH_BUFFER + sizeof(struct spa_pod_struct);
 	impl->flush = malloc(impl->flush_size);
-	if (impl->flush == NULL) {
-		free(impl);
-		return -errno;
-	}
+	if (impl->flush == NULL)
+		goto error;
 
 	spa_list_init(&impl->node_list);
 	pw_protocol_native_ext_profiler_init(context);
@@ -540,6 +545,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		props = pw_properties_new(NULL, NULL);
 
 	impl->context = context;
+	pw_context_add_listener(impl->context,
+			&impl->context_listener,
+			&context_events, impl);
+
 	impl->properties = props;
 	impl->main_loop = pw_context_get_main_loop(impl->context);
 
@@ -554,28 +563,29 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			PW_PROFILER_PERM_MASK,
 			pw_properties_copy(props),
 			global_bind, impl);
-	if (impl->global == NULL) {
-		free(impl->flush);
-		free(impl);
-		return -errno;
-	}
+	if (impl->global == NULL)
+		goto error;
+
 	pw_properties_setf(impl->properties, PW_KEY_OBJECT_ID, "%u", pw_global_get_id(impl->global));
 	pw_properties_setf(impl->properties, PW_KEY_OBJECT_SERIAL, "%"PRIu64,
 			pw_global_get_serial(impl->global));
 
 	impl->flush_event = pw_loop_add_event(impl->main_loop, do_flush_event, impl);
+	if (impl->flush_event == NULL)
+		goto error;
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(module_props));
-
-	pw_context_add_listener(impl->context,
-			&impl->context_listener,
-			&context_events, impl);
 
 	pw_global_register(impl->global);
 
 	pw_global_add_listener(impl->global, &impl->global_listener, &global_events, impl);
 
 	return 0;
+
+error:
+	res = -errno;
+	impl_destroy(impl);
+	return res;
 }

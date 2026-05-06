@@ -2134,6 +2134,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	struct port *port;
 	const char *str;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -2268,10 +2269,10 @@ impl_init(const struct spa_handle_factory *factory,
 	spa_bt_transport_add_listener(this->transport,
 			&this->transport_listener, &transport_events, this);
 
-	this->timerfd = spa_system_timerfd_create(this->data_system,
-			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (this->timerfd < 0)
-		return this->timerfd;
+	if ((res = spa_system_timerfd_create(this->data_system,
+			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
+		goto error_remove_listener;
+	this->timerfd = res;
 
 	this->node_latency = 512;
 
@@ -2280,6 +2281,12 @@ impl_init(const struct spa_handle_factory *factory,
 	this->fd = -1;
 
 	return 0;
+
+error_remove_listener:
+	spa_hook_remove(&this->transport_listener);
+	if (this->codec_props && this->codec->clear_props)
+		this->codec->clear_props(this->codec_props);
+	return res;
 }
 
 static const struct spa_interface_info impl_interfaces[] = {

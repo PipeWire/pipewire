@@ -2674,7 +2674,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if ((res = spa_system_timerfd_create(this->data_system,
 			CLOCK_MONOTONIC, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
-		return res;
+		goto error_remove_listener;
 	this->timerfd = res;
 
 	if ((res = spa_system_timerfd_create(this->data_system,
@@ -2702,6 +2702,10 @@ error_close_flush_timerfd:
 	spa_system_close(this->data_system, this->flush_timerfd);
 error_close_timerfd:
 	spa_system_close(this->data_system, this->timerfd);
+error_remove_listener:
+	spa_hook_remove(&this->transport_listener);
+	if (this->codec_props && this->codec->clear_props)
+		this->codec->clear_props(this->codec_props);
 	return res;
 }
 

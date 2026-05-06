@@ -971,6 +971,8 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 
 		impl->server_source = pw_loop_add_io(impl->loop, impl->server_fd,
 				SPA_IO_OUT, false, on_server_source_io, impl);
+		if (impl->server_source == NULL)
+			return -errno;
 		break;
 
 	case PROTO_UDP:
@@ -998,6 +1000,8 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 
 		impl->control_source = pw_loop_add_io(impl->loop, impl->control_fd,
 				SPA_IO_IN, false, on_control_source_io, impl);
+		if (impl->control_source == NULL)
+			return -errno;
 
 		impl->ready = true;
 		if (rtp_stream_get_state(impl->stream, NULL) == PW_STREAM_STATE_STREAMING)
@@ -1030,6 +1034,8 @@ static int rtsp_do_setup(struct impl *impl)
 
 		impl->timing_source = pw_loop_add_io(impl->loop, impl->timing_fd,
 				SPA_IO_IN, false, on_timing_source_io, impl);
+		if (impl->timing_source == NULL)
+			goto error;
 
 		pw_properties_setf(impl->headers, "Transport",
 				"RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;"

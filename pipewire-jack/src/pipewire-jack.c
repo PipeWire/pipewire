@@ -4380,13 +4380,17 @@ jack_client_t * jack_client_open (const char *client_name,
 	if (client->core == NULL)
 		goto server_failed;
 
-	client->pool = pw_core_get_mempool(client->core);
-
 	pw_core_add_listener(client->core,
 			&client->core_listener,
 			&core_events, client);
+
+	client->pool = pw_core_get_mempool(client->core);
+
 	client->registry = pw_core_get_registry(client->core,
 			PW_VERSION_REGISTRY, 0);
+	if (client->registry == NULL)
+		goto init_failed;
+
 	pw_registry_add_listener(client->registry,
 			&client->registry_listener,
 			&registry_events, client);

@@ -67,7 +67,7 @@ static void vban_audio_process_playback(void *data)
 		spa_ringbuffer_read_data(&impl->ring,
 				impl->buffer,
 				BUFFER_SIZE,
-				(timestamp * stride) & BUFFER_MASK,
+				((uint64_t)timestamp * stride) & BUFFER_MASK,
 				d[0].data, wanted * stride);
 
 		timestamp += wanted;
@@ -149,7 +149,7 @@ static int vban_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len)
 		spa_ringbuffer_write_data(&impl->ring,
 				impl->buffer,
 				BUFFER_SIZE,
-				(write * stride) & BUFFER_MASK,
+				((uint64_t)write * stride) & BUFFER_MASK,
 				&buffer[hlen], (samples * stride));
 
 		/* only advance writeindex if this extends the frontier */
@@ -195,7 +195,7 @@ static void vban_audio_flush_packets(struct impl *impl)
 	while (avail >= tosend) {
 		set_iovec(&impl->ring,
 			impl->buffer, BUFFER_SIZE,
-			(timestamp * stride) & BUFFER_MASK,
+			((uint64_t)timestamp * stride) & BUFFER_MASK,
 			&iov[1], tosend * stride);
 
 		pw_log_trace("sending %d timestamp:%08x", tosend, timestamp);
@@ -256,7 +256,7 @@ static void vban_audio_process_capture(void *data)
 	spa_ringbuffer_write_data(&impl->ring,
 			impl->buffer,
 			BUFFER_SIZE,
-			(expected_timestamp * stride) & BUFFER_MASK,
+			((uint64_t)expected_timestamp * stride) & BUFFER_MASK,
 			SPA_PTROFF(d[0].data, offs, void), wanted * stride);
 	expected_timestamp += wanted;
 	spa_ringbuffer_write_update(&impl->ring, expected_timestamp);

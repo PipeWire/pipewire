@@ -22,6 +22,12 @@ context.properties = {
 context.spa-libs = {
     audio.convert.* = audioconvert/libspa-audioconvert
     support.*       = support/libspa-support
+    # because the pulse server allows dynamic loading of streams and modules
+    # inside the server, we must be careful with the filter-graph. Only allow
+    # LADSPA filters.
+    filter.graph.plugin.ladspa = filter-graph/libspa-filter-graph-plugin-ladspa
+    filter.graph.plugin.* = blocked
+    filter.graph = filter-graph/libspa-filter-graph
 }
 
 context.modules = [

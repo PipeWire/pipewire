@@ -1067,8 +1067,8 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 	lib = pw_context_find_spa_lib(context, factory_name);
 	if (lib == NULL && info != NULL)
 		lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
-	if (lib == NULL) {
-		errno = ENOENT;
+	if (lib == NULL || spa_streq(lib, "blocked")) {
+		errno = lib ? EPERM : ENOENT;
 		pw_log_warn("%p: no library for %s: %m",
 				context, factory_name);
 		return NULL;

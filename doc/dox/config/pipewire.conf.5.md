@@ -358,6 +358,8 @@ factory-name and the plugin where the factory can be found.
 Factory names can contain a wildcard to group several related factories into one
 plugin. The plugin is loaded from the first matching factory-name.
 
+A special `blocked` value for the plugin disables the factory-name.
+
 ## Example
 
 ```
@@ -374,6 +376,7 @@ context.spa-libs = {
     api.jack.*      = jack/libspa-jack
     support.*       = support/libspa-support
     video.convert.* = videoconvert/libspa-videoconvert
+    #filter.graph   = blocked
 }
 ```
 

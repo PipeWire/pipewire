@@ -2290,6 +2290,10 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 		if ((res = load_node(graph, &it[1])) < 0)
 			return res;
 	}
+	if (spa_list_is_empty(&graph->node_list)) {
+		spa_log_error(impl->log, "filter.graph has no nodes");
+		return -EINVAL;
+	}
 	if (plinks != NULL) {
 		while (spa_json_enter_object(plinks, &it[1]) > 0) {
 			if ((res = parse_link(graph, &it[1])) < 0)
@@ -2353,7 +2357,6 @@ static int load_graph(struct graph *graph, const struct spa_dict *props)
 		graph->default_outputs = graph->n_output_names;
 	else
 		graph->default_outputs = last->desc->n_output;
-
 
 	return 0;
 }

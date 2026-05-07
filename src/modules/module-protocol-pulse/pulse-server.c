@@ -1836,8 +1836,7 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (dont_inhibit_auto_suspend)
 		pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
 
-	stream->stream = pw_stream_new(client->core, name, props);
-	props = NULL;
+	stream->stream = pw_stream_new(client->core, name, spa_steal_ptr(props));
 	if (stream->stream == NULL)
 		goto error_errno;
 
@@ -2136,8 +2135,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	if (dont_inhibit_auto_suspend)
 		pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
 
-	stream->stream = pw_stream_new(client->core, name, props);
-	props = NULL;
+	stream->stream = pw_stream_new(client->core, name, spa_steal_ptr(props));
 	if (stream->stream == NULL)
 		goto error_errno;
 
@@ -2361,7 +2359,7 @@ static int do_create_upload_stream(struct client *client, uint32_t command, uint
 	if (stream == NULL)
 		goto error_errno;
 
-	stream->props = props;
+	stream->props = spa_steal_ptr(props);
 
 	stream->bufsize = stream->attr.maxlength;
 	stream->buffer = calloc(1, stream->bufsize);
@@ -2461,16 +2459,14 @@ static int do_finish_upload_stream(struct client *client, uint32_t command, uint
 	sample->ref = 1;
 	sample->impl = impl;
 	sample->name = name;
-	sample->props = stream->props;
+	sample->props = spa_steal_ptr(stream->props);
 	sample->ss = stream->ss;
 	sample->map = stream->map;
-	sample->buffer = stream->buffer;
+	sample->buffer = spa_steal_ptr(stream->buffer);
 	sample->length = stream->attr.maxlength;
 
 	impl->stat.sample_cache += sample->length;
 
-	stream->props = NULL;
-	stream->buffer = NULL;
 	stream_free(stream);
 
 	broadcast_subscribe_event(impl,

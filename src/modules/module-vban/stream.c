@@ -250,7 +250,6 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 	if (impl == NULL) {
 		res = -errno;
 		goto out;
-		return NULL;
 	}
 	impl->first = true;
 	spa_hook_list_init(&impl->listener_list);
@@ -388,8 +387,7 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 	spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MAX, 128, impl->rate);
 	impl->corr = 1.0;
 
-	impl->stream = pw_stream_new(core, "vban-session", props);
-	props = NULL;
+	impl->stream = pw_stream_new(core, "vban-session", spa_steal_ptr(props));
 	if (impl->stream == NULL) {
 		res = -errno;
 		pw_log_error("can't create stream: %m");
@@ -443,6 +441,11 @@ struct vban_stream *vban_stream_new(struct pw_core *core,
 	return (struct vban_stream*)impl;
 out:
 	pw_properties_free(props);
+	if (impl) {
+		if (impl->stream)
+			pw_stream_destroy(impl->stream);
+		free(impl);
+	}
 	errno = -res;
 	return NULL;
 }

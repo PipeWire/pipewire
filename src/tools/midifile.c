@@ -386,7 +386,8 @@ int midi_file_read_event(struct midi_file *mf, struct midi_event *event)
 	if ((res = mf_seek(mf, tr->pos)) < 0)
 		return res;
 
-	mf_read(mf, &status, 1);
+	if (mf_read(mf, &status, 1) != 1)
+		return -EINVAL;
 
 	running = (status & 0x80) == 0;
 	if (running) {
@@ -410,7 +411,8 @@ int midi_file_read_event(struct midi_file *mf, struct midi_event *event)
 		if (running)
 			return -EINVAL;
 
-		mf_read(mf, &meta, 1);
+		if (mf_read(mf, &meta, 1) != -1)
+			return -EINVAL;
 
 		if ((res = parse_varlen(mf, tr, &size)) < 0)
 			return res;

@@ -139,8 +139,6 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MAX_PORTS	128
-
 #define DEFAULT_NET_IP		"225.3.19.154"
 #define DEFAULT_NET_PORT	19000
 #define DEFAULT_NET_TTL		1
@@ -865,7 +863,8 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 	pw_loop_update_io(impl->main_loop, impl->setup_socket, 0);
 
 	impl->sink.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
-	if (impl->sink.n_ports > MAX_PORTS) {
+	if (impl->sink.n_ports > MAX_PORTS ||
+	    (uint32_t)peer->params.send_audio_channels > MAX_CHANNELS) {
 		pw_log_warn("Too many follower sink ports %d > %d", impl->sink.n_ports, MAX_PORTS);
 		return -EINVAL;
 	}
@@ -876,7 +875,8 @@ static int handle_follower_setup(struct impl *impl, struct nj2_session_params *p
 			impl->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
 	impl->source.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
-	if (impl->source.n_ports > MAX_PORTS) {
+	if (impl->source.n_ports > MAX_PORTS ||
+	    (uint32_t)peer->params.recv_audio_channels > MAX_CHANNELS) {
 		pw_log_warn("Too many follower source ports %d > %d", impl->source.n_ports, MAX_PORTS);
 		return -EINVAL;
 	}

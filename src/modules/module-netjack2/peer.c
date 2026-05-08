@@ -9,6 +9,8 @@
 #endif
 
 #define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
+#define MAX_MIDI	128u
+#define MAX_PORTS	(MAX_CHANNELS > MAX_MIDI ? MAX_CHANNELS : MAX_MIDI)
 
 struct volume {
 	bool mute;

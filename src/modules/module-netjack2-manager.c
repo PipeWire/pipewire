@@ -139,8 +139,6 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MAX_PORTS	128
-
 #define DEFAULT_NET_IP		"225.3.19.154"
 #define DEFAULT_NET_PORT	19000
 #define DEFAULT_NET_TTL		1
@@ -1050,25 +1048,28 @@ static int handle_follower_available(struct impl *impl, struct nj2_session_param
 		peer->params.recv_midi_channels = follower->source.n_midi;
 
 	follower->source.n_ports = peer->params.recv_audio_channels + peer->params.recv_midi_channels;
+	follower->sink.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
+
+	if (follower->source.n_ports > MAX_PORTS || follower->sink.n_ports > MAX_PORTS ||
+	    (uint32_t)peer->params.recv_audio_channels > MAX_CHANNELS ||
+	    (uint32_t)peer->params.send_audio_channels > MAX_CHANNELS) {
+		pw_log_error("too many ports source:%d sink:%d max:%d", follower->source.n_ports,
+				follower->sink.n_ports, MAX_PORTS);
+		res = -EINVAL;
+		goto cleanup;
+	}
+
 	follower->source.info.rate = peer->params.sample_rate;
 	if ((uint32_t)peer->params.recv_audio_channels != follower->source.info.channels) {
 		follower->source.info.channels = peer->params.recv_audio_channels;
 		for (i = 0; i < follower->source.info.channels; i++)
 			follower->source.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
 	}
-	follower->sink.n_ports = peer->params.send_audio_channels + peer->params.send_midi_channels;
 	follower->sink.info.rate = peer->params.sample_rate;
 	if ((uint32_t)peer->params.send_audio_channels != follower->sink.info.channels) {
 		follower->sink.info.channels = peer->params.send_audio_channels;
 		for (i = 0; i < follower->sink.info.channels; i++)
 			follower->sink.info.position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
-	}
-
-	if (follower->source.n_ports > MAX_PORTS || follower->sink.n_ports > MAX_PORTS) {
-		pw_log_error("too many ports source:%d sink:%d max:%d", follower->source.n_ports,
-				follower->sink.n_ports, MAX_PORTS);
-		res = -EINVAL;
-		goto cleanup;
 	}
 	media = follower->sink.info.channels > 0 ? "Audio" : "Midi";
 	if (pw_properties_get_bool(follower->sink.props, "netjack2.connect", DEFAULT_CONNECT)) {

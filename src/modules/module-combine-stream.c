@@ -1294,35 +1294,31 @@ static void combine_output_process(void *d)
 
 		for (j = 0; j < in->buffer->n_datas; j++) {
 			struct spa_data *ds, *dd;
-			uint32_t outsize = 0, remap;
-			int32_t stride = 0;
+			uint32_t remap, offs, ssize, stride;
+			void *sdata;
 
 			ds = &in->buffer->datas[j];
+			offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
+			ssize = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
+			stride = ds->chunk->stride;
+			sdata = SPA_PTROFF(ds->data, offs, void);
 
 			remap = s->remap[j];
 			if (remap < out->buffer->n_datas) {
-				uint32_t offs, size;
+				uint32_t size;
 
 				dd = &out->buffer->datas[remap];
 
-				offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
-				size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
-				size = SPA_MIN(size, dd->maxsize);
+				size = SPA_MIN(ssize, dd->maxsize);
 
 				if (mix[remap]) {
-					ringbuffer_mix(&s->delay[j],
-						dd->data, SPA_PTROFF(ds->data, offs, void), size);
+					ringbuffer_mix(&s->delay[j], dd->data, sdata, size);
 				} else {
-					ringbuffer_memcpy(&s->delay[j],
-						dd->data, SPA_PTROFF(ds->data, offs, void), size);
+					ringbuffer_memcpy(&s->delay[j], dd->data, sdata, size);
 					mix[remap] = true;
 				}
-
-				outsize = SPA_MAX(outsize, size);
-				stride = SPA_MAX(stride, ds->chunk->stride);
-
 				dd->chunk->offset = 0;
-				dd->chunk->size = outsize;
+				dd->chunk->size = size;
 				dd->chunk->stride = stride;
 			}
 		}

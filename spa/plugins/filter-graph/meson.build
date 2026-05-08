@@ -76,14 +76,6 @@ spa_filter_graph_plugin_builtin = shared_library('spa-filter-graph-plugin-builti
   objects : audioconvert_c.extract_objects('biquad.c')
 )
 
-spa_filter_graph_plugin_pipe = shared_library('spa-filter-graph-plugin-pipe',
-  [ 'plugin_pipe.c' ],
-  include_directories : [configinc],
-  install : true,
-  install_dir : spa_plugindir / 'filter-graph',
-  dependencies : [ filter_graph_dependencies ],
-)
-
 spa_filter_graph_plugin_ladspa = shared_library('spa-filter-graph-plugin-ladspa',
   [ 'plugin_ladspa.c' ],
   include_directories : [configinc],

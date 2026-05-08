@@ -30,8 +30,6 @@ context.spa-libs = {
     # inside the server, we must be careful with the filter-graph.
     #filter.graph.plugin.ffmpeg  = filter-graph/libspa-filter-graph-plugin-ffmpeg
     #filter.graph.plugin.onnx    = filter-graph/libspa-filter-graph-plugin-onnx
-    #filter.graph.plugin.pipe    = filter-graph/libspa-filter-graph-plugin-pipe
-    filter.graph.plugin.pipe    = blocked
     #filter.graph.plugin.ebur128 = filter-graph/libspa-filter-graph-plugin-ebur128
     #filter.graph.plugin.sofa    = filter-graph/libspa-filter-graph-plugin-sofa
     filter.graph.plugin.ladspa  = filter-graph/libspa-filter-graph-plugin-ladspa

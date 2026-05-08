@@ -96,7 +96,7 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  * Nodes describe the processing filters in the graph. Use a tool like lv2ls
  * or listplugins to get a list of available plugins, labels and the port names.
  *
- * - `type` is one of `ladspa`, `lv2`, `builtin`, `pipe`, `sofa`, `ebur128` of `ffmpeg`.
+ * - `type` is one of `ladspa`, `lv2`, `builtin`, `sofa`, `ebur128` of `ffmpeg`.
  * - `name` is the name for this node, you might need this later to refer to this node
  *    and its ports when setting controls or making links.
  * - `plugin` is the type specific plugin name.
@@ -705,43 +705,6 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *
  * The `null` plugin has one data input "In" and one control input "Control" that
  * simply discards the data.
- *
- * ## PIPE filters
- *
- * There is a `pipe` type available. This filter is sometimes blocked because it can load
- * arbitrary programs.
- *
- * ### Pipe
- *
- * The `pipe` plugin can be used to filter the audio with another application using pipes
- * for sending and receiving the raw audio.
- *
- * The application needs to consume raw float32 samples from stdin and produce filtered
- * float32 samples on stdout.
- *
- * It has an "In" input port and an "Out" output data ports.
- *
- * The node requires a `config` section with extra configuration:
- *
- *\code{.unparsed}
- * filter.graph = {
- *     nodes = [
- *         {
- *             type   = pipe
- *             name   = ...
- *             label  = pipe
- *             config = {
- *                 command = "ffmpeg -f f32le -ac 1 -ar 48000 -blocksize 1024 -fflags nobuffer -i \"pipe:\"  \"-filter:a\" \"loudnorm=I=-18:TP=-3:LRA=4\" -f f32le -ac 1 -ar 48000 \"pipe:\""
- *             }
- *             ...
- *         }
- *     }
- *     ...
- * }
- *\endcode
- *
- * - `command` the command to execute. It should consume samples from stdin and produce
- *             samples on stdout.
  *
  * ## SOFA filters
  *

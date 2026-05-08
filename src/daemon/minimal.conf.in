@@ -86,7 +86,6 @@ context.spa-libs = {
     #audio.aec       = aec/libspa-aec-webrtc
     #filter.graph.plugin.ffmpeg  = filter-graph/libspa-filter-graph-plugin-ffmpeg
     #filter.graph.plugin.onnx    = filter-graph/libspa-filter-graph-plugin-onnx
-    #filter.graph.plugin.pipe    = blocked
     #filter.graph.plugin.ebur128 = filter-graph/libspa-filter-graph-plugin-ebur128
     #filter.graph.plugin.sofa    = filter-graph/libspa-filter-graph-plugin-sofa
     #filter.graph.plugin.ladspa  = filter-graph/libspa-filter-graph-plugin-ladspa

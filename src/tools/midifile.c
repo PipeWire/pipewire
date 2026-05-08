@@ -108,14 +108,18 @@ static int parse_varlen(struct midi_file *mf, struct midi_track *tr, uint32_t *r
 {
 	uint32_t value = 0;
 	uint8_t data[1];
+	int i;
 
-	while (mf_read(mf, data, 1) == 1) {
+	for (i = 0; i < 4; i++) {
+		if (mf_read(mf, data, 1) != 1)
+			return -EINVAL;
 		value = (value << 7) | (data[0] & 0x7f);
-		if ((data[0] & 0x80) == 0)
-			break;
+		if ((data[0] & 0x80) == 0) {
+			*result = value;
+			return 0;
+		}
 	}
-	*result = value;
-	return 0;
+	return -EINVAL;
 }
 
 static int read_delta_time(struct midi_file *mf, struct midi_track *tr)

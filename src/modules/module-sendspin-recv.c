@@ -876,8 +876,13 @@ static int do_handle_binary(struct client *client, const uint8_t *payload, int s
 {
 	struct impl *impl = client->impl;
 	int32_t filled;
-	uint32_t index, length = size - 9;
+	uint32_t index, length;
 	uint64_t timestamp;
+
+	if (size < 9)
+		return 0;
+
+	length = size - 9;
 
 	if (payload[0] != 4 || client->stream == NULL)
 		return 0;

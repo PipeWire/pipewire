@@ -722,7 +722,7 @@ static ssize_t log_write(void *cookie, const char *buf, size_t size)
 
 	for (size_t left = size; left > 0; ) {
 		const char *end = memchr(buf, '\n', left);
-		size_t len = end ? end - buf : left;
+		size_t len = end ? (size_t)(end - buf) : left;
 
 		if (len > 0)
 			spa_log_debug(state->log, "%.*s", (int)len, buf);

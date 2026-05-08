@@ -186,6 +186,8 @@ static int read_FRM8(struct dff_file *f)
 			break;
 		case FOURCC('D', 'S', 'D', ' '):
 		{
+			if (f->info.channels == 0)
+				return -EINVAL;
 			f->info.length = c[1].size;
 			f->info.samples = c[1].size / f->info.channels;
 			f->info.lsb = 0;
@@ -220,6 +222,11 @@ static int open_read(struct dff_file *f, const char *filename, struct dff_file_i
 	}
 	if ((res = read_FRM8(f)) < 0)
 		goto exit_close;
+
+	if (f->info.channels == 0 || f->info.rate == 0) {
+		res = -EINVAL;
+		goto exit_close;
+	}
 
 	f->blocksize = BLOCKSIZE * f->info.channels;
 	f->buffer = calloc(1, f->blocksize);

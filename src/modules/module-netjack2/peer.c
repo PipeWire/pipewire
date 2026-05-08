@@ -752,7 +752,7 @@ static inline int32_t netjack2_driver_sync_wait(struct netjack2_peer *peer)
 	}
 	peer->sync.is_last = ntohl(sync.is_last);
 	peer->sync.frames = ntohl(sync.frames);
-	if (peer->sync.frames == -1)
+	if (peer->sync.frames <= 0)
 		peer->sync.frames = peer->params.period_size;
 	peer->sync.frames = SPA_MIN(peer->sync.frames, (int32_t)peer->quantum_limit);
 
@@ -793,7 +793,7 @@ static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
 	peer->sync.cycle = ntohl(sync.cycle);
 	peer->sync.is_last = ntohl(sync.is_last);
 	peer->sync.frames = ntohl(sync.frames);
-	if (peer->sync.frames == -1)
+	if (peer->sync.frames <= 0)
 		peer->sync.frames = peer->params.period_size;
 	peer->sync.frames = SPA_MIN(peer->sync.frames, (int32_t)peer->quantum_limit);
 

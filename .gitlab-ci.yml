@@ -341,12 +341,9 @@ build_on_debian:
   needs:
     - job: container_debian
       artifacts: false
-      # ideally
-      # parallel:
-      #   matrix:
-      #     - ARCH: "$ARCH"
-      # however https://gitlab.com/gitlab-org/gitlab/-/issues/423553
-      #         ("Expand variables in `needs:parallel:matrix`")
+      parallel:
+        matrix:
+          - ARCH: [ '$[[ matrix.ARCH ]]' ]
   variables:
     FDO_DISTRIBUTION_TAG: "$BASE_TAG-$ARCH"
     # see /.gitlab/ci/setup-debian-cross-container.sh for installed packages

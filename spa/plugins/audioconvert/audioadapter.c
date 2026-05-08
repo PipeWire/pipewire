@@ -507,6 +507,7 @@ static int negotiate_buffers(struct impl *this)
 
 	if (this->async)
 		buffers = SPA_MAX(2u, buffers);
+	blocks = SPA_MIN(blocks, 256u);
 
 	spa_log_info(this->log, "%p: buffers:%d, blocks:%d, size:%d, stride:%d align:%d %d:%d",
 			this, buffers, blocks, size, stride, align, follower_alloc, conv_alloc);

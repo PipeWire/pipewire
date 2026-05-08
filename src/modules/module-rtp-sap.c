@@ -1564,6 +1564,8 @@ static int parse_sdp_i(struct impl *impl, char *c, struct sdp_info *info)
 	return 0;
 }
 
+/* a=rtpmap:<payload type> <encoding name>/<clock rate> [/<encoding parameters>]
+ */
 static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 {
 	int payload, len, rate, channels;
@@ -1583,11 +1585,14 @@ static int parse_sdp_a_rtpmap(struct impl *impl, char *c, struct sdp_info *info)
 		return 0;
 
 	c += len;
-	c[strcspn(c, "/")] = 0;
+	len = strcspn(c, "/");
+	if (c[len] == '\0')
+		return -EINVAL;
+	c[len] = 0;
 	info->mime_type = strdup(c);
 	if (info->mime_type == NULL)
 		return -errno;
-	c += strlen(c) + 1;
+	c += len + 1;
 
 	if (sscanf(c, "%u/%u", &rate, &channels) == 2) {
 		info->channels = channels;

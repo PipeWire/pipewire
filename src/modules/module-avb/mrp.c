@@ -173,8 +173,8 @@ int avb_mrp_parse_packet(struct avb_mrp *mrp, uint64_t now, const void *pkt, int
 			const struct avb_packet_mrp_vector *v =
 				(const struct avb_packet_mrp_vector*)m;
 			uint16_t i, num_values = AVB_MRP_VECTOR_GET_NUM_VALUES(v);
-			uint8_t event_len = (num_values+2)/3;
-			uint8_t param_len = has_param ? (num_values+3)/4 : 0;
+			uint16_t event_len = (num_values+2)/3;
+			uint16_t param_len = has_param ? (num_values+3)/4 : 0;
 			int plen = sizeof(*v) + attr_len + event_len + param_len;
 			const uint8_t *first = v->first_value;
 			uint8_t event[3], param[4] = { 0, };

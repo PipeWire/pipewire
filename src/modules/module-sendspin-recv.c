@@ -777,10 +777,12 @@ static int handle_stream_start(struct client *client, struct spa_json *payload)
 
 	while ((l = spa_json_object_next(payload, key, sizeof(key), &v)) > 0) {
 		if (spa_streq(key, "player")) {
+			int res;
 			if (!spa_json_is_object(v, l))
 				return -EPROTO;
 			spa_json_enter(payload, &it[0]);
-			parse_player(client, &it[0]);
+			if ((res = parse_player(client, &it[0])) < 0)
+				return res;
 		}
 	}
 

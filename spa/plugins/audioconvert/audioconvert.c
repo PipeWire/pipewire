@@ -1019,8 +1019,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		this->io_position = data;
 
 		if (this->io_position && this->io_clock &&
-		    this->io_position->clock.target_rate.denom != this->io_clock->target_rate.denom &&
-		    !this->props.resample_disabled) {
+		    this->io_position->clock.target_rate.denom != this->io_clock->target_rate.denom) {
 			spa_log_debug(this->log, "driver %d changed rate:%u -> %u", this->io_position->clock.id,
 					this->io_clock->target_rate.denom,
 					this->io_position->clock.target_rate.denom);

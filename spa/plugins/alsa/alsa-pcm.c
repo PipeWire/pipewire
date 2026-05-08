@@ -2687,16 +2687,22 @@ static int spa_alsa_silence(struct state *state, snd_pcm_uframes_t silence)
 			return res;
 		}
 	} else {
-		uint8_t buffer[silence * state->frame_size];
-		memset(buffer, 0, silence * state->frame_size);
+		uint8_t buffer[1024 * 4];
+		void *bufs[state->channels];
+		snd_pcm_uframes_t chunk, remaining = silence;
+		snd_pcm_uframes_t max = sizeof(buffer) / state->frame_size;
 
-		if (state->planar) {
-			void *bufs[state->channels];
-			for (i = 0; i < state->channels; i++)
-				bufs[i] = buffer;
-			snd_pcm_writen(hndl, bufs, silence);
-		} else {
-			snd_pcm_writei(hndl, buffer, silence);
+		memset(buffer, 0, sizeof(buffer));
+		for (i = 0; i < state->channels; i++)
+			bufs[i] = buffer;
+
+		while (remaining > 0) {
+			chunk = SPA_MIN(remaining, max);
+			if (state->planar)
+				snd_pcm_writen(hndl, bufs, chunk);
+			else
+				snd_pcm_writei(hndl, buffer, chunk);
+			remaining -= chunk;
 		}
 	}
 	return 0;

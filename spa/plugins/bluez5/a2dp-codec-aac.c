@@ -585,7 +585,7 @@ static int codec_decode(void *data,
 		return -EINVAL;
 	}
 
-	res = aacDecoder_DecodeFrame(this->aacdec, dst, dst_size, 0);
+	res = aacDecoder_DecodeFrame(this->aacdec, dst, dst_size / sizeof(INT_PCM), 0);
 	if (res != AAC_DEC_OK) {
 		spa_log_debug(log, "AAC decode frame error: 0x%04X", res);
 		return -EINVAL;

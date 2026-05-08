@@ -12,6 +12,7 @@ context.properties = {
     ## Configure properties in the system.
     #library.name.system                   = support/libspa-support
     #context.data-loop.library.name.system = support/libspa-support
+    #library.use-fallback                  = true
     #support.dbus                          = true
     #link.max-buffers                      = 64
     link.max-buffers                       = 16                       # version < 3 clients can't handle more
@@ -75,17 +76,29 @@ context.spa-libs = {
     # regular expression to a library name that should contain
     # that factory.
     #
+    support.*       = support/libspa-support
     audio.convert.* = audioconvert/libspa-audioconvert
-    avb.*           = avb/libspa-avb
+    audio.adapt     = audioconvert/libspa-audioconvert
     api.alsa.*      = alsa/libspa-alsa
     api.v4l2.*      = v4l2/libspa-v4l2
     api.libcamera.* = libcamera/libspa-libcamera
     api.bluez5.*    = bluez5/libspa-bluez5
-    api.vulkan.*    = vulkan/libspa-vulkan
-    api.jack.*      = jack/libspa-jack
-    support.*       = support/libspa-support
+    #api.vulkan.*    = vulkan/libspa-vulkan
     video.convert.* = videoconvert/libspa-videoconvert
-    #filter.graph    = filter-graph/libspa-filter-graph
+    video.adapt     = videoconvert/libspa-videoconvert
+    audio.mixer.*   = audiomixer/libspa-audiomixer
+    control.mixer   = control/libspa-mixer
+    audio.aec       = aec/libspa-aec-webrtc
+    #filter.graph.plugin.ffmpeg  = filter-graph/libspa-filter-graph-plugin-ffmpeg
+    filter.graph.plugin.onnx    = filter-graph/libspa-filter-graph-plugin-onnx
+    #filter.graph.plugin.pipe    = filter-graph/libspa-filter-graph-plugin-pipe
+    filter.graph.plugin.pipe    = blocked
+    filter.graph.plugin.ebur128 = filter-graph/libspa-filter-graph-plugin-ebur128
+    filter.graph.plugin.sofa    = filter-graph/libspa-filter-graph-plugin-sofa
+    filter.graph.plugin.ladspa  = filter-graph/libspa-filter-graph-plugin-ladspa
+    filter.graph.plugin.lv2     = filter-graph/libspa-filter-graph-plugin-lv2
+    filter.graph.plugin.builtin = filter-graph/libspa-filter-graph-plugin-builtin
+    filter.graph    = filter-graph/libspa-filter-graph
     #videotestsrc   = videotestsrc/libspa-videotestsrc
     #audiotestsrc   = audiotestsrc/libspa-audiotestsrc
 }

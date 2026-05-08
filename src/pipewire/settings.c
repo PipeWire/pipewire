@@ -37,6 +37,7 @@
 #define DEFAULT_MEM_ALLOW_MLOCK			true
 #define DEFAULT_CHECK_QUANTUM			false
 #define DEFAULT_CHECK_RATE			false
+#define DEFAULT_USE_FALLBACK			true
 
 struct impl {
 	struct pw_context *context;
@@ -227,6 +228,7 @@ void pw_settings_init(struct pw_context *this)
 
 	d->check_quantum = get_default_bool(p, "settings.check-quantum", DEFAULT_CHECK_QUANTUM);
 	d->check_rate = get_default_bool(p, "settings.check-rate", DEFAULT_CHECK_RATE);
+	d->use_fallback = get_default_bool(p, "library.use-fallback", DEFAULT_USE_FALLBACK);
 
 	d->link_max_buffers = SPA_MAX(d->link_max_buffers, 1u);
 

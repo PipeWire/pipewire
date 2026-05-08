@@ -288,6 +288,12 @@ Default video rate denominator
 @PAR@ pipewire.conf  library.name.system = support/libspa-support
 The name of the shared library to use for the system functions for the main thread.
 
+@PAR@ pipewire.conf  library.use-fallback = true
+When a plugin feature is not listed in context.spa-libs, a predefined fallback
+plugin location is used by default. If this option is set to false, only plugin
+features explicitly listed in context.spa-libs will be loadable. This can be used
+to lock down what plugins that can be loaded.
+
 @PAR@ pipewire.conf  link.max-buffers = 64
 The maximum number of buffers to negotiate between nodes. Note that version < 3 clients
 can only support 16 buffers. More buffers is almost always worse than less, latency

@@ -152,7 +152,6 @@ static struct spa_handle *impl_plugin_loader_load(void *object, const char *fact
 		errno = EINVAL;
 		return NULL;
 	}
-
 	return pw_context_load_spa_handle(&impl->this, factory_name, info);
 }
 
@@ -1057,20 +1056,23 @@ struct spa_handle *pw_context_load_spa_handle(struct pw_context *context,
 		const char *factory_name,
 		const struct spa_dict *info)
 {
-	const char *lib;
+	const char *lib, *fallback_lib = NULL;
 	const struct spa_support *support;
 	uint32_t n_support;
 	struct spa_handle *handle;
 
-	pw_log_debug("%p: load factory %s", context, factory_name);
+	if (info != NULL)
+		fallback_lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
+
+	pw_log_info("%p: load factory %s fallback:%s", context, factory_name, fallback_lib);
 
 	lib = pw_context_find_spa_lib(context, factory_name);
-	if (lib == NULL && info != NULL)
-		lib = spa_dict_lookup(info, SPA_KEY_LIBRARY_NAME);
+	if (lib == NULL && context->settings.use_fallback)
+		lib = fallback_lib;
 	if (lib == NULL || spa_streq(lib, "blocked")) {
 		errno = lib ? EPERM : ENOENT;
-		pw_log_warn("%p: no library for %s: %m",
-				context, factory_name);
+		pw_log_warn("%p: no library for %s (fallback: %s): %m",
+				context, factory_name, fallback_lib);
 		return NULL;
 	}
 

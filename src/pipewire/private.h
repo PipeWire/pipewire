@@ -52,6 +52,7 @@ struct settings {
 	unsigned int clock_power_of_two_quantum:1;
 	unsigned int check_quantum:1;
 	unsigned int check_rate:1;
+	unsigned int use_fallback:1;
 #define CLOCK_RATE_UPDATE_MODE_HARD 0
 #define CLOCK_RATE_UPDATE_MODE_SOFT 1
 	int clock_rate_update_mode;

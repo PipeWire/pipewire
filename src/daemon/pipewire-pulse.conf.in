@@ -15,17 +15,29 @@ context.properties = {
     #mem.mlock-all   = false
     #log.level       = 2
     #rlimit.nofile   = -1
+    #library.use-fallback = true
 
     #default.clock.quantum-limit = 8192
 }
 
 context.spa-libs = {
-    audio.convert.* = audioconvert/libspa-audioconvert
     support.*       = support/libspa-support
+    audio.convert.* = audioconvert/libspa-audioconvert
+    audio.adapt     = audioconvert/libspa-audioconvert
+    audio.mixer     = audiomixer/libspa-audiomixer
+    audio.aec       = aec/libspa-aec-webrtc
     # because the pulse server allows dynamic loading of streams and modules
-    # inside the server, we must be careful with the filter-graph. Only allow
-    # LADSPA filters.
-    filter.graph.plugin.pipe = blocked
+    # inside the server, we must be careful with the filter-graph.
+    #filter.graph.plugin.ffmpeg  = filter-graph/libspa-filter-graph-plugin-ffmpeg
+    #filter.graph.plugin.onnx    = filter-graph/libspa-filter-graph-plugin-onnx
+    #filter.graph.plugin.pipe    = filter-graph/libspa-filter-graph-plugin-pipe
+    filter.graph.plugin.pipe    = blocked
+    #filter.graph.plugin.ebur128 = filter-graph/libspa-filter-graph-plugin-ebur128
+    #filter.graph.plugin.sofa    = filter-graph/libspa-filter-graph-plugin-sofa
+    filter.graph.plugin.ladspa  = filter-graph/libspa-filter-graph-plugin-ladspa
+    #filter.graph.plugin.lv2     = filter-graph/libspa-filter-graph-plugin-lv2
+    filter.graph.plugin.builtin = filter-graph/libspa-filter-graph-plugin-builtin
+    filter.graph    = filter-graph/libspa-filter-graph
 }
 
 context.modules = [

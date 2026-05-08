@@ -1226,6 +1226,7 @@ static void combine_input_process(void *d)
 
 				offs = SPA_MIN(ds->chunk->offset, ds->maxsize);
 				size = SPA_MIN(ds->chunk->size, ds->maxsize - offs);
+				size = SPA_MIN(size, dd->maxsize);
 
 				ringbuffer_memcpy(&s->delay[j],
 					dd->data, SPA_PTROFF(ds->data, offs, void), size);

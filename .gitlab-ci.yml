@@ -17,6 +17,9 @@ stages:
 
 variables:
   FDO_UPSTREAM_REPO: 'pipewire/pipewire'
+  BLUEZ_COMMIT: '7cd27f4f66aa88194fbc1565bc13f24405acacd8'
+  PYTEST_BLUEZENV_VERSION: '0.1.2'
+  BLUEZENV_BZIMAGE: 'https://github.com/pv/bluez-test-functional-kernel/releases/download/2026-05-08.1/bzImage-v7.0-cfg3ed20edd'
 
 # ci-templates as of Mar 25th 2024
 .templates_sha: &templates_sha ef5e4669b7500834a17ffe9277e15fbb6d977fff
@@ -38,13 +41,18 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2025-10-22.0'
-    FDO_DISTRIBUTION_VERSION: '42'
+    FDO_DISTRIBUTION_TAG: '2026-05-09.0'
+    FDO_DISTRIBUTION_VERSION: '44'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
+      autoconf
+      automake
       avahi-devel
       bluez-libs-devel
+      chrony
       clang
+      curl
+      dbus-daemon
       dbus-devel
       doxygen
       fdk-aac-free-devel
@@ -62,6 +70,7 @@ include:
       liblc3-devel
       libcanberra-devel
       libebur128-devel
+      libell-devel
       libffado-devel
       libldac-devel
       libmysofa-devel
@@ -71,12 +80,23 @@ include:
       lilv-devel
       libva-devel
       libX11-devel
+      libtool
+      make
       ModemManager-devel
       meson
       openssl-devel
       pulseaudio-libs-devel
+      python3-dbus
       python3-docutils
+      python3-gobject-devel
+      python3-pexpect
       python3-pip
+      python3-pytest
+      python3-pytest-rerunfailures
+      python3-pytest-xdist
+      python3-wheel
+      qemu-system-x86
+      readline-devel
       sbc-devel
       ShellCheck
       SDL2-devel
@@ -95,7 +115,7 @@ include:
       fftw-libs-single
       fftw-devel
       onnxruntime-devel
-# Uncommenting the following two lines and disabling the meson entry above
+# Uncommenting the line below and disabling the meson entry above
 # will re-enable use of Meson via pip but please consider using a newer distro
 # image first or making the build system compatible instead! This is because
 # using pip or another 3rd party repo defeats the point testing the particular
@@ -103,8 +123,9 @@ include:
 # NOTE: If you do end up using pip3 for meson, be sure to also update the
 # build_meson_prerelease and build_meson_exact_release build instructions
 # to uninstall the pip3 version again and probably to not call dnf remove
-#    FDO_DISTRIBUTION_EXEC: >-
-#      pip3 install meson
+    FDO_DISTRIBUTION_EXEC: >-
+      ./.gitlab/ci/setup-fedora-container.sh "$BLUEZ_COMMIT" "$PYTEST_BLUEZENV_VERSION" "$BLUEZENV_BZIMAGE"
+      # && pip3 install meson
 
 .ubuntu:
   variables:
@@ -450,6 +471,32 @@ build_on_fedora_html_docs:
       - branch-*/builddir/doc/html
   rules:
     - !reference [pages, rules]
+
+bluez_tests:
+  tags:
+    - kvm
+  extends:
+    - .build_on_fedora
+  variables:
+    MESON_OPTIONS: >-
+        -Ddocs=disabled
+        -Dman=disabled
+        -Dexamples=disabled
+        -Dtests=disabled
+        -Dgstreamer=disabled
+        -Davahi=disabled
+        -Dbluez5-backend-hsphfpd=enabled
+        -Dsession-managers=wireplumber
+        -Dsnap=disabled
+        -Droc=disabled
+        -Dlibcamera=disabled
+  before_script:
+    - !reference [.build_on_fedora, before_script]
+    - python3 -m pip install /bluez/pytest_bluezenv-*.whl
+  script:
+    - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
+    - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
+    - meson devenv -C "$BUILD_DIR" -w . python3 -m pytest test --kernel /bluez/bzImage* --bluez-src-dir /bluez -ra -vvv --reruns 1 --vm-timeout 30
 
 build_on_alpine:
   extends:

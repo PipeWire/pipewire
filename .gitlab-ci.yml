@@ -18,7 +18,7 @@ stages:
 variables:
   FDO_UPSTREAM_REPO: 'pipewire/pipewire'
   BLUEZ_COMMIT: '7cd27f4f66aa88194fbc1565bc13f24405acacd8'
-  PYTEST_BLUEZENV_VERSION: '0.1.2'
+  PYTEST_BLUEZENV_VERSION: 'pytest-bluezenv==0.1.4'
   BLUEZENV_BZIMAGE: 'https://github.com/pv/bluez-test-functional-kernel/releases/download/2026-05-08.1/bzImage-v7.0-cfg3ed20edd'
 
 # ci-templates as of Mar 25th 2024
@@ -41,7 +41,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2026-05-09.0'
+    FDO_DISTRIBUTION_TAG: '2026-05-09.8'
     FDO_DISTRIBUTION_VERSION: '44'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -60,6 +60,7 @@ include:
       findutils
       gcc
       gcc-c++
+      gdb
       git
       glib-devel
       graphviz
@@ -490,13 +491,20 @@ bluez_tests:
         -Dsnap=disabled
         -Droc=disabled
         -Dlibcamera=disabled
+        -Db_sanitize=address,undefined
+        -Ddebug=true
+        -Doptimization=g
   before_script:
     - !reference [.build_on_fedora, before_script]
     - python3 -m pip install /bluez/pytest_bluezenv-*.whl
   script:
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
+    - export UBSAN_OPTIONS=abort_on_error=1:print_summary=1:print_stacktrace=1
+    - export ASAN_OPTIONS=abort_on_error=1:print_summary=1:detect_leaks=1:leak_check_at_exit=0
     - meson devenv -C "$BUILD_DIR" -w . python3 -m pytest test --kernel /bluez/bzImage* --bluez-src-dir /bluez -ra -vvv --reruns 1 --vm-timeout 30
+  after_script:
+    - ./.gitlab/ci/core-backtrace.sh *core
 
 build_on_alpine:
   extends:

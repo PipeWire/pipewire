@@ -14,7 +14,7 @@ fi
 git clone --depth 1 --revision "$BLUEZ_COMMIT" https://github.com/bluez/bluez.git /bluez-build
 cd /bluez-build
 ./bootstrap
-./configure --enable-tools --disable-obex
+./configure --enable-tools --disable-obex --enable-asan --enable-ubsan --enable-debug
 # shellcheck disable=SC2086
 make $COMPILE_ARGS
 cd /
@@ -26,7 +26,7 @@ cp /bluez-build/tools/btmgmt /bluez/tools/
 cp /bluez-build/src/bluetoothd  /bluez/src/
 
 cd /bluez
-python3 -m pip wheel --no-deps "pytest-bluezenv==$PYTEST_BLUEZENV_VERSION"
+python3 -m pip wheel --no-deps "$PYTEST_BLUEZENV_VERSION"
 curl -L "$BZIMAGE_URL" -o bzImage
 cd /
 

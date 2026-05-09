@@ -276,6 +276,7 @@ container_ubuntu:
   extends:
     - .ubuntu
     - .fdo.container-build@ubuntu
+    - .not_coverity
   stage: container
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
@@ -285,6 +286,7 @@ container_debian:
     - .debian
     - .debian-archictectures
     - .fdo.container-build@debian
+    - .not_coverity
   stage: container
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
@@ -296,6 +298,7 @@ container_fedora:
   extends:
     - .fedora
     - .fdo.container-build@fedora
+    - .not_coverity
   stage: container
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
@@ -304,6 +307,7 @@ container_alpine:
   extends:
     - .alpine
     - .fdo.container-build@alpine
+    - .not_coverity
   stage: container
   variables:
     GIT_STRATEGY: none # no need to pull the whole tree for rebuilding the image
@@ -733,8 +737,6 @@ check_missing_headers:
     - ./.gitlab/ci/check_missing_headers.sh
 
 pages:
-  extends:
-    - .not_coverity
   stage: pages
   needs:
     - job: build_on_fedora_html_docs
@@ -751,4 +753,6 @@ pages:
     paths:
       - public
   rules:
+    - if: $COVERITY != null
+      when: never
     - if: $CI_COMMIT_BRANCH == 'master'

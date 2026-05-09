@@ -50,7 +50,6 @@ extra_docs = [
   'tree.dox',
   'dox/index.dox',
   'dox/overview.dox',
-  'dox/overview-for-users.md',
   'dox/modules.dox',
   'dox/pulse-modules.dox',
   'dox/programs/index.md',

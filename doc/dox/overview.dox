@@ -71,7 +71,7 @@ and the remaining two channels as stereo output.
 \image html Routing-Remap.drawio.svg
 
 Most of these settings need configuration files, there is no GUI yet.
-To unlock the full power of PipeWire, you will have to dive into the deeper areas of Lake Config!
+To unlock the full power of PipeWire, you will have to dive into the deeper!
 
 # What do I need?
 
@@ -83,7 +83,7 @@ This is the task of the session manager which *uses* PipeWire.
 There is one PipeWire *server* which is used by a number of PipeWire *clients* (the processes that produce/consume multimedia).
 PipeWire, as well as WirePlumber, run in *userspace,* so interfacing with them with `systemd` (and `journald` etc.)
 happens in *user context* with the `--user` flag, for example
-`systemctl --user status pipewire.service` or `journalctl --user -fu wireplumber.service`.
+`systemctl --user status pipewire.service` to check the service status or `journalctl --user -fu wireplumber.service` to see the live logs.
 
 The session manager is normally **WirePlumber** – it describes its work on [Session Management](https://pipewire.pages.freedesktop.org/wireplumber/design/understanding_session_management.html):
 It enables new devices when they appear on ALSA, creates and configures nodes,
@@ -97,6 +97,7 @@ This is just a short selection of tools that you will need more often.
 - [qpwgraph](https://gitlab.freedesktop.org/rncbc/qpwgraph) gives a quick visual overview over the current system configuration with nodes and links between them.
   It also allows creating and deleting links on the fly.
 - `pw-dump` dumps the whole configuration as JSON, which is extremely helpful for debugging.
+- `pw-play` plays media files. It can play on specific nodes with `pw-play --target NODE_ID`, which is also helpful for debugging.
 - `pw-cli` allows to query and configure PipeWire, for example setting a sound card profile (like Stereo, Pro Audio, 7.1 Surround) with
   the command `pw-cli s Profile CARD_ID "{index: PROFILE_ID, save: true}"`. You can also do it in the interactive mode of `pw-cli`. **Important:** In interactive mode, do *not* use quotes around JSON data.
 - `wpctl` interfaces with WirePlumber, for example `wpctl status` shows an ASCII representation of the nodes, sources, sinks, and routing.
@@ -104,6 +105,15 @@ This is just a short selection of tools that you will need more often.
 # Configuration Basics
 
 This section gives a short configuration overview, for the complete reference see the \ref page_config "Configuration" reference.
+
+For configuration, you need a basic understanding of the PipeWire terms, especially:
+
+* A **Device** corresponds to e.g. a sound card
+* A **Node** produces or consumes sound; this can be e.g. a sink (output) to a device, a media player, or an audio filter
+* A **Port** represents a channel input/output; a stereo sink e.g. has a `L` and a `R` port
+* A **Link** connects two ports so the sound stream flows from the source (like a media player) to the sink (like e.g. ultimately a headset)
+
+They are explained in more detail in the chapter *Object Types* later on this page.
 
 Both PipeWire and WirePlumber have a set of config files for configuring different *sections* like `node.rules`.
 They use the same “SPA JSON” format.
@@ -157,11 +167,13 @@ Rules in config file can define default outputs for specific nodes (e.g. VLC sou
 ## Writing Rules and Examples
 
 Rules often need IDs of nodes or other components.
-One way to find them is by using the `pwdump` tool and then searching in the JSON output with `pwdump | less`.
+One way to find them is by using the `pwdump` tool and then searching in the JSON output with e.g. `pwdump | less`.
 It can also print specific types only, for example `pwdump Node | less`.
 
 Rules can use regular expression when strings start with `~`, for example `"~alsa.*"`.
 This is explained in [PipeWire: Working with rules](https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/modifying_configuration.html#working-with-rules).
+
+### Example: Prioritise stereo jack output on a Raspberry Pi
 
 ```text
 # Goes to e.g. ~/.config/wireplumber/wireplumber.conf.d/wireplumber-default-device.conf
@@ -189,6 +201,8 @@ monitor.alsa.rules = [
 ]
 
 ```
+
+### Example: Choose a PreSonus sound card as default output for `pw-play`
 
 ```text
 # Goes to ~/.config/pipewire/client.conf.d/default-pw-play-output.conf
@@ -299,6 +313,8 @@ The session manager is responsible for defining the list of permissions each cli
 
 ### Object types
 
+\image html pipewire-object-types-relationship.drawio.svg
+
 The following are the known types and their most important, specialized parameters and methods:
 
 #### Core
@@ -320,13 +336,17 @@ Modules in PipeWire can only be loaded in their own process. A client, for examp
 #### Nodes
 
 Nodes are the core data processing entities in PipeWire.
-They may produce data (capture devices, signal generators, ...), consume data (playback devices, network endpoints, ...) or both (filters).
+They may produce data (capture devices, signal generators, ...), consume data (playback devices, network endpoints, ...) or both (filters like a reverb effect).
 Nodes have a method `process`, which eats up data from input ports and provides data for each output port.
 
 #### Ports
 
 Ports are the entry and exit point of data for a Node.
 A port can either be used for input or output (but not both).
+A stereo sink, for example, typically has two input ports labeled `FL` and `FR` for front left and front right,
+which may receive data from e.g. `vlc` which has two output ports `FL` and `FR`.
+(Physically, the sound card can have a stereo jack output, or two chinch outputs, for example, but that is not in the scope of PipeWire.)
+
 For nodes that work with audio, one type of configuration is whether they have `dsp` ports or a `passthrough` port.
 In `dsp` mode, there is one port for channel of multichannel audio (so two ports for stereo audio, for example), and data is always in 32-bit floating point format.
 In `passthrough` mode, there is one port for multichannel data in a format that is negotiated between ports.
@@ -334,13 +354,20 @@ In `passthrough` mode, there is one port for multichannel data in a format that 
 #### Links
 
 Data flows between nodes when there is a Link between their ports.
+Ports can have multiple incoming/outgoing links, so PipeWire can e.g. send the same `vlc` audio stream to both the stereo headset *and* a bluetooth headset *and* an audio recorder,
+where each VLC port would have 3 outgoing links.
+
 Links may be `"passive"` in which case the existence of the link does not automatically cause data to flow between those nodes (some link in the graph must be `"active"` for the graph to have data flow).
 
 #### Devices
 
 A device is a handle representing an underlying API, which is then used to create nodes or other devices.
 Examples of devices are ALSA PCM cards or V4L2 devices.
-A device has a profile, which allows one to configure them.
+
+A device has an active *Profile* that can be chosen from a list of profile.
+It defines properties like channel setup.
+For example, a sound card can have a `stereo` profile where only two ports are exposed,
+or a `surround7.1` profile with 8 ports available.
 
 #### Factories
 

@@ -100,22 +100,32 @@ class PipeWire(HostPlugin):
 
             # get versions
             res = subprocess.run(
-                [self.exe_pw, "--version"], stdout=subprocess.PIPE, encoding="utf-8"
+                [self.exe_pw, "--version"],
+                stdout=subprocess.PIPE,
+                encoding="utf-8",
+                check=True,
             )
             m = re.search("libpipewire ([0-9.]+)", res.stdout)
             if m:
                 pw_version = tuple(int(x) for x in m.group(1).split("."))
             else:
-                raise ValueError("pipewire version unknown")
+                raise ValueError(
+                    f"pipewire {self.exe_pw} version unknown: {res.stdout}"
+                )
 
             res = subprocess.run(
-                [self.exe_wp, "--version"], stdout=subprocess.PIPE, encoding="utf-8"
+                [self.exe_wp, "--version"],
+                stdout=subprocess.PIPE,
+                encoding="utf-8",
+                check=True,
             )
             m = re.search("libwireplumber ([0-9.]+)", res.stdout)
             if m:
                 wp_version = tuple(int(x) for x in m.group(1).split("."))
             else:
-                raise ValueError("wireplumber version unknown")
+                raise ValueError(
+                    f"wireplumber {self.exe_wp} version unknown: {res.stdout}"
+                )
 
             # check versions
             if pw_version >= (1, 6, 0) and pw_version <= (1, 6, 2):
@@ -208,6 +218,8 @@ class PipeWire(HostPlugin):
         )
 
         def cond():
+            self.check_running()
+
             uuids = [str(uuid) for uuid in adapter.Get("org.bluez.Adapter1", "UUIDs")]
             return all(uuid in uuids for uuid in self.uuids)
 
@@ -220,6 +232,8 @@ class PipeWire(HostPlugin):
 
         def cond():
             nonlocal text
+
+            self.check_running()
 
             text = self.pw_dump()
             try:
@@ -242,10 +256,23 @@ class PipeWire(HostPlugin):
 
         log.info("PipeWire ready")
 
+    def check_running(self):
+        if self.pw.poll() is not None:
+            raise RuntimeError("PipeWire process terminated")
+        if self.wp.poll() is not None:
+            raise RuntimeError("Wireplumber process terminated")
+
     def pw_dump(self):
-        ret = subprocess.run(
-            [self.exe_dump], stdout=subprocess.PIPE, encoding="utf-8", env=self.environ
-        )
+        try:
+            ret = subprocess.run(
+                [self.exe_dump],
+                stdout=subprocess.PIPE,
+                encoding="utf-8",
+                env=self.environ,
+                timeout=5,
+            )
+        except subprocess.TimeoutExpired:
+            return "ERROR: timeout"
 
         return ret.stdout
 
@@ -525,6 +552,8 @@ def check_pipewire_devices_exist(host, profile="a2dp-sink"):
 
     def cond():
         nonlocal text
+
+        host.pipewire.check_running()
 
         text = host.pipewire.pw_dump()
         try:

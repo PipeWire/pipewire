@@ -508,7 +508,8 @@ uint32_t find_port_index(struct pw_manager_object *card, uint32_t direction, con
 	return SPA_ID_INVALID;
 }
 
-struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict)
+struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict,
+			       struct spa_dict_item *items, size_t capacity)
 {
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f[1];
@@ -519,15 +520,18 @@ struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict)
 	    spa_pod_parser_get_int(&prs, &n_items) < 0)
 		return NULL;
 
+	if (n_items < 0 || (size_t) n_items > capacity)
+		return NULL;
+
 	for (n = 0; n < n_items; n++) {
 		if (spa_pod_parser_get(&prs,
-				SPA_POD_String(&dict->items[n].key),
-				SPA_POD_String(&dict->items[n].value),
+				SPA_POD_String(&items[n].key),
+				SPA_POD_String(&items[n].value),
 				NULL) < 0)
 			break;
 	}
 	spa_pod_parser_pop(&prs, &f[0]);
-	dict->n_items = n;
+	*dict = SPA_DICT_INIT(items, n);
 	return dict;
 }
 

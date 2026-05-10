@@ -3282,7 +3282,7 @@ static int do_update_proplist(struct client *client, uint32_t command, uint32_t 
 static int do_remove_proplist(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	uint32_t i, channel;
-	struct spa_dict dict;
+	struct spa_dict dict = SPA_DICT_INIT(NULL, 0);
 	struct spa_dict_item *items;
 
 	spa_autoptr(pw_properties) props = pw_properties_new(NULL, NULL);
@@ -3643,8 +3643,7 @@ static int fill_card_info(struct client *client, struct message *m,
 
 			if (pi->info && pi->n_props > 0) {
 				items = alloca(pi->n_props * sizeof(*items));
-				dict.items = items;
-				pdict = collect_props(pi->info, &dict);
+				pdict = collect_props(pi->info, &dict, items, pi->n_props);
 			}
 
 			message_put(m,

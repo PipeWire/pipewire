@@ -180,8 +180,7 @@ static inline pa_proplist* pa_proplist_new_dict(const struct acp_dict *dict)
 
 static inline void pa_proplist_as_dict(const pa_proplist *p, struct acp_dict *dict)
 {
-	dict->n_items = pa_proplist_size(p);
-	dict->items = p->array.data;
+	*dict = ACP_DICT_INIT(p->array.data, pa_proplist_size(p));
 }
 
 #ifdef __cplusplus

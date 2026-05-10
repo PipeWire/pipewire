@@ -142,7 +142,8 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 
 /* ========================================================================== */
 
-struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict);
+struct spa_dict *collect_props(struct spa_pod *info, struct spa_dict *dict,
+			       struct spa_dict_item *items, size_t capacity);
 uint32_t find_profile_index(struct pw_manager_object *card, const char *name);
 uint32_t find_port_index(struct pw_manager_object *card, uint32_t direction, const char *port_name);
 struct pw_manager_object *find_peer_for_link(struct pw_manager *m,

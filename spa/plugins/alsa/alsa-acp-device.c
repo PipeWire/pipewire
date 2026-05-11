@@ -638,7 +638,7 @@ static void on_latency_changed(void *data, struct acp_device *dev)
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_latencyOffsetNsec, SPA_POD_Long(dev->latency_ns));
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event *)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
 }
@@ -665,7 +665,7 @@ static void on_codecs_changed(void *data, struct acp_device *dev)
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_iec958Codecs, SPA_POD_Array(sizeof(uint32_t),
 				SPA_TYPE_Id, dev->n_codecs, dev->codecs));
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event *)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
 }
@@ -1047,7 +1047,7 @@ static void on_volume_changed(void *data, struct acp_device *dev)
 						dev->format.map),
 			SPA_PROP_softVolumes, SPA_POD_Array(sizeof(float),
 						SPA_TYPE_Float, n_volume, soft_volume));
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event *)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
 }
@@ -1078,7 +1078,7 @@ static void on_mute_changed(void *data, struct acp_device *dev)
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_mute, SPA_POD_Bool(mute),
 			SPA_PROP_softMute, SPA_POD_Bool(mute));
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event *)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
 }

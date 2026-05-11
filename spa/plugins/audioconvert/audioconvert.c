@@ -1630,7 +1630,7 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 	if (changed) {
 		this->props.filter_graph_disabled = filter_graph_disabled;
 		if (this->setup)
-			channelmix_init(&this->mix);
+			channelmix_reconfigure(&this->mix);
 	}
 	return changed;
 }
@@ -2321,6 +2321,9 @@ static int setup_channelmix(struct impl *this, uint32_t channels, uint32_t *posi
 	if (this->props.mix_disabled &&
 	    (src_chan != dst_chan || src_mask != dst_mask))
 		return -EPERM;
+
+	if (this->mix.free)
+		channelmix_free(&this->mix);
 
 	this->mix.src_chan = src_chan;
 	this->mix.src_mask = src_mask;
@@ -4319,6 +4322,8 @@ static int impl_clear(struct spa_handle *handle)
 	                free(this->graph_descs[i]);
 	}
 
+	if (this->mix.free)
+		channelmix_free(&this->mix);
 	if (this->resample.free)
 		resample_free(&this->resample);
 	if (this->wav_file != NULL)

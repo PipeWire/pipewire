@@ -22,7 +22,6 @@
 #define MASK_5_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 #define MASK_7_1	_M(FL)|_M(FR)|_M(FC)|_M(LFE)|_M(SL)|_M(SR)|_M(RL)|_M(RR)
 
-#define BUFFER_SIZE 4096
 #define MAX_TAPS 255u
 #define MAX_CHANNELS SPA_AUDIO_MAX_CHANNELS
 
@@ -63,8 +62,8 @@ struct channelmix {
 #define CHANNELMIX_FLAG_EQUAL		(1<<2)		/**< all values are equal */
 #define CHANNELMIX_FLAG_COPY		(1<<3)		/**< 1 on diagonal, can be nxm */
 	uint32_t flags;
-	float matrix_orig[MAX_CHANNELS][MAX_CHANNELS];
-	float matrix[MAX_CHANNELS][MAX_CHANNELS];
+	float **matrix_orig;
+	float **matrix;
 
 	float freq;					/* sample frequency */
 	float lfe_cutoff;				/* in Hz, 0 is disabled */
@@ -75,13 +74,12 @@ struct channelmix {
 	float lfe_level;				/* lfe down/upmix level, 1/2 */
 	float surround_level;				/* surround down/upmix level, sqrt(1/2) */
 	uint32_t hilbert_taps;				/* to phase shift, 0 disabled */
-	struct lr4 lr4[MAX_CHANNELS];
+	struct lr4 *lr4;
 
-	float buffer_mem[2 * BUFFER_SIZE*2 + CHANNELMIX_OPS_MAX_ALIGN/4];
 	float *buffer[2];
+	uint32_t buffer_size;
 	uint32_t pos[2];
 	uint32_t delay;
-	float taps_mem[MAX_TAPS + CHANNELMIX_OPS_MAX_ALIGN/4];
 	float *taps;
 	uint32_t n_taps;
 
@@ -89,6 +87,7 @@ struct channelmix {
 			const void * SPA_RESTRICT src[], uint32_t n_samples);
 	void (*set_volume) (struct channelmix *mix, float volume, bool mute,
 			uint32_t n_channel_volumes, float *channel_volumes);
+	void (*reconfigure) (struct channelmix *mix);
 	void (*free) (struct channelmix *mix);
 
 	void *data;
@@ -118,6 +117,7 @@ static inline uint32_t channelmix_upmix_from_label(const char *label)
 
 #define channelmix_process(mix,...)	(mix)->process(mix, __VA_ARGS__)
 #define channelmix_set_volume(mix,...)	(mix)->set_volume(mix, __VA_ARGS__)
+#define channelmix_reconfigure(mix)	(mix)->reconfigure(mix)
 #define channelmix_free(mix)		(mix)->free(mix)
 
 #define DEFINE_FUNCTION(name,arch)						\

@@ -158,7 +158,9 @@ SPA_API_JSON_UTILS int spa_json_object_find(struct spa_json *iter, const char *k
 {
 	struct spa_json obj = SPA_JSON_SAVE(iter);
 	int res, len = strlen(key) + 3;
-	char k[len];
+	char *k = (char *)alloca(len);
+	if (!k)
+	    return -ENOMEM;
 
 	while ((res = spa_json_object_next(&obj, k, len, value)) > 0)
 		if (spa_streq(k, key))

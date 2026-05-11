@@ -33,6 +33,7 @@
 #include "audio-dsp.h"
 
 #define MAX_RATES	32u
+#define GAIN_MAX	(20 * FLT_MAX_10_EXP)
 
 struct plugin {
 	struct spa_handle handle;
@@ -203,42 +204,42 @@ static struct spa_fga_port mixer_ports[] = {
 	{ .index = 9,
 	  .name = "Gain 1",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 10,
 	  .name = "Gain 2",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 11,
 	  .name = "Gain 3",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 12,
 	  .name = "Gain 4",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 13,
 	  .name = "Gain 5",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 14,
 	  .name = "Gain 6",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 15,
 	  .name = "Gain 7",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 16,
 	  .name = "Gain 8",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 };
 
@@ -465,42 +466,42 @@ static struct spa_fga_port bq_ports[] = {
 	{ .index = 3,
 	  .name = "Q",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = 0.0f, .max = 10.0f,
+	  .def = 0.0f, .min = FLT_MIN, .max = FLT_MAX,
 	},
 	{ .index = 4,
 	  .name = "Gain",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -120.0f, .max = 20.0f,
+	  .def = 0.0f, .min = (float)(-GAIN_MAX), .max = (float)GAIN_MAX,
 	},
 	{ .index = 5,
 	  .name = "b0",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f,
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX,
 	},
 	{ .index = 6,
 	  .name = "b1",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX,
 	},
 	{ .index = 7,
 	  .name = "b2",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX,
 	},
 	{ .index = 8,
 	  .name = "a0",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f,
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX,
 	},
 	{ .index = 9,
 	  .name = "a1",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX,
 	},
 	{ .index = 10,
 	  .name = "a2",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -10.0f, .max = 10.0f,
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX,
 	},
 
 };
@@ -1715,12 +1716,12 @@ static struct spa_fga_port clamp_ports[] = {
 	{ .index = 4,
 	  .name = "Min",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -100.0f, .max = 100.0f
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 5,
 	  .name = "Max",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -100.0f, .max = 100.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 };
 
@@ -1773,12 +1774,12 @@ static struct spa_fga_port linear_ports[] = {
 	{ .index = 4,
 	  .name = "Mult",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 5,
 	  .name = "Add",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -10.0f, .max = 10.0f
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 };
 
@@ -1891,7 +1892,7 @@ static struct spa_fga_port exp_ports[] = {
 	{ .index = 4,
 	  .name = "Base",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = (float)M_E, .min = -10.0f, .max = 10.0f
+	  .def = (float)M_E, .min = -FLT_MAX, .max = FLT_MAX
 	},
 };
 
@@ -1949,17 +1950,17 @@ static struct spa_fga_port log_ports[] = {
 	{ .index = 4,
 	  .name = "Base",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = (float)M_E, .min = 2.0f, .max = 100.0f
+	  .def = (float)M_E, .min = 2.0f, .max = FLT_MAX
 	},
 	{ .index = 5,
 	  .name = "M1",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 6,
 	  .name = "M2",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0f, .min = -10.0f, .max = 10.0f
+	  .def = 1.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 };
 
@@ -2092,7 +2093,7 @@ static struct spa_fga_port sine_ports[] = {
 	{ .index = 3,
 	  .name = "Ampl",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 1.0, .min = 0.0f, .max = 10.0f
+	  .def = 1.0, .min = -FLT_MAX, .max = FLT_MAX
 	},
 	{ .index = 4,
 	  .name = "Phase",
@@ -2102,7 +2103,7 @@ static struct spa_fga_port sine_ports[] = {
 	{ .index = 5,
 	  .name = "Offset",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = -10.0f, .max = 10.0f
+	  .def = 0.0f, .min = -FLT_MAX, .max = FLT_MAX
 	},
 };
 

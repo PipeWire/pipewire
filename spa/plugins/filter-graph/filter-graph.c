@@ -617,7 +617,12 @@ static int port_set_control_value(struct port *port, float *value)
 
 	p = &node->desc->desc->ports[port->p];
 	get_ranges(impl, p, &def, &min, &max);
-	v = SPA_CLAMP(value ? *value : def, min, max);
+	v = value ? *value : def;
+	if (v < min || v > max) {
+		spa_log_warn(impl->log, "control value %f out of range [%f, %f]",
+				v, min, max);
+		v = SPA_CLAMP(v, min, max);
+	}
 
 	port->control_current = v;
 	port->control_initialized = true;

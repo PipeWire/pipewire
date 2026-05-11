@@ -2046,7 +2046,7 @@ static void transport_state_changed(void *data,
 
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		spa_node_emit_event(&this->hooks,
-				spa_pod_builder_add_object(&b,
+				(struct spa_event*)spa_pod_builder_add_object(&b,
 						SPA_TYPE_EVENT_Node, SPA_NODE_EVENT_Error));
 	}
 }

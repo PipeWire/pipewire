@@ -410,7 +410,7 @@ static void emit_node_props(struct impl *this, struct node *node, bool full)
 			SPA_PROP_latencyOffsetNsec, SPA_POD_Long(node->latency_offset),
 			0);
 	}
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event*)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
 }
@@ -929,7 +929,7 @@ static void dynamic_node_volume_changed(void *data)
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_volume, SPA_POD_Float(t_volume->volume));
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event*)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_log_debug(impl->log, "dynamic node %d: volume %d changed %f, profile %d",
 			node->id, volume_id, t_volume->volume, node->transport->profile);
@@ -3144,7 +3144,7 @@ static int node_set_mute(struct impl *this, struct node *node, bool mute)
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_mute, SPA_POD_Bool(mute),
 			SPA_PROP_softMute, SPA_POD_Bool(mute));
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event*)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
 
@@ -3174,7 +3174,7 @@ static int node_set_latency_offset(struct impl *this, struct node *node, int64_t
 	spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Props, SPA_EVENT_DEVICE_Props,
 			SPA_PROP_latencyOffsetNsec, SPA_POD_Long(latency_offset));
-	event = spa_pod_builder_pop(&b, &f[0]);
+	event = (struct spa_event*)spa_pod_builder_pop(&b, &f[0]);
 
 	spa_device_emit_event(&this->hooks, event);
 

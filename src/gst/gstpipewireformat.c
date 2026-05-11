@@ -443,7 +443,7 @@ add_limits (struct spa_pod_dynamic_builder *b, ConvertData *d)
       spa_pod_builder_rectangle (&b->b, v.width, v.height);
     }
     if (i > 0) {
-      choice = spa_pod_builder_pop(&b->b, &f);
+      choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b->b, &f);
       if (i == 1)
         choice->body.type = SPA_CHOICE_None;
     }
@@ -461,7 +461,7 @@ add_limits (struct spa_pod_dynamic_builder *b, ConvertData *d)
       spa_pod_builder_fraction (&b->b, v.num, v.denom);
     }
     if (i > 0) {
-      choice = spa_pod_builder_pop(&b->b, &f);
+      choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b->b, &f);
       if (i == 1)
         choice->body.type = SPA_CHOICE_None;
     }
@@ -479,7 +479,7 @@ add_limits (struct spa_pod_dynamic_builder *b, ConvertData *d)
       spa_pod_builder_fraction (&b->b, v.num, v.denom);
     }
     if (i > 0) {
-      choice = spa_pod_builder_pop(&b->b, &f);
+      choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b->b, &f);
       if (i == 1)
         choice->body.type = SPA_CHOICE_None;
     }
@@ -719,7 +719,7 @@ handle_audio_fields (ConvertData *d)
         spa_pod_builder_id (&b.b, audio_format_map[idx]);
     }
     if (i > 0) {
-      choice = spa_pod_builder_pop(&b.b, &f);
+      choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b.b, &f);
       if (i == 1)
         choice->body.type = SPA_CHOICE_None;
     }
@@ -759,7 +759,7 @@ handle_audio_fields (ConvertData *d)
       spa_pod_builder_id (&b.b, layout);
     }
     if (i > 0) {
-      choice = spa_pod_builder_pop(&b.b, &f);
+      choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b.b, &f);
       if (i == 1)
         choice->body.type = SPA_CHOICE_None;
     }
@@ -777,7 +777,7 @@ handle_audio_fields (ConvertData *d)
       spa_pod_builder_int (&b.b, v);
     }
     if (i > 0) {
-      choice = spa_pod_builder_pop(&b.b, &f);
+      choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b.b, &f);
       if (i == 1)
         choice->body.type = SPA_CHOICE_None;
     }
@@ -794,7 +794,7 @@ handle_audio_fields (ConvertData *d)
       spa_pod_builder_int (&b.b, v);
     }
     if (i > 0) {
-      choice = spa_pod_builder_pop(&b.b, &f);
+      choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b.b, &f);
       if (i == 1) {
         choice->body.type = SPA_CHOICE_None;
         set_default_channels (&b.b, v);

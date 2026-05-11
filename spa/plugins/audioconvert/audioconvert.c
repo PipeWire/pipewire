@@ -1906,16 +1906,23 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	return changed;
 }
 
-static int apply_midi(struct impl *this, const struct spa_pod *value)
+static int apply_midi(struct impl *this, uint32_t type, const struct spa_pod *value)
 {
 	struct props *p = &this->props;
-	uint8_t ev[8];
+	uint8_t evd[8];
+	const uint8_t *ev;
 	int ev_size;
-	const uint32_t *body = SPA_POD_BODY_CONST(value);
 	size_t size = SPA_POD_BODY_SIZE(value);
 	uint64_t state = 0;
 
-	ev_size = spa_ump_to_midi(&body, &size, ev, sizeof(ev), &state);
+	if (type == SPA_CONTROL_UMP) {
+		const uint32_t *body = SPA_POD_BODY_CONST(value);
+		ev_size = spa_ump_to_midi(&body, &size, evd, sizeof(evd), &state);
+		ev = evd;
+	} else {
+		ev_size = size;
+		ev = SPA_POD_BODY_CONST(value);
+	}
 	if (ev_size < 3)
 		return -EINVAL;
 
@@ -3471,7 +3478,8 @@ static int channelmix_process_apply_sequence(struct impl *this,
 		if (prev) {
 			switch (prev->type) {
 			case SPA_CONTROL_UMP:
-				apply_midi(this, &prev->value);
+			case SPA_CONTROL_Midi:
+				apply_midi(this, prev->type, &prev->value);
 				break;
 			case SPA_CONTROL_Properties:
 				apply_props(this, &prev->value);

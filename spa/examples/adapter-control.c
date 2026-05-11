@@ -94,6 +94,7 @@ struct data {
 	struct spa_node *sink_follower_node;  // alsa-pcm-sink
 	struct spa_node *sink_node;  // adapter for alsa-pcm-sink
 
+	struct spa_io_position source_position;
 	struct spa_io_position position;
 	struct spa_io_buffers source_sink_io[1];
 	struct spa_buffer *source_buffers[1];
@@ -687,6 +688,9 @@ static int make_nodes(struct data *data)
 	data->position.clock.target_duration = 1024;
 	data->position.clock.rate = data->position.clock.target_rate;
 	data->position.clock.duration = data->position.clock.target_duration;
+	data->position.clock.id = 0;
+	data->source_position = data->position;
+	data->source_position.clock.id = 1;
 	if ((res = spa_node_set_io(data->source_node,
 			SPA_IO_Position,
 			&data->position, sizeof(data->position))) < 0) {
@@ -701,7 +705,7 @@ static int make_nodes(struct data *data)
 	}
 	if ((res = spa_node_set_io(data->source_node,
 			SPA_IO_Clock,
-			&data->position.clock, sizeof(data->position.clock))) < 0) {
+			&data->source_position.clock, sizeof(data->source_position.clock))) < 0) {
 		printf("can't set io clock on source node: %d\n", res);
 		return res;
 	}

@@ -341,6 +341,11 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 		goto invalid_version;
 
 	hlen = 12 + hdr->cc * 4;
+	if (hdr->x) {
+		if (hlen + 4 > len)
+			goto invalid_len;
+		hlen += 4 + ntohs(*(uint16_t *)(buffer + hlen + 2)) * 4;
+	}
 	if (hlen > len)
 		goto invalid_len;
 

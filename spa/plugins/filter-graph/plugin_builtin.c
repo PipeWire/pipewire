@@ -2496,15 +2496,11 @@ static void max_run(void * Instance, unsigned long SampleCount)
 	} else if (n_srcs == 1) {
 		spa_memcpy(out, src[0], SampleCount * sizeof(float));
 	} else {
-		for (p = 0; p < n_srcs; p++) {
-			if (p == 0) {
-				for (n = 0; n < SampleCount; n++)
-					out[n] = SPA_MAX(src[p][n], src[p + 1][n]);
-				p++;
-			} else {
-				for (n = 0; n < SampleCount; n++)
-					out[n] = SPA_MAX(out[n], src[p][n]);
-			}
+		for (n = 0; n < SampleCount; n++)
+			out[n] = SPA_MAX(src[0][n], src[1][n]);
+		for (p = 2; p < n_srcs; p++) {
+			for (n = 0; n < SampleCount; n++)
+				out[n] = SPA_MAX(out[n], src[p][n]);
 		}
 	}
 }

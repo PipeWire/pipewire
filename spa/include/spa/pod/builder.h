@@ -198,7 +198,7 @@ spa_pod_builder_raw_padded(struct spa_pod_builder *builder, const void *data, ui
 	return res;
 }
 
-SPA_API_POD_BUILDER void *spa_pod_builder_pop(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
+SPA_API_POD_BUILDER struct spa_pod *spa_pod_builder_pop(struct spa_pod_builder *builder, struct spa_pod_frame *frame)
 {
 	struct spa_pod *pod;
 

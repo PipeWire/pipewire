@@ -389,19 +389,6 @@ static void session_free(struct session *sess)
 	free(sess);
 }
 
-static bool is_multicast(struct sockaddr *sa, socklen_t salen)
-{
-	if (sa->sa_family == AF_INET) {
-		static const uint32_t ipv4_mcast_mask = 0xe0000000;
-		struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
-		return (ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask;
-	} else if (sa->sa_family == AF_INET6) {
-		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
-		return sa6->sin6_addr.s6_addr[0] == 0xff;
-	}
-	return false;
-}
-
 static int make_unix_ptp_mgmt_socket(const char *path) {
 	struct sockaddr_un addr;
 
@@ -451,7 +438,7 @@ static int make_send_socket(
 		pw_log_error("connect() failed: %m");
 		goto error;
 	}
-	if (is_multicast((struct sockaddr*)sa, salen)) {
+	if (pw_net_is_multicast(sa)) {
 		if (sa->ss_family == AF_INET) {
 			val = loop;
 			if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
@@ -762,7 +749,7 @@ static int make_sdp(struct impl *impl, struct session *sess, char *buffer, size_
 	if ((user_name = pw_get_user_name()) == NULL)
 		user_name = "-";
 
-	multicast = is_multicast((struct sockaddr*)&sdp->dst_addr, sdp->dst_len);
+	multicast = pw_net_is_multicast(&sdp->dst_addr);
 
 	spa_zero(dst_ttl);
 	if (multicast)
@@ -813,7 +800,7 @@ static int make_sdp(struct impl *impl, struct session *sess, char *buffer, size_
 				sdp->payload, sdp->mime_type, sdp->rate);
 	}
 
-	if (is_multicast((struct sockaddr*)&sdp->dst_addr, sdp->dst_len))
+	if (pw_net_is_multicast(&sdp->dst_addr))
 		spa_strbuf_append(&buf,
 			"a=source-filter: incl IN %s %s %s\n", dst_ip4 ? "IP4" : "IP6",
 				dst_addr, src_addr);

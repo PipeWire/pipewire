@@ -810,19 +810,6 @@ static int create_filters(struct follower *follower)
 	return res;
 }
 
-static bool is_multicast(struct sockaddr *sa, socklen_t salen)
-{
-	if (sa->sa_family == AF_INET) {
-		static const uint32_t ipv4_mcast_mask = 0xe0000000;
-		struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
-		return (ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask;
-	} else if (sa->sa_family == AF_INET6) {
-		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
-		return sa6->sin6_addr.s6_addr[0] == 0xff;
-	}
-	return false;
-}
-
 static int make_data_socket(struct sockaddr_storage *sa, socklen_t salen,
 		bool loop, int ttl, int dscp, const char *ifname)
 {
@@ -857,7 +844,7 @@ static int make_data_socket(struct sockaddr_storage *sa, socklen_t salen,
 		if (setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(IP_TOS) failed: %m");
 	}
-	if (is_multicast((struct sockaddr*)sa, salen)) {
+	if (pw_net_is_multicast(sa)) {
 		val = loop;
 		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");

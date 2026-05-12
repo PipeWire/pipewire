@@ -223,19 +223,6 @@ static const struct vban_stream_events stream_events = {
 	.send_packet = stream_send_packet,
 };
 
-static bool is_multicast(struct sockaddr *sa, socklen_t salen)
-{
-	if (sa->sa_family == AF_INET) {
-		static const uint32_t ipv4_mcast_mask = 0xe0000000;
-		struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
-		return (ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask;
-	} else if (sa->sa_family == AF_INET6) {
-		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
-		return sa6->sin6_addr.s6_addr[0] == 0xff;
-	}
-	return false;
-}
-
 static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		struct sockaddr_storage *dst, socklen_t dst_len,
 		bool loop, int ttl, int dscp)
@@ -257,7 +244,7 @@ static int make_socket(struct sockaddr_storage *src, socklen_t src_len,
 		pw_log_error("connect() failed: %m");
 		goto error;
 	}
-	if (is_multicast((struct sockaddr*)dst, dst_len)) {
+	if (pw_net_is_multicast(dst)) {
 		val = loop;
 		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &val, sizeof(val)) < 0)
 			pw_log_warn("setsockopt(IP_MULTICAST_LOOP) failed: %m");

@@ -196,6 +196,19 @@ static inline bool pw_net_addr_is_any(struct sockaddr_storage *addr)
 	return false;
 }
 
+static inline bool pw_net_is_multicast(struct sockaddr_storage *addr)
+{
+	if (addr->ss_family == AF_INET) {
+		static const uint32_t ipv4_mcast_mask = 0xe0000000;
+		struct sockaddr_in *sa4 = (struct sockaddr_in*)addr;
+		return (ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask;
+	} else if (addr->ss_family == AF_INET6) {
+		struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)addr;
+		return sa6->sin6_addr.s6_addr[0] == 0xff;
+	}
+	return false;
+}
+
 #ifndef LISTEN_FDS_START
 #define LISTEN_FDS_START 3
 #endif

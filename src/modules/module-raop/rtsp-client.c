@@ -10,6 +10,7 @@
 
 #include <spa/utils/result.h>
 
+#include "network-utils.h"
 #include "rtsp-client.h"
 
 #define pw_rtsp_client_emit(o,m,v,...) spa_hook_list_call(&o->listener_list, struct pw_rtsp_client_events, m, v, ##__VA_ARGS__)
@@ -45,11 +46,7 @@ struct pw_rtsp_client {
 	char *session_id;
 	char *url;
 
-	union {
-		struct sockaddr sa;
-		struct sockaddr_in in;
-		struct sockaddr_in6 in6;
-	} local_addr;
+	struct sockaddr_storage local_addr;
 
 	struct spa_source *source;
 	unsigned int connecting:1;
@@ -140,19 +137,11 @@ const struct pw_properties *pw_rtsp_client_get_properties(struct pw_rtsp_client 
 int pw_rtsp_client_get_local_ip(struct pw_rtsp_client *client,
 		int *version, char *ip, size_t len)
 {
-	if (client->local_addr.sa.sa_family == AF_INET) {
-		*version = 4;
-		if (ip)
-			inet_ntop(client->local_addr.sa.sa_family,
-				&client->local_addr.in.sin_addr, ip, len);
-	} else if (client->local_addr.sa.sa_family == AF_INET6) {
-		*version = 6;
-		if (ip)
-			inet_ntop(client->local_addr.sa.sa_family,
-				&client->local_addr.in6.sin6_addr,
-				ip, len);
-	} else
-		return -EIO;
+	bool is_ipv4;
+	int res;
+	if ((res = pw_net_get_ip(&client->local_addr, ip, len, &is_ipv4, NULL)) < 0)
+		return res;
+	*version = is_ipv4 ? 4 : 6;
 	return 0;
 }
 
@@ -170,8 +159,8 @@ static int handle_connect(struct pw_rtsp_client *client, int fd)
 	if (res != 0)
 		return -res;
 
-	len = sizeof(client->local_addr.sa);
-	if (getsockname(fd, &client->local_addr.sa, &len) < 0)
+	len = sizeof(client->local_addr);
+	if (getsockname(fd, (struct sockaddr*)&client->local_addr, &len) < 0)
 		return -errno;
 
 	if ((res = pw_rtsp_client_get_local_ip(client, &ip_version,

@@ -152,13 +152,13 @@ static inline int pw_net_get_ip(const struct sockaddr_storage *sa, char *ip, siz
 
 	if (sa->ss_family == AF_INET) {
 		struct sockaddr_in *in = (struct sockaddr_in*)sa;
-		if (inet_ntop(sa->ss_family, &in->sin_addr, ip, len) == NULL)
+		if (ip && inet_ntop(sa->ss_family, &in->sin_addr, ip, len) == NULL)
 			return -errno;
 		if (port)
 			*port = ntohs(in->sin_port);
 	} else if (sa->ss_family == AF_INET6) {
 		struct sockaddr_in6 *in = (struct sockaddr_in6*)sa;
-		if (inet_ntop(sa->ss_family, &in->sin6_addr, ip, len) == NULL)
+		if (ip && inet_ntop(sa->ss_family, &in->sin6_addr, ip, len) == NULL)
 			return -errno;
 		if (port)
 			*port = ntohs(in->sin6_port);

@@ -17,8 +17,8 @@ stages:
 
 variables:
   FDO_UPSTREAM_REPO: 'pipewire/pipewire'
-  BLUEZ_COMMIT: '7cd27f4f66aa88194fbc1565bc13f24405acacd8'
-  PYTEST_BLUEZENV_VERSION: 'pytest-bluezenv==0.1.4'
+  BLUEZ_COMMIT: 'ee4a4775bc4f8348e2a860dc44bcdd7570279908'
+  PYTEST_BLUEZENV_VERSION: 'pytest-bluezenv==0.1.5'
   BLUEZENV_BZIMAGE: 'https://github.com/pv/bluez-test-functional-kernel/releases/download/2026-05-08.1/bzImage-v7.0-cfg3ed20edd'
 
 # ci-templates as of Mar 25th 2024
@@ -41,7 +41,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2026-05-09.8'
+    FDO_DISTRIBUTION_TAG: '2026-05-12.1'
     FDO_DISTRIBUTION_VERSION: '44'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel

@@ -11,7 +11,7 @@ if [ -n "$FDO_CI_CONCURRENT" ]; then
 fi
 
 # Build BlueZ snapshot for bluetooth VM testing
-git clone --depth 1 --revision "$BLUEZ_COMMIT" https://github.com/bluez/bluez.git /bluez-build
+git clone --depth 1 --revision "$BLUEZ_COMMIT" https://git.kernel.org/pub/scm/bluetooth/bluez.git /bluez-build
 cd /bluez-build
 ./bootstrap
 ./configure --enable-tools --disable-obex --enable-asan --enable-ubsan --enable-debug

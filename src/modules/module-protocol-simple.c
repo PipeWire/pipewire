@@ -601,7 +601,7 @@ on_connect(void *data, int fd, uint32_t mask)
 	spa_list_append(&server->client_list, &client->link);
 	server->n_clients++;
 
-	if (inet_ntop(addr.sin_family, &addr.sin_addr.s_addr, client->name, sizeof(client->name)) == NULL)
+	if (pw_net_get_ip(&addr, client->name, sizeof(client->name), NULL, NULL) < 0)
 		snprintf(client->name, sizeof(client->name), "client %d", client_fd);
 
 	client->source = pw_loop_add_io(impl->loop,

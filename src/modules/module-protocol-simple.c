@@ -576,7 +576,7 @@ on_connect(void *data, int fd, uint32_t mask)
 {
 	struct server *server = data;
 	struct impl *impl = server->impl;
-	struct sockaddr_in addr;
+	struct sockaddr_storage addr;
 	socklen_t addrlen;
 	int client_fd, val;
 	struct client *client = NULL;

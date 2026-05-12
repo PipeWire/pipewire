@@ -55,9 +55,10 @@ static inline void vol_avx(float *d, const float *s, float vol, uint32_t n_sampl
 void channelmix_copy_avx(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		const void * SPA_RESTRICT src[], uint32_t n_samples)
 {
+	CHANNELMIX_DEF_MATRIX(matrix, mix, matrix);
 	uint32_t i, n_dst = mix->dst_chan;
 	float **d = (float **)dst;
 	const float **s = (const float **)src;
 	for (i = 0; i < n_dst; i++)
-		vol_avx(d[i], s[i], mix->matrix[i][i], n_samples);
+		vol_avx(d[i], s[i], matrix[i][i], n_samples);
 }

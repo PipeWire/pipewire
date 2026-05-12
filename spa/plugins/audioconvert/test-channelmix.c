@@ -27,11 +27,12 @@ SPA_LOG_IMPL(logger);
 
 static void dump_matrix(struct channelmix *mix, double *coeff)
 {
+	CHANNELMIX_DEF_MATRIX(matrix, mix, matrix);
 	uint32_t i, j;
 
 	for (i = 0; i < mix->dst_chan; i++) {
 		for (j = 0; j < mix->src_chan; j++) {
-			float v = mix->matrix[i][j];
+			float v = matrix[i][j];
 			spa_log_debug(mix->log, "%d %d: %f <-> %f", i, j, v, *coeff);
 			spa_assert_se(CLOSE_ENOUGH(v, (float)*coeff));
 			coeff++;
@@ -352,16 +353,18 @@ static void test_n_m_impl(void)
 	/* identity matrix */
 	run_n_m_impl(&mix, (const void**)src, N_SAMPLES);
 
+	CHANNELMIX_DEF_MATRIX(matrix_orig, &mix, matrix_orig);
+
 	/* some zero destination */
-	mix.matrix_orig[2][2] = 0.0f;
-	mix.matrix_orig[7][7] = 0.0f;
+	matrix_orig[2][2] = 0.0f;
+	matrix_orig[7][7] = 0.0f;
 	channelmix_set_volume(&mix, 1.0f, false, 0, NULL);
 	run_n_m_impl(&mix, (const void**)src, N_SAMPLES);
 
 	/* random matrix */
 	for (i = 0; i < mix.dst_chan; i++) {
 		for (j = 0; j < mix.src_chan; j++) {
-			mix.matrix_orig[i][j] = (float)(drand48() - 0.5f);
+			matrix_orig[i][j] = (float)(drand48() - 0.5f);
 		}
 	}
 	channelmix_set_volume(&mix, 1.0f, false, 0, NULL);

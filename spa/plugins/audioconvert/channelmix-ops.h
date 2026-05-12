@@ -38,6 +38,8 @@
 #define CHANNELMIX_DEFAULT_WIDEN 0.0f
 #define CHANNELMIX_DEFAULT_HILBERT_TAPS 0
 
+#define CHANNELMIX_DEF_MATRIX(var, mix, m) float (*(var))[(mix)->src_chan] = (float (*)[(mix)->src_chan])(mix)->m
+
 struct channelmix {
 	uint32_t src_chan;
 	uint32_t dst_chan;
@@ -62,8 +64,8 @@ struct channelmix {
 #define CHANNELMIX_FLAG_EQUAL		(1<<2)		/**< all values are equal */
 #define CHANNELMIX_FLAG_COPY		(1<<3)		/**< 1 on diagonal, can be nxm */
 	uint32_t flags;
-	float **matrix_orig;
-	float **matrix;
+	float *matrix_orig;
+	float *matrix;
 
 	float freq;					/* sample frequency */
 	float lfe_cutoff;				/* in Hz, 0 is disabled */

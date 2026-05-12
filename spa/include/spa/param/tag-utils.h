@@ -96,7 +96,7 @@ spa_tag_info_parse(const struct spa_tag_info *info, struct spa_dict *dict, struc
 		items[n].key = key;
 		items[n].value = value;
 	}
-	dict->items = items;
+	*dict = SPA_DICT_INIT(items, n);
 	spa_pod_parser_pop(&prs, &f[0]);
 	return 0;
 }

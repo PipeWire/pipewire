@@ -109,7 +109,7 @@ spa_param_dict_info_parse(const struct spa_param_dict_info *info, size_t size,
 		items[n].key = key;
 		items[n].value = value;
 	}
-	dict->items = items;
+	*dict = SPA_DICT_INIT(items, n);
 	spa_pod_parser_pop(&prs, &f[0]);
 	return 0;
 }

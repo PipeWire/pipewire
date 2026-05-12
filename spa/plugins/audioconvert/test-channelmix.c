@@ -58,6 +58,7 @@ static void test_mix(uint32_t src_chan, uint32_t src_mask, uint32_t dst_chan, ui
 	spa_assert_se(channelmix_init(&mix) == 0);
 	channelmix_set_volume(&mix, 1.0f, false, 0, NULL);
 	dump_matrix(&mix, coeff);
+	channelmix_free(&mix);
 }
 
 static void test_1_N_MONO(void)
@@ -366,6 +367,8 @@ static void test_n_m_impl(void)
 	channelmix_set_volume(&mix, 1.0f, false, 0, NULL);
 
 	run_n_m_impl(&mix, (const void**)src, N_SAMPLES);
+
+	channelmix_free(&mix);
 }
 
 int main(int argc, char *argv[])

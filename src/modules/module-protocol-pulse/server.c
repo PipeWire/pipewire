@@ -791,31 +791,17 @@ static int parse_ipv4_address(const char *address, struct sockaddr_in *out)
 static int format_ip_address(const struct sockaddr_storage *addr, char *buffer, size_t buflen)
 {
 	char ip[INET6_ADDRSTRLEN];
-	const void *src;
-	bool is_ipv6 = false;
-	int port;
+	bool is_ipv4 = true;
+	uint16_t port = 0;
+	int res;
 
-	switch (addr->ss_family) {
-	case AF_INET:
-		src = &((struct sockaddr_in *) addr)->sin_addr.s_addr;
-		port = ntohs(((struct sockaddr_in *) addr)->sin_port);
-		break;
-	case AF_INET6:
-		is_ipv6 = true;
-		src = &((struct sockaddr_in6 *) addr)->sin6_addr.s6_addr;
-		port = ntohs(((struct sockaddr_in6 *) addr)->sin6_port);
-		break;
-	default:
-		return -EAFNOSUPPORT;
-	}
-
-	if (inet_ntop(addr->ss_family, src, ip, sizeof(ip)) == NULL)
-		return -errno;
+	if ((res = pw_net_get_ip(addr, ip, sizeof(ip), &is_ipv4, &port)) < 0)
+		return res;
 
 	return snprintf(buffer, buflen, "%s%s%s:%d",
-			is_ipv6 ? "[" : "",
+			is_ipv4 ? "" : "[",
 			ip,
-			is_ipv6 ? "]" : "",
+			is_ipv4 ? "" : "]",
 			port);
 }
 

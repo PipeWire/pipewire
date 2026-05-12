@@ -191,7 +191,7 @@ static inline bool pw_net_addr_is_any(struct sockaddr_storage *addr)
 		return sa->sin_addr.s_addr == INADDR_ANY;
 	} else if (addr->ss_family == AF_INET6) {
 		struct sockaddr_in6 *sa = (struct sockaddr_in6*)addr;
-		return memcmp(&sa->sin6_addr, &in6addr_any, sizeof(sa->sin6_addr));
+		return memcmp(&sa->sin6_addr, &in6addr_any, sizeof(sa->sin6_addr)) == 0;
 	}
 	return false;
 }

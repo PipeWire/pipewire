@@ -90,6 +90,7 @@ static struct spa_dict *pw_spa_dict_copy(struct spa_dict *dict)
 	if (copy->items == NULL)
 		goto no_items;
 	copy->n_items = dict->n_items;
+	copy->flags = dict->flags & SPA_DICT_FLAG_SORTED;
 
 	for (i = 0; i < dict->n_items; i++) {
 		items[i].key = strdup(dict->items[i].key);

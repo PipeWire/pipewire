@@ -21,6 +21,7 @@
 #define NAME "settings"
 
 #define DEFAULT_CLOCK_RATE			48000u
+#define DEFAULT_CLOCK_MIN_RATE			1u
 #define DEFAULT_CLOCK_RATES			"[ 48000 ]"
 #define DEFAULT_CLOCK_QUANTUM			1024u
 #define DEFAULT_CLOCK_MIN_QUANTUM		32u
@@ -111,7 +112,7 @@ static uint32_t parse_clock_rate(struct pw_properties *properties, const char *n
 		uint32_t *rates, const char *def_rates, uint32_t def)
 {
 	const char *str;
-	uint32_t count = 0;
+	uint32_t i, count = 0;
 
 	if ((str = pw_properties_get(properties, name)) == NULL)
 		str = def_rates;
@@ -121,6 +122,9 @@ static uint32_t parse_clock_rate(struct pw_properties *properties, const char *n
 		count = parse_uint32_array(def_rates, rates, MAX_RATES, def);
 	if (count == 0)
 		goto fallback;
+
+	for (i = 0; i < count; i++)
+		rates[i] = SPA_MAX(rates[i], DEFAULT_CLOCK_MIN_RATE);
 
 	return count;
 fallback:
@@ -207,6 +211,7 @@ void pw_settings_init(struct pw_context *this)
 	struct settings *d = &this->defaults;
 
 	d->clock_rate = get_default_int(p, "default.clock.rate", DEFAULT_CLOCK_RATE);
+	d->clock_rate = SPA_MAX(d->clock_rate, DEFAULT_CLOCK_MIN_RATE);
 	d->n_clock_rates = parse_clock_rate(p, "default.clock.allowed-rates", d->clock_rates,
 			DEFAULT_CLOCK_RATES, d->clock_rate);
 	d->clock_quantum = get_default_int(p, "default.clock.quantum", DEFAULT_CLOCK_QUANTUM);

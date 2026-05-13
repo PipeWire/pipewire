@@ -421,7 +421,6 @@ process_messages(struct client_data *data)
 		pw_protocol_native_connection_enter(conn);
 		res = demarshal[msg->opcode].func(resource, msg);
 		pw_protocol_native_connection_leave(conn);
-		pw_resource_unref(resource);
 
 		if (res < 0) {
 			pw_resource_errorf_id(resource, msg->id,
@@ -429,6 +428,7 @@ process_messages(struct client_data *data)
 					msg->id, msg->opcode, spa_strerror(res));
 			debug_msg("*invalid message*", msg, true);
 		}
+		pw_resource_unref(resource);
 	}
 	res = 0;
 done:

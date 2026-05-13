@@ -15,6 +15,7 @@
 
 #include <dbus/dbus.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/string.h>
 #include <spa/utils/result.h>
 #include <spa/utils/json-builder.h>
@@ -118,7 +119,7 @@ static const struct pw_impl_module_events tunnelmodule_events = {
 static int load_jack_tunnel(struct impl *impl)
 {
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res = 0;
 
@@ -131,13 +132,13 @@ static int load_jack_tunnel(struct impl *impl)
 	if (impl->properties != NULL)
 		pw_properties_serialize_dict(b.f, &impl->properties->dict, 0);
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		goto done;
 
 	pw_log_info("loading module args:'%s'", args);
 	impl->jack_tunnel = pw_context_load_module(impl->context,
 			"libpipewire-module-jack-tunnel",
 			args, NULL);
-	free(args);
 
 	if (impl->jack_tunnel == NULL) {
 		res = -errno;

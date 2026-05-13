@@ -4,6 +4,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/param/audio/format-utils.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/json.h>
 #include <spa/utils/json-builder.h>
 
@@ -171,7 +172,7 @@ static int module_combine_sink_load(struct module *module)
 	struct spa_json_builder b;
 	uint32_t i;
 	int res;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 
 	data->core = pw_context_connect(module->impl->context, NULL, 0);
@@ -217,12 +218,12 @@ static int module_combine_sink_load(struct module *module)
 	spa_json_builder_pop(&b,             "}");
 	spa_json_builder_pop(&b,          "]");
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-combine-stream",
 			args, NULL);
-	free(args);
 
 	if (data->mod == NULL)
 		return -errno;

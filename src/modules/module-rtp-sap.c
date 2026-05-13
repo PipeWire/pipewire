@@ -1257,7 +1257,7 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 	struct impl *impl = session->impl;
 	struct pw_context *context = pw_impl_module_get_context(impl->module);
 	struct spa_json_builder b;
-	char *args = NULL;
+	spa_autofree char *args = NULL;
 	size_t size;
 	const char *str, *media;
 	int res;
@@ -1323,14 +1323,13 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 	pw_properties_serialize_dict(b.f, &props->dict, 0);
 	spa_json_builder_pop(&b,         "}");
 	spa_json_builder_pop(&b,       "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	pw_log_info("loading new RTP source");
 	session->module = pw_context_load_module(context,
 				"libpipewire-module-rtp-source",
 				args, NULL);
-
-	free(args);
 
 	if (session->module == NULL) {
 		pw_log_error("Can't load module: %m");
@@ -1344,7 +1343,6 @@ static int session_load_source(struct session *session, struct pw_properties *pr
 	return 0;
 error:
 	spa_json_builder_close(&b);
-	free(args);
 	return res;
 }
 

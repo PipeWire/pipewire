@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2020 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/string.h>
 #include <spa/debug/types.h>
 #include <spa/param/audio/format.h>
@@ -704,7 +705,7 @@ static int add_int(struct format_info *info, const char *k, struct spa_pod *para
 	case SPA_CHOICE_Enum:
 	{
 		struct spa_json_builder b;
-		char *ptr;
+		spa_autofree char *ptr = NULL;
 		size_t size;
 		int res;
 
@@ -715,10 +716,10 @@ static int add_int(struct format_info *info, const char *k, struct spa_pod *para
 		for (i = 1; i < n_values; i++)
 			spa_json_builder_array_int(&b, values[i]);
 		spa_json_builder_pop(&b, "]");
-		spa_json_builder_close(&b);
+		if ((res = spa_json_builder_close(&b)) < 0)
+			return res;
 
 		pw_properties_set(info->props, k, ptr);
-		free(ptr);
 		break;
 	}
 	default:

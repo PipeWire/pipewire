@@ -18,6 +18,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/dll.h>
 #include <spa/utils/json.h>
@@ -426,10 +427,11 @@ static int send_client_hello(struct client *client)
 	struct impl *impl = client->impl;
 	struct spa_json_builder b;
 	int res;
-	char *mem;
+	spa_autofree char *mem = NULL;
 	size_t size;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "client/hello");
 	spa_json_builder_object_push(&b,   "payload", "{");
@@ -447,10 +449,10 @@ static int send_client_hello(struct client *client)
 	add_playerv1_support(client, &b);
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(client->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(client->conn, mem, size);
 
 	return res;
 }
@@ -459,10 +461,11 @@ static int send_client_state(struct client *client)
 {
 	struct spa_json_builder b;
 	int res;
-	char *mem;
+	spa_autofree char *mem = NULL;
 	size_t size;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "client/state");
 	spa_json_builder_object_push(&b,   "payload", "{");
@@ -473,10 +476,10 @@ static int send_client_state(struct client *client)
 	spa_json_builder_pop(&b,             "}");
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(client->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(client->conn, mem, size);
 	return res;
 }
 
@@ -498,17 +501,18 @@ static int send_client_time(struct client *client)
 
 	now = get_time_us(client);
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "client/time");
 	spa_json_builder_object_push(&b,   "payload", "{");
 	spa_json_builder_object_uint(&b,     "client_transmitted", now);
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(client->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(client->conn, mem, size);
 	return res;
 }
 
@@ -528,21 +532,22 @@ static int send_client_goodbye(struct client *client, const char *reason)
 {
 	struct spa_json_builder b;
 	int res;
-	char *mem;
+	spa_autofree char *mem = NULL;
 	size_t size;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "client/goodbye");
 	spa_json_builder_object_push(&b,   "payload", "{");
 	spa_json_builder_object_string(&b,   "reason", reason);
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	res = pw_websocket_connection_send_text(client->conn, mem, size);
 	pw_websocket_connection_disconnect(client->conn, true);
-	free(mem);
 	return res;
 }
 

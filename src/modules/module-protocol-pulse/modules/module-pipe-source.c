@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
@@ -82,7 +83,7 @@ static int module_pipe_source_load(struct module *module)
 {
 	struct module_pipesrc_data *data = module->user_data;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res;
 
@@ -98,13 +99,12 @@ static int module_pipe_source_load(struct module *module)
 	pw_properties_serialize_dict(b.f, &data->stream_props->dict, 0);
 	spa_json_builder_pop(&b,          "}");
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-pipe-tunnel",
 			args, NULL);
-
-	free(args);
 
 	if (data->mod == NULL)
 		return -errno;

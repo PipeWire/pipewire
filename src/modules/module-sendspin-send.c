@@ -18,6 +18,7 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 #include <spa/utils/ringbuffer.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/dll.h>
 #include <spa/utils/json.h>
@@ -427,7 +428,8 @@ static int send_server_hello(struct client *c)
 	size_t size;
 	char *mem;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,   "{");
 	spa_json_builder_object_string(&b,  "type", "server/hello");
 	spa_json_builder_object_push(&b,    "payload", "{");
@@ -443,10 +445,10 @@ static int send_server_hello(struct client *c)
 	spa_json_builder_object_string(&b,    "connection_reason", "discovery");
 	spa_json_builder_pop(&b,            "}");
 	spa_json_builder_pop(&b,          "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(c->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(c->conn, mem, size);
 
 	return res;
 }
@@ -461,7 +463,8 @@ static int send_server_state(struct client *c)
 	if (!SPA_FLAG_IS_SET(c->supported_roles, ROLE_METADATA))
 		return 0;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "server/state");
 	spa_json_builder_object_push(&b,   "payload", "{");
@@ -470,10 +473,10 @@ static int send_server_state(struct client *c)
 	spa_json_builder_pop(&b,             "}");
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(c->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(c->conn, mem, size);
 	return res;
 }
 
@@ -487,7 +490,8 @@ static int send_server_time(struct client *c, uint64_t t1, uint64_t t2)
 
 	t3 = get_time_us(c);
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "server/time");
 	spa_json_builder_object_push(&b,   "payload", "{");
@@ -496,10 +500,10 @@ static int send_server_time(struct client *c, uint64_t t1, uint64_t t2)
 	spa_json_builder_object_uint(&b,     "server_transmitted", t3);
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(c->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(c->conn, mem, size);
 	return res;
 }
 
@@ -511,7 +515,8 @@ static int send_server_command(struct client *c, int command, int value)
 	char *mem;
 	int res;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,   "{");
 	spa_json_builder_object_string(&b,  "type", "server/command");
 	spa_json_builder_object_push(&b,    "payload", "{");
@@ -526,10 +531,10 @@ static int send_server_command(struct client *c, int command, int value)
 	spa_json_builder_pop(&b,              "}");
 	spa_json_builder_pop(&b,            "}");
 	spa_json_builder_pop(&b,          "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(c->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(c->conn, mem, size);
 	return res;
 }
 #endif
@@ -572,7 +577,8 @@ static int send_stream_start(struct client *c)
 		return -ENOTSUP;
 	}
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,   "{");
 	spa_json_builder_object_string(&b,  "type", "stream/start");
 	spa_json_builder_object_push(&b,    "payload", "{");
@@ -585,10 +591,10 @@ static int send_stream_start(struct client *c)
 	spa_json_builder_pop(&b,              "}");
 	spa_json_builder_pop(&b,            "}");
 	spa_json_builder_pop(&b,          "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(c->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(c->conn, mem, size);
 	return res;
 }
 
@@ -600,7 +606,8 @@ static int send_stream_end(struct client *c)
 	size_t size;
 	char *mem;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "stream/end");
 	spa_json_builder_object_push(&b,   "payload", "{");
@@ -610,10 +617,10 @@ static int send_stream_end(struct client *c)
 	spa_json_builder_pop(&b,             "]");
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
-	res = pw_websocket_connection_send_text(c->conn, mem, size);
-	free(mem);
+	return pw_websocket_connection_send_text(c->conn, mem, size);
 	return res;
 }
 #endif
@@ -623,10 +630,11 @@ static int send_group_update(struct client *c, bool playing)
 	struct impl *impl = c->impl;
 	struct spa_json_builder b;
 	int res;
-	char *mem;
+	spa_autofree char *mem = NULL;
 	size_t size;
 
-	spa_json_builder_memstream(&b, &mem, &size, 0);
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
+		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "group/update");
 	spa_json_builder_object_push(&b,   "payload", "{");
@@ -635,13 +643,12 @@ static int send_group_update(struct client *c, bool playing)
 	spa_json_builder_object_string(&b,   "group_name", pw_properties_get(impl->props, "sendspin.group-name"));
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	c->playing = playing;
 
-	res = pw_websocket_connection_send_text(c->conn, mem, size);
-	free(mem);
-	return res;
+	return pw_websocket_connection_send_text(c->conn, mem, size);
 }
 
 /* {"codec":"pcm","sample_rate":44100,"channels":2,"bit_depth":16} */

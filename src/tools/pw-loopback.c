@@ -11,6 +11,7 @@
 #include <math.h>
 #include <locale.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
@@ -94,7 +95,7 @@ int main(int argc, char *argv[])
 	const char *opt_remote = NULL, *remote_name;
 	char cname[256];
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	static const struct option long_options[] = {
 		{ "help",		no_argument,		NULL, 'h' },
@@ -251,14 +252,14 @@ int main(int argc, char *argv[])
 	pw_properties_serialize_dict(b.f, &data.playback_props->dict, 0);
 	spa_json_builder_pop(&b,          "}");
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		goto exit;
 
 	pw_log_info("loading module with %s", args);
 
 	data.module = pw_context_load_module(data.context,
 			"libpipewire-module-loopback", args,
 			NULL);
-	free(args);
 
 	if (data.module == NULL) {
 		fprintf(stderr, "can't load module: %m\n");

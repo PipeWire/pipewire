@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json-builder.h>
@@ -243,7 +244,7 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 	struct tunnel_info tinfo;
 	const struct spa_dict_item *it;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	struct pw_impl_module *mod;
 	struct pw_properties *props = NULL;
@@ -337,13 +338,13 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 	spa_json_builder_object_push(&b,  "stream.props", "{");
 	spa_json_builder_pop(&b,          "}");
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if (spa_json_builder_close(&b) < 0)
+		goto done;
 
 	pw_log_info("loading module args:'%s'", args);
 	mod = pw_context_load_module(impl->context,
 			"libpipewire-module-pulse-tunnel",
 			args, NULL);
-	free(args);
 
 	if (mod == NULL) {
 		pw_log_error("Can't load module: %m");

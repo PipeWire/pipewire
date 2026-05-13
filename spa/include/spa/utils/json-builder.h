@@ -17,6 +17,7 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/ansi.h>
 #include <spa/utils/json.h>
+#include <spa/utils/cleanup.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -108,10 +109,16 @@ SPA_API_JSON_BUILDER int spa_json_builder_membuf(struct spa_json_builder *b,
 	return spa_json_builder_file(b, f, flags | SPA_JSON_BUILDER_FLAG_CLOSE);
 }
 
-SPA_API_JSON_BUILDER void spa_json_builder_close(struct spa_json_builder *b)
+SPA_API_JSON_BUILDER int spa_json_builder_close(struct spa_json_builder *b)
 {
-	if (b->flags & SPA_JSON_BUILDER_FLAG_CLOSE)
-		fclose(b->f);
+	int res = 0;
+	if (b->flags & SPA_JSON_BUILDER_FLAG_CLOSE) {
+		if (ferror(b->f))
+			res = -EIO;
+		if (fclose(b->f) != 0 && res == 0)
+			res = -errno;
+	}
+	return res;
 }
 
 SPA_API_JSON_BUILDER int spa_json_builder_encode_string(struct spa_json_builder *b,
@@ -422,16 +429,18 @@ void spa_json_builder_array_valuef(struct spa_json_builder *b, bool recurse, con
 SPA_API_JSON_BUILDER char *spa_json_builder_reformat(const char *json, uint32_t flags)
 {
 	struct spa_json_builder b;
-	char *mem;
+	spa_autofree char *mem = NULL;
 	size_t size;
 	int res;
-	if ((res = spa_json_builder_memstream(&b, &mem, &size, flags)) < 0) {
-		errno = -res;
-		return NULL;
-	}
+	if ((res = spa_json_builder_memstream(&b, &mem, &size, flags)) < 0)
+		goto error;
 	spa_json_builder_array_value(&b, true, json);
-	spa_json_builder_close(&b);
-	return mem;
+	if ((res = spa_json_builder_close(&b)) < 0)
+		goto error;
+	return spa_steal_ptr(mem);
+error:
+	errno = -res;
+	return NULL;
 }
 
 /**

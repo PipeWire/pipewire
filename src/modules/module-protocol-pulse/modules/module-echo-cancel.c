@@ -4,6 +4,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/param/audio/format-utils.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
@@ -104,7 +105,7 @@ static int module_echo_cancel_load(struct module *module)
 {
 	struct module_echo_cancel_data *data = module->user_data;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res;
 
@@ -134,12 +135,12 @@ static int module_echo_cancel_load(struct module *module)
 	pw_properties_serialize_dict(b.f, &data->playback_props->dict, 0);
 	spa_json_builder_pop(&b, "}");
 	spa_json_builder_pop(&b, "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-echo-cancel",
 			args, NULL);
-	free(args);
 
 	if (data->mod == NULL)
 		return -errno;
@@ -198,7 +199,7 @@ static int rename_geometry(struct pw_properties *props, const char *pa_key, cons
 {
 	const char *str;
 	int i = 0, len, res;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	struct spa_json_builder b;
 
@@ -231,10 +232,10 @@ static int rename_geometry(struct pw_properties *props, const char *pa_key, cons
 		i++;
 	}
 	spa_json_builder_pop(&b, "]");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	pw_properties_set(props, pw_key, args);
-	free(args);
 
 	pw_properties_set(props, pa_key, NULL);
 	return 0;

@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <limits.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/json-builder.h>
 #include <spa/param/audio/raw.h>
@@ -164,7 +165,7 @@ static int enhance_properties(struct pw_properties *props, const char *key, ...)
 {
 	struct spa_json_builder b;
 	spa_autoptr(pw_properties) p = NULL;
-	char *args = NULL;
+	spa_autofree char *args = NULL;
 	const char *str;
 	size_t size;
         va_list varargs;
@@ -192,10 +193,10 @@ static int enhance_properties(struct pw_properties *props, const char *key, ...)
 		return res;
 	}
 	pw_properties_serialize_dict(b.f, &p->dict, PW_PROPERTIES_FLAG_ENCLOSE);
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	pw_properties_set(props, key, args);
-	free(args);
 	return 0;
 }
 
@@ -203,7 +204,7 @@ static int create_eq_filter(struct impl *impl, const char *filename)
 {
 	struct spa_json_builder b;
 	const char* str;
-	char *args = NULL;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int32_t res = 0;
 
@@ -237,13 +238,13 @@ static int create_eq_filter(struct impl *impl, const char *filename)
 	spa_json_builder_pop(&b,          "}");
 	pw_properties_serialize_dict(b.f, &impl->props->dict, 0);
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	pw_log_info("loading new module-filter-chain with args: %s", args);
 	impl->eq_module = pw_context_load_module(impl->context,
 				"libpipewire-module-filter-chain",
 				args, NULL);
-	free(args);
 
 	if (!impl->eq_module) {
 		pw_log_error("Can't load module: %m");

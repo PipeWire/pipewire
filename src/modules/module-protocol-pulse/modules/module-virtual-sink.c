@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/param/audio/format-utils.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
@@ -78,7 +79,7 @@ static int module_virtual_sink_load(struct module *module)
 {
 	struct module_virtual_sink_data *data = module->user_data;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res;
 
@@ -99,12 +100,12 @@ static int module_virtual_sink_load(struct module *module)
 	pw_properties_serialize_dict(b.f, &data->playback_props->dict, 0);
 	spa_json_builder_pop(&b,          "}");
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-loopback",
 			args, NULL);
-	free(args);
 
 	if (data->mod == NULL)
 		return -errno;

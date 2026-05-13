@@ -19,6 +19,7 @@
 #include <net/if.h>
 #include <ifaddrs.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json-builder.h>
@@ -533,7 +534,7 @@ static int create_stream(struct impl *impl, struct pw_properties *props,
 		struct tunnel *t)
 {
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res = 0;
 	struct pw_impl_module *mod;
@@ -567,13 +568,13 @@ static int create_stream(struct impl *impl, struct pw_properties *props,
 	spa_json_builder_array_push(&b, "{");
 	pw_properties_serialize_dict(b.f, &props->dict, 0);
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		goto done;
 
 	pw_log_info("loading module args:'%s'", args);
 	mod = pw_context_load_module(impl->context,
 			"libpipewire-module-protocol-simple",
 			args, NULL);
-	free(args);
 
 	if (mod == NULL) {
 		res = -errno;

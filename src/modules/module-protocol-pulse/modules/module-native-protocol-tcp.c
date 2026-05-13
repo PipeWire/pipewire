@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
@@ -87,7 +88,7 @@ static int module_native_protocol_tcp_prepare(struct module * const module)
 	struct pw_properties * const props = module->props;
 	const char *port, *listen, *auth;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res;
 
@@ -111,10 +112,10 @@ static int module_native_protocol_tcp_prepare(struct module * const module)
 		spa_json_builder_object_string(&b, "client.access", "unrestricted");
 	spa_json_builder_pop(&b,          "}");
 	spa_json_builder_pop(&b,        "]");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	pw_properties_set(props, "pulse.tcp", args);
-	free(args);
 
 	d->module = module;
 

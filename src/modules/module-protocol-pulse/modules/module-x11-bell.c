@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
 
@@ -65,7 +66,7 @@ static int module_x11_bell_load(struct module *module)
 {
 	struct module_x11_bell_data *data = module->user_data;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	const char *str;
 	size_t size;
 	int res;
@@ -83,12 +84,12 @@ static int module_x11_bell_load(struct module *module)
 	if ((str = pw_properties_get(module->props, "xauthority")) != NULL)
 		spa_json_builder_object_string(&b, "x11.xauthority", str);
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-x11-bell",
 			args, NULL);
-	free(args);
 
 	if (data->mod == NULL)
 		return -errno;

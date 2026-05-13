@@ -71,6 +71,7 @@ enum {
 #include <stdlib.h>
 #include <string.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
@@ -272,7 +273,7 @@ static int do_extension_stream_restore_write(struct module *module, struct clien
 		struct volume vol;
 		bool mute = false;
 		uint32_t i;
-		char *ptr;
+		spa_autofree char *ptr = NULL;
 		size_t size;
 		char key[1024];
 
@@ -319,7 +320,8 @@ static int do_extension_stream_restore_write(struct module *module, struct clien
 		    (client->default_sink == NULL || !spa_streq(device_name, client->default_sink)))
 			spa_json_builder_object_string(&b, "target-node", device_name);
 		spa_json_builder_pop(&b, "}");
-		spa_json_builder_close(&b);
+		if ((bres = spa_json_builder_close(&b)) < 0)
+			return bres;
 		}
 		if (key_from_name(name, key, sizeof(key)) >= 0) {
 			pw_log_debug("%s -> %s: %s", name, key, ptr);
@@ -328,7 +330,6 @@ static int do_extension_stream_restore_write(struct module *module, struct clien
 							PW_ID_CORE, key, "Spa:String:JSON", "%s", ptr)) < 0)
 				pw_log_warn("failed to set metadata %s = %s, %s", key, ptr, strerror(-res));
 		}
-		free(ptr);
 	}
 
 	return reply_simple_ack(client, tag);

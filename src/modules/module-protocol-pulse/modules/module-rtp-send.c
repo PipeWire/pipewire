@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/json-builder.h>
 #include <pipewire/pipewire.h>
@@ -107,7 +108,7 @@ static int module_rtp_send_load(struct module *module)
 {
 	struct module_rtp_send_data *data = module->user_data;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res;
 
@@ -123,12 +124,12 @@ static int module_rtp_send_load(struct module *module)
 	pw_properties_serialize_dict(b.f, &data->stream_props->dict, 0);
 	spa_json_builder_pop(&b,          "}");
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->mod = pw_context_load_module(module->impl->context,
 			"libpipewire-module-rtp-sink",
 			args, NULL);
-	free(args);
 
 	if (data->mod == NULL)
 		return -errno;
@@ -156,12 +157,12 @@ static int module_rtp_send_load(struct module *module)
 	spa_json_builder_pop(&b,            "}");
 	spa_json_builder_pop(&b,          "]");
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->sap = pw_context_load_module(module->impl->context,
 			"libpipewire-module-rtp-sap",
 			args, NULL);
-	free(args);
 
 	if (data->sap == NULL)
 		return -errno;

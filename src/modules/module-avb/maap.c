@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/json-builder.h>
 
 #include <pipewire/pipewire.h>
@@ -299,7 +300,7 @@ static int load_state(struct maap *maap)
 static int save_state(struct maap *maap)
 {
 	struct spa_json_builder b;
-	char *ptr;
+	spa_autofree char *ptr = NULL;
 	size_t size;
 	char key[512];
 	uint32_t count;
@@ -317,10 +318,10 @@ static int save_state(struct maap *maap)
 	spa_json_builder_object_uint(&b,    "count", maap->count);
 	spa_json_builder_pop(&b,          "}");
 	spa_json_builder_pop(&b,        "]");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	count = pw_properties_set(maap->props, "maap.addresses", ptr);
-	free(ptr);
 
 	if (count > 0) {
 		snprintf(key, sizeof(key), "maap.%s", maap->server->ifname);

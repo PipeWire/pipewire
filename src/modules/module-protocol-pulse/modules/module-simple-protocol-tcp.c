@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/json-builder.h>
 #include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
@@ -85,7 +86,7 @@ static int module_simple_protocol_tcp_load(struct module *module)
 	struct module_simple_protocol_tcp_data *data = module->user_data;
 	struct impl *impl = module->impl;
 	struct spa_json_builder b;
-	char *args;
+	spa_autofree char *args = NULL;
 	size_t size;
 	int res;
 
@@ -95,12 +96,12 @@ static int module_simple_protocol_tcp_load(struct module *module)
 	spa_json_builder_array_push(&b, "{");
 	pw_properties_serialize_dict(b.f, &data->module_props->dict, 0);
 	spa_json_builder_pop(&b,        "}");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		return res;
 
 	data->mod = pw_context_load_module(impl->context,
 			"libpipewire-module-protocol-simple",
 			args, NULL);
-	free(args);
 
 	if (data->mod == NULL)
 		return -errno;
@@ -187,7 +188,7 @@ static int module_simple_protocol_tcp_prepare(struct module * const module)
 
 	{
 		struct spa_json_builder ab;
-		char *addr;
+		spa_autofree char *addr = NULL;
 		size_t addr_size;
 
 		if ((res = spa_json_builder_memstream(&ab, &addr, &addr_size, 0)) < 0)
@@ -197,10 +198,10 @@ static int module_simple_protocol_tcp_prepare(struct module * const module)
 		spa_json_builder_array_stringf(&ab, "tcp:%s%s%s",
 				listen ? listen : "", listen ? ":" : "", port);
 		spa_json_builder_pop(&ab,        "]");
-		spa_json_builder_close(&ab);
+		if ((res = spa_json_builder_close(&ab)) < 0)
+			goto out;
 
 		pw_properties_set(module_props, "server.address", addr);
-		free(addr);
 	}
 
 	d->module = module;

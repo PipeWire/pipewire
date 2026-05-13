@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json-builder.h>
@@ -962,7 +963,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	struct impl *impl;
 	struct server *s;
 	struct spa_json_builder b;
-	char *str;
+	spa_autofree char *str = NULL;
 	size_t size;
 	int res;
 	struct spa_dict_item it[1];
@@ -1017,13 +1018,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				ipv4 ? "" : "[", ip, ipv4 ? "" : "]", port);
 	}
 	spa_json_builder_pop(&b, "]");
-	spa_json_builder_close(&b);
+	if ((res = spa_json_builder_close(&b)) < 0)
+		goto error_free;
 
 	pw_log_info("listening on %s", str);
 	it[0] = SPA_DICT_ITEM_INIT("server.address", str);
 	pw_impl_module_update_properties(module, &SPA_DICT_INIT_ARRAY(it));
-
-	free(str);
 
 	return 0;
 

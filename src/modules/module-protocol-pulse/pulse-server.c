@@ -4825,7 +4825,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 		}
 
 		struct spa_json_builder b;
-		char *val;
+		spa_autofree char *val = NULL;
 		size_t val_size;
 
 		if ((res = spa_json_builder_memstream(&b, &val, &val_size, 0)) < 0)
@@ -4834,13 +4834,13 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 		spa_json_builder_array_push(&b, "{");
 		spa_json_builder_object_string(&b, "name", name);
 		spa_json_builder_pop(&b,        "}");
-		spa_json_builder_close(&b);
+		if ((res = spa_json_builder_close(&b)) < 0)
+			return res;
 
 		res = pw_manager_set_metadata(manager, client->metadata_default,
 				PW_ID_CORE,
 				sink ? METADATA_CONFIG_DEFAULT_SINK : METADATA_CONFIG_DEFAULT_SOURCE,
 				"Spa:String:JSON", "%s", val);
-		free(val);
 	} else {
 		res = pw_manager_set_metadata(manager, client->metadata_default,
 				PW_ID_CORE,

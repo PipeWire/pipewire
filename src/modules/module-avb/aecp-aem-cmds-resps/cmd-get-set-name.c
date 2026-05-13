@@ -12,6 +12,7 @@
 #include "../aecp-aem.h"
 #include "../aecp-aem-state.h"
 #include "../aecp-aem-descriptors.h"
+#include "../strings.h"
 
 
 #include "cmd-get-set-name.h"

@@ -40,6 +40,18 @@ static const char *const pulse_module_options =
 	"channel_map=<channel map> "
 	"use_system_clock_for_timing=<yes or no> ";
 
+static const struct module_args valid_args[] = {
+	{ "file", "name of the FIFO special file to use", },
+	{ "sink_name", "name for the sink", },
+	{ "sink_properties", "sink properties", },
+	{ "format", "sample format", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "use_system_clock_for_timing", "yes or no", },
+	{ NULL, }
+};
+
 #define NAME "pipe-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -194,6 +206,7 @@ out:
 
 DEFINE_MODULE_INFO(module_pipe_sink) = {
 	.name = "module-pipe-sink",
+	.valid_args = valid_args,
 	.prepare = module_pipe_sink_prepare,
 	.load = module_pipe_sink_load,
 	.unload = module_pipe_sink_unload,

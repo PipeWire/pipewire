@@ -39,6 +39,21 @@ static const char *const pulse_module_options =
 	"sink_dont_move=<boolean> "
 	"remix=<remix channels?> ";
 
+static const struct module_args valid_args[] = {
+	{ "source", "source to connect to", },
+	{ "sink", "sink to connect to", },
+	{ "latency_msec", "latency in ms", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "sink_input_properties", "proplist", },
+	{ "source_output_properties", "proplist", },
+	{ "source_dont_move", "boolean", },
+	{ "sink_dont_move", "boolean", },
+	{ "remix", "remix channels?", },
+	{ NULL, }
+};
+
 #define NAME "loopback"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -232,6 +247,7 @@ out:
 
 DEFINE_MODULE_INFO(module_loopback) = {
 	.name = "module-loopback",
+	.valid_args = valid_args,
 	.prepare = module_loopback_prepare,
 	.load = module_loopback_load,
 	.unload = module_loopback_unload,

@@ -34,6 +34,17 @@ static const char *const pulse_module_options =
 	"use_volume_sharing=<yes or no> "
 	"force_flat_volume=<yes or no> ";
 
+static const struct module_args valid_args[] = {
+	{ "sink_name", "name for the sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "master", "name of sink to filter", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "use_volume_sharing", "yes or no", },
+	{ "force_flat_volume", "yes or no", },
+	{ NULL, }
+};
+
 #define NAME "virtual-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -192,6 +203,7 @@ out:
 
 DEFINE_MODULE_INFO(module_virtual_sink) = {
 	.name = "module-virtual-sink",
+	.valid_args = valid_args,
 	.prepare = module_virtual_sink_prepare,
 	.load = module_virtual_sink_load,
 	.unload = module_virtual_sink_unload,

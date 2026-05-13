@@ -36,6 +36,20 @@ static const char *const pulse_module_options =
 	"port=<TCP port number> "
 	"listen=<address to listen on>";
 
+static const struct module_args valid_args[] = {
+	{ "rate", "sample rate", },
+	{ "format", "sample format", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "number of channels", },
+	{ "sink", "sink to connect to", },
+	{ "source", "source to connect to", },
+	{ "playback", "enable playback?", },
+	{ "record", "enable record?", },
+	{ "port", "TCP port number", },
+	{ "listen", "address to listen on", },
+	{ NULL, }
+};
+
 #define NAME "simple-protocol-tcp"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -202,6 +216,7 @@ out:
 
 DEFINE_MODULE_INFO(module_simple_protocol_tcp) = {
 	.name = "module-simple-protocol-tcp",
+	.valid_args = valid_args,
 	.prepare = module_simple_protocol_tcp_prepare,
 	.load = module_simple_protocol_tcp_load,
 	.unload = module_simple_protocol_tcp_unload,

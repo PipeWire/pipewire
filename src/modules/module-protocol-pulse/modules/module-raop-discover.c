@@ -24,6 +24,11 @@
  * \ref page_module_raop_discover "libpipewire-module-raop-discover"
  */
 
+static const struct module_args valid_args[] = {
+	{ "latency_msec", "latency in ms", },
+	{ NULL, }
+};
+
 #define NAME "raop-discover"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -121,6 +126,7 @@ static int module_raop_discover_prepare(struct module * const module)
 DEFINE_MODULE_INFO(module_raop_discover) = {
 	.name = "module-raop-discover",
 	.load_once = true,
+	.valid_args = valid_args,
 	.prepare = module_raop_discover_prepare,
 	.load = module_raop_discover_load,
 	.unload = module_raop_discover_unload,

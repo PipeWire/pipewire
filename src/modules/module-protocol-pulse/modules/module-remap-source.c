@@ -37,6 +37,20 @@ static const char *const pulse_module_options =
 	"resample_method=<resampler> "
 	"remix=<remix channels?>";
 
+static const struct module_args valid_args[] = {
+	{ "source_name", "name for the source", },
+	{ "source_properties", "properties for the source", },
+	{ "master", "name of source to filter", },
+	{ "master_channel_map", "channel map", },
+	{ "format", "sample format", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "resample_method", "resampler", },
+	{ "remix", "remix channels?", },
+	{ NULL, }
+};
+
 #define NAME "remap-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -232,6 +246,7 @@ out:
 
 DEFINE_MODULE_INFO(module_remap_source) = {
 	.name = "module-remap-source",
+	.valid_args = valid_args,
 	.prepare = module_remap_source_prepare,
 	.load = module_remap_source_load,
 	.unload = module_remap_source_unload,

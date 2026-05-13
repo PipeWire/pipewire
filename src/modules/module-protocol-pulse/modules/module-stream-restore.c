@@ -26,6 +26,16 @@ static const char *const pulse_module_options =
 	"on_rescue=<This argument is obsolete, please remove it from configuration> "
 	"fallback_table=<filename>";
 
+static const struct module_args valid_args[] = {
+	{ "restore_device", "Save/restore sinks/sources?", },
+	{ "restore_volume", "Save/restore volumes?", },
+	{ "restore_muted", "Save/restore muted states?", },
+	{ "on_hotplug", "This argument is obsolete, please remove it from configuration", },
+	{ "on_rescue", "This argument is obsolete, please remove it from configuration", },
+	{ "fallback_table", "filename", },
+	{ NULL, }
+};
+
 #define NAME "stream-restore"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -462,6 +472,7 @@ static int module_stream_restore_unload(struct module *module)
 
 DEFINE_MODULE_INFO(module_stream_restore) = {
 	.name = "module-stream-restore",
+	.valid_args = valid_args,
 	.load_once = true,
 	.prepare = module_stream_restore_prepare,
 	.load = module_stream_restore_load,

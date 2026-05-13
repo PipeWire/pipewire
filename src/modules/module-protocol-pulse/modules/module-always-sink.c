@@ -20,6 +20,11 @@
 
 static const char *const pulse_module_options = "sink_name=<name of sink>";
 
+static const struct module_args valid_args[] = {
+	{ "sink_name", "name of sink", },
+	{ NULL, }
+};
+
 #define NAME "always-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -109,6 +114,7 @@ static int module_always_sink_prepare(struct module * const module)
 DEFINE_MODULE_INFO(module_always_sink) = {
 	.name = "module-always-sink",
 	.load_once = true,
+	.valid_args = valid_args,
 	.prepare = module_always_sink_prepare,
 	.load = module_always_sink_load,
 	.unload = module_always_sink_unload,

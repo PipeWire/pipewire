@@ -28,6 +28,14 @@ static const char *const pulse_module_options =
 	"display=<X11 display> "
 	"xauthority=<X11 Authority>";
 
+static const struct module_args valid_args[] = {
+	{ "sink", "sink to connect to", },
+	{ "sample", "the sample to play", },
+	{ "display", "X11 display", },
+	{ "xauthority", "X11 Authority", },
+	{ NULL, }
+};
+
 #define NAME "x11-bell"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -122,6 +130,7 @@ static const struct spa_dict_item module_x11_bell_info[] = {
 
 DEFINE_MODULE_INFO(module_x11_bell) = {
 	.name = "module-x11-bell",
+	.valid_args = valid_args,
 	.prepare = module_x11_bell_prepare,
 	.load = module_x11_bell_load,
 	.unload = module_x11_bell_unload,

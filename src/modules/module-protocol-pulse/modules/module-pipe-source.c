@@ -39,6 +39,17 @@ static const char *const pulse_module_options =
 	"channels=<number of channels> "
 	"channel_map=<channel map> ";
 
+static const struct module_args valid_args[] = {
+	{ "file", "name of the FIFO special file to use", },
+	{ "source_name", "name for the source", },
+	{ "source_properties", "source properties", },
+	{ "format", "sample format", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ NULL, }
+};
+
 #define NAME "pipe-source"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -191,6 +202,7 @@ out:
 
 DEFINE_MODULE_INFO(module_pipe_source) = {
 	.name = "module-pipe-source",
+	.valid_args = valid_args,
 	.prepare = module_pipe_source_prepare,
 	.load = module_pipe_source_load,
 	.unload = module_pipe_source_unload,

@@ -22,6 +22,13 @@ static const char *const pulse_module_options =
 	"on_hotplug=<When new device becomes available, recheck streams?> "
 	"on_rescue=<When device becomes unavailable, recheck streams?>";
 
+static const struct module_args valid_args[] = {
+	{ "do_routing", "Automatically route streams based on a priority list (unique per-role)?", },
+	{ "on_hotplug", "When new device becomes available, recheck streams?", },
+	{ "on_rescue", "When device becomes unavailable, recheck streams?", },
+	{ NULL, }
+};
+
 #define NAME "device-manager"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -56,6 +63,7 @@ static int module_device_manager_load(struct module *module)
 DEFINE_MODULE_INFO(module_device_manager) = {
 	.name = "module-device-manager",
 	.load_once = true,
+	.valid_args = valid_args,
 	.prepare = module_device_manager_prepare,
 	.load = module_device_manager_load,
 	.properties = &SPA_DICT_INIT_ARRAY(module_device_manager_info),

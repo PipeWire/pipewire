@@ -31,6 +31,13 @@ static const char *const pulse_module_options =
 	"ignore_virtual=<boolean, ignore new virtual sinks and sources, defaults to true> "
 	"blocklist=<regex, ignore matching devices, default=hdmi> ";
 
+static const struct module_args valid_args[] = {
+	{ "only_from_unavailable", "boolean, only switch from unavailable ports (not implemented yet)", },
+	{ "ignore_virtual", "boolean, ignore new virtual sinks and sources, defaults to true", },
+	{ "blocklist", "regex, ignore matching devices, default=hdmi", },
+	{ NULL, }
+};
+
 #define NAME "switch-on-connect"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -293,6 +300,7 @@ static int module_switch_on_connect_prepare(struct module * const module)
 
 DEFINE_MODULE_INFO(module_switch_on_connect) = {
 	.name = "module-switch-on-connect",
+	.valid_args = valid_args,
 	.load_once = true,
 	.prepare = module_switch_on_connect_prepare,
 	.load = module_switch_on_connect_load,

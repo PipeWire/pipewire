@@ -38,6 +38,22 @@ static const char *const pulse_module_options =
 	"source_channel_map=<channel map> "
 	"connect=<connect ports?>";
 
+static const struct module_args valid_args[] = {
+	{ "channels", "number of channels", },
+	{ "sink_name", "name for the sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "sink_client_name", "jack client name", },
+	{ "sink_channels", "number of channels", },
+	{ "sink_channel_map", "channel map", },
+	{ "source_name", "name for the source", },
+	{ "source_properties", "properties for the source", },
+	{ "source_client_name", "jack client name", },
+	{ "source_channels", "number of channels", },
+	{ "source_channel_map", "channel map", },
+	{ "connect", "connect ports?", },
+	{ NULL, }
+};
+
 #define NAME "jackdbus-detect"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -223,6 +239,7 @@ out:
 DEFINE_MODULE_INFO(module_jackdbus_detect) = {
 	.name = "module-jackdbus-detect",
 	.load_once = false,
+	.valid_args = valid_args,
 	.prepare = module_jackdbus_detect_prepare,
 	.load = module_jackdbus_detect_load,
 	.unload = module_jackdbus_detect_unload,

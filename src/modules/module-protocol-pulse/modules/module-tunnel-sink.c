@@ -40,6 +40,21 @@ static const char *const pulse_module_options =
 	"latency_msec=<fixed latency in ms> "
 	"cookie=<cookie file path>";
 
+static const struct module_args valid_args[] = {
+	{ "server", "address", MODULE_ARG_MANDATORY },
+	{ "sink", "name of the remote sink", },
+	{ "sink_name", "name for the local sink", },
+	{ "sink_properties", "properties for the local sink", },
+	{ "reconnect_interval_ms", "interval to try reconnects, 0 or omitted if disabled", },
+	{ "format", "sample format", },
+	{ "channels", "number of channels", },
+	{ "rate", "sample rate", },
+	{ "channel_map", "channel map", },
+	{ "latency_msec", "fixed latency in ms", },
+	{ "cookie", "cookie file path", },
+	{ NULL, }
+};
+
 #define NAME "tunnel-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -204,6 +219,7 @@ out:
 
 DEFINE_MODULE_INFO(module_tunnel_sink) = {
 	.name = "module-tunnel-sink",
+	.valid_args = valid_args,
 	.prepare = module_tunnel_sink_prepare,
 	.load = module_tunnel_sink_load,
 	.unload = module_tunnel_sink_unload,

@@ -44,6 +44,34 @@ static const char *const pulse_module_options =
 	"deferred_volume_extra_delay=<usec adjustment to HW volume changes> "
 	"fixed_latency_range=<disable latency range changes on underrun?> ";
 
+static const struct module_args valid_args[] = {
+	{ "name", "name of the sink, to be prefixed", },
+	{ "sink_name", "name for the sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "namereg_fail", "when false attempt to synthesise new sink_name if it is already taken", },
+	{ "device", "ALSA device", },
+	{ "device_id", "ALSA card index", },
+	{ "format", "sample format", },
+	{ "rate", "sample rate", },
+	{ "alternate_rate", "alternate sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "fragments", "number of fragments", },
+	{ "fragment_size", "fragment size", },
+	{ "mmap", "enable memory mapping?", },
+	{ "tsched", "enable system timer based scheduling mode?", },
+	{ "tsched_buffer_size", "buffer size when using timer based scheduling", },
+	{ "tsched_buffer_watermark", "lower fill watermark", },
+	{ "ignore_dB", "ignore dB information from the device?", },
+	{ "control", "name of mixer control, or name and index separated by a comma", },
+	{ "rewind_safeguard", "number of bytes that cannot be rewound", },
+	{ "deferred_volume", "Synchronize software and hardware volume changes to avoid momentary jumps?", },
+	{ "deferred_volume_safety_margin", "usec adjustment depending on volume direction", },
+	{ "deferred_volume_extra_delay", "usec adjustment to HW volume changes", },
+	{ "fixed_latency_range", "disable latency range changes on underrun?", },
+	{ NULL, }
+};
+
 #define NAME "alsa-sink"
 
 #define DEFAULT_DEVICE "default"
@@ -244,6 +272,7 @@ static int module_alsa_sink_prepare(struct module * const module)
 
 DEFINE_MODULE_INFO(module_alsa_sink) = {
 	.name = "module-alsa-sink",
+	.valid_args = valid_args,
 	.prepare = module_alsa_sink_prepare,
 	.load = module_alsa_sink_load,
 	.unload = module_alsa_sink_unload,

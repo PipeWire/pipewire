@@ -26,6 +26,16 @@ static const char *const pulse_module_options =
 	"channels=<number of channels> "
 	"channel_map=<channel map>";
 
+static const struct module_args valid_args[] = {
+	{ "sink_name", "name of sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "format", "sample format", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ NULL, }
+};
+
 #define NAME "null-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -204,6 +214,7 @@ static int module_null_sink_prepare(struct module * const module)
 
 DEFINE_MODULE_INFO(module_null_sink) = {
 	.name = "module-null-sink",
+	.valid_args = valid_args,
 	.prepare = module_null_sink_prepare,
 	.load = module_null_sink_load,
 	.unload = module_null_sink_unload,

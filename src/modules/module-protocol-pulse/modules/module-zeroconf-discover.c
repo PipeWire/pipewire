@@ -27,6 +27,11 @@
 static const char *const pulse_module_options =
 	"latency_msec=<fixed latency in ms> ";
 
+static const struct module_args valid_args[] = {
+	{ "latency_msec", "fixed latency in ms", },
+	{ NULL, }
+};
+
 #define NAME "zeroconf-discover"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -123,6 +128,7 @@ static int module_zeroconf_discover_prepare(struct module * const module)
 
 DEFINE_MODULE_INFO(module_zeroconf_discover) = {
 	.name = "module-zeroconf-discover",
+	.valid_args = valid_args,
 	.load_once = true,
 	.prepare = module_zeroconf_discover_prepare,
 	.load = module_zeroconf_discover_load,

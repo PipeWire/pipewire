@@ -38,6 +38,22 @@ static const char *const pulse_module_options =
 	"channel_map=<channel map> "
 	"aec_method=<implementation to use> "
 	"aec_args=<parameters for the AEC engine> ";
+
+static const struct module_args valid_args[] = {
+	{ "source_name", "name for the source", },
+	{ "source_properties", "properties for the source", },
+	{ "source_master", "name of source to filter", },
+	{ "sink_name", "name for the sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "sink_master", "name of sink to filter", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "aec_method", "implementation to use", },
+	{ "aec_args", "parameters for the AEC engine", },
+	{ NULL, }
+};
+
 #if 0
 	/* These are not implemented because they don't
 	 * really make sense in the PipeWire context */
@@ -377,6 +393,7 @@ out:
 
 DEFINE_MODULE_INFO(module_echo_cancel) = {
 	.name = "module-echo-cancel",
+	.valid_args = valid_args,
 	.prepare = module_echo_cancel_prepare,
 	.load = module_echo_cancel_load,
 	.unload = module_echo_cancel_unload,

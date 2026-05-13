@@ -63,6 +63,14 @@ static const char *const pulse_module_options =
 	"restore_muted=<Save/restore muted states?> "
 	"restore_formats=<Save/restore saved formats?>";
 
+static const struct module_args valid_args[] = {
+	{ "restore_port", "Save/restore port?", },
+	{ "restore_volume", "Save/restore volumes?", },
+	{ "restore_muted", "Save/restore muted states?", },
+	{ "restore_formats", "Save/restore saved formats?", },
+	{ NULL, }
+};
+
 #define NAME "device-restore"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -486,6 +494,7 @@ static int module_device_restore_unload(struct module *module)
 DEFINE_MODULE_INFO(module_device_restore) = {
 	.name = "module-device-restore",
 	.load_once = true,
+	.valid_args = valid_args,
 	.prepare = module_device_restore_prepare,
 	.load = module_device_restore_load,
 	.unload = module_device_restore_unload,

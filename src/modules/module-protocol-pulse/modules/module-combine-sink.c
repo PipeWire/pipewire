@@ -38,6 +38,18 @@ static const char *const pulse_module_options =
 	"remix=<remix channels> "
 	"latency_compensate=<bool> ";
 
+static const struct module_args valid_args[] = {
+	{ "sink_name", "name of the sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "sinks", "sinks to combine", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "remix", "remix channels", },
+	{ "latency_compensate", "bool", },
+	{ NULL, }
+};
+
 #define NAME "combine-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -347,6 +359,7 @@ out:
 
 DEFINE_MODULE_INFO(module_combine_sink) = {
 	.name = "module-combine-sink",
+	.valid_args = valid_args,
 	.prepare = module_combine_sink_prepare,
 	.load = module_combine_sink_load,
 	.unload = module_combine_sink_unload,

@@ -25,6 +25,13 @@ static const char *const pulse_module_options =
 	"listen=<address to listen on> "
 	"auth-anonymous=<don't check for cookies?>";
 
+static const struct module_args valid_args[] = {
+	{ "port", "TCP port number", },
+	{ "listen", "address to listen on", },
+	{ "auth-anonymous", "don't check for cookies?", },
+	{ NULL, }
+};
+
 #define NAME "protocol-tcp"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -116,6 +123,7 @@ static int module_native_protocol_tcp_prepare(struct module * const module)
 
 DEFINE_MODULE_INFO(module_native_protocol_tcp) = {
 	.name = "module-native-protocol-tcp",
+	.valid_args = valid_args,
 	.prepare = module_native_protocol_tcp_prepare,
 	.load = module_native_protocol_tcp_load,
 	.unload = module_native_protocol_tcp_unload,

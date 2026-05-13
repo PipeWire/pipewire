@@ -36,6 +36,18 @@ static const char *const pulse_module_options =
 	"use_volume_sharing=<yes or no> "
 	"force_flat_volume=<yes or no> ";
 
+static const struct module_args valid_args[] = {
+	{ "source_name", "name for the source", },
+	{ "source_properties", "properties for the source", },
+	{ "master", "name of source to filter", },
+	{ "uplink_sink", "name", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "use_volume_sharing", "yes or no", },
+	{ "force_flat_volume", "yes or no", },
+	{ NULL, }
+};
+
 #define NAME "virtual-source"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -201,6 +213,7 @@ out:
 
 DEFINE_MODULE_INFO(module_virtual_source) = {
 	.name = "module-virtual-source",
+	.valid_args = valid_args,
 	.prepare = module_virtual_source_prepare,
 	.load = module_virtual_source_load,
 	.unload = module_virtual_source_unload,

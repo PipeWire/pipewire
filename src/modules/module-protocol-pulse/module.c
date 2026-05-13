@@ -180,15 +180,14 @@ static bool find_key(const struct module_args args[], const char *key)
 
 static int module_args_check(struct pw_properties *props, const struct module_args valid_args[])
 {
-	if (valid_args != NULL) {
-		const struct spa_dict_item *it;
-		spa_dict_for_each(it, &props->dict) {
-			if (!find_key(valid_args, it->key)) {
-				pw_log_warn("'%s' is not a valid module argument key", it->key);
-				return -EINVAL;
-			}
+	const struct spa_dict_item *it;
+	spa_dict_for_each(it, &props->dict) {
+		if (valid_args == NULL || !find_key(valid_args, it->key)) {
+			pw_log_warn("'%s' is not a valid module argument key", it->key);
+			return -EINVAL;
 		}
-
+	}
+	if (valid_args != NULL) {
 		for (int i = 0; valid_args[i].key != NULL; i++)
 	                if (SPA_FLAG_IS_SET(valid_args[i].flags, MODULE_ARG_MANDATORY) &&
 			    pw_properties_get(props, valid_args[i].key) == NULL) {

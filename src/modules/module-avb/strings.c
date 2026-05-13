@@ -76,3 +76,23 @@ int validate_utf8(uint8_t *str, size_t len) {
     return 0;
   }
 }
+
+int check_zero_padding(uint8_t const *str, size_t len)
+{
+	size_t str_len = strnlen((char *)str, len);
+	/* String doesn't need to be null-terminated. Return success if there is no null in str */
+	if (str_len == len)
+	{
+		return 0;
+	}
+
+	for (int i = str_len; i < len; ++i)
+	{
+		if (str[i] != 0x00)
+		{
+			return -1;
+		}
+	}
+
+	return 0;
+}

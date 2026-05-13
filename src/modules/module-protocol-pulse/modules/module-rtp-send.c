@@ -40,6 +40,24 @@ static const char *const pulse_module_options =
 	"stream_properties=<properties for the stream> "
 	"enable_opus=<enable OPUS codec>";
 
+static const struct module_args valid_args[] = {
+	{ "source", "name of the source", },
+	{ "format", "sample format", },
+	{ "channels", "number of channels", },
+	{ "rate", "sample rate", },
+	{ "destination_ip", "destination IP address", },
+	{ "source_ip", "source IP address", },
+	{ "port", "port number", },
+	{ "mtu", "maximum transfer unit", },
+	{ "loop", "loopback to local host", },
+	{ "ttl", "ttl value", },
+	{ "inhibit_auto_suspend", "always|never|only_with_non_monitor_sources", },
+	{ "stream_name", "name of the stream", },
+	{ "stream_properties", "properties for the stream", },
+	{ "enable_opus", "enable OPUS codec", },
+	{ NULL, },
+};
+
 #define NAME "rtp-send"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -265,24 +283,6 @@ out:
 
 	return res;
 }
-
-static const char* const valid_args[] = {
-	"source",
-	"format",
-	"channels",
-	"rate",
-	"destination_ip",
-	"source_ip",
-	"port",
-	"mtu",
-	"loop",
-	"ttl",
-	"inhibit_auto_suspend",
-	"stream_name",
-	"stream_properties",
-	"enable_opus",
-	NULL
-};
 
 DEFINE_MODULE_INFO(module_rtp_send) = {
 	.name = "module-rtp-send",

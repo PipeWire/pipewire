@@ -170,15 +170,15 @@ void module_args_add_props(struct pw_properties *props, const char *str)
 	}
 }
 
-static bool find_key(const char * const keys[], const char *key)
+static bool find_key(const struct module_args args[], const char *key)
 {
-	for (int i = 0; keys[i] != NULL; i++)
-		if (spa_streq(keys[i], key))
+	for (int i = 0; args[i].key != NULL; i++)
+		if (spa_streq(args[i].key, key))
 			return true;
 	return false;
 }
 
-static int module_args_check(struct pw_properties *props, const char * const valid_args[])
+static int module_args_check(struct pw_properties *props, const struct module_args valid_args[])
 {
 	if (valid_args != NULL) {
 		const struct spa_dict_item *it;
@@ -188,6 +188,13 @@ static int module_args_check(struct pw_properties *props, const char * const val
 				return -EINVAL;
 			}
 		}
+
+		for (int i = 0; valid_args[i].key != NULL; i++)
+	                if (SPA_FLAG_IS_SET(valid_args[i].flags, MODULE_ARG_MANDATORY) &&
+			    pw_properties_get(props, valid_args[i].key) == NULL) {
+				pw_log_warn("missing mandatory module argument '%s'", valid_args[i].key);
+				return -EINVAL;
+			}
 	}
 	return 0;
 }

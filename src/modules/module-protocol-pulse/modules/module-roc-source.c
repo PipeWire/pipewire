@@ -37,6 +37,19 @@ static const char *const pulse_module_options =
 	"local_control_port=<local receiver port for control packets> "
 	;
 
+static const struct module_args valid_args[] = {
+	{ "source_name", "name for the source", },
+	{ "source_properties", "properties for the source", },
+	{ "resampler_profile", "empty|high|medium|low", },
+	{ "fec_code", "empty|disable|rs8m|ldpc", },
+	{ "sess_latency_msec", "target network latency in milliseconds", },
+	{ "local_ip", "local receiver ip", },
+	{ "local_source_port", "local receiver port for source packets", },
+	{ "local_repair_port", "local receiver port for repair packets", },
+	{ "local_control_port", "local receiver port for control packets", },
+	{ NULL, },
+};
+
 #define NAME "roc-source"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -118,19 +131,6 @@ static int module_roc_source_unload(struct module *module)
 
 	return 0;
 }
-
-static const char* const valid_args[] = {
-	"source_name",
-	"source_properties",
-	"resampler_profile",
-	"fec_code",
-	"sess_latency_msec",
-	"local_ip",
-	"local_source_port",
-	"local_repair_port",
-	"local_control_port",
-	NULL
-};
 
 static const struct spa_dict_item module_roc_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },

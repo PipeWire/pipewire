@@ -30,6 +30,14 @@ static const char *const pulse_module_options =
 	"latency_msec=<latency in ms> "
 	"stream_properties=<properties for the stream> ";
 
+static const struct module_args valid_args[] = {
+	{ "sink", "name of the sink", },
+	{ "sap_address", "multicast address to listen on", },
+	{ "latency_msec", "latency in ms", },
+	{ "stream_properties", "properties for the stream", },
+	{ NULL, }
+};
+
 #define NAME "rtp-recv"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -167,14 +175,6 @@ out:
 
 	return res;
 }
-
-static const char* const valid_args[] = {
-	"sink",
-	"sap_address",
-	"latency_msec",
-	"stream_properties",
-	NULL
-};
 
 DEFINE_MODULE_INFO(module_rtp_recv) = {
 	.name = "module-rtp-recv",

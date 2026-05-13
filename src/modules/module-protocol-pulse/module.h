@@ -17,6 +17,13 @@ struct client;
 struct message;
 struct extension;
 
+struct module_args {
+	const char *key;
+	const char *description;
+#define MODULE_ARG_MANDATORY	(1u<<0)
+	uint32_t flags;
+};
+
 struct module_info {
 	const char *name;
 
@@ -27,7 +34,7 @@ struct module_info {
 	int (*unload) (struct module *module);
 
 	const struct extension *extension;
-	const char* const *valid_args;
+	const struct module_args *valid_args;
 	const struct spa_dict *properties;
 	size_t data_size;
 };

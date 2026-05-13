@@ -42,6 +42,24 @@ static const char *const pulse_module_options =
 	"input_ladspaport_map=<comma separated list of input LADSPA port names> "
 	"output_ladspaport_map=<comma separated list of output LADSPA port names> ";
 
+static const struct module_args valid_args[] = {
+	{ "sink_name", "name for the sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "sink_input_properties", "properties for the sink input", },
+	{ "master", "name of sink to filter", },
+	{ "sink_master", "name of sink to filter", },
+	{ "format", "sample format", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "plugin", "LADSPA plugin name", MODULE_ARG_MANDATORY },
+	{ "label", "LADSPA plugin label", MODULE_ARG_MANDATORY },
+	{ "control", "comma separated list of input control values", },
+	{ "input_ladspaport_map", "comma separated list of input LADSPA port names", },
+	{ "output_ladspaport_map", "comma separated list of output LADSPA port names", },
+	{ NULL, }
+};
+
 #define NAME "ladspa-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -196,7 +214,7 @@ static int module_ladspa_sink_prepare(struct module * const module)
 	capture_props = pw_properties_new(NULL, NULL);
 	playback_props = pw_properties_new(NULL, NULL);
 	if (!capture_props || !playback_props) {
-		res = -EINVAL;
+		res = -ENOMEM;
 		goto out;
 	}
 
@@ -226,6 +244,7 @@ static int module_ladspa_sink_prepare(struct module * const module)
 	    (str = pw_properties_get(props, "sink_master")) != NULL) {
 		pw_properties_set(playback_props, PW_KEY_TARGET_OBJECT, str);
 		pw_properties_set(props, "master", NULL);
+		pw_properties_set(props, "sink_master", NULL);
 	}
 
 	if (module_args_to_audioinfo_keys(module->impl, props,
@@ -255,6 +274,7 @@ out:
 
 DEFINE_MODULE_INFO(module_ladspa_sink) = {
 	.name = "module-ladspa-sink",
+	.valid_args = valid_args,
 	.prepare = module_ladspa_sink_prepare,
 	.load = module_ladspa_sink_load,
 	.unload = module_ladspa_sink_unload,

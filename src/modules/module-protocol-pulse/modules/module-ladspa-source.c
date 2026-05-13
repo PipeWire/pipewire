@@ -42,6 +42,24 @@ static const char *const pulse_module_options =
 	"input_ladspaport_map=<comma separated list of input LADSPA port names> "
 	"output_ladspaport_map=<comma separated list of output LADSPA port names> ";
 
+static const struct module_args valid_args[] = {
+	{ "source_name", "name for the source", },
+	{ "source_properties", "properties for the source", },
+	{ "source_output_properties", "properties for the source output", },
+	{ "master", "name of source to filter", },
+	{ "source_master", "name of source to filter", },
+	{ "format", "sample format", },
+	{ "rate", "sample rate", },
+	{ "channels", "number of channels", },
+	{ "channel_map", "channel map", },
+	{ "plugin", "LADSPA plugin name", MODULE_ARG_MANDATORY },
+	{ "label", "LADSPA plugin label", MODULE_ARG_MANDATORY },
+	{ "control", "comma separated list of input control values", },
+	{ "input_ladspaport_map", "comma separated list of input LADSPA port names", },
+	{ "output_ladspaport_map", "comma separated list of output LADSPA port names", },
+	{ NULL, }
+};
+
 #define NAME "ladspa-source"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -263,6 +281,7 @@ out:
 
 DEFINE_MODULE_INFO(module_ladspa_source) = {
 	.name = "module-ladspa-source",
+	.valid_args = valid_args,
 	.prepare = module_ladspa_source_prepare,
 	.load = module_ladspa_source_load,
 	.unload = module_ladspa_source_unload,

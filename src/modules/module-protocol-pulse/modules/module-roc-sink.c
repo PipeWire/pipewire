@@ -35,6 +35,17 @@ static const char *const pulse_module_options =
 	"remote_control_port=<remote receiver port for control packets> "
 	;
 
+static const struct module_args valid_args[] = {
+	{ "sink_name", "name for the sink", },
+	{ "sink_properties", "properties for the sink", },
+	{ "fec_code", "empty|disable|rs8m|ldpc", },
+	{ "remote_ip", "remote receiver ip", },
+	{ "remote_source_port", "remote receiver port for source packets", },
+	{ "remote_repair_port", "remote receiver port for repair packets", },
+	{ "remote_control_port", "remote receiver port for control packets", },
+	{ NULL, },
+};
+
 #define NAME "roc-sink"
 
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
@@ -117,16 +128,6 @@ static int module_roc_sink_unload(struct module *module)
 	return 0;
 }
 
-static const char* const valid_args[] = {
-	"sink_name",
-	"sink_properties",
-	"fec_code",
-	"remote_ip",
-	"remote_source_port",
-	"remote_repair_port",
-	"remote_control_port",
-	NULL
-};
 static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink" },

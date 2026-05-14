@@ -379,6 +379,7 @@ done:
 
 static int ensure_size(struct message *m, uint32_t size)
 {
+	uint64_t needed;
 	uint32_t alloc, diff;
 	void *data;
 
@@ -388,10 +389,10 @@ static int ensure_size(struct message *m, uint32_t size)
 	if (size <= m->allocated - m->length)
 		return size;
 
-	if (m->allocated + size < m->allocated)
+	needed = SPA_ROUND_UP_N(SPA_MAX((uint64_t)m->allocated + size, 4096u), 4096u);
+	if (needed > UINT32_MAX)
 		return -ENOMEM;
-
-	alloc = SPA_ROUND_UP_N(SPA_MAX(m->allocated + size, 4096u), 4096u);
+	alloc = (uint32_t)needed;
 	diff = alloc - m->allocated;
 	if ((data = realloc(m->data, alloc)) == NULL) {
 		free(m->data);

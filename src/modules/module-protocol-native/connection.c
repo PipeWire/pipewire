@@ -538,7 +538,8 @@ static int prepare_packet(struct pw_protocol_native_connection *conn, struct buf
 	size -= impl->hdr_size;
 	buf->msg.fds = &buf->fds[buf->fds_offset];
 
-	if (buf->msg.n_fds + buf->fds_offset > buf->n_fds)
+	if (buf->msg.n_fds > MAX_FDS ||
+	    buf->msg.n_fds + buf->fds_offset > buf->n_fds)
 		return -EPROTO;
 
 	if (size < len)

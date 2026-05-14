@@ -2176,8 +2176,8 @@ static int setup_in_convert(struct impl *this)
 	if ((res = convert_init(&in->conv)) < 0)
 		return res;
 
-	spa_log_debug(this->log, "%p: got converter features %08x:%08x passthrough:%d remap:%d %s", this,
-			this->cpu_flags, in->conv.func_cpu_flags, in->conv.is_passthrough,
+	spa_log_debug(this->log, "%p: got converter features %08x:%08x flags:%08x remap:%d %s", this,
+			this->cpu_flags, in->conv.func_cpu_flags, in->conv.flags,
 			remap, in->conv.func_name);
 
 	return 0;
@@ -2478,9 +2478,9 @@ static int setup_out_convert(struct impl *this)
 		return res;
 
 	spa_log_debug(this->log, "%p: got converter features %08x:%08x quant:%d:%d"
-			" passthrough:%d remap:%d %s", this,
+			" flags:%08x remap:%d %s", this,
 			this->cpu_flags, out->conv.func_cpu_flags, out->conv.method,
-			out->conv.noise_bits, out->conv.is_passthrough, remap, out->conv.func_name);
+			out->conv.noise_bits, out->conv.flags, remap, out->conv.func_name);
 
 	return 0;
 }
@@ -3643,7 +3643,7 @@ static void run_src_convert_stage(struct stage *s, struct stage_context *c)
 	} else {
 		dst = c->datas[s->out_idx];
 	}
-	if (c->empty && dir->conv.clear)
+	if (c->empty && dir->conv.clear && convert_is_clear_on_empty(&dir->conv))
 		convert_clear(&dir->conv, dst, c->n_samples);
 	else
 		convert_process(&dir->conv, dst, (const void**)c->datas[s->in_idx], c->n_samples);
@@ -3757,7 +3757,7 @@ static void run_dst_convert_stage(struct stage *s, struct stage_context *c)
 	struct dir *dir = &impl->dir[SPA_DIRECTION_OUTPUT];
 	void *remap_datas[MAX_PORTS], **src;
 
-	spa_log_trace_fp(impl->log, "%p: output convert %d", impl, c->n_samples);
+	spa_log_trace_fp(impl->log, "%p: output convert %d %d", impl, c->n_samples, c->empty);
 	if (dir->need_remap) {
 		uint32_t i;
 		for (i = 0; i < dir->conv.n_channels; i++) {
@@ -3768,7 +3768,7 @@ static void run_dst_convert_stage(struct stage *s, struct stage_context *c)
 	} else {
 		src = c->datas[s->in_idx];
 	}
-	if (c->empty && dir->conv.clear)
+	if (c->empty && dir->conv.clear && convert_is_clear_on_empty(&dir->conv))
 		convert_clear(&dir->conv, c->datas[s->out_idx], c->n_samples);
 	else
 		convert_process(&dir->conv, c->datas[s->out_idx], (const void **)src, c->n_samples);
@@ -3805,11 +3805,11 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 
 	/* set bits for things we need to do */
 	dir = &this->dir[SPA_DIRECTION_INPUT];
-	SPA_FLAG_UPDATE(ctx->bits, SRC_CONVERT_BIT, !dir->conv.is_passthrough);
+	SPA_FLAG_UPDATE(ctx->bits, SRC_CONVERT_BIT, !convert_is_passthrough(&dir->conv));
 	in_need_remap = dir->need_remap;
 
 	dir = &this->dir[SPA_DIRECTION_OUTPUT];
-	SPA_FLAG_UPDATE(ctx->bits, DST_CONVERT_BIT, !dir->conv.is_passthrough);
+	SPA_FLAG_UPDATE(ctx->bits, DST_CONVERT_BIT, !convert_is_passthrough(&dir->conv));
 	out_need_remap = dir->need_remap;
 
 	this->resample_passthrough = resample_is_passthrough(this);

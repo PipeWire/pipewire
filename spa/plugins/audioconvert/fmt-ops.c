@@ -640,7 +640,8 @@ int convert_init(struct convert *conv)
 	for (i = 0; i < RANDOM_SIZE; i++)
 		conv->random[i] = random();
 
-	conv->is_passthrough = conv->src_fmt == conv->dst_fmt;
+	SPA_FLAG_UPDATE(conv->flags, CONVERT_FLAG_CLEAR_ON_EMPTY, conv->noise_bits == 0);
+	SPA_FLAG_UPDATE(conv->flags, CONVERT_FLAG_PASSTHROUGH, conv->src_fmt == conv->dst_fmt);
 	conv->func_cpu_flags = info->cpu_flags;
 	conv->update_noise = ninfo->noise;
 	conv->process = info->process;

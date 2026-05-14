@@ -222,7 +222,9 @@ struct convert {
 	uint32_t func_cpu_flags;
 	const char *func_name;
 
-	unsigned int is_passthrough:1;
+#define CONVERT_FLAG_PASSTHROUGH	(1u<<0)
+#define CONVERT_FLAG_CLEAR_ON_EMPTY	(1u<<1)
+	uint32_t flags;
 
 	float scale;
 	uint32_t *random;
@@ -282,6 +284,9 @@ static inline uint32_t dither_method_from_label(const char *label)
 #define convert_process(conv,...)	(conv)->process(conv, __VA_ARGS__)
 #define convert_clear(conv,...)		(conv)->clear(conv, __VA_ARGS__)
 #define convert_free(conv)		(conv)->free(conv)
+
+#define convert_is_passthrough(conv)	SPA_FLAG_IS_SET((conv)->flags, CONVERT_FLAG_PASSTHROUGH)
+#define convert_is_clear_on_empty(conv)	SPA_FLAG_IS_SET((conv)->flags, CONVERT_FLAG_CLEAR_ON_EMPTY)
 
 #define DEFINE_NOISE_FUNCTION(name,arch)				\
 void conv_noise_##name##_##arch(struct convert *conv, float *noise,	\

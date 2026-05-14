@@ -95,6 +95,8 @@ struct object {
 	struct spa_list pending_list;
 	struct spa_list data_list;
 
+	struct pw_array client_permissions;
+
 	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
@@ -198,6 +200,7 @@ static void object_destroy(struct object *o)
 	pw_properties_free(o->props);
 	clear_params(&o->param_list, SPA_ID_INVALID);
 	clear_params(&o->pending_list, SPA_ID_INVALID);
+	pw_array_clear(&o->client_permissions);
 	free(o->type);
 	free(o);
 }
@@ -450,6 +453,15 @@ struct flags_info {
 	uint64_t mask;
 };
 
+static const struct flags_info permission_flags[] = {
+	{ "r", PW_PERM_R },
+	{ "w", PW_PERM_W },
+	{ "x", PW_PERM_X },
+	{ "m", PW_PERM_M },
+	{ "l", PW_PERM_L },
+	{ NULL, },
+};
+
 static void put_flags(struct data *d, const char *key,
 		uint64_t flags, const struct flags_info *info)
 {
@@ -501,10 +513,18 @@ static void client_dump(struct object *o)
 
 	struct data *d = o->data;
 	struct pw_client_info *i = o->info;
+	struct pw_permission *p;
 
 	spa_json_builder_object_push(&d->builder, "info", "{");
 	put_flags(d, "change-mask", i->change_mask, fl);
 	put_dict(d, "props", i->props);
+	spa_json_builder_object_push(&d->builder, "object-permissions", "{");
+	pw_array_for_each(p, &o->client_permissions) {
+		char name[16];
+		snprintf(name, sizeof(name), "%d", p->id);
+		put_flags(d, name, p->permissions, permission_flags);
+	}
+	spa_json_builder_pop(&d->builder, "}");
 	spa_json_builder_pop(&d->builder, "}");
 }
 
@@ -522,15 +542,35 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS)
 		changed++;
 
+	if (changed)
+		pw_client_get_permissions((struct pw_client*)o->proxy, 0, -1);
+
 	if (changed) {
 		o->changed += changed;
 		core_sync(o->data);
 	}
 }
 
+static void client_event_permissions(void *data, uint32_t index,
+		uint32_t n_permissions, const struct pw_permission *permissions)
+{
+	struct object *o = data;
+	struct pw_permission *p;
+	uint32_t i;
+
+	pw_array_reset(&o->client_permissions);
+	for (i = 0; i < n_permissions; i++) {
+		p = pw_array_add(&o->client_permissions, sizeof(*p));
+		if (p == NULL)
+			return;
+		*p = permissions[i];
+	}
+}
+
 static const struct pw_client_events client_events = {
 	PW_VERSION_CLIENT_EVENTS,
 	.info = client_event_info,
+	.permissions = client_event_permissions,
 };
 
 static void client_destroy(struct object *o)
@@ -1225,6 +1265,7 @@ static void registry_event_global(void *data, uint32_t id,
 	spa_list_init(&o->param_list);
 	spa_list_init(&o->pending_list);
 	spa_list_init(&o->data_list);
+	pw_array_init(&o->client_permissions, 1024);
 	spa_list_append(&d->object_list, &o->link);
 
 	o->class = find_class(type, version);
@@ -1319,15 +1360,6 @@ static const struct pw_registry_events registry_events = {
 
 static void dump_objects(struct data *d)
 {
-	static const struct flags_info fl[] = {
-		{ "r", PW_PERM_R },
-		{ "w", PW_PERM_W },
-		{ "x", PW_PERM_X },
-		{ "m", PW_PERM_M },
-		{ "l", PW_PERM_L },
-		{ NULL, },
-	};
-
 	struct object *o;
 
 	d->state = 0;
@@ -1342,7 +1374,7 @@ static void dump_objects(struct data *d)
 		spa_json_builder_object_int(&d->builder, "id", o->id);
 		spa_json_builder_object_string(&d->builder, "type", o->type);
 		spa_json_builder_object_int(&d->builder, "version", o->version);
-		put_flags(d, "permissions", o->permissions, fl);
+		put_flags(d, "permissions", o->permissions, permission_flags);
 		if (o->class && o->class->dump)
 			o->class->dump(o);
 		else if (o->props)

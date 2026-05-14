@@ -1465,6 +1465,7 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 				&SPA_DICT_ITEMS(
 					SPA_DICT_ITEM(SPA_KEY_LIBRARY_NAME, "filter-graph/libspa-filter-graph"),
 					SPA_DICT_ITEM("clock.quantum-limit", qlimit),
+					SPA_DICT_ITEM("library.filter-path", "true"),
 					SPA_DICT_ITEM("filter.graph", graph)));
 		if (new_handle == NULL)
 			goto error;

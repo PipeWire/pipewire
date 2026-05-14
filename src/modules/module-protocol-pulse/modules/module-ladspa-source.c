@@ -240,6 +240,7 @@ static int module_ladspa_source_prepare(struct module * const module)
 	} else {
 		pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
 	}
+	pw_properties_set(props, "library.filter-path", "true");
 
 	if ((str = pw_properties_get(props, "master")) != NULL ||
 	    (str = pw_properties_get(props, "source_master")) != NULL) {

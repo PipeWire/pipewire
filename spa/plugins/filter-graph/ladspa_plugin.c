@@ -20,6 +20,7 @@
 struct plugin {
 	struct spa_handle handle;
 	struct spa_fga_plugin plugin;
+	bool filter_path;
 
 	struct spa_log *log;
 
@@ -218,13 +219,13 @@ static inline const char *split_walk(const char *str, const char *delimiter, siz
 	return s;
 }
 
-static void make_search_paths(const char **path, const char **search_dirs)
+static void make_search_paths(const char **path, const char **search_dirs, bool filter)
 {
-	const char *p;
-
-	while ((p = strstr(*path, "../")) != NULL)
-		*path = p + 3;
-
+	if (filter) {
+		const char *p;
+		while ((p = strstr(*path, "../")) != NULL)
+			*path = p + 3;
+	}
 	*search_dirs = getenv("LADSPA_PATH");
 	if (!*search_dirs)
 		*search_dirs = "/usr/lib64/ladspa:/usr/lib/ladspa:" LIBDIR;
@@ -237,6 +238,8 @@ static int load_ladspa_plugin(struct plugin *impl, const char *path, const char 
 	char filename[PATH_MAX];
 	size_t len;
 
+	if (!impl->filter_path && path[0] == '/')
+		return ladspa_handle_load_by_path(impl, path);
 	/*
 	 * set the errno for the case when `ladspa_handle_load_by_path()`
 	 * is never called, which can only happen if the supplied
@@ -322,11 +325,13 @@ impl_init(const struct spa_handle_factory *factory,
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "filter.graph.path"))
 			path = s;
+		else if (spa_streq(k, "library.filter-path"))
+			impl->filter_path = spa_atob(s);
 	}
 	if (path == NULL)
 		return -EINVAL;
 
-	make_search_paths(&path, &search_dirs);
+	make_search_paths(&path, &search_dirs, impl->filter_path);
 
 	if ((res = load_ladspa_plugin(impl, path, search_dirs)) < 0) {
 		spa_log_error(impl->log, "failed to load plugin '%s' in '%s': %s",

@@ -727,9 +727,6 @@ static void parse_apple_midi_cmd_in(struct impl *impl, bool ctrl, uint8_t *buffe
 	char addr[128];
 	uint16_t port = 0;
 
-	if ((size_t)len < sizeof(*hdr))
-		return;
-
 	initiator = ntohl(hdr->initiator);
 	ssrc = ntohl(hdr->ssrc);
 
@@ -868,8 +865,13 @@ static void parse_apple_midi_cmd_ck(struct impl *impl, bool ctrl, uint8_t *buffe
 	struct rtp_apple_midi_ck reply;
 	struct session *sess;
 	uint64_t ts, t1, t2, t3;
-	uint32_t ssrc = ntohl(hdr->ssrc);
+	uint32_t ssrc;
 	struct timespec now;
+
+	if ((size_t)len < sizeof(*hdr))
+		return;
+
+	ssrc = ntohl(hdr->ssrc);
 
 	sess = find_session_by_ssrc(impl, ssrc);
 	if (sess == NULL) {

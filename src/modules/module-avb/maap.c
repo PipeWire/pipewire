@@ -379,9 +379,9 @@ struct avb_maap *avb_maap_register(struct server *server)
 {
 	struct maap *maap;
 	uint8_t bmac[6] = AVB_MAAP_MAC;
-	int fd, res;
+	int res;
 
-	fd = avb_server_make_socket(server, AVB_TSN_ETH, bmac);
+	spa_autoclose int fd = avb_server_make_socket(server, AVB_TSN_ETH, bmac);
 	if (fd < 0) {
 		res = fd;
 		goto error;
@@ -390,7 +390,7 @@ struct avb_maap *avb_maap_register(struct server *server)
 	maap = calloc(1, sizeof(*maap));
 	if (maap == NULL) {
 		res = -errno;
-		goto error_close;
+		goto error;
 	}
 	maap->props = pw_properties_new(NULL, NULL);
 	if (maap->props == NULL) {
@@ -405,7 +405,7 @@ struct avb_maap *avb_maap_register(struct server *server)
 
 	load_state(maap);
 
-	maap->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, maap);
+	maap->source = pw_loop_add_io(server->impl->loop, spa_steal_fd(fd), SPA_IO_IN, true, on_socket_data, maap);
 	if (maap->source == NULL) {
 		res = -errno;
 		pw_log_error("maap %p: can't create maap source: %m", maap);
@@ -417,8 +417,6 @@ struct avb_maap *avb_maap_register(struct server *server)
 
 error_free:
 	free(maap);
-error_close:
-	close(fd);
 error:
 	errno = -res;
 	return NULL;

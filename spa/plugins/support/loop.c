@@ -922,6 +922,8 @@ error_exit_free:
 	free(source);
 	errno = -res;
 error_exit:
+	if (close)
+		spa_system_close(impl->system, fd);
 	return NULL;
 }
 

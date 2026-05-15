@@ -906,7 +906,8 @@ static int set_socket_permissions(struct server *s, struct socket_info *info)
 static int add_socket(struct pw_protocol *protocol, struct server *s, struct socket_info *info)
 {
 	socklen_t size;
-	int fd = -1, res;
+	spa_autoclose int fd = -1;
+	int res;
 	bool activated = false;
 
 	{
@@ -939,13 +940,13 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 					res = -errno;
 					pw_log_error("server %p: stat %s failed with error: %m",
 							s, s->addr.sun_path);
-					goto error_close;
+					goto error;
 				}
 			} else if (S_ISLNK(socket_stat.st_mode)) {
 				pw_log_error("server %p: refusing to follow symlink at %s",
 						s, s->addr.sun_path);
 				res = -EACCES;
-				goto error_close;
+				goto error;
 			} else if (S_ISSOCK(socket_stat.st_mode) &&
 				   (socket_stat.st_mode & S_IWUSR || socket_stat.st_mode & S_IWGRP)) {
 				unlink(s->addr.sun_path);
@@ -957,20 +958,20 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 		if (bind(fd, (struct sockaddr *) &s->addr, size) < 0) {
 			res = -errno;
 			pw_log_error("server %p: bind() failed with error: %m", s);
-			goto error_close;
+			goto error;
 		}
 
 		if ((res = set_socket_permissions(s, info)) < 0) {
 			errno = -res;
 			pw_log_error("server %p: failed to set socket %s permissions: %m",
 					s, info->name);
-			goto error_close;
+			goto error;
 		}
 
 		if (listen(fd, 128) < 0) {
 			res = -errno;
 			pw_log_error("server %p: listen() failed with error: %m", s);
-			goto error_close;
+			goto error;
 		}
 	} else {
 		if (info->has_owner || info->has_mode || info->selinux_context)
@@ -982,12 +983,12 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 	s->loop = pw_context_get_main_loop(protocol->context);
 	if (s->loop == NULL) {
 		res = -errno;
-		goto error_close;
+		goto error;
 	}
-	s->source = pw_loop_add_io(s->loop, fd, SPA_IO_IN, true, socket_data, s);
+	s->source = pw_loop_add_io(s->loop, spa_steal_fd(fd), SPA_IO_IN, true, socket_data, s);
 	if (s->source == NULL) {
 		res = -errno;
-		goto error_close;
+		goto error;
 	}
 	res = write_socket_address(s);
 	if (res < 0) {
@@ -996,8 +997,6 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 	}
 	return 0;
 
-error_close:
-	close(fd);
 error:
 	return res;
 

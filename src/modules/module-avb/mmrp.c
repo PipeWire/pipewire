@@ -4,6 +4,8 @@
 
 #include <unistd.h>
 
+#include <spa/utils/cleanup.h>
+
 #include <pipewire/pipewire.h>
 
 #include "utils.h"
@@ -180,9 +182,9 @@ struct avb_mmrp_attribute *avb_mmrp_attribute_new(struct avb_mmrp *m,
 struct avb_mmrp *avb_mmrp_register(struct server *server)
 {
 	struct mmrp *mmrp;
-	int fd, res;
+	int res;
 
-	fd = avb_server_make_socket(server, AVB_MMRP_ETH, mmrp_mac);
+	spa_autoclose int fd = avb_server_make_socket(server, AVB_MMRP_ETH, mmrp_mac);
 	if (fd < 0) {
 		errno = -fd;
 		return NULL;
@@ -190,26 +192,25 @@ struct avb_mmrp *avb_mmrp_register(struct server *server)
 	mmrp = calloc(1, sizeof(*mmrp));
 	if (mmrp == NULL) {
 		res = -errno;
-		goto error_close;
+		goto error;
 	}
 
 	mmrp->server = server;
 	spa_list_init(&mmrp->attributes);
 
-	mmrp->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, mmrp);
+	mmrp->source = pw_loop_add_io(server->impl->loop, spa_steal_fd(fd), SPA_IO_IN, true, on_socket_data, mmrp);
 	if (mmrp->source == NULL) {
 		res = -errno;
 		pw_log_error("mmrp %p: can't create mmrp source: %m", mmrp);
-		goto error_no_source;
+		goto error_free;
 	}
 	avdecc_server_add_listener(server, &mmrp->server_listener, &server_events, mmrp);
 
 	return (struct avb_mmrp*)mmrp;
 
-error_no_source:
+error_free:
 	free(mmrp);
-error_close:
-	close(fd);
+error:
 	errno = -res;
 	return NULL;
 }

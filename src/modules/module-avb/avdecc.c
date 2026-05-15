@@ -14,6 +14,7 @@
 
 #include <spa/support/cpu.h>
 #include <spa/debug/mem.h>
+#include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
 
 #include <pipewire/pipewire.h>
@@ -148,12 +149,12 @@ static int load_filter(int fd, uint16_t eth, const uint8_t dest[6], const uint8_
 
 static int raw_make_socket(struct server *server, uint16_t type, const uint8_t mac[6])
 {
-	int fd, res;
+	int res;
 	struct ifreq req;
 	struct packet_mreq mreq;
 	struct sockaddr_ll sll;
 
-	fd = socket(AF_PACKET, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, htons(ETH_P_ALL));
+	spa_autoclose int fd = socket(AF_PACKET, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, htons(ETH_P_ALL));
 	if (fd < 0) {
 		pw_log_error("socket() failed: %m");
 		return -errno;
@@ -164,7 +165,7 @@ static int raw_make_socket(struct server *server, uint16_t type, const uint8_t m
 	if (ioctl(fd, SIOCGIFINDEX, &req) < 0) {
 		res = -errno;
 		pw_log_error("SIOCGIFINDEX %s failed: %m", server->ifname);
-		goto error_close;
+		return res;
 	}
 	server->ifindex = req.ifr_ifindex;
 
@@ -173,7 +174,7 @@ static int raw_make_socket(struct server *server, uint16_t type, const uint8_t m
 	if (ioctl(fd, SIOCGIFHWADDR, &req) < 0) {
 		res = -errno;
 		pw_log_error("SIOCGIFHWADDR %s failed: %m", server->ifname);
-		goto error_close;
+		return res;
 	}
 	memcpy(server->mac_addr, req.ifr_hwaddr.sa_data, sizeof(server->mac_addr));
 
@@ -193,7 +194,7 @@ static int raw_make_socket(struct server *server, uint16_t type, const uint8_t m
 	if (bind(fd, (struct sockaddr *) &sll, sizeof(sll)) < 0) {
 		res = -errno;
 		pw_log_error("bind() failed: %m");
-		goto error_close;
+		return res;
 	}
 
 	spa_zero(mreq);
@@ -206,17 +207,13 @@ static int raw_make_socket(struct server *server, uint16_t type, const uint8_t m
 				&mreq, sizeof(mreq)) < 0) {
 		res = -errno;
 		pw_log_error("setsockopt(ADD_MEMBERSHIP) failed: %m");
-		goto error_close;
+		return res;
 	}
 
 	if ((res = load_filter(fd, type, mac, server->mac_addr)) < 0)
-		goto error_close;
+		return res;
 
-	return fd;
-
-error_close:
-	close(fd);
-	return res;
+	return spa_steal_fd(fd);
 }
 
 int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t mac[6])
@@ -229,45 +226,40 @@ int avb_server_make_socket(struct server *server, uint16_t type, const uint8_t m
 static int raw_transport_setup(struct server *server)
 {
 	struct impl *impl = server->impl;
-	int fd, res;
+	int res;
 	static const uint8_t bmac[6] = AVB_BROADCAST_MAC;
 
-	fd = raw_make_socket(server, AVB_TSN_ETH, bmac);
+	spa_autoclose int fd = raw_make_socket(server, AVB_TSN_ETH, bmac);
 	if (fd < 0)
 		return fd;
 
 	pw_log_info("0x%"PRIx64" %d", server->entity_id, server->ifindex);
 
-	server->source = pw_loop_add_io(impl->loop, fd, SPA_IO_IN, true, on_socket_data, server);
+	server->source = pw_loop_add_io(impl->loop, spa_steal_fd(fd), SPA_IO_IN, true, on_socket_data, server);
 	if (server->source == NULL) {
 		res = -errno;
 		pw_log_error("server %p: can't create server source: %m", impl);
-		goto error_no_source;
+		return res;
 	}
 
 	if ((res = pw_timer_queue_add(impl->timer_queue, &server->timer,
 			NULL, DEFAULT_INTERVAL_MS * SPA_NSEC_PER_MSEC,
 			on_timer_event, server)) < 0) {
 		pw_log_error("server %p: can't create timer: %s", impl, spa_strerror(res));
-		goto error_no_timer;
+		pw_loop_destroy_source(impl->loop, server->source);
+		server->source = NULL;
+		return res;
 	}
 	return 0;
-
-error_no_timer:
-	pw_loop_destroy_source(impl->loop, server->source);
-	server->source = NULL;
-error_no_source:
-	close(fd);
-	return res;
 }
 
 static int raw_stream_setup_socket(struct server *server, struct stream *stream)
 {
-	int fd, res;
+	int res;
 	char buf[128];
 	struct ifreq req;
 
-	fd = socket(AF_PACKET, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, htons(ETH_P_ALL));
+	spa_autoclose int fd = socket(AF_PACKET, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, htons(ETH_P_ALL));
 	if (fd < 0) {
 		pw_log_error("socket() failed: %m");
 		return -errno;
@@ -278,8 +270,7 @@ static int raw_stream_setup_socket(struct server *server, struct stream *stream)
 	res = ioctl(fd, SIOCGIFINDEX, &req);
 	if (res < 0) {
 		pw_log_error("SIOCGIFINDEX %s failed: %m", server->ifname);
-		res = -errno;
-		goto error_close;
+		return -errno;
 	}
 
 	spa_zero(stream->sock_addr);
@@ -294,8 +285,7 @@ static int raw_stream_setup_socket(struct server *server, struct stream *stream)
 				sizeof(stream->prio));
 		if (res < 0) {
 			pw_log_error("setsockopt(SO_PRIORITY %d) failed: %m", stream->prio);
-			res = -errno;
-			goto error_close;
+			return -errno;
 		}
 
 		txtime_cfg.clockid = CLOCK_TAI;
@@ -304,8 +294,7 @@ static int raw_stream_setup_socket(struct server *server, struct stream *stream)
 				sizeof(txtime_cfg));
 		if (res < 0) {
 			pw_log_error("setsockopt(SO_TXTIME) failed: %m");
-			res = -errno;
-			goto error_close;
+			return -errno;
 		}
 	} else {
 		struct packet_mreq mreq;
@@ -313,8 +302,7 @@ static int raw_stream_setup_socket(struct server *server, struct stream *stream)
 		res = bind(fd, (struct sockaddr *) &stream->sock_addr, sizeof(stream->sock_addr));
 		if (res < 0) {
 			pw_log_error("bind() failed: %m");
-			res = -errno;
-			goto error_close;
+			return -errno;
 		}
 
 		spa_zero(mreq);
@@ -329,15 +317,10 @@ static int raw_stream_setup_socket(struct server *server, struct stream *stream)
 
 		if (res < 0) {
 			pw_log_error("setsockopt(ADD_MEMBERSHIP) failed: %m");
-			res = -errno;
-			goto error_close;
+			return -errno;
 		}
 	}
-	return fd;
-
-error_close:
-	close(fd);
-	return res;
+	return spa_steal_fd(fd);
 }
 
 static ssize_t raw_stream_send(struct server *server, struct stream *stream,

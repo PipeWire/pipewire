@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <spa/debug/mem.h>
+#include <spa/utils/cleanup.h>
 
 #include <pipewire/pipewire.h>
 
@@ -632,9 +633,9 @@ void avb_msrp_log_state(struct server *server, const char *label)
 struct avb_msrp *avb_msrp_register(struct server *server)
 {
 	struct msrp *msrp;
-	int fd, res;
+	int res;
 
-	fd = avb_server_make_socket(server, AVB_MSRP_ETH, msrp_mac);
+	spa_autoclose int fd = avb_server_make_socket(server, AVB_MSRP_ETH, msrp_mac);
 	if (fd < 0) {
 		errno = -fd;
 		return NULL;
@@ -642,27 +643,26 @@ struct avb_msrp *avb_msrp_register(struct server *server)
 	msrp = calloc(1, sizeof(*msrp));
 	if (msrp == NULL) {
 		res = -errno;
-		goto error_close;
+		goto error;
 	}
 
 	msrp->server = server;
 	spa_list_init(&msrp->attributes);
 
-	msrp->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, msrp);
+	msrp->source = pw_loop_add_io(server->impl->loop, spa_steal_fd(fd), SPA_IO_IN, true, on_socket_data, msrp);
 	if (msrp->source == NULL) {
 		res = -errno;
 		pw_log_error("msrp %p: can't create msrp source: %m", msrp);
-		goto error_no_source;
+		goto error_free;
 	}
 	avdecc_server_add_listener(server, &msrp->server_listener, &server_events, msrp);
 	avb_mrp_add_listener(server->mrp, &msrp->mrp_listener, &mrp_events, msrp);
 
 	return (struct avb_msrp*)msrp;
 
-error_no_source:
+error_free:
 	free(msrp);
-error_close:
-	close(fd);
+error:
 	errno = -res;
 	return NULL;
 }

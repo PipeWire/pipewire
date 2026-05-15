@@ -6,6 +6,8 @@
 
 #include <unistd.h>
 
+#include <spa/utils/cleanup.h>
+
 #include <pipewire/pipewire.h>
 
 #include "mvrp.h"
@@ -255,9 +257,9 @@ static const struct avb_mrp_events mrp_events = {
 struct avb_mvrp *avb_mvrp_register(struct server *server)
 {
 	struct mvrp *mvrp;
-	int fd, res;
+	int res;
 
-	fd = avb_server_make_socket(server, AVB_MVRP_ETH, mvrp_mac);
+	spa_autoclose int fd = avb_server_make_socket(server, AVB_MVRP_ETH, mvrp_mac);
 	if (fd < 0) {
 		errno = -fd;
 		return NULL;
@@ -265,27 +267,26 @@ struct avb_mvrp *avb_mvrp_register(struct server *server)
 	mvrp = calloc(1, sizeof(*mvrp));
 	if (mvrp == NULL) {
 		res = -errno;
-		goto error_close;
+		goto error;
 	}
 
 	mvrp->server = server;
 	spa_list_init(&mvrp->attributes);
 
-	mvrp->source = pw_loop_add_io(server->impl->loop, fd, SPA_IO_IN, true, on_socket_data, mvrp);
+	mvrp->source = pw_loop_add_io(server->impl->loop, spa_steal_fd(fd), SPA_IO_IN, true, on_socket_data, mvrp);
 	if (mvrp->source == NULL) {
 		res = -errno;
 		pw_log_error("mvrp %p: can't create mvrp source: %m", mvrp);
-		goto error_no_source;
+		goto error_free;
 	}
 	avdecc_server_add_listener(server, &mvrp->server_listener, &server_events, mvrp);
 	avb_mrp_add_listener(server->mrp, &mvrp->mrp_listener, &mrp_events, mvrp);
 
 	return (struct avb_mvrp*)mvrp;
 
-error_no_source:
+error_free:
 	free(mvrp);
-error_close:
-	close(fd);
+error:
 	errno = -res;
 	return NULL;
 }

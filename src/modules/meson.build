@@ -828,7 +828,8 @@ if build_module_avb
       'module-avb/msrp.c',
       'module-avb/mvrp.c',
       'module-avb/srp.c',
-      'module-avb/stream.c'
+      'module-avb/stream.c',
+      'module-avb/strings.c'
       ],
     include_directories : [configinc],
     install : true,

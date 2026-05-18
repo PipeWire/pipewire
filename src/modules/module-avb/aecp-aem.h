@@ -250,7 +250,7 @@ struct avb_packet_aecp_aem_setget_name {
 	uint16_t descriptor_index;
 	uint16_t name_index;
 	uint16_t configuration_index;
-	char name[64];
+	unsigned char name[64];
 } __attribute__ ((__packed__));
 
 struct avb_packet_aecp_aem_setget_association_id {

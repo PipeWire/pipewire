@@ -16,11 +16,11 @@ typedef enum {
 	ST_ERROR,
 } UTF8_STATE;
 
-int validate_utf8 (uint8_t *str, size_t len)
+int validate_utf8 (const unsigned char *str, size_t len)
 {
 	UTF8_STATE state = ST_START;
 
-	for (int i = 0; i < len; ++i)
+	for (unsigned int i = 0; i < len; ++i)
 	{
 		switch (state)
 		{
@@ -103,7 +103,7 @@ int validate_utf8 (uint8_t *str, size_t len)
 	}
 }
 
-int check_zero_padding (uint8_t const *str, size_t len)
+int check_zero_padding (const unsigned char *str, size_t len)
 {
 	size_t str_len = strnlen ((char *)str, len);
 	/* String doesn't need to be null-terminated. Return success if there is no
@@ -113,7 +113,7 @@ int check_zero_padding (uint8_t const *str, size_t len)
 		return 0;
 	}
 
-	for (int i = str_len; i < len; ++i)
+	for (unsigned int i = str_len; i < len; ++i)
 	{
 		if (str[i] != 0x00)
 		{

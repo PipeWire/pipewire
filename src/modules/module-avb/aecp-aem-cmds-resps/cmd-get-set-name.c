@@ -156,7 +156,7 @@ int handle_cmd_set_name_common(struct aecp *aecp, int64_t now,
 	const struct avb_packet_aecp_aem_setget_name *cmd;
 	struct descriptor *desc;
 	uint16_t desc_type, desc_id, name_index;
-	char *name_ptr;
+	unsigned char *name_ptr;
 	int rc;
 
 	cmd = (const struct avb_packet_aecp_aem_setget_name *)p->payload;
@@ -169,7 +169,7 @@ int handle_cmd_set_name_common(struct aecp *aecp, int64_t now,
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
 
-	name_ptr = get_name_ptr(desc_type, descriptor_body(desc), name_index);
+	name_ptr = (unsigned char *)get_name_ptr(desc_type, descriptor_body(desc), name_index);
 	if (name_ptr == NULL)
 		return reply_status(aecp,
 				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);

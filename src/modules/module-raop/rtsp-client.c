@@ -550,8 +550,7 @@ int pw_rtsp_client_connect(struct pw_rtsp_client *client,
 error:
 	if (client->source)
 		pw_loop_destroy_source(client->loop, client->source);
-	if (fd >= 0)
-		close(fd);
+	client->source = NULL;
 	return res;
 }
 

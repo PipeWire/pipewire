@@ -4,6 +4,8 @@
 
 #include "strings.h"
 
+#include <stdbool.h>
+
 typedef enum {
 	ST_START,
 	ST_A,
@@ -13,12 +15,12 @@ typedef enum {
 	ST_E,
 	ST_F,
 	ST_G,
-	ST_ERROR,
 } UTF8_STATE;
 
 int validate_utf8 (const unsigned char *str, size_t len)
 {
 	UTF8_STATE state = ST_START;
+	bool err = false;
 
 	for (unsigned int i = 0; i < len; ++i)
 	{
@@ -63,32 +65,53 @@ int validate_utf8 (const unsigned char *str, size_t len)
 			}
 			else
 			{
-				state = ST_ERROR;
+				err = true;
 			}
 			break;
 		case ST_A:
-			state = (str[i] >= 0x80 && str[i] <= 0xBF) ? ST_START : ST_ERROR;
+			if (str[i] >= 0x80 && str[i] <= 0xBF)
+				state =  ST_START;
+			else
+				err = true;
 			break;
 		case ST_B:
-			state = (str[i] >= 0x80 && str[i] <= 0xBF) ? ST_A : ST_ERROR;
+			if (str[i] >= 0x80 && str[i] <= 0xBF)
+				state =  ST_A;
+			else
+				err = true;
 			break;
 		case ST_C:
-			state = (str[i] >= 0xA0 && str[i] <= 0xBF) ? ST_A : ST_ERROR;
+			if (str[i] >= 0xA0 && str[i] <= 0xBF)
+				state =  ST_A;
+			else
+				err = true;
 			break;
 		case ST_D:
-			state = (str[i] >= 0x80 && str[i] <= 0x9F) ? ST_A : ST_ERROR;
+			if (str[i] >= 0x80 && str[i] <= 0x9F)
+				state =  ST_A;
+			else
+				err = true;
 			break;
 		case ST_E:
-			state = (str[i] >= 0x80 && str[i] <= 0xBF) ? ST_B : ST_ERROR;
+			if (str[i] >= 0x80 && str[i] <= 0xBF)
+				state =  ST_B;
+			else
+				err = true;
 			break;
 		case ST_F:
-			state = (str[i] >= 0x90 && str[i] <= 0xBF) ? ST_B : ST_ERROR;
+			if (str[i] >= 0x90 && str[i] <= 0xBF)
+				state =  ST_B;
+			else
+				err = true;
 			break;
 		case ST_G:
-			state = (str[i] >= 0x80 && str[i] <= 0x8F) ? ST_B : ST_ERROR;
+			if (str[i] >= 0x80 && str[i] <= 0x8F)
+				state =  ST_B;
+			else
+				err = true;
 			break;
 		}
-		if (state == ST_ERROR)
+		if (err == true)
 		{
 			return -1;
 		}

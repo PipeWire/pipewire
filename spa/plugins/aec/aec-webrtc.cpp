@@ -190,16 +190,19 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	config.transient_suppression.enabled = transient_suppression;
 	config.voice_detection.enabled = voice_detection;
 #elif defined(HAVE_WEBRTC2)
+	bool gain_control1 = webrtc_get_spa_bool(args, "webrtc.gain_control1.enabled", false);
+	bool gain_control2 = webrtc_get_spa_bool(args, "webrtc.gain_control2.enabled", false);
+
 	webrtc::AudioProcessing::Config config;
 	config.echo_canceller.enabled = true;
 	config.echo_canceller.mobile_mode = mobile_mode;
 	config.pipeline.multi_channel_capture = rec_info->channels > 1;
 	config.pipeline.multi_channel_render = play_info->channels > 1;
 	// FIXME: Example code enables both gain controllers, but that seems sus
-	config.gain_controller1.enabled = gain_control;
+	config.gain_controller1.enabled = gain_control || gain_control1;
 	config.gain_controller1.mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
-	config.gain_controller2.enabled = gain_control;
-	config.gain_controller2.adaptive_digital.enabled = gain_control;
+	config.gain_controller2.enabled = gain_control || gain_control2;
+	config.gain_controller2.adaptive_digital.enabled = gain_control || gain_control2;
 	config.high_pass_filter.enabled = high_pass_filter;
 	config.noise_suppression.enabled = noise_suppression;
 	config.noise_suppression.level = webrtc::AudioProcessing::Config::NoiseSuppression::kHigh;

@@ -689,6 +689,7 @@ on_control_source_io(void *data, int fd, uint32_t mask)
 		case 0xd5:
 			pw_log_debug("retransmit request seq:%u num:%u", seq, num);
 			/* retransmit request */
+			rtp_stream_resend_packets(impl->stream, seq, num);
 			break;
 		}
 	}

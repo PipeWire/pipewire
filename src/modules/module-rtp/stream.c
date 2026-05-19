@@ -172,6 +172,7 @@ struct impl {
 	void (*stop_timer)(struct impl *impl);
 	void (*flush_timeout)(struct impl *impl, uint64_t expirations);
 	void (*deinit)(struct impl *impl, enum spa_direction direction);
+	int (*resend_packets)(struct impl *impl, uint16_t seq, uint16_t num);
 
 	/*
 	 * pw_filter where the filter would be driven at the PTP clock
@@ -193,6 +194,8 @@ struct impl {
 	/* And some bookkeping for the sender processing */
 	uint64_t rtp_base_ts;
 	uint32_t rtp_last_ts;
+
+	uint64_t last_ts_seq;
 
 	/* The process latency, set by on_stream_param_changed(). */
 	struct spa_process_latency_info process_latency;
@@ -1058,6 +1061,14 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
 {
 	struct impl *impl = (struct impl*)s;
 	return impl->receive_rtp(impl, buffer, len, current_time);
+}
+int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
+{
+	struct impl *impl = (struct impl*)s;
+	if (impl->resend_packets)
+		return impl->resend_packets(impl, seq, num);
+	else
+		return -ENOTSUP;
 }
 
 uint64_t rtp_stream_get_nsec(struct rtp_stream *s)

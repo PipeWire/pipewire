@@ -1,3 +1,46 @@
+# PipeWire 1.6.6 (2026-05-26)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Fix a bug in the server code that could leave snap clients without
+    sound. (#5270)
+  - Relax LADSPA path loading again, absolute paths are only blocked in
+    unsafe cases.
+  - Fix a volume restore issue in filter-graph when using custom volume
+    controls.
+  - Small fixes and improvements.
+
+
+## PipeWire
+  - Fix the meta permission check on metadata.
+  - Make sure we don't accept too many fds.
+  - Fix potential race with buffer allocation and Suspend. (#3547)
+
+## SPA
+  - Relax LADSPA path loading. Absolute paths are allowed when loading
+    modules from a config file. They are now only blocked when loading
+    the pulse ladspa modules and filter-chains in nodes because those
+    can load ladspa plugins in other processes. (#5222)
+  - Fix a regression in the dither noise that was silent when no input
+    was available. (#5260)
+  - Fix volume initialization in filter-graph. (#5192)
+
+## Pulse-server
+  - Fix a bug in the server code that could leave snap clients without
+    sound. (#5270)
+  - Be more careful with the stream suspend messages and only send them
+    when the stream is monitoring. (#5273)
+  - Fix monitor mode in pavucontrol.
+
+## Tools
+  - Fix midifile SysEx writing in pw-cat and ensure the header is written
+    correctly on close.
+  - Make sure pw-cat does not try to convert Midi to UMP.
+
+Older versions:
+
 # PipeWire 1.6.5 (2026-05-13)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -29,9 +72,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## Pulse-server
   - A whole bunch of extra security checks and hardening fixes.
-
-
-Older versions:
 
 # PipeWire 1.6.4 (2026-04-22)
 

@@ -199,6 +199,7 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	config.gain_controller1.enabled = gain_control;
 	config.gain_controller1.mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
 	config.gain_controller2.enabled = gain_control;
+	config.gain_controller2.adaptive_digital.enabled = gain_control;
 	config.high_pass_filter.enabled = high_pass_filter;
 	config.noise_suppression.enabled = noise_suppression;
 	config.noise_suppression.level = webrtc::AudioProcessing::Config::NoiseSuppression::kHigh;

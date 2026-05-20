@@ -537,7 +537,7 @@ static void rtp_audio_send_packets(struct impl *impl, uint32_t timestamp, uint32
 			&iov[1], tosend * stride);
 
 		pw_log_trace_fp("sending %d packet:%d ts_offset:%d timestamp:%u (%f s)",
-				tosend, num_packets, impl->ts_offset, timestamp,
+				tosend, num, impl->ts_offset, timestamp,
 				(double)timestamp * impl->io_position->clock.rate.num /
 				impl->io_position->clock.rate.denom);
 

@@ -185,6 +185,7 @@ struct data {
 	struct {
 		FILE *file;
 		bool close;
+		bool first;
 	} sysex;
 	struct {
 		FILE *file;
@@ -1552,16 +1553,48 @@ static int sysex_play(struct data *d, void *dst, unsigned int n_frames, bool *nu
 	struct spa_pod_builder b;
 	struct spa_pod_frame f;
 	size_t size, to_read = n_frames - 64;
-	uint8_t bytes[to_read];
+	uint8_t data[to_read+2], *bytes;
+
+	bytes = &data[1];
+	size = fread(bytes, 1, to_read, d->sysex.file);
+
+	if (size != to_read) {
+		if (ferror(d->sysex.file))
+			return -EIO;
+	}
+	if (feof(d->sysex.file)) {
+		if (size == 0)
+			return 0;
+		if (bytes[size-1] != 0xf7) {
+			bytes[size] = 0xf7;
+			size += 1;
+		}
+	} else {
+		if (bytes[size-1] != 0xf0) {
+			bytes[size] = 0xf0;
+			size += 1;
+		}
+	}
+	if (d->sysex.first) {
+		if (bytes[0] != 0xf0) {
+			bytes = &data[0];
+			bytes[0] = 0xf0;
+			size += 1;
+		}
+		d->sysex.first = false;
+	} else {
+		if (bytes[0] != 0xf7) {
+			bytes = &data[0];
+			bytes[0] = 0xf7;
+			size += 1;
+		}
+	}
 
 	spa_zero(b);
 	spa_pod_builder_init(&b, dst, n_frames);
 
 	spa_pod_builder_push_sequence(&b, &f, 0);
 	spa_pod_builder_control(&b, 0, SPA_CONTROL_Midi);
-
-	size = fread(bytes, 1, to_read, d->sysex.file);
-
 	spa_pod_builder_bytes(&b, bytes, size);
 	spa_pod_builder_pop(&b, &f);
 
@@ -1590,6 +1623,7 @@ static int setup_sysex(struct data *data)
 
 	data->fill = sysex_play;
 	data->stride = 1;
+	data->sysex.first = true;
 
 	return 0;
 }

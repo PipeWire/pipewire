@@ -69,6 +69,33 @@ and consumers must be enabled explicitly. UMP in producers is supported
 still and will be converted to Midi1 by all consumers that did not explicitly
 enable UMP support.
 
+## SysEx
+
+SysEx messages in Midi1 can be of unlimited length. They start with an
+F0 byte and end with a F7 byte. Because of the buffer data length limitations,
+it might be necessary to split a MIDI1 SysEx message accross multiple
+buffers.
+
+The stategy to implement this is specified in RFC 6295 (RTP Midi) section
+3.2. Long SysEx messages can be split up into parts by using the following
+start/end bytes combinations:
+
+ |-----------------------------------------------------------|
+ | Sublist Position |  Head Status Octet | Tail Status Octet |
+ |-----------------------------------------------------------|
+ |    first         |       0xF0         |       0xF0        |
+ |-----------------------------------------------------------|
+ |    middle        |       0xF7         |       0xF0        |
+ |-----------------------------------------------------------|
+ |    last          |       0xF7         |       0xF7        |
+ |-----------------------------------------------------------|
+ |    cancel        |       0xF7         |       0xF4        |
+ -----------------------------------------------------------
+
+Nodes that require a complete SysEx message must be able to assemble the
+complete message from the parts before processing the message.
+
+
 ## The PipeWire Daemon
 
 Nothing special is implemented for MIDI. Negotiation of formats

@@ -513,10 +513,10 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 {
 	struct midi_track *tr;
 	uint32_t tick;
-	void *data, *ev_data;
+	void *data;
 	size_t size;
 	int res, ev_size;
-	uint8_t ev[32];
+	uint8_t ev[32], *ev_data;
 	uint64_t state = 0;
 
 	spa_return_val_if_fail(event != NULL, -EINVAL);
@@ -549,6 +549,17 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 
 		CHECK_RES(write_varlen(mf, tr, tick - tr->tick));
 		tr->tick = tick;
+
+		if (ev_size > 0 &&
+		    (ev_data[0] == 0xf0 || ev_data[0] == 0xf7)) {
+			CHECK_RES(write_n(mf->file, ev_data, 1));
+			ev_size -= 1;
+			ev_data += 1;
+
+			CHECK_RES(write_varlen(mf, tr, ev_size));
+
+			tr->size += 1;
+		}
 
 		CHECK_RES(write_n(mf->file, ev_data, ev_size));
 		tr->size += ev_size;

@@ -740,6 +740,9 @@ static int sync_volume(struct graph *graph, struct volume *vol)
 		}
 		v = v * (vol->max[n_port] - vol->min[n_port]) + vol->min[n_port];
 
+		p->control_initialized = true;
+		p->control_current = v;
+
 		n_hndl = SPA_MAX(1u, p->node->n_hndl);
 		res += port_id_set_control_value(p, i % n_hndl, v);
 	}

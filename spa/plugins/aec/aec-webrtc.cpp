@@ -190,23 +190,41 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	config.transient_suppression.enabled = transient_suppression;
 	config.voice_detection.enabled = voice_detection;
 #elif defined(HAVE_WEBRTC2)
-	bool gain_control1 = webrtc_get_spa_bool(args, "webrtc.gain_control1.enabled", false);
-	bool gain_control2 = webrtc_get_spa_bool(args, "webrtc.gain_control2.enabled", false);
+	bool gain_control1 = webrtc_get_spa_bool(args, "webrtc.gain_control1.enabled", gain_control);
+	bool gain_control2 = webrtc_get_spa_bool(args, "webrtc.gain_control2.enabled", gain_control);
 
 	webrtc::AudioProcessing::Config config;
 	config.echo_canceller.enabled = true;
 	config.echo_canceller.mobile_mode = mobile_mode;
 	config.pipeline.multi_channel_capture = rec_info->channels > 1;
 	config.pipeline.multi_channel_render = play_info->channels > 1;
-	// FIXME: Example code enables both gain controllers, but that seems sus
-	config.gain_controller1.enabled = gain_control || gain_control1;
-	config.gain_controller1.mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
-	config.gain_controller2.enabled = gain_control || gain_control2;
-	config.gain_controller2.adaptive_digital.enabled = gain_control || gain_control2;
 	config.high_pass_filter.enabled = high_pass_filter;
 	config.noise_suppression.enabled = noise_suppression;
 	config.noise_suppression.level = webrtc::AudioProcessing::Config::NoiseSuppression::kHigh;
 	// FIXME: expose pre/postamp gain
+
+	const char *str;
+	auto agc1_mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
+
+	str = spa_dict_lookup(args, "webrtc.gain_control1.mode");
+	if (spa_streq(str, "adaptive-digital"))
+		agc1_mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
+	else if (spa_streq(str, "fixed-digital"))
+		agc1_mode = webrtc::AudioProcessing::Config::GainController1::Mode::kFixedDigital;
+	else if (spa_streq(str, "adaptive-analog"))
+		spa_log_warn(impl->log, "Adaptive analog mode is not implemented");
+	else
+		spa_log_warn(impl->log, "Unknown AGC2 mode '%s'", str);
+
+	config.gain_controller1.enabled = gain_control1;
+	config.gain_controller1.mode = agc1_mode;
+
+	config.gain_controller2.enabled = gain_control2;
+	config.gain_controller2.adaptive_digital.enabled =
+		webrtc_get_spa_bool(args, "webrtc.gain_control2.adaptive_digital", gain_control2);
+	spa_atof(spa_dict_lookup(args, "webrtc.gain_control2.fixed_gain_db"),
+			&config.gain_controller2.fixed_digital.gain_db);
+
 #endif
 
 #if defined(HAVE_WEBRTC) || defined(HAVE_WEBRTC1)

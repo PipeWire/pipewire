@@ -2070,7 +2070,8 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 		if (port->direction == PW_DIRECTION_INPUT &&
 		    id == SPA_PARAM_Format && param != NULL &&
 		    !SPA_FLAG_IS_SET(port->flags, PW_IMPL_PORT_FLAG_NO_MIXER)) {
-			setup_mixer(port, param);
+			if (setup_mixer(port, param) < 0)
+				pw_log_warn("can't setup mixer");
 		}
 
 		spa_list_for_each(mix, &port->mix_list, link) {

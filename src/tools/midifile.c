@@ -557,8 +557,11 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 		if (ev_size > 0 &&
 		    (ev_data[0] == 0xf0 || ev_data[0] == 0xf7)) {
 			CHECK_RES(write_n(mf, ev_data, 1));
-			ev_size -= 1;
-			ev_data += 1;
+			ev_size--;
+			ev_data++;
+
+			if (ev_data[ev_size-1] == 0xf0)
+				ev_size--;
 
 			CHECK_RES(write_varlen(mf, tr, ev_size));
 

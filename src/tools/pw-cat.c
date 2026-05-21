@@ -1221,7 +1221,7 @@ static void show_usage(const char *name, bool is_error)
 	     "      --volume                          Stream volume 0-1.0 (default %.3f)\n"
 	     "  -q  --quality                         Resampler quality (0 - 15) (default %d)\n"
 	     "  -a, --raw                             RAW mode\n"
-	     "  -M, --force-midi                      Force midi format, one of \"midi\" or \"ump\", (default ump)\n"
+	     "  -M, --force-midi                      Force midi format, one of \"none\", \"midi\" or \"ump\", (default none)\n"
 	     "  -n, --sample-count COUNT              Stop after COUNT samples\n"
 	     "\n"),
 	     DEFAULT_RATE,
@@ -2228,7 +2228,7 @@ int main(int argc, char *argv[])
 	/* negative means no volume adjustment */
 	data.volume = -1.0;
 	data.quality = -1;
-	data.midi.force_type = MIDI_FORCE_UMP;
+	data.midi.force_type = MIDI_FORCE_NONE;
 	data.props = pw_properties_new(
 			PW_KEY_APP_NAME, prog,
 			PW_KEY_NODE_NAME, prog,

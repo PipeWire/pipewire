@@ -83,14 +83,16 @@ start/end bytes combinations:
  |-----------------------------------------------------------|
  | Sublist Position |  Head Status Octet | Tail Status Octet |
  |-----------------------------------------------------------|
- |    first         |       0xF0         |       0xF0        |
+ |    first         |       0xF0         |       (0xF0)      |
  |-----------------------------------------------------------|
- |    middle        |       0xF7         |       0xF0        |
+ |    middle        |       0xF7         |       (0xF0)      |
  |-----------------------------------------------------------|
  |    last          |       0xF7         |       0xF7        |
  |-----------------------------------------------------------|
  |    cancel        |       0xF7         |       0xF4        |
  -----------------------------------------------------------
+
+The trailing 0xf0 byte can be omitted at the end of continuation packets.
 
 Nodes that require a complete SysEx message must be able to assemble the
 complete message from the parts before processing the message.

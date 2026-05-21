@@ -629,7 +629,7 @@ static int process_read(struct seq_state *state)
 	/* copy all new midi events into their port buffers */
 	while (1) {
 		const snd_seq_addr_t *addr;
-		uint8_t head = 0, tail = 0, extra = 0, *dst;
+		uint8_t head = 0, extra = 0, *dst;
 		uint64_t ev_time, diff;
 		uint32_t offset;
 		void *event;
@@ -715,10 +715,6 @@ static int process_read(struct seq_state *state)
 				size = ev->data.ext.len;
 				data = dst = ev->data.ext.ptr;
 
-				if (dst[size-1] != 0xf7) {
-					tail = 0xf0;
-					extra++;
-				}
 				if (dst[0] != 0xf0) {
 					head = 0xf7;
 					extra++;
@@ -739,8 +735,6 @@ static int process_read(struct seq_state *state)
 
 		spa_pod_builder_control(&port->builder, offset, ump ? SPA_CONTROL_UMP : SPA_CONTROL_Midi );
 		dst = spa_pod_builder_reserve_bytes(&port->builder, size + extra);
-		if (tail)
-			dst[size+extra-1] = tail;
 		if (head) {
 			dst[0] = head;
 			dst++;

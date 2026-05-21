@@ -89,7 +89,7 @@ enum unit {
 
 struct data;
 
-typedef int (*fill_fn)(struct data *d, void *dest, unsigned int n_frames, bool *null_frame);
+typedef int (*fill_fn)(struct data *d, void *dest, uint32_t maxsize, unsigned int n_frames, bool *null_frame);
 
 struct data {
 	struct pw_main_loop *loop;
@@ -272,7 +272,7 @@ static void list_formats(struct data *d)
 		fprintf(stdout, "  %s\n", i->sf_name);
 }
 
-static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
+static int sf_playback_fill_x8(struct data *d, void *dest, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -280,7 +280,7 @@ static int sf_playback_fill_x8(struct data *d, void *dest, unsigned int n_frames
 	return (int)rn / d->stride;
 }
 
-static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
+static int sf_playback_fill_s16(struct data *d, void *dest, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -289,7 +289,7 @@ static int sf_playback_fill_s16(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
-static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
+static int sf_playback_fill_s32(struct data *d, void *dest, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -298,7 +298,7 @@ static int sf_playback_fill_s32(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
-static int sf_playback_fill_f32(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
+static int sf_playback_fill_f32(struct data *d, void *dest, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -307,7 +307,7 @@ static int sf_playback_fill_f32(struct data *d, void *dest, unsigned int n_frame
 	return (int)rn;
 }
 
-static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
+static int sf_playback_fill_f64(struct data *d, void *dest, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -317,7 +317,7 @@ static int sf_playback_fill_f64(struct data *d, void *dest, unsigned int n_frame
 }
 
 #ifdef HAVE_PW_CAT_FFMPEG_INTEGRATION
-static int encoded_playback_fill(struct data *d, void *dest, unsigned int n_frames, bool *null_frame)
+static int encoded_playback_fill(struct data *d, void *dest, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	AVPacket *packet = d->encoded.packet;
 	int ret;
@@ -595,7 +595,7 @@ playback_fill_fn(uint32_t fmt)
 	return NULL;
 }
 
-static int sf_record_fill_x8(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int sf_record_fill_x8(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -603,7 +603,7 @@ static int sf_record_fill_x8(struct data *d, void *src, unsigned int n_frames, b
 	return (int)rn / d->stride;
 }
 
-static int sf_record_fill_s16(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int sf_record_fill_s16(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -612,7 +612,7 @@ static int sf_record_fill_s16(struct data *d, void *src, unsigned int n_frames, 
 	return (int)rn;
 }
 
-static int sf_record_fill_s32(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int sf_record_fill_s32(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -621,7 +621,7 @@ static int sf_record_fill_s32(struct data *d, void *src, unsigned int n_frames, 
 	return (int)rn;
 }
 
-static int sf_record_fill_f32(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int sf_record_fill_f32(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -630,7 +630,7 @@ static int sf_record_fill_f32(struct data *d, void *src, unsigned int n_frames, 
 	return (int)rn;
 }
 
-static int sf_record_fill_f64(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int sf_record_fill_f64(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	sf_count_t rn;
 
@@ -1004,7 +1004,7 @@ static void on_process(void *userdata)
 			n_frames = SPA_MIN(n_frames, (int)samples_left);
 		}
 
-		n_fill_frames = data->fill(data, p, n_frames, &null_frame);
+		n_fill_frames = data->fill(data, p, d->maxsize, n_frames, &null_frame);
 
 		if (data->sample_limit > 0 && n_fill_frames > 0)
 			data->samples_processed += n_fill_frames;
@@ -1049,7 +1049,7 @@ static void on_process(void *userdata)
 			n_frames = SPA_MIN(n_frames, (int)samples_left);
 		}
 
-		n_fill_frames = data->fill(data, p, n_frames, &null_frame);
+		n_fill_frames = data->fill(data, p, d->maxsize - offset, n_frames, &null_frame);
 
 		if (data->sample_limit > 0 && n_fill_frames > 0)
 			data->samples_processed += n_fill_frames;
@@ -1245,7 +1245,7 @@ static void show_usage(const char *name, bool is_error)
 	}
 }
 
-static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int midi_play(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	int res;
 	struct spa_pod_builder b;
@@ -1254,7 +1254,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 	bool have_data = false;
 
 	spa_zero(b);
-	spa_pod_builder_init(&b, src, n_frames);
+	spa_pod_builder_init(&b, src, maxsize);
 
 	spa_pod_builder_push_sequence(&b, &f, 0);
 
@@ -1339,7 +1339,7 @@ static int midi_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 	return b.state.offset;
 }
 
-static int midi_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int midi_record(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	struct spa_pod_parser parser;
 	struct spa_pod_frame frame;
@@ -1411,7 +1411,7 @@ static int setup_midifile(struct data *data)
 	return 0;
 }
 
-static int clip_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int clip_play(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	int res;
 	struct spa_pod_builder b;
@@ -1420,7 +1420,7 @@ static int clip_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 	bool have_data = false;
 
 	spa_zero(b);
-	spa_pod_builder_init(&b, src, n_frames);
+	spa_pod_builder_init(&b, src, maxsize);
 
 	spa_pod_builder_push_sequence(&b, &f, 0);
 
@@ -1479,7 +1479,7 @@ static int clip_play(struct data *d, void *src, unsigned int n_frames, bool *nul
 	return b.state.offset;
 }
 
-static int clip_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int clip_record(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	struct spa_pod_parser parser;
 	struct spa_pod_frame frame;
@@ -1548,11 +1548,11 @@ static int setup_midiclip(struct data *data)
 	return 0;
 }
 
-static int sysex_play(struct data *d, void *dst, unsigned int n_frames, bool *null_frame)
+static int sysex_play(struct data *d, void *dst, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	struct spa_pod_builder b;
 	struct spa_pod_frame f;
-	size_t size, to_read = n_frames - 64;
+	size_t size, to_read = maxsize - 64;
 	uint8_t data[to_read+2], *bytes;
 
 	bytes = &data[1];
@@ -1591,12 +1591,13 @@ static int sysex_play(struct data *d, void *dst, unsigned int n_frames, bool *nu
 	}
 
 	spa_zero(b);
-	spa_pod_builder_init(&b, dst, n_frames);
+	spa_pod_builder_init(&b, dst, maxsize);
 
 	spa_pod_builder_push_sequence(&b, &f, 0);
 	spa_pod_builder_control(&b, 0, SPA_CONTROL_Midi);
 	spa_pod_builder_bytes(&b, bytes, size);
-	spa_pod_builder_pop(&b, &f);
+	if (spa_pod_builder_pop(&b, &f) == NULL)
+		fprintf(stderr, "sysex: can't create sequence %m\n");
 
 	return b.state.offset;
 }
@@ -1642,12 +1643,12 @@ static const struct dsd_layout_info dsd_layouts[] = {
 	{ 7, { SPA_AUDIO_LAYOUT_5_1R }, },
 };
 
-static int dsf_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int dsf_play(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	return dsf_file_read(d->dsf.file, src, n_frames, &d->dsf.layout);
 }
 
-static int dff_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int dff_play(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	return dff_file_read(d->dff.file, src, n_frames, &d->dff.layout);
 }
@@ -1690,12 +1691,12 @@ static int setup_dsdfile(struct data *data)
 	return 0;
 }
 
-static int raw_record(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int raw_record(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	return fwrite(src, d->stride, n_frames, d->raw.file);
 }
 
-static int raw_play(struct data *d, void *src, unsigned int n_frames, bool *null_frame)
+static int raw_play(struct data *d, void *src, uint32_t maxsize, unsigned int n_frames, bool *null_frame)
 {
 	return fread(src, d->stride, n_frames, d->raw.file);
 }

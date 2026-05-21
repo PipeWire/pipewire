@@ -39,7 +39,7 @@ struct props {
 	bool disable_longname;
 };
 
-#define MAX_EVENT_SIZE 1024
+#define MAX_EVENT_SIZE 64
 #define MAX_PORTS 256
 #define MAX_BUFFERS 32
 

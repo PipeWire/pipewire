@@ -629,6 +629,7 @@ static int process_read(struct seq_state *state)
 	/* copy all new midi events into their port buffers */
 	while (1) {
 		const snd_seq_addr_t *addr;
+		uint8_t head = 0, tail = 0, extra = 0, *dst;
 		uint64_t ev_time, diff;
 		uint32_t offset;
 		void *event;
@@ -706,19 +707,45 @@ static int process_read(struct seq_state *state)
 		} else {
 			snd_seq_event_t *ev = event;
 
-			snd_midi_event_reset_decode(stream->codec);
-			if ((size = snd_midi_event_decode(stream->codec, midi1_data, sizeof(midi1_data), ev)) < 0) {
-				spa_log_warn(state->log, "decode failed: %s", snd_strerror(size));
-				continue;
+			if (ev->type == SND_SEQ_EVENT_SYSEX) {
+				switch (ev->flags & SND_SEQ_EVENT_LENGTH_MASK) {
+				case SND_SEQ_EVENT_LENGTH_FIXED:
+					continue;
+				}
+				size = ev->data.ext.len;
+				data = dst = ev->data.ext.ptr;
+
+				if (dst[size-1] != 0xf7) {
+					tail = 0xf0;
+					extra++;
+				}
+				if (dst[0] != 0xf0) {
+					head = 0xf7;
+					extra++;
+				}
+			} else {
+				snd_midi_event_reset_decode(stream->codec);
+				if ((size = snd_midi_event_decode(stream->codec,
+								midi1_data, sizeof(midi1_data), ev)) < 0) {
+					spa_log_warn(state->log, "decode failed: %s", snd_strerror(size));
+					continue;
+				}
+				data = midi1_data;
 			}
-			data = midi1_data;
 		}
 
 		spa_log_trace_fp(state->log, "event %d time:%"PRIu64" offset:%d size:%ld port:%d.%d",
 				type, ev_time, offset, size, addr->client, addr->port);
 
 		spa_pod_builder_control(&port->builder, offset, ump ? SPA_CONTROL_UMP : SPA_CONTROL_Midi );
-		spa_pod_builder_bytes(&port->builder, data, size);
+		dst = spa_pod_builder_reserve_bytes(&port->builder, size + extra);
+		if (tail)
+			dst[size+extra-1] = tail;
+		if (head) {
+			dst[0] = head;
+			dst++;
+		}
+		memcpy(dst, data, size);
 
 		/* make sure we can fit at least one control event of max size otherwise
 		 * we keep the event in the queue and try to copy it in the next cycle */
@@ -860,42 +887,38 @@ static int process_write(struct seq_state *state)
 #endif
 			} else {
 				snd_seq_event_t ev;
-				int size = 0;
-				long s;
 
 				if (c.type != SPA_CONTROL_Midi)
 					continue;
 
-				while (body_size > 0) {
-					if (size == 0)
-						snd_seq_ev_clear(&ev);
-
-					if ((s = snd_midi_event_encode(stream->codec, body, body_size, &ev)) < 0) {
+				if (body[0] == 0xf0 || body[0] == 0xf7) {
+					if (body[body_size-1] == 0xf0)
+						body_size -= 1;
+					if (body[0] == 0xf7) {
+						body += 1;
+						body_size -= 1;
+					}
+					snd_seq_ev_set_sysex(&ev, body_size, body);
+				} else {
+					long s;
+					if ((s = snd_midi_event_encode(stream->codec, body,
+									body_size, &ev)) < 0 ||
+					    ev.type == SND_SEQ_EVENT_NONE) {
 						spa_log_warn(state->log, "failed to encode event: %s",
-								snd_strerror(size));
+								snd_strerror(s));
 						snd_midi_event_reset_encode(stream->codec);
-						size = 0;
 						continue;
 					}
-					body += s;
-					body_size -= s;
-					size += s;
-					if (ev.type == SND_SEQ_EVENT_NONE)
-						/* this can happen when the event is not complete yet, like
-						 * a sysex message and we need to encode some more data. */
-						continue;
+				}
+				snd_seq_ev_set_source(&ev, state->event.addr.port);
+				snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
+				snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
 
-					snd_seq_ev_set_source(&ev, state->event.addr.port);
-					snd_seq_ev_set_dest(&ev, port->addr.client, port->addr.port);
-					snd_seq_ev_schedule_real(&ev, state->event.queue_id, 0, &out_rt);
+				debug_event(state, "send", &ev);
 
-					debug_event(state, "send", &ev);
-
-					if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
-						spa_log_warn(state->log, "failed to output event: %s",
-								snd_strerror(err));
-					}
-					size = 0;
+				if ((err = snd_seq_event_output(state->event.hndl, &ev)) < 0) {
+					spa_log_warn(state->log, "failed to output event: %s",
+							snd_strerror(err));
 				}
 			}
 		}

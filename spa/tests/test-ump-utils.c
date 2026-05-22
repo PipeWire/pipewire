@@ -540,6 +540,84 @@ static void test_ump_from_midi_sysex_split_with_f7(void)
 	spa_assert(state == 0);
 }
 
+static void test_ump_to_midi2_channel_pressure(void)
+{
+	/* MIDI 2.0 channel pressure: type 4, status D, channel 0 */
+	uint32_t ump[] = { 0x40D00000, 0xFC000000 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0xd0);
+	spa_assert(midi[1] == 0x7e);
+}
+
+static void test_ump_to_midi2_note_on(void)
+{
+	/* MIDI 2.0 note on: type 4, status 9, channel 0, note 0x3C */
+	uint32_t ump[] = { 0x40903C00, 0xFC000000 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 3);
+	spa_assert(midi[0] == 0x90);
+	spa_assert(midi[1] == 0x3c);
+	spa_assert(midi[2] == 0x7e);
+}
+
+static void test_ump_to_midi2_program_change_with_bank(void)
+{
+	/* MIDI 2.0 program change with bank valid, bank bytes have bit 7 set
+	 * to verify masking: MSB=0x83 → 0x03, LSB=0x87 → 0x07 */
+	uint32_t ump[] = { 0x40C00001, 0x05008387 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+	int size;
+
+	/* First call: Bank Select MSB (CC #0) */
+	size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 3);
+	spa_assert(midi[0] == 0xb0);
+	spa_assert(midi[1] == 0x00);
+	spa_assert(midi[2] == 0x03);
+
+	/* Second call: Bank Select LSB (CC #32) */
+	size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 3);
+	spa_assert(midi[0] == 0xb0);
+	spa_assert(midi[1] == 0x20);
+	spa_assert(midi[2] == 0x07);
+
+	/* Third call: Program Change */
+	size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0xc0);
+	spa_assert(midi[1] == 0x05);
+}
+
+static void test_ump_to_midi2_program_change_no_bank(void)
+{
+	/* MIDI 2.0 program change without bank (option_flags = 0) */
+	uint32_t ump[] = { 0x40C00000, 0x05000000 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0xc0);
+	spa_assert(midi[1] == 0x05);
+}
+
 int main(void)
 {
 	test_ump_from_midi_note_on();
@@ -566,6 +644,10 @@ int main(void)
 	test_ump_from_midi_bare_f7_complete();
 	test_ump_from_midi_bare_f7_orphan();
 	test_ump_from_midi_sysex_split_with_f7();
+	test_ump_to_midi2_channel_pressure();
+	test_ump_to_midi2_note_on();
+	test_ump_to_midi2_program_change_with_bank();
+	test_ump_to_midi2_program_change_no_bank();
 
 	printf("All UMP utils tests passed.\n");
 	return 0;

@@ -105,14 +105,14 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(const uint32_t **ump, size_t *ump_
 			if (*state == 0) {
 				midi[size++] = (status & 0xf) | 0xb0;
 				midi[size++] = 0;
-				midi[size++] = (u[1] >> 8);
+				midi[size++] = (u[1] >> 8) & 0x7f;
 				to_consume = 0;
 				*state = 1;
 			}
 			else if (*state == 1) {
 				midi[size++] = (status & 0xf) | 0xb0;
 				midi[size++] = 32;
-				midi[size++] = u[1];
+				midi[size++] = u[1] & 0x7f;
 				to_consume = 0;
 				*state = 2;
 			}
@@ -122,11 +122,13 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(const uint32_t **ump, size_t *ump_
 				*state = 0;
 			}
 			break;
+		case 0xd0:
+			midi[size++] = status;
+			midi[size++] = (u[1] >> 25);
+			break;
 		default:
 			midi[size++] = status;
 			midi[size++] = (u[0] >> 8) & 0x7f;
-			SPA_FALLTHROUGH;
-		case 0xd0:
 			midi[size++] = (u[1] >> 25);
 			break;
 		}

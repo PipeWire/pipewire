@@ -148,7 +148,7 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_from_midi(uint8_t **midi, size_t *midi_siz
 {
 	int size = 0;
 	uint32_t i, prefix = group << 24, to_consume = 0, bytes;
-	uint8_t status, *m = (*midi), end;
+	uint8_t status, *m = (*midi), end, prev_state;
 
 	if (*midi_size < 1)
 		return 0;
@@ -156,6 +156,7 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_from_midi(uint8_t **midi, size_t *midi_siz
 		return -ENOSPC;
 
 	status = m[0];
+	prev_state = *state & 0x3;
 
 	/* SysEx */
 	if (*state == 0) {
@@ -184,7 +185,11 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_from_midi(uint8_t **midi, size_t *midi_siz
 			to_consume += bytes;
 
 			if (end == 0xf7) {
-				if (*state == 2) {
+				if (*state == 1) {
+					/* started and done in one packet */
+					prefix |= 0x0 << 20;
+					*state = 0;
+				} else {
 					/* continue and done */
 					prefix |= 0x3 << 20;
 					*state = 0;
@@ -205,6 +210,17 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_from_midi(uint8_t **midi, size_t *midi_siz
 				 * ump[1] |= (m[2] & 0x7f) << 24
 				 * ... */
 				ump[(i+2)/4] |= (m[i] & 0x7f) << ((5-i)%4 * 8);
+		} else if (status == 0xf7) {
+			*state = 0;
+			if (prev_state == 1) {
+				prefix |= 0x0 << 20;
+				ump[size++] = prefix;
+				ump[size++] = 0;
+			} else if (prev_state == 2) {
+				prefix |= 0x3 << 20;
+				ump[size++] = prefix;
+				ump[size++] = 0;
+			}
 		}
 	} else {
 		/* regular messages */

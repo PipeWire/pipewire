@@ -27,6 +27,35 @@ if find.found()
   endforeach
 endif
 
+test_apps = [
+  ['test-ump-utils', []],
+]
+
+foreach a : test_apps
+  test('spa-' + a[0],
+    executable('spa-' + a[0], a[0] + '.c',
+      dependencies : [ spa_dep ],
+      include_directories : [configinc],
+      install : installed_tests_enabled,
+      install_dir : installed_tests_execdir,
+    ),
+    env : [
+      'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
+    ]
+  )
+
+  if installed_tests_enabled
+    test_conf = configuration_data()
+    test_conf.set('exec', installed_tests_execdir / 'spa-' + a[0])
+    configure_file(
+      input: installed_tests_template,
+      output: 'spa-' + a[0] + '.test',
+      install_dir: installed_tests_metadir,
+      configuration: test_conf,
+    )
+  endif
+endforeach
+
 benchmark_apps = [
   ['stress-ringbuffer', []],
   ['benchmark-pod', []],

@@ -327,6 +327,262 @@ static void test_ump_from_midi_system_realtime(void)
 	spa_assert((ump[0] >> 16) == 0x10f8);
 }
 
+static void test_ump_from_midi_channel_pressure(void)
+{
+	uint8_t midi[] = { 0xd0, 0x40 };
+	uint8_t *p = midi;
+	size_t midi_size = sizeof(midi);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int size = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(size == 4);
+	spa_assert(midi_size == 0);
+	spa_assert(ump[0] == 0x20d04000);
+}
+
+static void test_ump_from_midi_song_position(void)
+{
+	/* F2 + LSB + MSB */
+	uint8_t midi[] = { 0xf2, 0x10, 0x20 };
+	uint8_t *p = midi;
+	size_t midi_size = sizeof(midi);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int size = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(size == 4);
+	spa_assert(midi_size == 0);
+	spa_assert(ump[0] == 0x10f21020);
+}
+
+static void test_ump_from_midi_mtc_quarter_frame(void)
+{
+	/* F1 + data */
+	uint8_t midi[] = { 0xf1, 0x30 };
+	uint8_t *p = midi;
+	size_t midi_size = sizeof(midi);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int size = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(size == 4);
+	spa_assert(midi_size == 0);
+	spa_assert(ump[0] == 0x10f13000);
+}
+
+static void test_ump_from_midi_song_select(void)
+{
+	/* F3 + song number */
+	uint8_t midi[] = { 0xf3, 0x05 };
+	uint8_t *p = midi;
+	size_t midi_size = sizeof(midi);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int size = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(size == 4);
+	spa_assert(midi_size == 0);
+	spa_assert(ump[0] == 0x10f30500);
+}
+
+static void test_ump_to_midi_system_realtime(void)
+{
+	/* Type 0x1, F8 timing clock */
+	uint32_t ump[] = { 0x10f80000 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 1);
+	spa_assert(midi[0] == 0xf8);
+}
+
+static void test_ump_to_midi_song_position(void)
+{
+	/* Type 0x1, F2 + LSB + MSB */
+	uint32_t ump[] = { 0x10f21020 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 3);
+	spa_assert(midi[0] == 0xf2);
+	spa_assert(midi[1] == 0x10);
+	spa_assert(midi[2] == 0x20);
+}
+
+static void test_ump_to_midi_mtc_quarter_frame(void)
+{
+	/* Type 0x1, F1 + data */
+	uint32_t ump[] = { 0x10f13000 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0xf1);
+	spa_assert(midi[1] == 0x30);
+}
+
+static void test_ump_to_midi_program_change(void)
+{
+	/* Type 0x2, C0 + program */
+	uint32_t ump[] = { 0x20c00500 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0xc0);
+	spa_assert(midi[1] == 0x05);
+}
+
+static void test_ump_to_midi_channel_pressure(void)
+{
+	/* Type 0x2, D0 + pressure */
+	uint32_t ump[] = { 0x20d04000 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0xd0);
+	spa_assert(midi[1] == 0x40);
+}
+
+static void test_ump_to_midi_sysex_continue(void)
+{
+	/* Start: status 0x1, 3 bytes */
+	uint32_t ump_start[] = { 0x30130102, 0x03000000 };
+	/* Continue: status 0x2, 2 bytes */
+	uint32_t ump_cont[] = { 0x30220405, 0x00000000 };
+	/* End: status 0x3, 1 byte */
+	uint32_t ump_end[] = { 0x30310600, 0x00000000 };
+	const uint32_t *p;
+	size_t ump_size;
+	uint8_t midi[8];
+	uint64_t state = 0;
+	int size;
+
+	p = ump_start;
+	ump_size = sizeof(ump_start);
+	size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 4);
+	spa_assert(midi[0] == 0xf0);
+	spa_assert(midi[1] == 0x01);
+	spa_assert(midi[2] == 0x02);
+	spa_assert(midi[3] == 0x03);
+
+	p = ump_cont;
+	ump_size = sizeof(ump_cont);
+	size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0x04);
+	spa_assert(midi[1] == 0x05);
+
+	p = ump_end;
+	ump_size = sizeof(ump_end);
+	size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 2);
+	spa_assert(midi[0] == 0x06);
+	spa_assert(midi[1] == 0xf7);
+}
+
+static void test_roundtrip_program_change(void)
+{
+	uint8_t orig[] = { 0xc0, 0x05 };
+	uint8_t *p = orig;
+	size_t midi_size = sizeof(orig);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int ump_bytes = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(ump_bytes == 4);
+
+	const uint32_t *up = ump;
+	size_t usize = ump_bytes;
+	uint8_t result[8];
+	state = 0;
+
+	int rsize = spa_ump_to_midi(&up, &usize, result, sizeof(result), &state);
+	spa_assert(rsize == 2);
+	spa_assert(memcmp(result, orig, 2) == 0);
+}
+
+static void test_roundtrip_channel_pressure(void)
+{
+	uint8_t orig[] = { 0xd0, 0x40 };
+	uint8_t *p = orig;
+	size_t midi_size = sizeof(orig);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int ump_bytes = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(ump_bytes == 4);
+
+	const uint32_t *up = ump;
+	size_t usize = ump_bytes;
+	uint8_t result[8];
+	state = 0;
+
+	int rsize = spa_ump_to_midi(&up, &usize, result, sizeof(result), &state);
+	spa_assert(rsize == 2);
+	spa_assert(memcmp(result, orig, 2) == 0);
+}
+
+static void test_roundtrip_song_position(void)
+{
+	uint8_t orig[] = { 0xf2, 0x10, 0x20 };
+	uint8_t *p = orig;
+	size_t midi_size = sizeof(orig);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int ump_bytes = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(ump_bytes == 4);
+
+	const uint32_t *up = ump;
+	size_t usize = ump_bytes;
+	uint8_t result[8];
+	state = 0;
+
+	int rsize = spa_ump_to_midi(&up, &usize, result, sizeof(result), &state);
+	spa_assert(rsize == 3);
+	spa_assert(memcmp(result, orig, 3) == 0);
+}
+
+static void test_roundtrip_system_realtime(void)
+{
+	uint8_t orig[] = { 0xf8 };
+	uint8_t *p = orig;
+	size_t midi_size = sizeof(orig);
+	uint32_t ump[4] = {0};
+	uint64_t state = 0;
+
+	int ump_bytes = spa_ump_from_midi(&p, &midi_size, ump, sizeof(ump), 0, &state);
+	spa_assert(ump_bytes == 4);
+
+	const uint32_t *up = ump;
+	size_t usize = ump_bytes;
+	uint8_t result[8];
+	state = 0;
+
+	int rsize = spa_ump_to_midi(&up, &usize, result, sizeof(result), &state);
+	spa_assert(rsize == 1);
+	spa_assert(result[0] == 0xf8);
+}
+
 static void test_ump_from_midi_sysex_trailing_f0(void)
 {
 	/* Sysex start with trailing F0: F0 01 02 03 F0 */
@@ -651,7 +907,21 @@ int main(void)
 	test_roundtrip_sysex_short();
 	test_roundtrip_sysex_long();
 	test_roundtrip_note_on();
+	test_ump_from_midi_channel_pressure();
+	test_ump_from_midi_song_position();
+	test_ump_from_midi_mtc_quarter_frame();
+	test_ump_from_midi_song_select();
 	test_ump_from_midi_system_realtime();
+	test_ump_to_midi_system_realtime();
+	test_ump_to_midi_song_position();
+	test_ump_to_midi_mtc_quarter_frame();
+	test_ump_to_midi_program_change();
+	test_ump_to_midi_channel_pressure();
+	test_ump_to_midi_sysex_continue();
+	test_roundtrip_program_change();
+	test_roundtrip_channel_pressure();
+	test_roundtrip_song_position();
+	test_roundtrip_system_realtime();
 	test_ump_from_midi_sysex_trailing_f0();
 	test_ump_from_midi_continuation_trailing_f0();
 	test_ump_from_midi_sysex_split_with_f0();

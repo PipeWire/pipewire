@@ -118,12 +118,17 @@ SPA_API_CONTROL_UMP_UTILS int spa_ump_to_midi(const uint32_t **ump, size_t *ump_
 			}
 			else if (*state == 2) {
 				midi[size++] = status;
-				midi[size++] = (u[1] >> 24);
+				midi[size++] = (u[1] >> 24) & 0x7f;
 				*state = 0;
 			}
 			break;
 		case 0xd0:
 			midi[size++] = status;
+			midi[size++] = (u[1] >> 25);
+			break;
+		case 0xe0:
+			midi[size++] = status;
+			midi[size++] = (u[1] >> 18) & 0x7f;
 			midi[size++] = (u[1] >> 25);
 			break;
 		default:

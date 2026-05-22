@@ -571,6 +571,24 @@ static void test_ump_to_midi2_note_on(void)
 	spa_assert(midi[2] == 0x7e);
 }
 
+static void test_ump_to_midi2_pitch_bend(void)
+{
+	/* MIDI 2.0 pitch bend: type 4, status E, channel 0
+	 * 32-bit value 0x80A00000 → 14-bit = 0x80A00000 >> 18 = 0x2028
+	 * LSB = 0x28, MSB = 0x40 */
+	uint32_t ump[] = { 0x40E00000, 0x80A00000 };
+	const uint32_t *p = ump;
+	size_t ump_size = sizeof(ump);
+	uint8_t midi[8];
+	uint64_t state = 0;
+
+	int size = spa_ump_to_midi(&p, &ump_size, midi, sizeof(midi), &state);
+	spa_assert(size == 3);
+	spa_assert(midi[0] == 0xe0);
+	spa_assert(midi[1] == 0x28);
+	spa_assert(midi[2] == 0x40);
+}
+
 static void test_ump_to_midi2_program_change_with_bank(void)
 {
 	/* MIDI 2.0 program change with bank valid, bank bytes have bit 7 set
@@ -646,6 +664,7 @@ int main(void)
 	test_ump_from_midi_sysex_split_with_f7();
 	test_ump_to_midi2_channel_pressure();
 	test_ump_to_midi2_note_on();
+	test_ump_to_midi2_pitch_bend();
 	test_ump_to_midi2_program_change_with_bank();
 	test_ump_to_midi2_program_change_no_bank();
 

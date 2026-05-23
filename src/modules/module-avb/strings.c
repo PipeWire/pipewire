@@ -17,6 +17,14 @@ typedef enum {
 	ST_G,
 } UTF8_STATE;
 
+/*
+ * IEEE 1722.1 Section 7.4.17.1
+ *
+ * We need to check if the buffer str of length len is valid UTF-8.
+ * The algorithm implemented here is based on the state machine by Frank Yung-Fong Tang
+ * described here at
+ * https://unicode.org/mail-arch/unicode-ml/y2003-m02/att-0467/01-The_Algorithm_to_Valide_an_UTF-8_String
+ */
 int validate_utf8 (const unsigned char *str, size_t len)
 {
 	UTF8_STATE state = ST_START;
@@ -126,6 +134,12 @@ int validate_utf8 (const unsigned char *str, size_t len)
 	}
 }
 
+/*
+ * For SET_NAME, strings need to be zero-padded if shorter than 64 bytes. A
+ * string of 64 bytes would NOT be nul-terminated.
+ *
+ * IEEE 1722.1 Section 7.4.17.1
+ */
 int check_zero_padding (const unsigned char *str, size_t len)
 {
 	size_t str_len = strnlen ((char *)str, len);

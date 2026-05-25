@@ -37,6 +37,7 @@ extern "C" {
 #define PW_KEY_SEC_PID			"pipewire.sec.pid"	/**< Client pid, set by protocol */
 #define PW_KEY_SEC_UID			"pipewire.sec.uid"	/**< Client uid, set by protocol*/
 #define PW_KEY_SEC_GID			"pipewire.sec.gid"	/**< client gid, set by protocol*/
+#define PW_KEY_SEC_GIDS			"pipewire.sec.gids"	/**< client supplementary gids, set by protocol */
 #define PW_KEY_SEC_LABEL		"pipewire.sec.label"	/**< client security label, set by protocol*/
 
 #define PW_KEY_SEC_SOCKET		"pipewire.sec.socket"	/**< client socket name, set by protocol */

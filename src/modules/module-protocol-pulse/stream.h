@@ -101,6 +101,7 @@ struct stream {
 	unsigned int is_paused:1;
 	unsigned int fail_on_suspend:1;
 	unsigned int is_suspended:1;
+	unsigned int dont_inhibit_auto_suspend:1;
 };
 
 struct stream *stream_new(struct client *client, enum stream_type type, uint32_t create_tag,

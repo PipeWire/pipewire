@@ -1910,7 +1910,6 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 	struct spa_tag_info info;
 	enum spa_direction direction;
 	uint8_t buffer[1024];
-	int count = 0;
 	bool changed;
 
 	if (port->destroying)
@@ -1930,7 +1929,6 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 				while (spa_tag_parse(tag, &info, &state) == 1)
 					spa_tag_build_add_info(&b.b, info.info);
 			}
-			count++;
 		}
 	} else {
 		spa_list_for_each(l, &port->links, input_link) {
@@ -1941,7 +1939,6 @@ int pw_impl_port_recalc_tag(struct pw_impl_port *port)
 				while (spa_tag_parse(tag, &info, &state) == 1)
 					spa_tag_build_add_info(&b.b, info.info);
 			}
-			count++;
 		}
 	}
 	param = spa_tag_build_end(&b.b, &f);

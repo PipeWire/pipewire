@@ -558,16 +558,18 @@ static int suspend_node(struct pw_impl_node *this)
 		if ((res = pw_impl_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("%p: error unset format input: %s",
 					this, spa_strerror(res));
-		/* force CONFIGURE in case of async */
-		p->state = PW_IMPL_PORT_STATE_CONFIGURE;
+		/* force CONFIGURE in case of async, use update_state to
+		 * notify links so they can cancel pending work */
+		pw_impl_port_update_state(p, PW_IMPL_PORT_STATE_CONFIGURE, 0, NULL);
 	}
 
 	spa_list_for_each(p, &this->output_ports, link) {
 		if ((res = pw_impl_port_set_param(p, SPA_PARAM_Format, 0, NULL)) < 0)
 			pw_log_warn("%p: error unset format output: %s",
 					this, spa_strerror(res));
-		/* force CONFIGURE in case of async */
-		p->state = PW_IMPL_PORT_STATE_CONFIGURE;
+		/* force CONFIGURE in case of async, use update_state to
+		 * notify links so they can cancel pending work */
+		pw_impl_port_update_state(p, PW_IMPL_PORT_STATE_CONFIGURE, 0, NULL);
 	}
 
 	node_update_state(this, PW_NODE_STATE_SUSPENDED, 0, NULL);

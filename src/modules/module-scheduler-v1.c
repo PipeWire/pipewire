@@ -101,7 +101,7 @@ static int ensure_state(struct pw_impl_node *node, bool running, bool idle)
 	bool need_config = SPA_FLAG_IS_SET(node->spa_flags, SPA_NODE_FLAG_NEED_CONFIGURE);
 	if (node->active && node->runnable && !need_config && running)
 		state = PW_NODE_STATE_RUNNING;
-	else if (!node->active && !need_config && idle)
+	else if (!need_config && idle)
 		state = PW_NODE_STATE_IDLE;
 	else if (state > PW_NODE_STATE_IDLE)
 		state = PW_NODE_STATE_IDLE;

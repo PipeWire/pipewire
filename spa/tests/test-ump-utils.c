@@ -7,15 +7,6 @@
 
 #include <spa/control/ump-utils.h>
 
-#define spa_assert(cond)						\
-	do {								\
-		if (SPA_UNLIKELY(!(cond))) {				\
-			fprintf(stderr, "FAIL: %s at %s:%d\n",		\
-				#cond, __FILE__, __LINE__);		\
-			abort();					\
-		}							\
-	} while (0)
-
 /* spa_ump_from_midi returns bytes (size * 4) */
 /* spa_ump_to_midi returns number of MIDI bytes written */
 

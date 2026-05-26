@@ -527,6 +527,7 @@ The general rules object follows the following pattern:
             {
                 # <key> = <value>
                 # all keys must match the value. ! negates. ~ starts regex.
+                # if <value> is an array, matching is done on its elements.
                 #application.process.binary = "teams"
                 #application.name = "~speech-dispatcher.*"
 
@@ -643,6 +644,19 @@ matches = [
   }
 ]
 ```
+
+When the value is an array, the match is performed on the array elements until
+one succeeds. For example:
+
+```css
+matches = [
+  {
+    pipewire.sec.gids = 42
+  }
+]
+```
+
+Matches `pipewire.sec.gids = [ 10, 20, 42, 1000 ]`.
 
 
 # CONTEXT PROPERTIES RULES  @IDX@ pipewire.conf context.properties.rules

@@ -640,12 +640,12 @@ static int load_module(struct pw_context *context, const char *key, const char *
 SPA_EXPORT
 bool pw_conf_find_match(struct spa_json *arr, const struct spa_dict *props, bool condition)
 {
-	struct spa_json it[1];
+	struct spa_json it[2];
 	const char *as = arr->cur;
 	int az = (int)(arr->end - arr->cur), r, count = 0;
 
 	while ((r = spa_json_enter_object(arr, &it[0])) > 0) {
-		char key[256], val[1024];
+		char key[256], val[1024], v[1024];
 		const char *str, *value;
 		int match = 0, fail = 0;
 		int len;
@@ -691,6 +691,7 @@ bool pw_conf_find_match(struct spa_json *arr, const struct spa_dict *props, bool
 				if (is_null && str == NULL)
 					success = !success;
 			} else {
+				regex_t preg;
 				/* only unescape string once or again after modifier */
 				if (!parse_string) {
 					memmove(val, value+skip, len-skip);
@@ -702,21 +703,30 @@ bool pw_conf_find_match(struct spa_json *arr, const struct spa_dict *props, bool
 				}
 
 				if (reg) {
-					regex_t preg;
 					int res;
 					if ((res = regcomp(&preg, val, REG_EXTENDED | REG_NOSUB)) != 0) {
 						char errbuf[1024];
 						regerror(res, &preg, errbuf, sizeof(errbuf));
 						pw_log_warn("invalid regex %s: %s in '%.*s'",
 								val, errbuf, az, as);
-					} else {
-						if (regexec(&preg, str, 0, NULL, 0) == 0)
-							success = !success;
-						regfree(&preg);
+						reg = false;
 					}
-				} else if (strcmp(str, val) == 0) {
-					success = !success;
 				}
+				if (spa_json_begin_array_relax(&it[1], str, strlen(str)) > 0) {
+					while (spa_json_get_string(&it[1], v, sizeof(v)) > 0) {
+						if ((reg && regexec(&preg, v, 0, NULL, 0) == 0) ||
+								spa_streq(v, val)) {
+							success = !success;
+							break;
+						}
+					}
+				}
+				else if ((reg && regexec(&preg, str, 0, NULL, 0) == 0) ||
+						spa_streq(str, val))
+					success = !success;
+
+				if (reg)
+					regfree(&preg);
 			}
 			if (success) {
 				match++;

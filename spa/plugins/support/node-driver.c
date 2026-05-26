@@ -360,7 +360,7 @@ static void on_timeout(struct spa_source *source)
 	uint64_t expirations, nsec, duration, current_time, current_position, position;
 	uint64_t time_since_nsec;
 	uint32_t rate;
-	double corr = 1.0, err = 0.0;
+	double corr = 1.0, err = 0.0, abs_err = 0.0;
 	int res;
 	bool timer_was_canceled = false;
 
@@ -473,10 +473,17 @@ static void on_timeout(struct spa_source *source)
 		 * the graph clock elapsed time, feed this error into the
 		 * dll and adjust the timeout of our MONOTONIC clock. */
 		err = (double)position - (double)current_position;
-		if (fabs(err) > this->max_error) {
-			if (fabs(err) > this->max_resync) {
-				spa_log_warn(this->log, "err %f > max_resync %f, resetting",
-						err, this->max_resync);
+		abs_err = fabs(err);
+		if (abs_err > this->max_error) {
+			if (abs_err > this->max_resync) {
+				if (abs_err > (2 * this->max_resync)) {
+					spa_log_warn(this->log, "err %f > 2 * max_resync %f, reinitializing",
+							err, this->max_resync);
+					spa_dll_init(&this->dll);
+				} else {
+					spa_log_warn(this->log, "err %f > max_resync %f, resetting",
+							err, this->max_resync);
+				}
 				spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
 				position = current_position;
 				err = 0.0;

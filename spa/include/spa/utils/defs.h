@@ -308,6 +308,34 @@ struct spa_fraction {
 	(uint32_t)(((_val) * (num) + (_denom)-1) / (_denom));	\
 })
 
+/* Macros for getting the next highest power of two, for 32 and 64 bit
+ * unsigned integers. If the integers are already a power of two, the
+ * result is unchanged. Source:
+ * https://graphics.stanford.edu/%7Eseander/bithacks.html#RoundUpPowerOf2 */
+
+#define SPA_ROUND_UP_POW2_32(num)				\
+({								\
+	uint32_t _n = (uint32_t)(num) - 1;			\
+	_n |= _n >> 1;						\
+	_n |= _n >> 2;						\
+	_n |= _n >> 4;						\
+	_n |= _n >> 8;						\
+	_n |= _n >> 16;						\
+	_n + 1;							\
+})
+
+#define SPA_ROUND_UP_POW2_64(num)				\
+({								\
+	uint64_t _n = (uint64_t)(num) - 1;			\
+	_n |= _n >> 1;						\
+	_n |= _n >> 2;						\
+	_n |= _n >> 4;						\
+	_n |= _n >> 8;						\
+	_n |= _n >> 16;						\
+	_n |= _n >> 32;						\
+	_n + 1;							\
+})
+
 
 #define SPA_PTR_ALIGNMENT(p,align)	((uintptr_t)(p) & ((align)-1))
 #define SPA_IS_ALIGNED(p,align)		(SPA_PTR_ALIGNMENT(p,align) == 0)

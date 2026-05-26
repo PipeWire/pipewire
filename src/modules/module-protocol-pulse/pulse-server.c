@@ -1326,18 +1326,18 @@ do_process_done(struct spa_loop *loop,
 		stream->delay += pd->pwt.delay * SPA_USEC_PER_SEC * pd->pwt.rate.num / pd->pwt.rate.denom;
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
-		if (pd->quantum != stream->last_quantum)
+		if (SPA_UNLIKELY(pd->quantum != stream->last_quantum)) {
 			stream_update_minreq(stream, pd->minreq);
-		stream->last_quantum = pd->quantum;
-
+			stream->last_quantum = pd->quantum;
+		}
 		stream->read_index += pd->read_inc;
-		if (stream->corked) {
+		if (SPA_UNLIKELY(stream->corked)) {
 			if (stream->underrun_for != (uint64_t)-1)
 				stream->underrun_for += pd->underrun_for;
 			stream->playing_for = 0;
 			return 0;
 		}
-		if (pd->underrun != stream->is_underrun) {
+		if (SPA_UNLIKELY(pd->underrun != stream->is_underrun)) {
 			stream->is_underrun = pd->underrun;
 			stream->underrun_for = 0;
 			stream->playing_for = 0;
@@ -1346,7 +1346,7 @@ do_process_done(struct spa_loop *loop,
 			else
 				stream_send_started(stream);
 		}
-		if (pd->idle) {
+		if (SPA_UNLIKELY(pd->idle)) {
 			if (!stream->is_idle) {
 				stream->idle_time = stream->timestamp;
 			} else if (!stream->is_paused &&
@@ -1358,7 +1358,7 @@ do_process_done(struct spa_loop *loop,
 		}
 		stream->is_idle = pd->idle;
 		stream->playing_for += pd->playing_for;
-		if (stream->underrun_for != (uint64_t)-1)
+		if (SPA_UNLIKELY(stream->underrun_for != (uint64_t)-1))
 			stream->underrun_for += pd->underrun_for;
 
 		stream_send_request(stream);
@@ -1374,13 +1374,13 @@ do_process_done(struct spa_loop *loop,
 			return 0;
 		}
 
-		if (avail <= 0) {
+		if (SPA_UNLIKELY(avail <= 0)) {
 			/* underrun, can't really happen but if it does we
 			 * do nothing and wait for more data */
 			pw_log_warn("%p: [%s] underrun read:%u avail:%d",
 					stream, client->name, index, avail);
 		} else {
-			if ((uint32_t)avail > stream->attr.maxlength) {
+			if (SPA_UNLIKELY((uint32_t)avail > stream->attr.maxlength)) {
 				uint32_t skip = avail - stream->attr.fragsize;
 				/* overrun, catch up to latest fragment and send it */
 				pw_log_warn("%p: [%s] overrun recover read:%u avail:%d max:%u skip:%u",
@@ -1431,17 +1431,17 @@ static void stream_process(void *data)
 	struct process_data pd;
 	bool do_flush = false;
 
-	if (stream->create_tag != SPA_ID_INVALID)
+	if (SPA_UNLIKELY(stream->create_tag != SPA_ID_INVALID))
 		return;
 
 	pw_log_trace_fp("%p: process", stream);
 	buffer = pw_stream_dequeue_buffer(stream->stream);
-	if (buffer == NULL)
+	if (SPA_UNLIKELY(buffer == NULL))
 		return;
 
 	buf = buffer->buffer;
 	d = &buf->datas[0];
-	if ((p = d->data) == NULL)
+	if (SPA_UNLIKELY((p = d->data) == NULL))
 		return;
 
 	spa_zero(pd);
@@ -1451,13 +1451,13 @@ static void stream_process(void *data)
 		bool empty = false;
 
 		minreq = buffer->requested * stream->frame_size;
-		if (minreq == 0)
+		if (SPA_UNLIKELY(minreq == 0))
 			minreq = stream->attr.minreq;
 
 		pd.minreq = minreq;
 		pd.quantum = stream->position ? stream->position->clock.duration : minreq;
 
-		if (avail < (int32_t)minreq || stream->corked) {
+		if (SPA_UNLIKELY(avail < (int32_t)minreq || stream->corked)) {
 			/* underrun, produce a silence buffer */
 			size = SPA_MIN(d->maxsize, minreq);
 			sample_spec_silence(&stream->ss, p, size);
@@ -1489,7 +1489,7 @@ static void stream_process(void *data)
 			pw_log_debug("%p: [%s] underrun read:%u avail:%d max:%u",
 					stream, client->name, index, avail, minreq);
 		} else {
-			if (avail > (int32_t)stream->attr.maxlength) {
+			if (SPA_UNLIKELY(avail > (int32_t)stream->attr.maxlength)) {
 				uint32_t skip = avail - stream->attr.maxlength;
 				/* overrun, reported by other side, here we skip
 				 * ahead to the oldest data. */
@@ -1526,12 +1526,12 @@ static void stream_process(void *data)
 		offs = SPA_MIN(d->chunk->offset, d->maxsize);
 		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
 
-		if (filled < 0) {
+		if (SPA_UNLIKELY(filled < 0)) {
 			/* underrun, can't really happen because we never read more
 			 * than what's available on the other side  */
 			pw_log_warn("%p: [%s] underrun write:%u filled:%d",
 					stream, client->name, index, filled);
-		} else if ((uint32_t)filled + size > stream->attr.maxlength) {
+		} else if (SPA_UNLIKELY((uint32_t)filled + size > stream->attr.maxlength)) {
 			/* overrun, can happen when the other side is not
 			 * reading fast enough. We still write our data into the
 			 * ringbuffer and expect the other side to warn and catch up. */
@@ -1552,7 +1552,7 @@ static void stream_process(void *data)
 	}
 	pw_stream_queue_buffer(stream->stream, buffer);
 
-	if (do_flush)
+	if (SPA_UNLIKELY(do_flush))
 		pw_stream_flush(stream->stream, true);
 
 	pw_stream_get_time_n(stream->stream, &pd.pwt, sizeof(pd.pwt));

@@ -320,7 +320,7 @@ struct spa_handle *pw_load_spa_handle(const char *lib,
 error:
 	pw_log_error("load lib: pw_init() was not called");
 	pthread_mutex_unlock(&support_lock);
-	errno = EBADFD;
+	errno = EBADF;
 	return NULL;
 }
 

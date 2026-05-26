@@ -771,6 +771,7 @@ static void stream_state_changed(void *d, enum pw_stream_state old,
 		break;
 	case PW_STREAM_STATE_STREAMING:
 		update_latency(s->impl);
+		update_delay(s->impl);
 		break;
 	default:
 		break;

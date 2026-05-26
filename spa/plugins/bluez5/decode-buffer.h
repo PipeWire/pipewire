@@ -85,6 +85,8 @@ struct spa_bt_decode_buffer
 
 	int64_t duration_ns;
 	int64_t next_nsec;
+	int32_t min_latency;
+
 	int32_t delay;
 	int32_t delay_frac;
 	uint32_t prev_samples;
@@ -252,6 +254,11 @@ static inline void spa_bt_decode_buffer_set_max_extra_latency(struct spa_bt_deco
 	this->max_extra = samples;
 }
 
+static inline void spa_bt_decode_buffer_set_min_latency(struct spa_bt_decode_buffer *this, int32_t samples)
+{
+	this->min_latency = samples;
+}
+
 static inline int32_t spa_bt_decode_buffer_get_auto_latency(struct spa_bt_decode_buffer *this)
 {
 	const int32_t duration = this->duration_ns * this->rate / SPA_NSEC_PER_SEC;
@@ -264,6 +271,7 @@ static inline int32_t spa_bt_decode_buffer_get_auto_latency(struct spa_bt_decode
 					SPA_CLAMP((int)this->rate / 50, 1, INT32_MAX)),
 			duration, max_buf - 2*packet_size);
 
+	target = SPA_MAX(target, this->min_latency);
 	return SPA_MIN(target, duration + SPA_CLAMP(this->max_extra, 0, INT32_MAX - duration));
 }
 

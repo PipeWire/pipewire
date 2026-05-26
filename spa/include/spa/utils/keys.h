@@ -121,6 +121,8 @@ extern "C" {
 #define SPA_KEY_API_BLUEZ5_CLASS	"api.bluez5.class"		/**< a bluetooth class */
 #define SPA_KEY_API_BLUEZ5_ICON		"api.bluez5.icon"		/**< a bluetooth icon */
 #define SPA_KEY_API_BLUEZ5_ROLE		"api.bluez5.role"		/**< "client" or "server" */
+#define SPA_KEY_API_BLUEZ5_MIN_LATENCY_MS	\
+					"api.bluez5.min-latency-ms"	/**< minimum possible latency, in milliseconds */
 
 /** keys for jack api */
 #define SPA_KEY_API_JACK		"api.jack"			/**< key for the JACK api */

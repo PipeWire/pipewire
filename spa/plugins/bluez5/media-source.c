@@ -148,6 +148,7 @@ struct impl {
 	unsigned int decode_buffer_target;
 
 	unsigned int node_latency;
+	uint32_t min_latency_ms;
 
 	int fd;
 	struct spa_source source;
@@ -1037,6 +1038,11 @@ static int transport_start(struct impl *this)
 		/* 80 ms max extra buffer */
 		spa_bt_decode_buffer_set_max_extra_latency(&port->buffer,
 				port->current_format.info.raw.rate * 80 / 1000);
+	}
+
+	if (this->min_latency_ms) {
+		spa_bt_decode_buffer_set_min_latency(&port->buffer,
+				this->min_latency_ms * port->current_format.info.raw.rate / 1000);
 	}
 
 	this->delay.buffer = -1;
@@ -2249,6 +2255,8 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_scnprintf(this->props.rate, sizeof(this->props.rate), "%s", str);
 			this->props.has_rate = true;
 		}
+		if ((str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_MIN_LATENCY_MS)) != NULL)
+			spa_atou32(str, &this->min_latency_ms, 0);
 	}
 
 	if (this->is_duplex) {

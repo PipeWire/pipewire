@@ -1321,9 +1321,9 @@ do_process_done(struct spa_loop *loop,
 	int32_t avail;
 
 	stream->timestamp = pd->pwt.now;
-	stream->delay = pd->pwt.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
-	if (pd->pwt.rate.denom > 0)
-		stream->delay += pd->pwt.delay * SPA_USEC_PER_SEC * pd->pwt.rate.num / pd->pwt.rate.denom;
+	stream->delay.buffered = pd->pwt.buffered;
+	stream->delay.delay = pd->pwt.delay;
+	stream->delay.rate = pd->pwt.rate;
 
 	if (stream->direction == PW_DIRECTION_OUTPUT) {
 		if (SPA_UNLIKELY(pd->quantum != stream->last_quantum)) {
@@ -2217,7 +2217,7 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	uint32_t channel;
 	struct timeval tv, now;
 	struct stream *stream;
-	uint64_t delay;
+	int64_t delay;
 	int res;
 
 	if ((res = message_get(m,
@@ -2231,15 +2231,20 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	if (stream == NULL || stream->type != STREAM_TYPE_PLAYBACK)
 		return -ENOENT;
 
+	delay = stream->delay.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
+	if (stream->delay.rate.denom > 0)
+		delay += stream->delay.delay * SPA_USEC_PER_SEC *
+			stream->delay.rate.num / stream->delay.rate.denom;
+
 	pw_log_debug("read:0x%"PRIx64" write:0x%"PRIx64" queued:%"PRIi64" delay:%"PRIi64
 			" playing:%"PRIu64,
 			stream->read_index, stream->write_index,
-			stream->write_index - stream->read_index, stream->delay,
+			stream->write_index - stream->read_index, delay,
 			stream->playing_for);
 
 	gettimeofday(&now, NULL);
 
-	delay = SPA_CLAMP(stream->delay, 0, INT64_MAX);
+	delay = SPA_CLAMP(delay, 0, INT64_MAX);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -2269,7 +2274,7 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	uint32_t channel;
 	struct timeval tv, now;
 	struct stream *stream;
-	uint64_t delay;
+	int64_t delay;
 	int res;
 
 	if ((res = message_get(m,
@@ -2283,14 +2288,18 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	if (stream == NULL || stream->type != STREAM_TYPE_RECORD)
 		return -ENOENT;
 
+	delay = stream->delay.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
+	if (stream->delay.rate.denom > 0)
+		delay += stream->delay.delay * SPA_USEC_PER_SEC *
+			stream->delay.rate.num / stream->delay.rate.denom;
+
 	pw_log_debug("read:0x%"PRIx64" write:0x%"PRIx64" queued:%"PRIi64" delay:%"PRIi64,
 			stream->read_index, stream->write_index,
-			stream->write_index - stream->read_index, stream->delay);
-
+			stream->write_index - stream->read_index, delay);
 
 	gettimeofday(&now, NULL);
 
-	delay = SPA_CLAMP(stream->delay, 0, INT64_MAX);
+	delay = SPA_CLAMP(delay, 0, INT64_MAX);
 
 	reply = reply_new(client, tag);
 	message_put(reply,

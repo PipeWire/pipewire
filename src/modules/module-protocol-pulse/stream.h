@@ -64,7 +64,11 @@ struct stream {
 	uint64_t ticks_base;
 	uint64_t timestamp;
 	uint64_t idle_time;
-	int64_t delay;
+	struct {
+		uint64_t buffered;
+		int64_t delay;
+		struct spa_fraction rate;
+	} delay;
 
 	uint32_t last_quantum;
 	int64_t requested;

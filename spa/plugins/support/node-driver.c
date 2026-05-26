@@ -358,6 +358,7 @@ static void on_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	uint64_t expirations, nsec, duration, current_time, current_position, position;
+	uint64_t time_since_nsec;
 	uint32_t rate;
 	double corr = 1.0, err = 0.0;
 	int res;
@@ -404,11 +405,22 @@ static void on_timeout(struct spa_source *source)
 	 * and this->clock->position values are correct anymore. (Timer
 	 * cancellations happen when the realtime clock is being used by
 	 * this driver and the user modified the realtime clock for example.)
+	 *
+	 * time_since_nsec is an extra factor that corrects inaccuracies when
+	 * the on_timeout() callback is executed with a slight delay. This
+	 * delay is factored into current_time and later in the err value,
+	 * which means that the DLL has to compensate for it. time_since_nsec
+	 * estimates the delay, and subtracts that estimation, leading to
+	 * a reduced impact on current_time, and thus, the DLL does not have
+	 * to compensate as much, which increases the control loop stability.
 	 */
-	if (this->props.freewheel || SPA_UNLIKELY(timer_was_canceled))
+	if (this->props.freewheel || SPA_UNLIKELY(timer_was_canceled)) {
 		nsec = gettime_nsec(this, this->timer_clockid);
-	else
+		time_since_nsec = 0;
+	} else {
 		nsec = this->next_time;
+		time_since_nsec = gettime_nsec(this, this->timer_clockid) - this->next_time;
+	}
 
 	/* "tracking" means that the driver is following a clock that is not
 	 * usable by timerfd. It is an entirely separate clock, for example,
@@ -416,10 +428,12 @@ static void on_timeout(struct spa_source *source)
 	 * always the monotonic clock, and this->props.clock_id is that entirely
 	 * separate clock. If tracking is false, then this->props.clock_id
 	 * equals timer_clockid, so "nsec" can directly be used as the current
-	 * driver clock time in that case. */
-	if (this->tracking)
+	 * driver clock time in that case.
+	 * (See the comment above for the purpose of time_since_nsec.) */
+	if (this->tracking) {
 		current_time = gettime_nsec(this, this->props.clock_id);
-	else
+		current_time -= SPA_LIKELY(current_time >= time_since_nsec) ? time_since_nsec : 0;
+	} else
 		current_time = nsec;
 
 	current_position = scale_u64(current_time, rate, SPA_NSEC_PER_SEC);

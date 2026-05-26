@@ -377,17 +377,11 @@ done:
 	return res;
 }
 
-static int ensure_size(struct message *m, uint32_t size)
+static int message_resize(struct message *m, uint32_t size)
 {
 	uint64_t needed;
 	uint32_t alloc, diff;
 	void *data;
-
-	if (m->length > m->allocated)
-		return -ENOMEM;
-
-	if (size <= m->allocated - m->length)
-		return size;
 
 	needed = SPA_ROUND_UP_N(SPA_MAX((uint64_t)m->allocated + size, 4096u), 4096u);
 	if (needed > UINT32_MAX)
@@ -406,6 +400,17 @@ static int ensure_size(struct message *m, uint32_t size)
 	m->data = data;
 	m->allocated = alloc;
 	return size;
+}
+
+static inline int ensure_size(struct message *m, uint32_t size)
+{
+	if (m->length > m->allocated)
+		return -ENOMEM;
+
+	if (size <= m->allocated - m->length)
+		return size;
+
+	return message_resize(m, size);
 }
 
 static void write_8(struct message *m, uint8_t val)

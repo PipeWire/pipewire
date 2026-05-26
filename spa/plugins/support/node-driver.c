@@ -484,7 +484,7 @@ static void on_timeout(struct spa_source *source)
 					spa_log_warn(this->log, "err %f > max_resync %f, resetting",
 							err, this->max_resync);
 				}
-				spa_dll_set_bw(&this->dll, SPA_DLL_BW_MIN, duration, rate);
+				spa_dll_set_bw(&this->dll, SPA_DLL_BW_MAX, duration, rate);
 				position = current_position;
 				err = 0.0;
 			} else {

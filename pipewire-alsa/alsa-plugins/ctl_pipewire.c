@@ -286,7 +286,7 @@ static int pipewire_elem_count(snd_ctl_ext_t * ext)
 	assert(ctl);
 
 	if (!ctl->mainloop)
-		return -EBADFD;
+		return -EBADF;
 
 	pw_thread_loop_lock(ctl->mainloop);
 
@@ -322,7 +322,7 @@ static int pipewire_elem_list(snd_ctl_ext_t * ext, unsigned int offset,
 	assert(ctl);
 
 	if (!ctl->mainloop)
-		return -EBADFD;
+		return -EBADF;
 
 	snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_MIXER);
 
@@ -393,7 +393,7 @@ static int pipewire_get_attribute(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 	assert(ctl);
 
 	if (!ctl->mainloop)
-		return -EBADFD;
+		return -EBADF;
 
 	pw_thread_loop_lock(ctl->mainloop);
 
@@ -449,7 +449,7 @@ static int pipewire_read_integer(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 	assert(ctl);
 
 	if (!ctl->mainloop)
-		return -EBADFD;
+		return -EBADF;
 
 	pw_thread_loop_lock(ctl->mainloop);
 
@@ -583,7 +583,7 @@ static int pipewire_write_integer(snd_ctl_ext_t * ext, snd_ctl_ext_key_t key,
 	assert(ctl);
 
 	if (!ctl->mainloop)
-		return -EBADFD;
+		return -EBADF;
 
 	pw_thread_loop_lock(ctl->mainloop);
 
@@ -682,7 +682,7 @@ static int pipewire_read_event(snd_ctl_ext_t * ext, snd_ctl_elem_id_t * id,
 	assert(ctl);
 
 	if (!ctl->mainloop)
-		return -EBADFD;
+		return -EBADF;
 
 	pw_thread_loop_lock(ctl->mainloop);
 
@@ -739,7 +739,7 @@ static int pipewire_ctl_poll_revents(snd_ctl_ext_t * ext, struct pollfd *pfd,
 	assert(ctl);
 
 	if (!ctl->mainloop)
-		return -EBADFD;
+		return -EBADF;
 
 	pw_thread_loop_lock(ctl->mainloop);
 

@@ -254,8 +254,8 @@ int compress_offload_api_write(struct compress_offload_api_context *context, con
 	num_bytes_written = write(context->fd, data, size);
 	if (num_bytes_written < 0) {
 		switch (errno) {
-			case EBADFD:
-				/* EBADFD indicates that the device is paused and thus is not an error. */
+			case EBADF:
+				/* EBADF indicates that the device is paused and thus is not an error. */
 				break;
 			default:
 				spa_log_error(context->log, "could not write %zu byte(s): %s (%d)",

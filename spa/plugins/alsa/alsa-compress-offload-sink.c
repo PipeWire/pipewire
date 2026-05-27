@@ -586,7 +586,7 @@ static int device_write(struct impl *this, const void *data, uint32_t size)
 	res = compress_offload_api_write(this->device_context, data, num_bytes_to_write);
 
 	if (SPA_UNLIKELY(res < 0)) {
-		if (res == -EBADFD)
+		if (res == -EBADF)
 			spa_log_debug(this->log, "%p: device is paused", this);
 		else
 			spa_log_error(this->log, "%p: write error: %s", this, spa_strerror(res));

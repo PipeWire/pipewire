@@ -107,9 +107,7 @@ static inline int res_to_err(int res)
 	case -ENOKEY: return ERR_AUTHKEY;
 #endif
 	case -ECONNRESET: case -EPIPE: return ERR_CONNECTIONTERMINATED;
-#ifdef EBADFD
-	case -EBADFD: return ERR_BADSTATE;
-#endif
+	case -EBADF: return ERR_BADSTATE;
 #ifdef ENODATA
 	case -ENODATA: return ERR_NODATA;
 #endif
@@ -144,9 +142,7 @@ static inline int err_to_res(int err)
 	case ERR_KILLED: return -EFAULT;
 	case ERR_INVALIDSERVER: return -EINVAL;
 	case ERR_MODINITFAILED: return -EIO;
-#ifdef EBADFD
-	case ERR_BADSTATE: return -EBADFD;
-#endif
+	case ERR_BADSTATE: return -EBADF;
 	case ERR_NODATA: return -ENODATA;
 	case ERR_VERSION: return -EPROTO;
 	case ERR_TOOLARGE: return -E2BIG;

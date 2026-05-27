@@ -1148,17 +1148,15 @@ static inline int run_nodes(struct pw_context *context, struct pw_impl_node *nod
 			}
 		}
 	}
-	/* now go through all the nodes that have the same link group and
-	 * that are not yet visited. Note how nodes with the same group
-	 * don't get included here. They were added to the same driver but
-	 * need to otherwise stay idle unless some non-passive link activates
-	 * them. */
-	if (node->link_groups != NULL) {
+	/* now go through all the nodes that share groups and link_groups
+	 * that are not yet visited */
+	if (node->groups != NULL || node->link_groups != NULL) {
 		spa_list_for_each(t, nodes, sort_link) {
 			if (t->exported || !t->active ||
 			    SPA_FLAG_IS_SET(t->checked, 1u<<direction))
 				continue;
-			if (pw_strv_find_common(t->link_groups, node->link_groups) < 0)
+			if (pw_strv_find_common(t->groups, node->groups) < 0 &&
+			    pw_strv_find_common(t->link_groups, node->link_groups) < 0)
 				continue;
 
 			pw_log_debug("  group %p: '%s'", t, t->name);

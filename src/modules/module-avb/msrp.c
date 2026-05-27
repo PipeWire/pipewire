@@ -101,12 +101,26 @@ static void notify_talker_failed(struct msrp *msrp, uint64_t now, struct attr *a
 			handle_evt_tk_registration_failed(msrp->server->acmp, attr->attr, now);
 	}
 
-	/* Milan Table 5.10: TF registrar state also flips flags_ex.REGISTERING
-	 * on the listener side; emit an unsol when it changes. */
 	sc = SPA_CONTAINER_OF(attr->attr, struct stream_common, tfstream_attr);
-	if (sc->stream.direction == SPA_DIRECTION_INPUT)
+	if (sc->stream.direction == SPA_DIRECTION_INPUT) {
+		/* IEEE 802.1Q-2018 §35.2.2.4.4 + Milan v1.2 §4.3.3.1: when the
+		 * Talker has transitioned to TalkerFailed, the Listener must
+		 * declare AskingFailed so the Talker has the recovery signal
+		 * ("I still want this stream, please re-evaluate"). Without
+		 * this, the Listener was stuck at the previous Ready
+		 * declaration from before the failure, the Talker read
+		 * "listener is satisfied" and never re-attempted the advertise.
+		 * Symptom on the wire: Talker oscillates Advertise → Failed →
+		 * silence; stream drops after a few seconds and never resumes
+		 * for the same bind. */
+		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
+			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
+		/* Milan Table 5.10: TF registrar state also flips
+		 * flags_ex.REGISTERING on the listener side; emit an unsol
+		 * when it changes. */
 		avb_aecp_aem_mark_stream_info_dirty(msrp->server,
 				AVB_AEM_DESC_STREAM_INPUT, sc->stream.index);
+	}
 }
 
 static int process_talker(struct msrp *msrp, uint64_t now, uint8_t attr_type,

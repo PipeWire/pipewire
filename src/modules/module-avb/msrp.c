@@ -339,18 +339,39 @@ static int process_domain(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 			continue;
 		}
 
-		if (msrp->server->avb_mode == AVB_MODE_MILAN_V12)
-		{
-			/** Milan V1.2 Section 4.2.7.2.1:
-			    The endstation shall re-adjust the domain according
-			    to the from the MSRPDU received on its interface */
-			bool mismatch = (a->attr->attr.domain.sr_class_id != d->sr_class_id
-				|| a->attr->attr.domain.sr_class_priority != d->sr_class_priority
+		if (msrp->server->avb_mode == AVB_MODE_MILAN_V12) {
+			/* Milan v1.2 §4.2.7.2.1: "re-adjust the domain" means
+			 * align the priority/vid of the matching SR class — NOT
+			 * overwrite every locally-held Domain attribute with the
+			 * incoming values. The old code iterated all Domain
+			 * attributes and smashed each one whose (id, prio, vid)
+			 * didn't match the incoming, so when the talker
+			 * advertised SR-B (id=5) both of pipewire's Domain
+			 * attributes (originally SR-A id=6 and SR-B id=5) were
+			 * overwritten to SR-B; when the talker then advertised
+			 * SR-A, both flipped back to SR-A. Pipewire transmitted
+			 * only one of the two SR classes at any moment, so the
+			 * talker never saw a stable SR-A Domain declaration from
+			 * pipewire and locked into TalkerFailed code 13.
+			 *
+			 * Correct re-adjust: only the locally-held attribute
+			 * with the SAME sr_class_id gets its priority/vid
+			 * updated. */
+			if (a->attr->attr.domain.sr_class_id != d->sr_class_id)
+				continue;
+
+			bool mismatch = (a->attr->attr.domain.sr_class_priority != d->sr_class_priority
 				|| a->attr->attr.domain.sr_class_vid  != d->sr_class_vid);
 
 			if (mismatch) {
-				pw_log_info("Domain mismatch re-adjusting");
-				a->attr->attr.domain = *d;
+				pw_log_info("Domain re-adjust (sr_class_id=%u): prio %u->%u vid %u->%u",
+					d->sr_class_id,
+					a->attr->attr.domain.sr_class_priority,
+					d->sr_class_priority,
+					ntohs(a->attr->attr.domain.sr_class_vid),
+					ntohs(d->sr_class_vid));
+				a->attr->attr.domain.sr_class_priority = d->sr_class_priority;
+				a->attr->attr.domain.sr_class_vid = d->sr_class_vid;
 				avb_mrp_attribute_leave(a->attr->mrp, now);
 				avb_mrp_attribute_begin(a->attr->mrp, now);
 				avb_mrp_attribute_join(a->attr->mrp, now, true);

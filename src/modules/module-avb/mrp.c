@@ -108,11 +108,19 @@ static void mrp_periodic(void *data, uint64_t now)
 
 
 	if (now > mrp->lva_timer.leave_all_timeout) {
-		/* 802.1Q-2014 Table 10-5 */
+		/* IEEE 802.1Q-2018 §10.7.5.20: when our LeaveAll timer fires, we
+		 * become the TRANSMITTER of LeaveAll. Mark lva_tx_pending so the
+		 * next TX cycle includes the LVA PDU. We must NOT apply RX_LVA to
+		 * our own attributes — per Table 10-4 the registrar transitions
+		 * IN→LV only on RECEIVED LV/LVA, not on our own transmission.
+		 * The old global_event(RX_LVA) here flipped our own SR-class
+		 * Domain registrars to LV for a full 1 s leave_timeout window,
+		 * during which the talker reads our Domain as "leaving" and
+		 * reports MSRP TalkerFailed (failure_code 13). That broke the
+		 * stream every 10–15 s. */
 		mrp->lva_timer.state = FSM_LVA_ACTIVE;
 		if (mrp->lva_timer.leave_all_timeout > 0) {
 			mrp->lva_tx_pending = true;
-			global_event(mrp, now, AVB_MRP_EVENT_RX_LVA);
 			leave_all = true;
 		}
 	}
@@ -435,7 +443,6 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 		break;
 	case AVB_MRP_EVENT_RX_LV:
 	case AVB_MRP_EVENT_RX_LVA:
-	case AVB_MRP_EVENT_TX_LVA:
 	case AVB_MRP_EVENT_REDECLARE:
 		switch (state) {
 		case AVB_MRP_IN:
@@ -443,6 +450,13 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 			state = AVB_MRP_LV;
 			break;
 		}
+		break;
+	case AVB_MRP_EVENT_TX_LVA:
+		/* IEEE 802.1Q-2018 Table 10-4: TX events do NOT trigger
+		 * registrar transitions. The previous code lumped TX_LVA with
+		 * RX_LVA and so transitioned our own registrar IN→LV for the
+		 * full 1 s leave_timeout, briefly hiding the peer's attribute
+		 * from upper layers. Leave the registrar untouched on TX_LVA. */
 		break;
 	case AVB_MRP_EVENT_FLUSH:
 		switch (state) {

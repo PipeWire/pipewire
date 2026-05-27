@@ -73,9 +73,9 @@ impl_log_logtv(void *object,
 	char timestamp[18] = {0};
 	char topicstr[32] = {0};
 	char filename[64] = {0};
-	char location[1000 + RESERVED_LENGTH], *p, *s;
+	char location[1000 + RESERVED_LENGTH], *p;
 	static const char * const levels[] = { "-", "E", "W", "I", "D", "T", "*T*" };
-	const char *prefix = "", *suffix = "";
+	const char *prefix = "", *suffix = "", *s;
 	int size, len;
 	bool do_trace;
 

@@ -426,11 +426,11 @@ static PA_PRINTF_FUNC(1,0) inline char *pa_vsprintf_malloc(const char *fmt, va_l
 
 static inline char *pa_path_get_filename(const char *p)
 {
-    char *fn;
+    const char *fn;
     if (!p)
         return NULL;
     if ((fn = strrchr(p, PA_PATH_SEP_CHAR)))
-        return fn+1;
+        return (char*)(fn+1);
     return (char*) p;
 }
 

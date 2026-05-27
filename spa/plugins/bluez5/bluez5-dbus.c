@@ -1102,7 +1102,7 @@ static struct spa_bt_adapter *adapter_find(struct spa_bt_monitor *monitor, const
 static int parse_modalias(const char *modalias, uint16_t *source, uint16_t *vendor,
 		uint16_t *product, uint16_t *version)
 {
-	char *pos;
+	const char *pos;
 	unsigned int src, i, j, k;
 
 	if (spa_strstartswith(modalias, "bluetooth:"))

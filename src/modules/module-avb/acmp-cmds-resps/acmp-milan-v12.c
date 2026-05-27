@@ -53,6 +53,12 @@ static inline uint64_t peer_id_from_entity_id(uint64_t entity_id, uint16_t uniqu
 		return 0;
 	}
 
+	/* Non-EUI-64 entity_id (MAC|entity_index): high 48 bits are the MAC, swap the
+	 * low 16 for unique_id. EUI-64 (FF:FE marker) rebuilds the stream_id below. */
+	if (((entity_id >> 24) & 0xFFFFULL) != 0xFFFEULL) {
+		return (entity_id & 0xFFFFFFFFFFFF0000ULL) | unique_id;
+	}
+
 	return (entity_id & 0xFFFFFF0000000000ULL) |
 	       ((entity_id & 0xFFFFFFULL) << 16) |
 	       unique_id;
@@ -69,11 +75,17 @@ static inline void clear_stream_binding(struct aecp_aem_stream_input_state_milan
 	       sizeof(stream->stream_in_sta.common.stream.addr));
 	stream->stream_in_sta.common.stream.vlan_id = AVB_DEFAULT_VLAN;
 
+	stream->acmp_sta.talker_entity_id = 0;
 	stream->stream_in_sta.stream_info_dirty = true;
 }
 
 static inline uint64_t stream_talker_entity_id(const struct aecp_aem_stream_input_state_milan_v12 *s)
 {
+	/* Prefer the talker entity_id stashed at BIND_RX (round-trip-safe); deriving it
+	 * from the MSRP stream_id is lossy for non-EUI-64 entity_ids. */
+	if (s->acmp_sta.talker_entity_id != 0) {
+		return s->acmp_sta.talker_entity_id;
+	}
 	return entity_id_from_peer_id(be64toh(s->stream_in_sta.common.lstream_attr.attr.listener.stream_id));
 }
 
@@ -455,6 +467,7 @@ static void binding_save_parameters(struct acmp *acmp,
 	uint64_t stream_id = htobe64(peer_id_from_entity_id(be64toh(p->talker_guid), ntohs(p->talker_unique_id)));
 
 	stream->acmp_sta.controller_entity_id = be64toh(p->controller_guid);
+	stream->acmp_sta.talker_entity_id = be64toh(p->talker_guid);
 	stream->stream_in_sta.common.lstream_attr.attr.listener.stream_id = stream_id;
 	stream->stream_in_sta.common.tastream_attr.attr.talker.stream_id = stream_id;
 	stream->stream_in_sta.common.tfstream_attr.attr.talker_fail.talker.stream_id = stream_id;

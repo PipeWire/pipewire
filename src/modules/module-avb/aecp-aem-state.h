@@ -186,6 +186,11 @@ struct aecp_aem_stream_input_state {
 
 struct acmp_stream_status_milan_v12 {
 	uint64_t controller_entity_id;
+	/* Original talker entity_id captured at BIND_RX_COMMAND time, used
+	 * verbatim when emitting CONNECT_TX_COMMAND probes. Needed because the
+	 * stream_id ↔ entity_id round-trip via peer_id_from_entity_id() is
+	 * lossy for non-EUI-64 entity_ids (e.g. MAC | entity_index). */
+	uint64_t talker_entity_id;
 	uint32_t acmp_flags;
 	uint8_t probing_status;
 	uint8_t acmp_status;

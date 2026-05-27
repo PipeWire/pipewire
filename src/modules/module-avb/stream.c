@@ -767,12 +767,9 @@ static void handle_aaf_packet(struct stream *stream,
 	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)))
 		return;
 
-	/* IEEE 1722.1 Section 7.4.42 / Milan Section 5.4.5.3: FRAMES_RX counts every valid
-	 * AVTPDU received on the wire — independent of whether the listener
-	 * pipeline could absorb it. A ringbuffer overrun is a separate event
-	 * that bumps STREAM_INTERRUPTED. Counting both unconditionally keeps
-	 * Hive's dashboard meaningful even when no PipeWire consumer is
-	 * draining the source side. */
+	/* IEEE 1722.1 Section 7.4.42 / Milan v1.2 Section 5.4.5.3: FRAMES_RX counts
+	 * every valid AVTPDU received on the wire — independent of whether the
+	 * listener pipeline could absorb it. */
 	cnt->frame_rx++;
 
 	clock_gettime(CLOCK_MONOTONIC, &now_ts);
@@ -783,10 +780,19 @@ static void handle_aaf_packet(struct stream *stream,
 	}
 
 	if (filled + (int32_t)n_bytes > (int32_t)stream->buffer_size) {
+		/* Ringbuffer overrun. Per Milan v1.2 Section 5.4.5.3 the
+		 * STREAM_INTERRUPTED counter is reserved for stream-level
+		 * interruptions (e.g. loss of the SRP TalkerAdvertise) and
+		 * MUST NOT be bumped per dropped frame. Without a consumer
+		 * draining the ring (e.g. an ALSA sink hooked up), this branch
+		 * would fire on every received AVTPDU and look identical to a
+		 * total link failure on the controller dashboard — defeating
+		 * the goals.md "error counters stay zero" target. Drop the
+		 * frame silently; an out-of-band metric should be used to
+		 * surface unconsumed-stream conditions. */
 		uint32_t r_index;
 		spa_ringbuffer_get_read_index(&stream->ring, &r_index);
 		spa_ringbuffer_read_update(&stream->ring, r_index + n_bytes);
-		cnt->stream_interrupted++;
 		filled -= n_bytes;
 	}
 	spa_ringbuffer_write_data(&stream->ring,
@@ -827,10 +833,13 @@ static void handle_iec61883_packet(struct stream *stream,
 	}
 
 	if (filled + n_bytes > stream->buffer_size) {
+		/* Same reasoning as the AAF handler above: do NOT bump
+		 * STREAM_INTERRUPTED on a per-frame ringbuffer overrun.
+		 * Milan v1.2 §5.4.5.3 reserves that counter for stream-level
+		 * interruptions (lost SRP TalkerAdvertise, etc.). */
 		uint32_t r_index;
 		spa_ringbuffer_get_read_index(&stream->ring, &r_index);
 		spa_ringbuffer_read_update(&stream->ring, r_index + n_bytes);
-		cnt->stream_interrupted++;
 		filled -= n_bytes;
 	}
 	spa_ringbuffer_write_data(&stream->ring,

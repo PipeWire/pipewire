@@ -34,6 +34,7 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 	if (type == AVB_AEM_DESC_STREAM_INPUT) {
 		struct aecp_aem_stream_input_state_milan_v12 *w;
 		const struct avb_aem_desc_stream *body = ptr;
+		struct avb_aem_stream_format_info fi;
 
 		desc = server_add_descriptor(server, type, index,
 				sizeof(*w), size, ptr);
@@ -46,13 +47,13 @@ static struct descriptor *es_buidler_desc_stream_general_prepare(struct server *
 		/* Milan v1.2 Section 5.3.8.7: started/stopped state defaults to started. */
 		w->stream_in_sta.started = true;
 
-		struct avb_aem_stream_format_info fi;
 		avb_aem_stream_format_decode(body->current_format, &fi);
-		if (fi.kind == AVB_AEM_STREAM_FORMAT_KIND_CRF)
-			return desc;
 
 		stream = &w->stream_in_sta.common.stream;
 		direction = SPA_DIRECTION_INPUT;
+		stream->is_crf = (fi.kind == AVB_AEM_STREAM_FORMAT_KIND_CRF);
+		if (stream->is_crf)
+			pw_log_info("stream %u: CRF clock-reference, no audio data plane", index);
 	} else if (type == AVB_AEM_DESC_STREAM_OUTPUT) {
 		struct aecp_aem_stream_output_state_milan_v12 *w;
 

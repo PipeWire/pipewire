@@ -593,12 +593,13 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 	if (stream->stream == NULL)
 		goto error_free;
 
-	pw_stream_add_listener(stream->stream,
-			&stream->stream_listener,
-			direction == SPA_DIRECTION_INPUT ?
-			&source_stream_events :
-			&sink_stream_events,
-			stream);
+	if (!stream->is_crf)
+		pw_stream_add_listener(stream->stream,
+				&stream->stream_listener,
+				direction == SPA_DIRECTION_INPUT ?
+				&source_stream_events :
+				&sink_stream_events,
+				stream);
 
 	{
 		uint16_t desc_type = (direction == SPA_DIRECTION_INPUT)
@@ -625,7 +626,8 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 	params[n_params++] = spa_format_audio_raw_build(&b,
 			SPA_PARAM_EnumFormat, &stream->info.info.raw);
 
-	if ((res = pw_stream_connect(stream->stream,
+	if (!stream->is_crf &&
+	    (res = pw_stream_connect(stream->stream,
 			pw_direction_reverse(direction),
 			PW_ID_ANY,
 			PW_STREAM_FLAG_MAP_BUFFERS |

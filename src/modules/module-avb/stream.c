@@ -877,6 +877,10 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 						(struct avb_packet_iec61883 *)ph,
 						len - (int)sizeof(*h));
 				break;
+			case AVB_SUBTYPE_CRF:
+				/* CRF clock-reference stream: no audio data plane.
+				 * Consume and ignore (clock recovery is future work). */
+				break;
 			default:
 				pw_log_warn("unsupported subtype 0x%02x", ph->subtype);
 				break;

@@ -37,6 +37,7 @@ struct stream {
 	struct spa_source *source;
 	struct spa_source *flush_timer;
 	uint64_t flush_last_ns;
+	bool is_crf;
 	int prio;
 	int mtt;
 	int t_uncertainty;

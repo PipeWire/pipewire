@@ -332,9 +332,7 @@ static void init_descriptor_milan_v12(struct server *server)
 	/**************************************************************************************/
 	/* IEEE 1722.1-2021, Sec. 7.2.1 - ENTITY Descriptor */
 	/* Milan v1.2, Sec. 5.3.3.1 */
-	// TODO: Add changes made from prev
 	struct avb_entity_config entity_conf = conf_load_entity(server->impl->props);
-
 
 	struct avb_aem_desc_entity entity_desc =
 	{

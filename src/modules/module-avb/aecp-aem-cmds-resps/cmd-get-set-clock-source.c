@@ -141,6 +141,11 @@ int handle_cmd_set_clock_source_milan_v12(struct aecp *aecp, int64_t now,
 
 	/** Descriptor always keep the network endianness */
 	dclk_domain->clock_source_index = htons(clock_src_index);
+
+	/* milan-avb: apply the new selection to the data plane on the fly —
+	 * (de)activate AAF media-clock recovery on the affected input streams. */
+	avb_stream_update_clock_source(server);
+
 	rc = reply_success(aecp, m, len);
 	if (rc) {
 		pw_log_error("Reply failed for set_clock_source\n");

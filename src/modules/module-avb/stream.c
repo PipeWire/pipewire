@@ -109,6 +109,7 @@
  * --------------------------------------------------------------------------
  */
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
@@ -297,6 +298,81 @@ static void on_source_stream_process(void *data)
 		}
 	}
 
+	/* milan-avb: consume-side actuator. While AAF is the clock source and the
+	 * adapter gave us a resampler, trim its ratio to hold the ring fill and feed
+	 * the recovered media rate forward (play-loop.h). Off otherwise, so the
+	 * default rate=1.0 path is untouched. */
+	if (stream->mc_aaf_active && stream->io_rate_match != NULL) {
+		uint32_t rate = stream->info.info.raw.rate;
+		int32_t avail_samples = avail / (int32_t)stream->stride;
+		uint32_t quantum = buf->requested ? (uint32_t)buf->requested :
+			(stream->io_position ? stream->io_position->clock.duration : 1024);
+		int32_t ring_samples = (int32_t)(stream->buffer_size / stream->stride);
+		/* Target ~½ quantum: that is where the ring sits on average, so it is
+		 * reachable. A full quantum never is, so the error stays saturated and
+		 * the DLL winds up (rate ramps without bound). */
+		int32_t target = (int32_t)(quantum / 2);
+		double max_error = 2.0 * rate / 1000.0;		/* 2 ms, == module-rtp ERROR_MSEC */
+		double ff, error, r;
+		const char *env_target = getenv("MILAN_AVB_PLAY_TARGET");
+
+		if (env_target)
+			target = atoi(env_target);
+		if (target < (int32_t)(rate / 1000))		/* >= ~1 ms underrun margin */
+			target = (int32_t)(rate / 1000);
+		if (target > ring_samples / 2)			/* keep well inside the ring */
+			target = ring_samples / 2;
+		stream->play_target = target;
+
+		ff = stream->mc.rate > 1.0 ? (double)rate / stream->mc.rate : 1.0;
+		error = (double)target - (double)avail_samples;
+		r = play_loop_update(&stream->play, error, max_error, ff, quantum, rate);
+		pw_stream_set_rate(stream->stream, r);
+	} else if (stream->play.init) {
+		/* clock source switched away from AAF: release the resampler so the
+		 * graph free-runs at nominal again, and re-prime for next engage. */
+		pw_stream_set_rate(stream->stream, 1.0);
+		play_loop_reset(&stream->play);
+	}
+
+	/* milan-avb: ~1 Hz log of the local consume rate (Δticks/Δtai, mapped to TAI
+	 * via a monotonic/TAI offset) next to mc.rate and the actuator state. */
+	if (stream->mc_aaf_active || getenv("MILAN_AVB_PLAY_LOG")) {
+		struct timespec ts_mono;
+		uint64_t mono_ns;
+		clock_gettime(CLOCK_MONOTONIC, &ts_mono);
+		mono_ns = SPA_TIMESPEC_TO_NSEC(&ts_mono);
+		if (!stream->play_primed ||
+		    mono_ns - stream->play_log_last_ns >= SPA_NSEC_PER_SEC) {
+			struct pw_time pwt;
+			if (pw_stream_get_time_n(stream->stream, &pwt, sizeof(pwt)) == 0) {
+				uint64_t tai_ns, consume_tai;
+				/* milan-avb: gPTP time from the PHC so the consume clock
+				 * stays in the gPTP domain even with NTP on the system clock. */
+				tai_ns = stream_gptp_now(stream->server);
+				consume_tai = (uint64_t)pwt.now + (tai_ns - mono_ns);
+				if (stream->play_primed) {
+					int64_t dticks = (int64_t)(pwt.ticks - stream->play_last_ticks);
+					int64_t dtai = (int64_t)(consume_tai - stream->play_last_consume_tai);
+					double local_rate = dtai > 0
+						? (double)dticks * 1e9 / (double)dtai : 0.0;
+					pw_log_info("milan-avb: play measure local_rate=%.4f Hz "
+						"mc.rate=%.4f corr=%.6f err_ns=%d ticks=%llu | "
+						"actuator rate=%.6f play_corr=%.6f target=%d avail=%d",
+						local_rate, stream->mc.rate, stream->mc.corr,
+						stream->mc.last_err_ns,
+						(unsigned long long)pwt.ticks,
+						stream->play.rate, stream->play.corr,
+						stream->play_target, avail / (int32_t)stream->stride);
+				}
+				stream->play_last_ticks = pwt.ticks;
+				stream->play_last_consume_tai = consume_tai;
+				stream->play_log_last_ns = mono_ns;
+				stream->play_primed = true;
+			}
+		}
+	}
+
 	/* Milan v1.2 Section 5.4.5.3: partial-read on underrun, zero-pad tail. */
 	if (avail <= 0) {
 		memset(d[0].data, 0, n_bytes);
@@ -327,9 +403,35 @@ static void on_source_stream_process(void *data)
 	pw_stream_queue_buffer(stream->stream, buf);
 }
 
+static void on_source_stream_io_changed(void *data, uint32_t id,
+		void *area, uint32_t size)
+{
+	struct stream *stream = data;
+	const char *name;
+
+	switch (id) {
+	case SPA_IO_RateMatch:
+		stream->io_rate_match = area;
+		name = "RateMatch";
+		break;
+	case SPA_IO_Position:
+		stream->io_position = area;
+		name = "Position";
+		break;
+	case SPA_IO_Clock:	name = "Clock";		break;
+	case SPA_IO_Buffers:	name = "Buffers";	break;
+	default:		name = "?";		break;
+	}
+	/* milan-avb: logs whether the adapter gave us SPA_IO_RateMatch (the actuator
+	 * knob) on this source. */
+	pw_log_info("milan-avb: io_changed id=%u (%s) area=%p size=%u",
+			id, name, area, (unsigned)size);
+}
+
 static const struct pw_stream_events source_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = on_stream_destroy,
+	.io_changed = on_source_stream_io_changed,
 	.process = on_source_stream_process
 };
 
@@ -799,11 +901,106 @@ void stream_destroy(struct stream *stream)
 		avb_mrp_attribute_destroy(common->tastream_attr.mrp);
 		avb_mrp_attribute_destroy(common->tfstream_attr.mrp);
 	}
+
+	if (stream->raw_dump_fp) {
+		fclose(stream->raw_dump_fp);
+		stream->raw_dump_fp = NULL;
+	}
 }
 
 static int setup_socket(struct stream *stream)
 {
 	return avb_server_stream_setup_socket(stream->server, stream);
+}
+
+/* milan-avb: media-clock recovery -------------------------------------------
+ *
+ * Returns the CLOCK_SOURCE descriptor currently selected by CLOCK_DOMAIN 0,
+ * or NULL. The selection is clock_source_index, set at boot (Internal = 0)
+ * and updated on the wire by SET_CLOCK_SOURCE (IEEE 1722.1 Section 7.4.23). */
+static struct avb_aem_desc_clock_source *selected_clock_source(struct server *server)
+{
+	struct descriptor *dom;
+	struct descriptor *src;
+	struct avb_aem_desc_clock_domain *d;
+	uint16_t idx;
+
+	dom = server_find_descriptor(server, AVB_AEM_DESC_CLOCK_DOMAIN, 0);
+	if (dom == NULL)
+		return NULL;
+	d = descriptor_body(dom);
+	idx = ntohs(d->clock_source_index);
+	src = server_find_descriptor(server, AVB_AEM_DESC_CLOCK_SOURCE, idx);
+	if (src == NULL)
+		return NULL;
+	return descriptor_body(src);
+}
+
+/* True when the CLOCK_DOMAIN selects an AAF (INPUT_STREAM) clock source whose
+ * location points at this listener stream. CRF (MEDIA_CLOCK_STREAM) is out of
+ * scope and returns false. */
+static bool stream_mc_aaf_selected(struct stream *stream)
+{
+	struct avb_aem_desc_clock_source *cs;
+
+	if (stream->direction != SPA_DIRECTION_INPUT)
+		return false;
+	cs = selected_clock_source(stream->server);
+	if (cs == NULL)
+		return false;
+	if (ntohs(cs->clock_source_type) != AVB_AEM_DESC_CLOCK_SOURCE_TYPE_INPUT_STREAM)
+		return false;
+	if (ntohs(cs->clock_source_location_type) != AVB_AEM_DESC_STREAM_INPUT)
+		return false;
+	return ntohs(cs->clock_source_location_index) == stream->index;
+}
+
+static void stream_mc_reset(struct stream *stream)
+{
+	mc_recover_reset(&stream->mc, stream->info.info.raw.rate);
+	play_loop_reset(&stream->play);
+}
+
+void avb_stream_update_clock_source(struct server *server)
+{
+	struct stream *s;
+
+	spa_list_for_each(s, &server->streams, link) {
+		bool active;
+
+		if (s->direction != SPA_DIRECTION_INPUT)
+			continue;
+		active = stream_mc_aaf_selected(s);
+		if (active && !s->mc_aaf_active)
+			stream_mc_reset(s);
+		s->mc_aaf_active = active;
+		pw_log_info("milan-avb: stream %u media-clock source -> %s",
+				s->index, active ? "AAF (recovered)" : "internal/gPTP");
+	}
+}
+
+/* Recover the talker media rate from a PDU's avtp_timestamp. The timestamps
+ * carry the talker media clock in gPTP time; their inter-PDU deltas give its
+ * rate. A second-order DLL (spa_dll) tracks phase+frequency. Observe-only:
+ * drives mc_rate; consumption retiming is the next step. */
+static void stream_mc_recover(struct stream *stream, const struct avb_packet_aaf *p)
+{
+	uint32_t avtp_ts;
+	double rate;
+
+	if (!stream->mc_aaf_active || !p->tv)
+		return;
+
+	avtp_ts = ntohl(p->timestamp);
+	rate = mc_recover_update(&stream->mc, avtp_ts, stream->frames_per_pdu,
+			stream->info.info.raw.rate, stream->pdu_period);
+
+	if (stream->mc.pdus < 40 || (stream->mc.pdus % 8000) == 1)
+		pw_log_info("milan-avb: mc-recovery stream=%u pdus=%llu avtp_ts=%u model_lo=%u nom=%u pdu_ns=%lld rate=%.4f corr=%.8f err_ns=%d ppm=%.3f",
+				stream->index, (unsigned long long)stream->mc.pdus, avtp_ts,
+				(uint32_t)stream->mc.model_ns, (unsigned)stream->info.info.raw.rate,
+				(long long)stream->pdu_period, rate, stream->mc.corr,
+				stream->mc.last_err_ns, (stream->mc.corr - 1.0) * 1e6);
 }
 
 /* Milan 5.4.5.3 STREAM_INTERRUPTED: playback is interrupted by the loss of
@@ -887,6 +1084,10 @@ static void handle_aaf_packet(struct stream *stream,
 		stream->prev_seq = p->seq_num;
 	}
 
+	/* milan-avb: AAF media-clock recovery (active only when selected via the
+	 * CLOCK_DOMAIN). Recovers the talker media rate from avtp_timestamps. */
+	stream_mc_recover(stream, p);
+
 	/* milan-avb: latency observability (throttled to 1 Hz, env-gated). */
 	if (getenv("MILAN_AVB_LATENCY_LOG")) {
 		static uint64_t last_log_ns = 0;
@@ -915,6 +1116,26 @@ static void handle_aaf_packet(struct stream *stream,
 	index += n_bytes;
 	spa_ringbuffer_write_update(&stream->ring, index);
 	stream_in_mark_counters_dirty(stream);
+
+	/* milan-avb: env-gated raw PCM dump (S32BE interleaved) for offline THDN. */
+	{
+		const char *dump_dir = getenv("MILAN_AVB_RAW_DUMP_DIR");
+		if (dump_dir && stream->raw_dump_fp == NULL) {
+			char dpath[512];
+			snprintf(dpath, sizeof(dpath),
+				"%s/avb-stream-in-%u.s32be",
+				dump_dir, stream->index);
+			stream->raw_dump_fp = fopen(dpath, "wb");
+			if (stream->raw_dump_fp)
+				pw_log_info("milan-avb: dumping raw S32BE PCM to %s", dpath);
+			else
+				pw_log_warn("milan-avb: cannot open dump file %s: %m", dpath);
+		}
+		if (stream->raw_dump_fp) {
+			size_t w = fwrite(p->payload, 1, n_bytes, stream->raw_dump_fp);
+			stream->raw_dump_bytes += w;
+		}
+	}
 }
 
 static void handle_iec61883_packet(struct stream *stream,
@@ -972,6 +1193,26 @@ static void handle_iec61883_packet(struct stream *stream,
 	index += n_bytes;
 	spa_ringbuffer_write_update(&stream->ring, index);
 	stream_in_mark_counters_dirty(stream);
+
+	/* milan-avb: env-gated raw PCM dump (S32BE interleaved) for offline THDN. */
+	{
+		const char *dump_dir = getenv("MILAN_AVB_RAW_DUMP_DIR");
+		if (dump_dir && stream->raw_dump_fp == NULL) {
+			char dpath[512];
+			snprintf(dpath, sizeof(dpath),
+				"%s/avb-stream-in-%u.s32be",
+				dump_dir, stream->index);
+			stream->raw_dump_fp = fopen(dpath, "wb");
+			if (stream->raw_dump_fp)
+				pw_log_info("milan-avb: dumping raw S32BE PCM to %s", dpath);
+			else
+				pw_log_warn("milan-avb: cannot open dump file %s: %m", dpath);
+		}
+		if (stream->raw_dump_fp) {
+			size_t w = fwrite(p->payload, 1, n_bytes, stream->raw_dump_fp);
+			stream->raw_dump_bytes += w;
+		}
+	}
 }
 
 static void on_socket_data(void *data, int fd, uint32_t mask)
@@ -1102,6 +1343,12 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 				pad_ringbuffer_with_silence(stream, (int)prefill_pdus);
 		}
 
+		/* milan-avb: pick up the current media-clock selection for this input
+		 * (AAF recovery vs internal/gPTP); re-prime the DLL on a fresh bind. */
+		stream->mc_aaf_active = stream_mc_aaf_selected(stream);
+		if (stream->mc_aaf_active)
+			stream_mc_reset(stream);
+
 		/* milan-avb: publish our contribution to graph latency so wpctl/pw-cli
 		 * report it. Latency is the prefill: one PipeWire quantum at 48 kHz. */
 		{
@@ -1222,6 +1469,7 @@ int stream_deactivate(struct stream *stream, uint64_t now)
 		if (si->mvrp_attr.mrp) {
 			avb_mrp_attribute_leave(si->mvrp_attr.mrp, now);
 		}
+		stream->mc_aaf_active = false;
 	} else {
 		avb_mrp_attribute_leave(common->tastream_attr.mrp, now);
 	}

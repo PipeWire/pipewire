@@ -39,7 +39,7 @@
  *   absent.
  *
  *   So an output stream owns its own periodic timer (`flush_timer`,
- *   AVB_FLUSH_TICK_NS = 1 ms = 8 PDUs). Each tick:
+ *   AVB_FLUSH_TICK_NS = 125 us = one PDU at 48 kHz/6-frame). Each tick:
  *
  *     1. computes how many PDUs are owed since the last drain
  *        (`(now - flush_last_ns) / pdu_period`),
@@ -161,9 +161,9 @@ static inline void stream_out_mark_counters_dirty(struct stream *s)
 	so->counters_dirty = true;
 }
 
-#define AVB_FLUSH_TICK_NS	((uint64_t)1000000)
+#define AVB_FLUSH_TICK_NS	((uint64_t)(125 * SPA_NSEC_PER_USEC))
 
-static int flush_write_milan_v12(struct stream *stream, uint64_t current_time);
+static int flush_write_milan_v12(struct stream *stream, uint64_t current_time, int max_pdus);
 static int flush_write_legacy(struct stream *stream, uint64_t current_time);
 
 static void on_stream_destroy(void *d)
@@ -210,19 +210,33 @@ static void pad_ringbuffer_with_silence(struct stream *stream, int owed)
 	spa_ringbuffer_write_update(&stream->ring, index + (uint32_t)deficit);
 }
 
+/* milan-avb: gPTP time (ns) from the NIC PHC of server->ifname; 0 if no PHC. See gptp-clock.h. */
+static uint64_t stream_gptp_now(struct server *server)
+{
+	if (!server->gclock.ok && !server->gclock_tried) {
+		server->gclock_tried = 1;
+		if (avb_gptp_clock_open(&server->gclock, server->ifname) >= 0) {
+			pw_log_info("milan-avb: gptp clock = PHC of %s", server->ifname);
+		} else {
+			pw_log_warn("milan-avb: no PHC for %s", server->ifname);
+		}
+	}
+	return avb_gptp_now(&server->gclock);
+}
+
 static void on_flush_tick(void *data, uint64_t expirations)
 {
 	struct stream *stream = data;
 	struct server *server = stream->server;
-	struct timespec now_ts;
 	uint64_t now_ns;
 	int owed;
 
 	(void)expirations;
 
-	if (clock_gettime(CLOCK_TAI, &now_ts) < 0)
+	now_ns = stream_gptp_now(server);
+	if (now_ns == 0) {
 		return;
-	now_ns = SPA_TIMESPEC_TO_NSEC(&now_ts);
+	}
 
 	if (stream->flush_last_ns == 0) {
 		stream->flush_last_ns = now_ns;
@@ -239,7 +253,7 @@ static void on_flush_tick(void *data, uint64_t expirations)
 	pad_ringbuffer_with_silence(stream, owed);
 
 	if (server->avb_mode == AVB_MODE_MILAN_V12)
-		flush_write_milan_v12(stream, now_ns);
+		flush_write_milan_v12(stream, now_ns, owed);
 	else
 		flush_write_legacy(stream, now_ns);
 }
@@ -264,6 +278,24 @@ static void on_source_stream_process(void *data)
 	n_bytes = SPA_MIN(d[0].maxsize, (uint32_t)wanted);
 
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
+
+	/* milan-avb: latency observability (throttled, env-gated). */
+	if (getenv("MILAN_AVB_LATENCY_LOG")) {
+		static uint64_t last_log_ns = 0;
+		struct timespec ts_mono;
+		uint64_t now_mono_ns;
+		clock_gettime(CLOCK_MONOTONIC, &ts_mono);
+		now_mono_ns = SPA_TIMESPEC_TO_NSEC(&ts_mono);
+		if (now_mono_ns - last_log_ns >= SPA_NSEC_PER_SEC) {
+			uint64_t residency_ns = stream->stride > 0
+				? (uint64_t)avail * SPA_NSEC_PER_SEC
+					/ ((uint64_t)stream->stride * (uint64_t)stream->info.info.raw.rate)
+				: 0;
+			pw_log_info("milan-avb: lat C residency_bytes=%d residency_ns=%llu wanted=%u",
+				avail, (unsigned long long)residency_ns, (unsigned)n_bytes);
+			last_log_ns = now_mono_ns;
+		}
+	}
 
 	/* Milan v1.2 Section 5.4.5.3: partial-read on underrun, zero-pad tail. */
 	if (avail <= 0) {
@@ -311,7 +343,7 @@ set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
 	iov[1].iov_base = buffer;
 }
 
-static int flush_write_milan_v12(struct stream *stream, uint64_t current_time)
+static int flush_write_milan_v12(struct stream *stream, uint64_t current_time, int max_pdus)
 {
 	int32_t avail;
 	uint32_t index;
@@ -324,6 +356,10 @@ static int flush_write_milan_v12(struct stream *stream, uint64_t current_time)
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
 	pdu_count = (avail / stream->stride) / stream->frames_per_pdu;
+	/* Pace to real time: only drain what is due this tick, so the ETF
+	 * launch schedule cannot run ahead and overflow the qdisc backlog. */
+	if (pdu_count > max_pdus)
+		pdu_count = max_pdus;
 
 	txtime = current_time + stream->t_uncertainty;
 	ptime = txtime + stream->mtt;
@@ -567,7 +603,7 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 	/* TX timestamp jitter budget added on top of CLOCK_TAI now. 125 µs is
 	 * the upper bound at 1 GbE class-A traffic per IEEE 802.1Qav; safe
 	 * default until we have a way to measure it from gPTP. */
-	stream->t_uncertainty = 125000;
+	stream->t_uncertainty = 0;
 
 	stream->id = (uint64_t)server->mac_addr[0] << 56 |
 			(uint64_t)server->mac_addr[1] << 48 |
@@ -743,13 +779,11 @@ error_free:
 void stream_destroy(struct stream *stream)
 {
 	struct stream_common *common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
-	struct timespec now_ts;
-	uint64_t now = 0;
+	uint64_t now;
 
 	/* milan-avb: de-register (MRP Leave) before freeing the attributes so a stop/restart
 	 * or replug doesn't strand a stale reservation on the bridge (socket still open here). */
-	if (clock_gettime(CLOCK_TAI, &now_ts) == 0)
-		now = SPA_TIMESPEC_TO_NSEC(&now_ts);
+	now = stream_gptp_now(stream->server);
 	stream_deactivate(stream, now);
 
 	if (stream->direction == SPA_DIRECTION_INPUT) {
@@ -853,6 +887,19 @@ static void handle_aaf_packet(struct stream *stream,
 		stream->prev_seq = p->seq_num;
 	}
 
+	/* milan-avb: latency observability (throttled to 1 Hz, env-gated). */
+	if (getenv("MILAN_AVB_LATENCY_LOG")) {
+		static uint64_t last_log_ns = 0;
+		uint64_t now_tai_ns = stream_gptp_now(stream->server);
+		if (now_tai_ns - last_log_ns >= SPA_NSEC_PER_SEC) {
+			uint32_t avtp_ts = ntohl(p->timestamp);
+			int32_t talker_to_recv_ns = (int32_t)((uint32_t)now_tai_ns - avtp_ts);
+			pw_log_info("milan-avb: lat A+B seq=%u avtp_ts=%u talker_to_recv_ns=%d",
+				(unsigned)p->seq_num, avtp_ts, talker_to_recv_ns);
+			last_log_ns = now_tai_ns;
+		}
+	}
+
 	if (filled + (int32_t)n_bytes > (int32_t)stream->buffer_size) {
 		/* Milan v1.2 Section 5.4.5.3: STREAM_INTERRUPTED is stream-level, not per-frame overrun */
 		uint32_t r_index;
@@ -895,6 +942,19 @@ static void handle_iec61883_packet(struct stream *stream,
 	if (!si->media_locked_state) {
 		cnt->media_locked++;
 		si->media_locked_state = true;
+	}
+
+	/* milan-avb: latency observability (throttled to 1 Hz, env-gated). */
+	if (getenv("MILAN_AVB_LATENCY_LOG")) {
+		static uint64_t last_log_ns = 0;
+		uint64_t now_tai_ns = stream_gptp_now(stream->server);
+		if (now_tai_ns - last_log_ns >= SPA_NSEC_PER_SEC) {
+			uint32_t avtp_ts = ntohl(p->timestamp);
+			int32_t talker_to_recv_ns = (int32_t)((uint32_t)now_tai_ns - avtp_ts);
+			pw_log_info("milan-avb: lat A+B seq=%u avtp_ts=%u talker_to_recv_ns=%d",
+				(unsigned)p->seq_num, avtp_ts, talker_to_recv_ns);
+			last_log_ns = now_tai_ns;
+		}
 	}
 
 	if (filled + n_bytes > stream->buffer_size) {

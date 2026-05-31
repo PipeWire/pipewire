@@ -9,6 +9,8 @@
 
 #include <pipewire/pipewire.h>
 
+#include "gptp-clock.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -103,6 +105,11 @@ struct server {
 	uint8_t mac_addr[6];
 	uint64_t entity_id;
 	int ifindex;
+
+	/* milan-avb: gPTP time read from the NIC PHC (server->ifname), decoupled from the
+	 * system clock. Lazily opened on first use; gclock_tried guards the one-shot open. */
+	struct avb_gptp_clock gclock;
+	unsigned gclock_tried:1;
 
 	const struct avb_transport_ops *transport;
 	void *transport_data;

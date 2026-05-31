@@ -2457,6 +2457,38 @@ void acmp_periodic_milan_v12(struct acmp *acmp, uint64_t now)
 			stream_out->last_probe_rx_time = 0;
 		}
 	}
+
+	/* Milan Section 4.3.3.1 / 5.5.3: a settled Listener with no reservation yet
+	 * (SETTLED_NO_RSV) re-evaluates Listener Ready against the Talker Advertise
+	 * registrar each tick. After a bridge convergence delay the TA arrives with no
+	 * fresh ACMP event, so this re-declares Ready and advances to SETTLED_RSV_OK the
+	 * instant the TA is IN — the stall self-heals, no controller re-bind needed. */
+	for (uint16_t desc_index = 0; desc_index < UINT16_MAX; desc_index++) {
+		struct descriptor *desc;
+		struct aecp_aem_stream_input_state_milan_v12 *si_m;
+		struct stream_common *common;
+		bool ta_in;
+
+		desc = server_find_descriptor(acmp->server, AVB_AEM_DESC_STREAM_INPUT,
+				desc_index);
+		if (desc == NULL)
+			break;
+
+		si_m = desc->ptr;
+		if (si_m->acmp_sta.fsm_acmp_state != FSM_ACMP_STATE_MILAN_V12_SETTLED_NO_RSV)
+			continue;
+
+		common = &si_m->stream_in_sta.common;
+		ta_in = common->tastream_attr.mrp != NULL &&
+			avb_mrp_attribute_get_registrar_state(common->tastream_attr.mrp) == AVB_MRP_IN;
+		common->lstream_attr.param = ta_in
+			? AVB_MSRP_LISTENER_PARAM_READY
+			: AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
+		if (common->lstream_attr.mrp != NULL)
+			avb_mrp_attribute_join(common->lstream_attr.mrp, now, true);
+		if (ta_in)
+			si_m->acmp_sta.fsm_acmp_state = FSM_ACMP_STATE_MILAN_V12_SETTLED_RSV_OK;
+	}
 }
 
 static const char *probing_status_name(uint8_t s)

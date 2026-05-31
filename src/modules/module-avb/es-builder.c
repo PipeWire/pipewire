@@ -122,6 +122,15 @@ static struct descriptor *es_buidler_desc_avb_interface(struct server *server,
 	avb_mrp_attribute_begin(if_ptr->domain_attr.mrp, 0);
 	avb_mrp_attribute_join(if_ptr->domain_attr.mrp, 0, true);
 
+	/* milan-avb: declare VID membership (MVRP) once per interface, held for the
+	 * life of the interface like the SR Domain above — NOT per stream, so that
+	 * destroying one stream cannot withdraw the VLAN other streams still need. */
+	avb_mvrp_attribute_new(server->mvrp, &if_ptr->vlan_attr,
+			AVB_MVRP_ATTRIBUTE_TYPE_VID);
+	if_ptr->vlan_attr.attr.vid.vlan = htons(AVB_DEFAULT_VLAN);
+	avb_mrp_attribute_begin(if_ptr->vlan_attr.mrp, 0);
+	avb_mrp_attribute_join(if_ptr->vlan_attr.mrp, 0, true);
+
 	return desc;
 }
 

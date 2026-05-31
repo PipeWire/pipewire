@@ -229,34 +229,42 @@ static void on_flush_tick(void *data, uint64_t expirations)
 {
 	struct stream *stream = data;
 	struct server *server = stream->server;
-	uint64_t now_ns;
+	struct timespec ts;
+	uint64_t now_mono, now_gptp, stamp;
 	int owed;
 
 	(void)expirations;
 
-	now_ns = stream_gptp_now(server);
-	if (now_ns == 0) {
+	/* Pace the send rate off CLOCK_MONOTONIC (a stable local 1x clock); use the gPTP
+	 * clock only for the AVTP presentation timestamp. Pacing must not ride the absolute
+	 * PHC interpolation, whose steps during gPTP re-convergence burst the talker past
+	 * its SRP reservation and get the stream policed away by the bridge. */
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	now_mono = SPA_TIMESPEC_TO_NSEC(&ts);
+	now_gptp = stream_gptp_now(server);
+	stamp = now_gptp != 0 ? now_gptp : now_mono;
+
+	if (stream->pdu_period == 0) {
 		return;
 	}
-
 	if (stream->flush_last_ns == 0) {
-		stream->flush_last_ns = now_ns;
+		stream->flush_last_ns = now_mono;
 		return;
 	}
-	if (stream->pdu_period == 0)
-		return;
 
-	owed = (int)((now_ns - stream->flush_last_ns) / (uint64_t)stream->pdu_period);
-	if (owed <= 0)
+	owed = (int)((now_mono - stream->flush_last_ns) / (uint64_t)stream->pdu_period);
+	if (owed <= 0) {
 		return;
+	}
 	stream->flush_last_ns += (uint64_t)owed * (uint64_t)stream->pdu_period;
 
 	pad_ringbuffer_with_silence(stream, owed);
 
-	if (server->avb_mode == AVB_MODE_MILAN_V12)
-		flush_write_milan_v12(stream, now_ns, owed);
-	else
-		flush_write_legacy(stream, now_ns);
+	if (server->avb_mode == AVB_MODE_MILAN_V12) {
+		flush_write_milan_v12(stream, stamp, owed);
+	} else {
+		flush_write_legacy(stream, stamp);
+	}
 }
 
 static void on_source_stream_process(void *data)
@@ -467,7 +475,7 @@ static int flush_write_milan_v12(struct stream *stream, uint64_t current_time, i
 	ptime = txtime + stream->mtt;
 
 	while (pdu_count--) {
-		*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
+		/* CBS-exclusive: no SCM_TXTIME; txtime feeds ptime only */
 
 		set_iovec(&stream->ring,
 			stream->buffer_data,
@@ -515,7 +523,7 @@ static int flush_write_legacy(struct stream *stream, uint64_t current_time)
 	ptime = txtime + stream->mtt;
 
 	while (pdu_count--) {
-		*(uint64_t*)CMSG_DATA(stream->cmsg) = txtime;
+		/* CBS-exclusive: no SCM_TXTIME; txtime feeds ptime only */
 
 		set_iovec(&stream->ring,
 			stream->buffer_data,
@@ -671,12 +679,11 @@ static int setup_msg(struct stream *stream)
 	stream->msg.msg_namelen = sizeof(stream->sock_addr);
 	stream->msg.msg_iov = stream->iov;
 	stream->msg.msg_iovlen = 3;
-	stream->msg.msg_control = stream->control;
-	stream->msg.msg_controllen = sizeof(stream->control);
-	stream->cmsg = CMSG_FIRSTHDR(&stream->msg);
-	stream->cmsg->cmsg_level = SOL_SOCKET;
-	stream->cmsg->cmsg_type = SCM_TXTIME;
-	stream->cmsg->cmsg_len = CMSG_LEN(sizeof(__u64));
+	/* CBS/Qav-exclusive: no SCM_TXTIME control message -- CBS and SO_TXTIME
+	 * cannot coexist; the egress CBS qdisc paces the stream. */
+	stream->msg.msg_control = NULL;
+	stream->msg.msg_controllen = 0;
+	stream->cmsg = NULL;
 	return 0;
 }
 
@@ -855,8 +862,14 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 
 		common->tastream_attr.attr.talker.vlan_id = htons(stream->vlan_id);
 		if (server->avb_mode == AVB_MODE_MILAN_V12)
+			/* Milan v1.2 Section 4.3.3.2 Table 4.4: MaxFrameSize is the AVTPDU
+			 * (header + payload) ONLY, plus 1 byte to account for the PAAD
+			 * sampling clock possibly running slightly fast. The Ethernet header
+			 * and FCS are added separately by the bandwidth rule (F = MaxFrameSize
+			 * + 22), so exclude our avb_frame_header (the L2 header) from pdu_size. */
 			common->tastream_attr.attr.talker.tspec_max_frame_size =
-				htons((uint16_t)stream->pdu_size);
+				htons((uint16_t)(stream->pdu_size -
+					sizeof(struct avb_frame_header) + 1));
 		else
 			common->tastream_attr.attr.talker.tspec_max_frame_size =
 				htons((uint16_t)(32 + stream->frames_per_pdu * stream->stride));
@@ -1015,9 +1028,9 @@ static void stream_mc_recover(struct stream *stream, const struct avb_packet_aaf
 #define AVB_STREAM_SEQ_SETTLE		8
 
 /* Milan v1.2 Section 5.4: the listener supports only the Milan base stream
- * format for decode — AAF PCM, 32-bit integer, 48 kHz, non-sparse. Channel
- * count is a stream parameter (the ring buffers by data_len), not part of the
- * format check, so any Milan channel count passes. */
+ * format for decode — AAF PCM, 32-bit integer, 48 kHz, non-sparse. The channel
+ * count is checked separately by handle_aaf_packet against the stream's
+ * negotiated channel count (a frame from a mismatched talker is rejected). */
 static inline bool aaf_is_milan_format(const struct avb_packet_aaf *p)
 {
 	return p->subtype == AVB_SUBTYPE_AAF &&
@@ -1039,13 +1052,15 @@ static void handle_aaf_packet(struct stream *stream,
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
 	n_bytes = ntohs(p->data_len);
 
-	/* milan-avb: support only the Milan format. EVERY received frame that is
-	 * not a well-formed Milan AAF PDU — bad length, or subtype/format/sample-
-	 * rate/bit-depth/sparse not the Milan base format — bumps UNSUPPORTED_FORMAT
-	 * and is dropped, per frame: not counted as a valid frame, not media-locked,
-	 * not written. (Channel count is a stream parameter, not part of the format
-	 * check, so a valid 4ch talker like the DS20 is not flagged.) */
-	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)) || !aaf_is_milan_format(p)) {
+	/* milan-avb: accept ONLY frames matching this stream's negotiated format.
+	 * EVERY received frame that is not a well-formed Milan AAF PDU — bad length,
+	 * subtype/format/sample-rate/bit-depth/sparse not the Milan base format, or
+	 * whose channel count differs from this stream's negotiated channel count —
+	 * bumps UNSUPPORTED_FORMAT and is dropped, per frame: not counted as a valid
+	 * frame, not media-locked, not written. The channel check rejects frames from
+	 * a different talker/format sharing the VLAN (Milan Section 5.5.1.2). */
+	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)) || !aaf_is_milan_format(p) ||
+	    p->chan_per_frame != stream->info.info.raw.channels) {
 		cnt->unsupported_format++;
 		stream_in_mark_counters_dirty(stream);
 		return;

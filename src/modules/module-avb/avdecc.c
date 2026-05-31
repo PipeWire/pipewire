@@ -480,21 +480,13 @@ static int raw_stream_setup_socket(struct server *server, struct stream *stream)
 	stream->sock_addr.sll_ifindex = req.ifr_ifindex;
 
 	if (stream->direction == SPA_DIRECTION_OUTPUT) {
-		struct sock_txtime txtime_cfg;
-
+		/* CBS/Qav-exclusive: set only the traffic-class priority so the egress
+		 * CBS qdisc shapes this stream. SO_TXTIME (launch-time/ETF) is NOT set --
+		 * CBS and SO_TXTIME cannot coexist on the same queue. */
 		res = setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &stream->prio,
 				sizeof(stream->prio));
 		if (res < 0) {
 			pw_log_error("setsockopt(SO_PRIORITY %d) failed: %m", stream->prio);
-			return -errno;
-		}
-
-		txtime_cfg.clockid = CLOCK_TAI;
-		txtime_cfg.flags = 0;
-		res = setsockopt(fd, SOL_SOCKET, SO_TXTIME, &txtime_cfg,
-				sizeof(txtime_cfg));
-		if (res < 0) {
-			pw_log_error("setsockopt(SO_TXTIME) failed: %m");
 			return -errno;
 		}
 	} else {

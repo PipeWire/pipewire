@@ -77,6 +77,18 @@ avb.properties = {
     ifname = "enp3s0"
     milan = false
     ptp.management-socket = "/var/run/ptp4lro"
+    entity = {
+        #entity_name = ""
+        #group_name = ""
+        #serial_number = ""
+        #firmware_version = ""
+        #vendor_name = ""
+        #model_name = ""
+        #talker_capabilities = ""
+        #listener_capabilities = ""
+        #entity_capabilities = ""
+        #controller_capabilities = ""
+    }
 }
 
 avb.properties.rules = [

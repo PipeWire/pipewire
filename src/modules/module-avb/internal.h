@@ -40,6 +40,7 @@ struct avb_transport_ops {
 
 struct impl {
 	struct pw_loop *loop;
+	struct pw_loop *data_loop;	/* RT (SCHED_FIFO) loop for talker egress pacing */
 	struct pw_timer_queue *timer_queue;
 	struct pw_context *context;
 	struct spa_hook context_listener;

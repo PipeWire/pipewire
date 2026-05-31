@@ -41,6 +41,10 @@ struct pw_avb *pw_avb_new(struct pw_context *context,
 
 	impl->context = context;
 	impl->loop = pw_context_get_main_loop(context);
+	/* Acquire an RT loop (data.rt class) so the talker flush timer is paced
+	 * under SCHED_FIFO; main-loop scheduling jitter exceeds the 2ms class-A
+	 * presentation margin and produces late timestamps at the listener. */
+	impl->data_loop = pw_context_acquire_loop(context, NULL);
 	impl->timer_queue = pw_context_get_timer_queue(context);
 	impl->props = props;
 	impl->core = pw_context_get_object(context, PW_TYPE_INTERFACE_Core);
@@ -80,6 +84,9 @@ static void impl_free(struct impl *impl)
 
 	spa_list_consume(s, &impl->servers, link)
 		avdecc_server_free(s);
+	if (impl->data_loop != NULL) {
+		pw_context_release_loop(impl->context, impl->data_loop);
+	}
 	free(impl);
 }
 

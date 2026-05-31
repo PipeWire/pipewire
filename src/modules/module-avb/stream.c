@@ -267,6 +267,43 @@ static void on_flush_tick(void *data, uint64_t expirations)
 	}
 }
 
+/* Talker egress pacing runs on the RT data loop (impl->data_loop). A source
+ * cannot be added to or removed from a running loop off-thread, so the flush
+ * timer is created and destroyed ON the RT thread via pw_loop_invoke. */
+static int do_add_flush_timer(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct stream *stream = user_data;
+	struct pw_loop *dl = stream->server->impl->data_loop;
+	struct timespec value = {
+		.tv_sec  = (time_t)(AVB_FLUSH_TICK_NS / SPA_NSEC_PER_SEC),
+		.tv_nsec = (long)(AVB_FLUSH_TICK_NS % SPA_NSEC_PER_SEC),
+	};
+	struct timespec interval = value;
+
+	stream->flush_last_ns = 0;
+	stream->flush_timer = pw_loop_add_timer(dl, on_flush_tick, stream);
+	if (stream->flush_timer != NULL) {
+		pw_loop_update_timer(dl, stream->flush_timer, &value, &interval, false);
+	} else {
+		pw_log_warn("stream %p: no flush_timer (will rely on PipeWire pace)", stream);
+	}
+	return 0;
+}
+
+static int do_remove_flush_timer(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct stream *stream = user_data;
+
+	if (stream->flush_timer != NULL) {
+		pw_loop_destroy_source(stream->server->impl->data_loop, stream->flush_timer);
+		stream->flush_timer = NULL;
+		stream->flush_last_ns = 0;
+	}
+	return 0;
+}
+
 static void on_source_stream_process(void *data)
 {
 	struct stream *stream = data;
@@ -1436,21 +1473,8 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 		stream_out_mark_counters_dirty(stream);
 
 		if (stream->flush_timer == NULL) {
-			struct timespec value = {
-				.tv_sec  = (time_t)(AVB_FLUSH_TICK_NS / SPA_NSEC_PER_SEC),
-				.tv_nsec = (long)(AVB_FLUSH_TICK_NS % SPA_NSEC_PER_SEC),
-			};
-			struct timespec interval = value;
-			stream->flush_last_ns = 0;
-			stream->flush_timer = pw_loop_add_timer(server->impl->loop,
-					on_flush_tick, stream);
-			if (stream->flush_timer)
-				pw_loop_update_timer(server->impl->loop,
-						stream->flush_timer,
-						&value, &interval, false);
-			else
-				pw_log_warn("stream %p: no flush_timer (will rely on PipeWire pace)",
-						stream);
+			pw_loop_invoke(server->impl->data_loop, do_add_flush_timer,
+					0, NULL, 0, true, stream);
 		}
 	}
 
@@ -1470,9 +1494,8 @@ int stream_deactivate(struct stream *stream, uint64_t now)
 		stream->source = NULL;
 	}
 	if (stream->flush_timer != NULL) {
-		pw_loop_destroy_source(stream->server->impl->loop, stream->flush_timer);
-		stream->flush_timer = NULL;
-		stream->flush_last_ns = 0;
+		pw_loop_invoke(stream->server->impl->data_loop, do_remove_flush_timer,
+				0, NULL, 0, true, stream);
 	}
 	/* milan-avb: withdraw ALL of this stream's declarations so the bridge frees the
 	 * reservation immediately (Leave) instead of holding stale state until its

@@ -185,6 +185,8 @@ static const struct spa_dict_item module_props[] = {
 #define XDG_PORTAL_OBJECT_PATH "/org/freedesktop/portal/desktop"
 #define XDG_PORTAL_INTERFACE "org.freedesktop.portal.Realtime"
 
+#define DBUS_TIMEOUT_MSEC 2000 /* max time to block on any single message */
+
 /** \cond */
 struct pw_rtkit_bus {
 	DBusConnection *bus;
@@ -370,7 +372,7 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 
 	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 
-	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, -1, &error)))
+	if (!(r = dbus_connection_send_with_reply_and_block(connection->bus, m, DBUS_TIMEOUT_MSEC, &error)))
 		return translate_error(error.name);
 
 	if (dbus_set_error_from_message(&error, r))
@@ -1134,7 +1136,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 
 	if (IS_VALID_NICE_LEVEL(impl->nice_level)) {
-		if (set_nice(impl, impl->nice_level, !use_rtkit) < 0) 
+		if (set_nice(impl, impl->nice_level, !use_rtkit) < 0)
 			use_rtkit = can_use_rtkit;
 	}
 	if (!use_rtkit)

@@ -82,17 +82,18 @@
  *
  * Per-counter wiring status (Milan Section 5.4.5.3, Table 5.16 Stream Input):
  *   FRAMES_RX           live: handle_aaf_packet / handle_iec61883_packet
- *   STREAM_INTERRUPTED  live: ringbuffer overrun in the same handlers
+ *   STREAM_INTERRUPTED  live: handle_aaf_packet, on the loss of several
+ *                        AVTPDUs (seq gap >= AVB_STREAM_INTERRUPT_MIN_LOST)
  *   MEDIA_LOCKED        live: first-frame edge in handle_*_packet
  *   MEDIA_UNLOCKED      live: cmd-get-counters periodic when last_frame_rx_ns
  *                        ages past MEDIA_UNLOCK_TIMEOUT_NS
- *   SEQ_NUM_MISMATCH    TODO: compare p->seq_num against expected (last + 1
- *                        modulo 256), tick on mismatch and resync expected
+ *   SEQ_NUM_MISMATCH    live: handle_aaf_packet, p->seq_num != expected
+ *                        (last + 1 mod 256); resyncs expected each frame
  *   MEDIA_RESET_IN      TODO: tick when AVTPDU header sets the mr bit
  *                        (header reset notification)
  *   TIMESTAMP_UNCERTAIN_IN TODO: tick when AVTPDU tu bit is set in the header
- *   UNSUPPORTED_FORMAT  TODO: tick when subtype/format mismatch the bound
- *                        descriptor's current_format
+ *   UNSUPPORTED_FORMAT  live: handle_aaf_packet drops + ticks any AAF PDU
+ *                        whose media format is not the Milan base format
  *   LATE_TIMESTAMP      TODO: tick when p->timestamp < CLOCK_TAI now
  *                        (frame missed its presentation deadline)
  *   EARLY_TIMESTAMP     TODO: tick when p->timestamp > now + max_transit_time
@@ -118,6 +119,7 @@
 #include <spa/debug/mem.h>
 #include <spa/pod/builder.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/latency-utils.h>
 
 #include "aaf.h"
 #include "iec61883.h"
@@ -263,17 +265,26 @@ static void on_source_stream_process(void *data)
 
 	avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
-	if (avail < wanted) {
-		pw_log_debug("capture underrun %d < %d", avail, wanted);
+	/* Milan v1.2 Section 5.4.5.3: partial-read on underrun, zero-pad tail. */
+	if (avail <= 0) {
 		memset(d[0].data, 0, n_bytes);
-	} else {
+	} else if ((uint32_t)avail >= n_bytes) {
 		spa_ringbuffer_read_data(&stream->ring,
 				stream->buffer_data,
 				stream->buffer_size,
 				index % stream->buffer_size,
 				d[0].data, n_bytes);
-		index += n_bytes;
-		spa_ringbuffer_read_update(&stream->ring, index);
+		spa_ringbuffer_read_update(&stream->ring, index + n_bytes);
+	} else {
+		uint32_t use = (uint32_t)avail;
+		spa_ringbuffer_read_data(&stream->ring,
+				stream->buffer_data,
+				stream->buffer_size,
+				index % stream->buffer_size,
+				d[0].data, use);
+		memset(SPA_PTROFF(d[0].data, use, void), 0, n_bytes - use);
+		spa_ringbuffer_read_update(&stream->ring, index + use);
+		pw_log_debug("capture partial-underrun %u/%u", use, n_bytes);
 	}
 
 	d[0].chunk->size = n_bytes;
@@ -614,7 +625,7 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 		if (stream->format)
 			avb_aem_stream_format_decode(stream->format, &fi);
 
-		stream->info.info.raw.format = SPA_AUDIO_FORMAT_S24_32_BE;
+		stream->info.info.raw.format = SPA_AUDIO_FORMAT_S32_BE;
 		stream->info.info.raw.flags = SPA_AUDIO_FLAG_UNPOSITIONED;
 		stream->info.info.raw.rate = fi.is_audio && fi.rate ? fi.rate : 48000;
 		stream->info.info.raw.channels = fi.is_audio && fi.channels ? fi.channels : 8;
@@ -732,6 +743,14 @@ error_free:
 void stream_destroy(struct stream *stream)
 {
 	struct stream_common *common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
+	struct timespec now_ts;
+	uint64_t now = 0;
+
+	/* milan-avb: de-register (MRP Leave) before freeing the attributes so a stop/restart
+	 * or replug doesn't strand a stale reservation on the bridge (socket still open here). */
+	if (clock_gettime(CLOCK_TAI, &now_ts) == 0)
+		now = SPA_TIMESPEC_TO_NSEC(&now_ts);
+	stream_deactivate(stream, now);
 
 	if (stream->direction == SPA_DIRECTION_INPUT) {
 		struct aecp_aem_stream_input_state *si =
@@ -753,6 +772,30 @@ static int setup_socket(struct stream *stream)
 	return avb_server_stream_setup_socket(stream->server, stream);
 }
 
+/* Milan 5.4.5.3 STREAM_INTERRUPTED: playback is interrupted by the loss of
+ * "several" AVTPDUs (the spec leaves the count implementation-defined). A
+ * single dropped/reordered PDU is a SEQ_NUM_MISMATCH but not a full
+ * interruption; a gap of this many or more missing PDUs is. */
+#define AVB_STREAM_INTERRUPT_MIN_LOST	2
+
+/* PDUs after a (re)lock during which a sequence step is absorbed (re-seeded) and
+ * NOT counted as SEQ_NUM_MISMATCH — covers the one-time bind/SRP-path-open gap of
+ * a Listener that joins mid-stream. Small, so genuine ongoing loss still counts. */
+#define AVB_STREAM_SEQ_SETTLE		8
+
+/* Milan v1.2 Section 5.4: the listener supports only the Milan base stream
+ * format for decode — AAF PCM, 32-bit integer, 48 kHz, non-sparse. Channel
+ * count is a stream parameter (the ring buffers by data_len), not part of the
+ * format check, so any Milan channel count passes. */
+static inline bool aaf_is_milan_format(const struct avb_packet_aaf *p)
+{
+	return p->subtype == AVB_SUBTYPE_AAF &&
+	       p->format == AVB_AAF_FORMAT_INT_32BIT &&
+	       p->nsr == AVB_AAF_PCM_NSR_48KHZ &&
+	       p->bit_depth == 32 &&
+	       p->sp == AVB_AAF_PCM_SP_NORMAL;
+}
+
 static void handle_aaf_packet(struct stream *stream,
 		struct avb_packet_aaf *p, int len)
 {
@@ -764,32 +807,54 @@ static void handle_aaf_packet(struct stream *stream,
 
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
 	n_bytes = ntohs(p->data_len);
-	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)))
-		return;
 
-	/* IEEE 1722.1 Section 7.4.42 / Milan v1.2 Section 5.4.5.3: FRAMES_RX counts
-	 * every valid AVTPDU received on the wire — independent of whether the
-	 * listener pipeline could absorb it. */
+	/* milan-avb: support only the Milan format. EVERY received frame that is
+	 * not a well-formed Milan AAF PDU — bad length, or subtype/format/sample-
+	 * rate/bit-depth/sparse not the Milan base format — bumps UNSUPPORTED_FORMAT
+	 * and is dropped, per frame: not counted as a valid frame, not media-locked,
+	 * not written. (Channel count is a stream parameter, not part of the format
+	 * check, so a valid 4ch talker like the DS20 is not flagged.) */
+	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)) || !aaf_is_milan_format(p)) {
+		cnt->unsupported_format++;
+		stream_in_mark_counters_dirty(stream);
+		return;
+	}
+
+	/* IEEE 1722.1 Section 7.4.42 / Milan Section 5.4.5.3: FRAMES_RX counts every
+	 * valid AVTPDU received on the wire — independent of whether the listener
+	 * pipeline could absorb it. */
 	cnt->frame_rx++;
 
 	clock_gettime(CLOCK_MONOTONIC, &now_ts);
 	si->last_frame_rx_ns = SPA_TIMESPEC_TO_NSEC(&now_ts);
+
 	if (!si->media_locked_state) {
 		cnt->media_locked++;
 		si->media_locked_state = true;
+		stream->prev_seq = p->seq_num;	/* (re)lock: seed seq, no gap */
+		si->seq_settle = AVB_STREAM_SEQ_SETTLE;	/* grace the bind/path-open step */
+	} else if (si->seq_settle > 0) {
+		/* settling just after a (re)lock: a Listener that binds mid-stream
+		 * behind an SRP bridge gets a one-time sequence step as the bridge
+		 * opens forwarding — re-seed and don't count it. */
+		si->seq_settle--;
+		stream->prev_seq = p->seq_num;
+	} else {
+		uint8_t expected = (uint8_t)(stream->prev_seq + 1);
+		if (p->seq_num != expected) {
+			/* IEEE 1722.1 7.4: SEQ_NUM_MISMATCH on any sequence
+			 * discontinuity (loss, reorder or duplicate). */
+			uint8_t lost = (uint8_t)(p->seq_num - expected);
+			cnt->seq_mistmatch++;
+			/* STREAM_INTERRUPTED only when several PDUs are missing. */
+			if (lost >= AVB_STREAM_INTERRUPT_MIN_LOST)
+				cnt->stream_interrupted++;
+		}
+		stream->prev_seq = p->seq_num;
 	}
 
 	if (filled + (int32_t)n_bytes > (int32_t)stream->buffer_size) {
-		/* Ringbuffer overrun. Per Milan v1.2 Section 5.4.5.3 the
-		 * STREAM_INTERRUPTED counter is reserved for stream-level
-		 * interruptions (e.g. loss of the SRP TalkerAdvertise) and
-		 * MUST NOT be bumped per dropped frame. Without a consumer
-		 * draining the ring (e.g. an ALSA sink hooked up), this branch
-		 * would fire on every received AVTPDU and look identical to a
-		 * total link failure on the controller dashboard — defeating
-		 * the goals.md "error counters stay zero" target. Drop the
-		 * frame silently; an out-of-band metric should be used to
-		 * surface unconsumed-stream conditions. */
+		/* Milan v1.2 Section 5.4.5.3: STREAM_INTERRUPTED is stream-level, not per-frame overrun */
 		uint32_t r_index;
 		spa_ringbuffer_get_read_index(&stream->ring, &r_index);
 		spa_ringbuffer_read_update(&stream->ring, r_index + n_bytes);
@@ -833,10 +898,7 @@ static void handle_iec61883_packet(struct stream *stream,
 	}
 
 	if (filled + n_bytes > stream->buffer_size) {
-		/* Same reasoning as the AAF handler above: do NOT bump
-		 * STREAM_INTERRUPTED on a per-frame ringbuffer overrun.
-		 * Milan v1.2 §5.4.5.3 reserves that counter for stream-level
-		 * interruptions (lost SRP TalkerAdvertise, etc.). */
+		/* Milan v1.2 Section 5.4.5.3: STREAM_INTERRUPTED is stream-level, not per-frame overrun */
 		uint32_t r_index;
 		spa_ringbuffer_get_read_index(&stream->ring, &r_index);
 		spa_ringbuffer_read_update(&stream->ring, r_index + n_bytes);
@@ -900,6 +962,30 @@ static void on_socket_data(void *data, int fd, uint32_t mask)
 	}
 }
 
+/* Milan v1.2 Table 5.6: a Stream Input resets its diagnostic counters on the
+ * not-bound -> bound transition (and NOT on bound -> not-bound). Also re-arms
+ * the media-lock / seq-settle state: the unlock edge is detected only inside the
+ * GET_COUNTERS poll (100 ms silence), so a fast unbind/rebind can leave
+ * media_locked_state == true and miscount the bridge-open step as
+ * SEQ_NUM_MISMATCH / STREAM_INTERRUPTED. Called from stream_activate(). */
+static void stream_input_reset_counters(struct aecp_aem_stream_input_state *si)
+{
+	si->counters.media_locked = 0;
+	si->counters.media_unlocked = 0;
+	si->counters.stream_interrupted = 0;
+	si->counters.seq_mistmatch = 0;
+	si->counters.media_reset = 0;
+	si->counters.tu = 0;
+	si->counters.unsupported_format = 0;
+	si->counters.late_timestamp = 0;
+	si->counters.early_timestamp = 0;
+	si->counters.frame_rx = 0;
+	si->media_locked_state = false;
+	si->seq_settle = 0;
+	si->last_frame_rx_ns = 0;
+	si->counters_dirty = true;
+}
+
 int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 {
 	struct server *server = stream->server;
@@ -907,6 +993,25 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 	int fd, res;
 	struct stream_common *common;
 	common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
+
+	/* milan-avb: SR-class priority + VLAN id come from the MSRP Domain, not a
+	 * hardcoded default. process_domain() re-adjusts the AVB_INTERFACE domain
+	 * to the network-declared sr_class_priority/sr_class_vid, so this is the
+	 * authoritative source. Read it before setup_socket() — the listener uses
+	 * stream->vlan_id to select its VLAN sub-iface. */
+	{
+		struct descriptor *avbif = server_find_descriptor(server,
+				AVB_AEM_DESC_AVB_INTERFACE, 0);
+		if (avbif != NULL) {
+			struct aecp_aem_avb_interface_state *ifs = avbif->ptr;
+			uint8_t dprio = ifs->domain_attr.attr.domain.sr_class_priority;
+			uint16_t dvid = ntohs(ifs->domain_attr.attr.domain.sr_class_vid);
+			if (dvid != 0 && dvid < 4095) {
+				stream->prio = dprio;
+				stream->vlan_id = dvid;
+			}
+		}
+	}
 
 	if (stream->source == NULL) {
 		if ((fd = setup_socket(stream)) < 0)
@@ -925,11 +1030,57 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 		struct aecp_aem_stream_input_state *input_stream;
 		input_stream = SPA_CONTAINER_OF(common, struct aecp_aem_stream_input_state, common);
 
-		/* lstream_attr.listener.stream_id is already populated by the
-		 * ACMP FSM from PROBE_TX_RESPONSE. Don't overwrite it here.
-		 * Milan Section 4.3.3.1: Listener starts in AskingFailed; notify_talker
-		 * promotes to Ready once the Talker Advertise registrar is IN. */
-		common->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
+		/* Milan v1.2 Table 5.6: reset diagnostic counters + re-arm the
+		 * media-lock / seq-settle state on the not-bound -> bound transition. */
+		stream_input_reset_counters(input_stream);
+
+		/* Prime ring with one PipeWire quantum of silence (Milan v1.2 Section 5.4.5.3). */
+		spa_ringbuffer_init(&stream->ring);
+		if (stream->frames_per_pdu > 0) {
+			uint32_t prefill_pdus = 1024u / stream->frames_per_pdu;
+			if (prefill_pdus > 0)
+				pad_ringbuffer_with_silence(stream, (int)prefill_pdus);
+		}
+
+		/* milan-avb: publish our contribution to graph latency so wpctl/pw-cli
+		 * report it. Latency is the prefill: one PipeWire quantum at 48 kHz. */
+		{
+			struct spa_latency_info latency = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
+			uint32_t rate = stream->info.info.raw.rate ? stream->info.info.raw.rate : 48000;
+			uint8_t lbuf[256];
+			struct spa_pod_builder lb = { 0 };
+			const struct spa_pod *lp;
+			char buf[64];
+			struct pw_properties *props;
+			latency.min_quantum = 1.0f;
+			latency.max_quantum = 1.0f;
+			latency.min_rate = 1024;
+			latency.max_rate = 1024;
+			latency.min_ns = (uint64_t)1024 * SPA_NSEC_PER_SEC / rate;
+			latency.max_ns = latency.min_ns;
+			spa_pod_builder_init(&lb, lbuf, sizeof(lbuf));
+			lp = spa_latency_build(&lb, SPA_PARAM_Latency, &latency);
+			pw_stream_update_params(stream->stream, &lp, 1);
+
+			props = pw_properties_new(NULL, NULL);
+			snprintf(buf, sizeof(buf), "%llu", (unsigned long long)latency.min_ns);
+			pw_properties_set(props, "milan.avb.latency.prefill.ns", buf);
+			snprintf(buf, sizeof(buf), "%u", 1024u);
+			pw_properties_set(props, "milan.avb.latency.prefill.frames", buf);
+			snprintf(buf, sizeof(buf), "%u", (unsigned)stream->frames_per_pdu);
+			pw_properties_set(props, "milan.avb.frames_per_pdu", buf);
+			pw_stream_update_properties(stream->stream, &props->dict);
+			pw_properties_free(props);
+		}
+
+		/* Milan v1.2 Section 4.3.3.1: Listener_Ready iff Talker Advertise registrar IN.
+		 * Compute from current state so a reconnect picks up an already-IN TA
+		 * registrar (no NEW/JOIN event fires when the registrar didn't transition). */
+		common->lstream_attr.param =
+			(common->tastream_attr.mrp != NULL &&
+			 avb_mrp_attribute_get_registrar_state(common->tastream_attr.mrp) == AVB_MRP_IN)
+			? AVB_MSRP_LISTENER_PARAM_READY
+			: AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
 		avb_mrp_attribute_begin(common->lstream_attr.mrp, now);
 		avb_mrp_attribute_join(common->lstream_attr.mrp, now, true);
 
@@ -987,6 +1138,7 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 int stream_deactivate(struct stream *stream, uint64_t now)
 {
 	struct stream_common *common;
+	struct aecp_aem_stream_input_state *si;
 	common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
 
 	pw_stream_set_active(stream->stream, false);
@@ -1000,14 +1152,19 @@ int stream_deactivate(struct stream *stream, uint64_t now)
 		stream->flush_timer = NULL;
 		stream->flush_last_ns = 0;
 	}
-#if 0
-	avb_mrp_attribute_leave(stream->vlan_attr->mrp, now);
-#endif //
-
-	if (stream->direction == SPA_DIRECTION_INPUT)
+	/* milan-avb: withdraw ALL of this stream's declarations so the bridge frees the
+	 * reservation immediately (Leave) instead of holding stale state until its
+	 * LeaveAll timer — otherwise a stop/restart or replug to another port can't
+	 * re-register (the old port's Talker/Listener/VLAN entry still pins the stream). */
+	if (stream->direction == SPA_DIRECTION_INPUT) {
+		si = SPA_CONTAINER_OF(common, struct aecp_aem_stream_input_state, common);
 		avb_mrp_attribute_leave(common->lstream_attr.mrp, now);
-	else
+		if (si->mvrp_attr.mrp) {
+			avb_mrp_attribute_leave(si->mvrp_attr.mrp, now);
+		}
+	} else {
 		avb_mrp_attribute_leave(common->tastream_attr.mrp, now);
+	}
 
 	/* Milan Table 5.17: STREAM_STOP counter ticks each transition the
 	 * other way. */

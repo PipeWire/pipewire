@@ -182,15 +182,17 @@ struct aecp_aem_stream_input_state {
 	 * most recent valid PDU; media_locked_state is the current edge. */
 	int64_t last_frame_rx_ns;
 	bool media_locked_state;
+
+	/* Settle window after a (re)lock: a Listener binding mid-stream behind an
+	 * SRP bridge sees a one-time sequence step as the bridge opens forwarding a
+	 * beat after the talker is already transmitting. Re-seed prev_seq for this
+	 * many post-lock PDUs instead of counting it as SEQ_NUM_MISMATCH. */
+	uint8_t seq_settle;
 };
 
 struct acmp_stream_status_milan_v12 {
 	uint64_t controller_entity_id;
-	/* Original talker entity_id captured at BIND_RX_COMMAND time, used
-	 * verbatim when emitting CONNECT_TX_COMMAND probes. Needed because the
-	 * stream_id ↔ entity_id round-trip via peer_id_from_entity_id() is
-	 * lossy for non-EUI-64 entity_ids (e.g. MAC | entity_index). */
-	uint64_t talker_entity_id;
+	uint64_t talker_entity_id;	/* IEEE 1722.1-2021 Section 7.4.6, BIND_RX_COMMAND talker_guid */
 	uint32_t acmp_flags;
 	uint8_t probing_status;
 	uint8_t acmp_status;

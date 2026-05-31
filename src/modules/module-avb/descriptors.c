@@ -4,6 +4,10 @@
 /* SPDX-FileCopyrightText: Copyright © 2025 Simon Gapp <simon.gapp@kebag-logic.com> */
 /* SPDX-License-Identifier: MIT */
 
+#include <unistd.h>
+
+#include <pipewire/pipewire.h>
+
 #include "adp.h"
 #include "aecp-aem.h"
 #include "aecp-aem-types.h"
@@ -300,23 +304,26 @@ static void init_descriptor_legacy_avb(struct server *server)
 
 static void init_descriptor_milan_v12(struct server *server)
 {
+	/* name the entity after the hostname so each box shows as pw0/pw1/pw2 */
+	char hostname[64] = {0};
+	if (gethostname(hostname, sizeof(hostname) - 1) != 0 || hostname[0] == '\0')
+		snprintf(hostname, sizeof(hostname), "%s", DSC_STRINGS_0_DEVICE_NAME);
+
 	// TODO PERSISTENCE: retrieve the saved buffers.
 	/**************************************************************************************/
 	/* IEEE 1722.1-2021, Sec. 7.2.12 - STRINGS Descriptor
 	* Up to 7 localized strings
 	*/
-	es_builder_add_descriptor(server, AVB_AEM_DESC_STRINGS, 0,
-			sizeof(struct avb_aem_desc_strings),
-			&(struct avb_aem_desc_strings)
-	{
-		.string_0 = DSC_STRINGS_0_DEVICE_NAME,
+	struct avb_aem_desc_strings strings = {
 		.string_1 = DSC_STRINGS_1_CONFIGURATION_NAME,
 		.string_2 = DSC_STRINGS_2_MANUFACTURER_NAME,
 		.string_3 = DSC_STRINGS_3_GROUP_NAME,
 		.string_4 = DSC_STRINGS_4_MAINTAINER_0,
 		.string_5 = DSC_STRINGS_4_MAINTAINER_1,
-	}
-	);
+	};
+	snprintf(strings.string_0, sizeof(strings.string_0), "%s", hostname);
+	es_builder_add_descriptor(server, AVB_AEM_DESC_STRINGS, 0,
+			sizeof(strings), &strings);
 
 	/**************************************************************************************/
 	/* IEEE 1722.1-2021, Sec. 7.2.11 - LOCALE Descriptor */
@@ -334,8 +341,7 @@ static void init_descriptor_milan_v12(struct server *server)
 	/* Milan v1.2, Sec. 5.3.3.1 */
 	struct avb_entity_config entity_conf = conf_load_entity(server->impl->props);
 
-	struct avb_aem_desc_entity entity_desc =
-	{
+	struct avb_aem_desc_entity entity = {
 		.entity_id = htobe64(server->entity_id),
 		.entity_model_id = htobe64(DSC_ENTITY_MODEL_ID),
 		.entity_capabilities = htonl(entity_conf.entity_capabilities),
@@ -351,21 +357,19 @@ static void init_descriptor_milan_v12(struct server *server)
 		.available_index = htonl(DSC_ENTITY_MODEL_AVAILABLE_INDEX),
 		.association_id = htobe64(DSC_ENTITY_MODEL_ASSOCIATION_ID),
 
-		.vendor_name_string = htons(entity_conf.vendor_name),
-		.model_name_string = htons(entity_conf.model_name),
+		.vendor_name_string = htons(DSC_ENTITY_MODEL_VENDOR_NAME_STRING),
+		.model_name_string = htons(DSC_ENTITY_MODEL_MODEL_NAME_STRING),
+		.group_name = DSC_ENTITY_MODEL_GROUP_NAME,
+		.serial_number = DSC_ENTITY_MODEL_SERIAL_NUMBER,
 		.configurations_count = htons(DSC_ENTITY_MODEL_CONFIGURATIONS_COUNT),
 		.current_configuration = htons(DSC_ENTITY_MODEL_CURRENT_CONFIGURATION)
 	};
 
-	memcpy(entity_desc.entity_name, entity_conf.entity_name, sizeof(entity_desc.entity_name));
-	memcpy(entity_desc.firmware_version, entity_conf.firmware_version, sizeof(entity_desc.firmware_version));
-	memcpy(entity_desc.group_name, entity_conf.group_name, sizeof(entity_desc.group_name));
-	memcpy(entity_desc.serial_number, entity_conf.serial_number, sizeof(entity_desc.serial_number));
-
+	snprintf(entity.entity_name, sizeof(entity.entity_name), "%s", hostname);
+	/* firmware_version = the canonical PipeWire library version */
+	snprintf(entity.firmware_version, sizeof(entity.firmware_version), "%s", pw_get_library_version());
 	es_builder_add_descriptor(server, AVB_AEM_DESC_ENTITY, 0,
-			sizeof(struct avb_aem_desc_entity),
-			&entity_desc);
-
+			sizeof(entity), &entity);
 	/**************************************************************************************/
 	/* IEEE 1722.1-2021, Sec. 7.2.2 - CONFIGURATION Descriptor*/
 	/* Milan v1.2, Sec. 5.3.3.2 */

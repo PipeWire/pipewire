@@ -360,7 +360,11 @@ static void emit_avb_interface_counters(struct aecp *aecp, uint16_t desc_index,
  * here, gated by last_counters_emit_ns. */
 #define COUNTER_UNSOL_MIN_INTERVAL_NS	((int64_t)SPA_NSEC_PER_SEC)
 
-#define MEDIA_UNLOCK_TIMEOUT_NS		((int64_t)(2 * SPA_NSEC_PER_MSEC))
+/* A frame is "missing" only after a gap far longer than event-loop scheduling
+ * jitter — 2 ms (16 PDU periods) is processed-not-arrived jitter, not media
+ * loss, and spuriously unlocks a healthy stream on a busy software listener.
+ * 100 ms is ~5x the listener prefill and well above loop jitter. */
+#define MEDIA_UNLOCK_TIMEOUT_NS		((int64_t)(100 * SPA_NSEC_PER_MSEC))
 
 static bool counter_rate_limit_elapsed(int64_t now, int64_t last_emit)
 {

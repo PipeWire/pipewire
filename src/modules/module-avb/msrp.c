@@ -58,6 +58,16 @@ static void debug_msrp_talker(const struct avb_packet_msrp_talker *t)
 
 /* IEEE 802.1Q Section 35.2.2.4.4: Listener may declare Ready only once the matching
  * Talker Advertise is registered; otherwise it stays in AskingFailed. */
+/* Milan v1.2 Section 4.3.3.1: Listener_Ready iff Talker Advertise registrar IN, else AskingFailed */
+static void refresh_listener_param(struct stream_common *sc)
+{
+	bool ta_in = sc->tastream_attr.mrp != NULL &&
+		avb_mrp_attribute_get_registrar_state(sc->tastream_attr.mrp) == AVB_MRP_IN;
+	sc->lstream_attr.param = ta_in
+		? AVB_MSRP_LISTENER_PARAM_READY
+		: AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
+}
+
 static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
 {
 	struct stream_common *sc;
@@ -76,12 +86,8 @@ static void notify_talker(struct msrp *msrp, uint64_t now, struct attr *attr, ui
 
 	sc = SPA_CONTAINER_OF(attr->attr, struct stream_common, tastream_attr);
 	if (sc->stream.direction == SPA_DIRECTION_INPUT) {
-		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
-			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_READY;
-		else if (notify == AVB_MRP_NOTIFY_LEAVE)
-			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
-		/* Milan Table 5.10: TA registrar state flips flags_ex.REGISTERING
-		 * in the listener-side GET_STREAM_INFO answer — emit an unsol. */
+		refresh_listener_param(sc);
+		/* Milan Table 5.10: TA registrar state flips flags_ex.REGISTERING */
 		avb_aecp_aem_mark_stream_info_dirty(msrp->server,
 				AVB_AEM_DESC_STREAM_INPUT, sc->stream.index);
 	}
@@ -103,21 +109,7 @@ static void notify_talker_failed(struct msrp *msrp, uint64_t now, struct attr *a
 
 	sc = SPA_CONTAINER_OF(attr->attr, struct stream_common, tfstream_attr);
 	if (sc->stream.direction == SPA_DIRECTION_INPUT) {
-		/* IEEE 802.1Q-2018 §35.2.2.4.4 + Milan v1.2 §4.3.3.1: when the
-		 * Talker has transitioned to TalkerFailed, the Listener must
-		 * declare AskingFailed so the Talker has the recovery signal
-		 * ("I still want this stream, please re-evaluate"). Without
-		 * this, the Listener was stuck at the previous Ready
-		 * declaration from before the failure, the Talker read
-		 * "listener is satisfied" and never re-attempted the advertise.
-		 * Symptom on the wire: Talker oscillates Advertise → Failed →
-		 * silence; stream drops after a few seconds and never resumes
-		 * for the same bind. */
-		if (notify == AVB_MRP_NOTIFY_NEW || notify == AVB_MRP_NOTIFY_JOIN)
-			sc->lstream_attr.param = AVB_MSRP_LISTENER_PARAM_ASKING_FAILED;
-		/* Milan Table 5.10: TF registrar state also flips
-		 * flags_ex.REGISTERING on the listener side; emit an unsol
-		 * when it changes. */
+		refresh_listener_param(sc);
 		avb_aecp_aem_mark_stream_info_dirty(msrp->server,
 				AVB_AEM_DESC_STREAM_INPUT, sc->stream.index);
 	}
@@ -340,35 +332,18 @@ static int process_domain(struct msrp *msrp, uint64_t now, uint8_t attr_type,
 		}
 
 		if (msrp->server->avb_mode == AVB_MODE_MILAN_V12) {
-			/* Milan v1.2 §4.2.7.2.1: "re-adjust the domain" means
-			 * align the priority/vid of the matching SR class — NOT
-			 * overwrite every locally-held Domain attribute with the
-			 * incoming values. The old code iterated all Domain
-			 * attributes and smashed each one whose (id, prio, vid)
-			 * didn't match the incoming, so when the talker
-			 * advertised SR-B (id=5) both of pipewire's Domain
-			 * attributes (originally SR-A id=6 and SR-B id=5) were
-			 * overwritten to SR-B; when the talker then advertised
-			 * SR-A, both flipped back to SR-A. Pipewire transmitted
-			 * only one of the two SR classes at any moment, so the
-			 * talker never saw a stable SR-A Domain declaration from
-			 * pipewire and locked into TalkerFailed code 13.
-			 *
-			 * Correct re-adjust: only the locally-held attribute
-			 * with the SAME sr_class_id gets its priority/vid
-			 * updated. */
+			/* Milan v1.2 Section 4.2.7.2.1: re-adjust scoped to matching sr_class_id only */
+			bool mismatch;
 			if (a->attr->attr.domain.sr_class_id != d->sr_class_id)
 				continue;
 
-			bool mismatch = (a->attr->attr.domain.sr_class_priority != d->sr_class_priority
+			mismatch = (a->attr->attr.domain.sr_class_priority != d->sr_class_priority
 				|| a->attr->attr.domain.sr_class_vid  != d->sr_class_vid);
 
 			if (mismatch) {
-				pw_log_info("Domain re-adjust (sr_class_id=%u): prio %u->%u vid %u->%u",
-					d->sr_class_id,
-					a->attr->attr.domain.sr_class_priority,
-					d->sr_class_priority,
-					ntohs(a->attr->attr.domain.sr_class_vid),
+				pw_log_info("Domain re-adjust sr_class_id=%u prio %u->%u vid %u->%u",
+					d->sr_class_id, a->attr->attr.domain.sr_class_priority,
+					d->sr_class_priority, ntohs(a->attr->attr.domain.sr_class_vid),
 					ntohs(d->sr_class_vid));
 				a->attr->attr.domain.sr_class_priority = d->sr_class_priority;
 				a->attr->attr.domain.sr_class_vid = d->sr_class_vid;

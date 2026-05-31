@@ -108,16 +108,7 @@ static void mrp_periodic(void *data, uint64_t now)
 
 
 	if (now > mrp->lva_timer.leave_all_timeout) {
-		/* IEEE 802.1Q-2018 §10.7.5.20: when our LeaveAll timer fires, we
-		 * become the TRANSMITTER of LeaveAll. Mark lva_tx_pending so the
-		 * next TX cycle includes the LVA PDU. We must NOT apply RX_LVA to
-		 * our own attributes — per Table 10-4 the registrar transitions
-		 * IN→LV only on RECEIVED LV/LVA, not on our own transmission.
-		 * The old global_event(RX_LVA) here flipped our own SR-class
-		 * Domain registrars to LV for a full 1 s leave_timeout window,
-		 * during which the talker reads our Domain as "leaving" and
-		 * reports MSRP TalkerFailed (failure_code 13). That broke the
-		 * stream every 10–15 s. */
+		/* IEEE 802.1Q-2018 Section 10.7.5.20: own LVA timer => TX path only, no RX_LVA */
 		mrp->lva_timer.state = FSM_LVA_ACTIVE;
 		if (mrp->lva_timer.leave_all_timeout > 0) {
 			mrp->lva_tx_pending = true;
@@ -452,11 +443,7 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 		}
 		break;
 	case AVB_MRP_EVENT_TX_LVA:
-		/* IEEE 802.1Q-2018 Table 10-4: TX events do NOT trigger
-		 * registrar transitions. The previous code lumped TX_LVA with
-		 * RX_LVA and so transitioned our own registrar IN→LV for the
-		 * full 1 s leave_timeout, briefly hiding the peer's attribute
-		 * from upper layers. Leave the registrar untouched on TX_LVA. */
+		/* IEEE 802.1Q-2018 Table 10-4: TX events do not transition the registrar */
 		break;
 	case AVB_MRP_EVENT_FLUSH:
 		switch (state) {
@@ -477,17 +464,21 @@ void avb_mrp_attribute_update_state(struct avb_mrp_attribute *attr, uint64_t now
 	default:
 		break;
 	}
-	if (notify) {
-		mrp_attribute_emit_notify(a, now, notify);
-		mrp_emit_notify(mrp, now, &a->attr, notify);
-	}
-
+	/* commit registrar_state BEFORE notify: callbacks (e.g. notify_talker ->
+	 * refresh_listener_param) read the registrar state, so they must see the new
+	 * one. Emitting notify first made the Listener latch AskingFailed off a stale
+	 * MT state and never recompute -> SRP bridge refused to forward the stream. */
 	if (a->registrar_state != state || notify) {
 		pw_log_debug("REG: attr %p: %s %s %s -> %s notify=%s", a, a->attr.name,
 			avb_mrp_event_name(event), avb_registrar_state_name(a->registrar_state),
 			avb_registrar_state_name(state),
 			notify ? avb_mrp_notify_name(notify) : "none");
 		a->registrar_state = state;
+	}
+
+	if (notify) {
+		mrp_attribute_emit_notify(a, now, notify);
+		mrp_emit_notify(mrp, now, &a->attr, notify);
 	}
 
 	state = a->applicant_state;

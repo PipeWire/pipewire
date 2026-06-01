@@ -354,6 +354,10 @@ static void midi_to_ffado(struct port *p, float *src, uint32_t n_samples)
 		if (index < c.offset)
 			index = SPA_ROUND_UP_N(c.offset, 8);
 
+		if (size > 1 && data[0] == 0xf7) {
+			data++;
+			size--;
+		}
 		for (j = 0; j < size; j++) {
 			if (index >= n_samples) {
 				/* keep events that don't fit for the next cycle */

@@ -351,6 +351,10 @@ static void midi_to_netjack2(struct netjack2_peer *peer,
 			buf->lost_events++;
 			continue;
 		}
+		if (size > 1 && data[0] == 0xf7) {
+			data++;
+			size--;
+		}
 		n2j_midi_buffer_write(buf, c.offset, data, size, peer->fix_midi);
 	}
 	if (buf->write_pos > 0)

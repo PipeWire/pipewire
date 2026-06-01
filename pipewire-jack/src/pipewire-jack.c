@@ -1647,6 +1647,10 @@ static void convert_to_event(struct mix_info **mix, uint32_t n_mix, void *midi, 
 						break;
 				}
 			} else {
+				if (size > 1 && data[0] == 0xf7) {
+					data++;
+					size--;
+				}
 				res = midi_event_write(midi, control->offset, data, size, fix);
 			}
 			if (res < 0)

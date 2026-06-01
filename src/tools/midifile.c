@@ -560,9 +560,6 @@ int midi_file_write_event(struct midi_file *mf, const struct midi_event *event)
 			ev_size--;
 			ev_data++;
 
-			if (ev_data[ev_size-1] == 0xf0)
-				ev_size--;
-
 			CHECK_RES(write_varlen(mf, tr, ev_size));
 
 			tr->size += 1;

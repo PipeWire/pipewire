@@ -1569,11 +1569,6 @@ static int sysex_play(struct data *d, void *dst, uint32_t maxsize, unsigned int 
 			bytes[size] = 0xf7;
 			size += 1;
 		}
-	} else {
-		if (bytes[size-1] != 0xf0) {
-			bytes[size] = 0xf0;
-			size += 1;
-		}
 	}
 	if (d->sysex.first) {
 		if (bytes[0] != 0xf0) {

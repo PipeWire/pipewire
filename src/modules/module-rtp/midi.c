@@ -270,7 +270,7 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 
 	while (offs < end) {
 		uint32_t delta;
-		int size;
+		int size, tail_trim = 0;
 
 		if (first && !hdr.z)
 			delta = 0;
@@ -290,9 +290,11 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 					packet[offs], size, offs, end);
 			return -EINVAL;
 		}
+		if (packet[offs + size-1] == 0xf0)
+			tail_trim++;
 
 		spa_pod_builder_control(&b, timestamp, SPA_CONTROL_Midi);
-		spa_pod_builder_bytes(&b, &packet[offs], size);
+		spa_pod_builder_bytes(&b, &packet[offs], size - tail_trim);
 
 		offs += size;
 		first = false;
@@ -372,34 +374,41 @@ unexpected_ssrc:
 	return -EINVAL;
 }
 
-static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t value, const void *ev, uint32_t size)
+static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t delta, const uint8_t *ev, uint32_t size)
 {
-        uint64_t buffer;
-        uint8_t b;
+	uint64_t buffer;
+	uint8_t b;
 	unsigned int count = 0;
+	uint32_t total;
 
-	if (buffer_size <= size)
+	total = size;
+	if (ev[size-1] != 0xf7)
+		total++;
+
+	if (buffer_size <= total)
 		return -ENOSPC;
-        buffer = value & 0x7f;
-        while ((value >>= 7)) {
+	buffer = delta & 0x7f;
+	while ((delta >>= 7)) {
 		if (buffer > (UINT64_MAX >> 8))
 			return -ERANGE;
-                buffer <<= 8;
-                buffer |= ((value & 0x7f) | 0x80);
-        }
-        do  {
-                if (count >= buffer_size)
-                        return -ENOSPC;
+		buffer <<= 8;
+		buffer |= ((delta & 0x7f) | 0x80);
+	}
+	do  {
+		if (count >= buffer_size)
+			return -ENOSPC;
 		b = buffer & 0xff;
-                p[count++] = b;
-                buffer >>= 8;
-        } while (b & 0x80);
+		p[count++] = b;
+		buffer >>= 8;
+	} while (b & 0x80);
 
-	if (buffer_size - size < count ||
-	    count + size > (unsigned int)INT_MAX)
+	if (buffer_size - total < count ||
+	    count + total > (unsigned int)INT_MAX)
 		return -ENOSPC;
 	memcpy(&p[count], ev, size);
-        return (int)(count + size);
+	if (size < total)
+		p[count+size] = 0xf0;
+	return (int)(count + total);
 }
 
 static void rtp_midi_flush_packets(struct impl *impl,

@@ -76,23 +76,25 @@ F0 byte and end with a F7 byte. Because of the buffer data length limitations,
 it might be necessary to split a MIDI1 SysEx message accross multiple
 buffers.
 
-The stategy to implement this is specified in RFC 6295 (RTP Midi) section
+The stategy to implement this is inspired by RFC 6295 (RTP Midi) section
 3.2. Long SysEx messages can be split up into parts by using the following
 start/end bytes combinations:
 
  |-----------------------------------------------------------|
  | Sublist Position |  Head Status Octet | Tail Status Octet |
  |-----------------------------------------------------------|
- |    first         |       0xF0         |       (0xF0)      |
+ |    first         |       0xF0         |                   |
  |-----------------------------------------------------------|
- |    middle        |       0xF7         |       (0xF0)      |
+ |    middle        |       0xF7         |                   |
  |-----------------------------------------------------------|
  |    last          |       0xF7         |       0xF7        |
  |-----------------------------------------------------------|
  |    cancel        |       0xF7         |       0xF4        |
  -----------------------------------------------------------
 
-The trailing 0xf0 byte can be omitted at the end of continuation packets.
+Because control packets have a size, there is no need for a tail
+status byte for incomplete first and middle/continuation packets.
+They have a regular data byte as the last octet (contrary to RFC 6295).
 
 Nodes that require a complete SysEx message must be able to assemble the
 complete message from the parts before processing the message.

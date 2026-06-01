@@ -284,6 +284,10 @@ static void midi_to_jack(struct impl *impl, float *dst, float *src, uint32_t n_s
 			data = tmp;
 			size = 3;
 		}
+		if (size > 1 && data[0] == 0xf7) {
+			data++;
+			size--;
+		}
 		if ((res = jack.midi_event_write(dst, c.offset, data, size)) < 0)
 			pw_log_warn("midi %p: can't write event: %s", dst,
 					spa_strerror(res));

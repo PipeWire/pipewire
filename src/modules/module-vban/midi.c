@@ -51,7 +51,7 @@ static void vban_midi_process_playback(void *data)
 			goto done;
 
 		/* the ringbuffer contains series of sequences, one for each
-		 * received packet. This is not share mem so we can use the
+		 * received packet. This is not shared mem so we can use the
 		 * iterator. */
 		SPA_POD_SEQUENCE_FOREACH((struct spa_pod_sequence*)pod, c) {
 #if 0

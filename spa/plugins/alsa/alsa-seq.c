@@ -886,8 +886,6 @@ static int process_write(struct seq_state *state)
 					continue;
 
 				if (body[0] == 0xf0 || body[0] == 0xf7) {
-					if (body[body_size-1] == 0xf0)
-						body_size -= 1;
 					if (body[0] == 0xf7) {
 						body += 1;
 						body_size -= 1;

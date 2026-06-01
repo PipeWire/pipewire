@@ -19,7 +19,8 @@
 
 #include <pipewire/pipewire.h>
 
-#define BUFFER_SIZE	(1u<<16)
+/* milan-avb: the talker ring must hold SEVERAL graph quanta so the burst-fill (one quantum/cycle) and the 125us flush-drain decouple; at 1<<16 the ring equalled ONE quantum so each cycle overwrote unread samples (~40 glitches/s). 1<<18 = 4 quanta. */
+#define BUFFER_SIZE	(1u<<18)
 #define BUFFER_MASK	(BUFFER_SIZE-1)
 
 struct stream {
@@ -41,6 +42,17 @@ struct stream {
 	struct spa_source *source;
 	struct spa_source *flush_timer;
 	uint64_t flush_last_ns;
+
+	/* milan-avb: self-driving timer (the node IS the graph DRIVER); a data-loop one-shot fills io_position->clock, re-arms to drive_next_time, and triggers one graph cycle (pipe-tunnel pattern) so the graph fill and AVTP egress share one clock (no follower-resampler FM). */
+	struct spa_source *drive_timer;
+	uint64_t drive_next_time;
+	bool driving;
+	uint64_t drive_phc_last;
+	uint64_t drive_mono_last;
+	double drive_ratio_ema;		/* M2: EMA of PHC/MONOTONIC rate ratio */
+
+	/* M2: monotonic AVTP presentation-timestamp accumulator (PHC domain); advances by exactly pdu_period per PDU, slow-leaked toward the live PHC, so the listener's recovered media clock stays jitter-free (per-tick PHC reads inject interpolation jitter, audible FM). */
+	uint64_t tx_pts;
 	bool is_crf;
 	uint64_t next_txtime;
 	int prio;
@@ -72,15 +84,11 @@ struct stream {
 	uint32_t stride;
 	struct spa_audio_info info;
 
-	/* milan-avb: AAF media-clock recovery (listener / STREAM_INPUT only).
-	 * Active only while the CLOCK_DOMAIN selects the AAF (INPUT_STREAM)
-	 * clock source whose location points at this stream. Estimator state in
-	 * struct mc_recover (mc-recover.h); recovered from avtp_timestamp deltas. */
+	/* milan-avb: AAF media-clock recovery (listener / STREAM_INPUT only); active only while the CLOCK_DOMAIN selects the AAF (INPUT_STREAM) source pointing at this stream; recovered from avtp_timestamp deltas (mc-recover.h). */
 	bool mc_aaf_active;
 	struct mc_recover mc;
 
-	/* milan-avb: actuator I/O areas (set via .io_changed). io_rate_match is the
-	 * resampler knob — NULL unless the adapter inserted a resampler. */
+	/* milan-avb: actuator I/O areas (set via .io_changed); io_rate_match is the resampler knob, NULL unless the adapter inserted a resampler. */
 	struct spa_io_rate_match *io_rate_match;
 	struct spa_io_position *io_position;
 
@@ -112,9 +120,7 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now);
 int stream_deactivate(struct stream *stream, uint64_t now);
 int stream_activate_virtual(struct stream *stream, uint16_t index);
 
-/* milan-avb: re-evaluate each input stream's media-clock recovery against the
- * current CLOCK_DOMAIN selection. Call after SET_CLOCK_SOURCE for on-the-fly
- * clock-source switching. */
+/* milan-avb: re-evaluate each input stream's media-clock recovery against the current CLOCK_DOMAIN selection; call after SET_CLOCK_SOURCE for on-the-fly clock-source switching. */
 void avb_stream_update_clock_source(struct server *server);
 
 #endif /* AVB_STREAM_H */

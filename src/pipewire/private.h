@@ -1296,6 +1296,9 @@ void pw_impl_port_unlink(struct pw_impl_port *port);
 /** Destroy a port */
 void pw_impl_port_destroy(struct pw_impl_port *port);
 
+/** Suepend a port */
+void pw_impl_port_suspend(struct pw_impl_port *port);
+
 /** Iterate the params of the given port. The callback should return
  * 1 to fetch the next item, 0 to stop iteration or <0 on error.
  * The function returns 0 on success or the error returned by the callback. */

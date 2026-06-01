@@ -1613,6 +1613,7 @@ void pw_impl_port_suspend(struct pw_impl_port *port)
 	int res;
 	if ((res = pw_impl_port_set_param(port, SPA_PARAM_Format, 0, NULL)) < 0)
 		pw_log_warn("%p: error unset format: %s", port, spa_strerror(res));
+	port->state = PW_IMPL_PORT_STATE_INIT;
 	/* force CONFIGURE in case of async, use update_state to
 	 * notify links so they can cancel pending work */
 	pw_impl_port_update_state(port, PW_IMPL_PORT_STATE_CONFIGURE, 0, NULL);

@@ -55,6 +55,11 @@ context.modules = [
             #rt.prio      = @rtprio_client@
             #rt.time.soft = -1
             #rt.time.hard = -1
+            #rlimits.enabled = true
+            #rtportal.enabled = true
+            #rtkit.enabled = true
+            #uclamp.min = 0
+            #uclamp.max = 1024
         }
         flags = [ ifexists nofail ]
     }

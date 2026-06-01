@@ -92,8 +92,8 @@
  *   MEDIA_RESET_IN      TODO: tick when AVTPDU header sets the mr bit
  *                        (header reset notification)
  *   TIMESTAMP_UNCERTAIN_IN TODO: tick when AVTPDU tu bit is set in the header
- *   UNSUPPORTED_FORMAT  live: handle_aaf_packet drops + ticks any AAF PDU
- *                        whose media format is not the Milan base format
+ *   UNSUPPORTED_FORMAT  live: handle_aaf_packet drops + ticks per PDU any AAF PDU
+ *                        whose format != the Stream Input current format
  *   LATE_TIMESTAMP      TODO: tick when p->timestamp < CLOCK_TAI now
  *                        (frame missed its presentation deadline)
  *   EARLY_TIMESTAMP     TODO: tick when p->timestamp > now + max_transit_time
@@ -1064,17 +1064,31 @@ static void stream_mc_recover(struct stream *stream, const struct avb_packet_aaf
  * a Listener that joins mid-stream. Small, so genuine ongoing loss still counts. */
 #define AVB_STREAM_SEQ_SETTLE		8
 
-/* Milan v1.2 Section 5.4: the listener supports only the Milan base stream
- * format for decode — AAF PCM, 32-bit integer, 48 kHz, non-sparse. The channel
- * count is checked separately by handle_aaf_packet against the stream's
- * negotiated channel count (a frame from a mismatched talker is rejected). */
-static inline bool aaf_is_milan_format(const struct avb_packet_aaf *p)
+/* Milan v1.2 Section 5.4: a received AAF AVTPDU matches the current format when
+ * subtype, format, nsr, bit depth, channels and sparse all match. */
+static inline bool aaf_pdu_format_matches(const struct avb_packet_aaf *p,
+		const struct avb_aem_stream_format_info *fi)
 {
-	return p->subtype == AVB_SUBTYPE_AAF &&
-	       p->format == AVB_AAF_FORMAT_INT_32BIT &&
-	       p->nsr == AVB_AAF_PCM_NSR_48KHZ &&
-	       p->bit_depth == 32 &&
-	       p->sp == AVB_AAF_PCM_SP_NORMAL;
+	return p->subtype == fi->subtype &&
+	       p->format == fi->format &&
+	       p->nsr == fi->nsr &&
+	       p->bit_depth == fi->bit_depth &&
+	       p->chan_per_frame == fi->channels &&
+	       p->sp == fi->sparse;
+}
+
+/* Read the current format from the Stream Input descriptor. SET_STREAM_FORMAT
+ * updates it there, so this is always the current one. */
+static void stream_in_current_format(struct stream *stream,
+		struct avb_aem_stream_format_info *out)
+{
+	struct descriptor *desc;
+	struct avb_aem_desc_stream *body;
+
+	desc = server_find_descriptor(stream->server, AVB_AEM_DESC_STREAM_INPUT,
+			stream->index);
+	body = desc ? descriptor_body(desc) : NULL;
+	avb_aem_stream_format_decode(body ? body->current_format : 0, out);
 }
 
 static void handle_aaf_packet(struct stream *stream,
@@ -1082,6 +1096,7 @@ static void handle_aaf_packet(struct stream *stream,
 {
 	struct aecp_aem_stream_input_state *si = stream_in_state(stream);
 	struct aecp_aem_stream_input_counters *cnt = &si->counters;
+	struct avb_aem_stream_format_info cur;
 	struct timespec now_ts;
 	uint32_t index, n_bytes;
 	int32_t filled;
@@ -1089,15 +1104,10 @@ static void handle_aaf_packet(struct stream *stream,
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
 	n_bytes = ntohs(p->data_len);
 
-	/* milan-avb: accept ONLY frames matching this stream's negotiated format.
-	 * EVERY received frame that is not a well-formed Milan AAF PDU — bad length,
-	 * subtype/format/sample-rate/bit-depth/sparse not the Milan base format, or
-	 * whose channel count differs from this stream's negotiated channel count —
-	 * bumps UNSUPPORTED_FORMAT and is dropped, per frame: not counted as a valid
-	 * frame, not media-locked, not written. The channel check rejects frames from
-	 * a different talker/format sharing the VLAN (Milan Section 5.5.1.2). */
-	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)) || !aaf_is_milan_format(p) ||
-	    p->chan_per_frame != stream->info.info.raw.channels) {
+	/* IEEE 1722.1-2021 Table 7-156: per-PDU, bump UNSUPPORTED_FORMAT on any AVTPDU
+	 * whose format != the Stream Input current format (from descriptor), or malformed. */
+	stream_in_current_format(stream, &cur);
+	if (n_bytes > (uint32_t)(len - (int)sizeof(*p)) || !aaf_pdu_format_matches(p, &cur)) {
 		cnt->unsupported_format++;
 		stream_in_mark_counters_dirty(stream);
 		return;
@@ -1267,6 +1277,8 @@ static void handle_iec61883_packet(struct stream *stream,
 	}
 }
 
+/* TODO: RX is on the main loop, not the RT data_loop — preemption can drop PDUs
+ * (SEQ_NUM_MISMATCH). Move it to data_loop + a big SO_RCVBUF, like the flush_timer. */
 static void on_socket_data(void *data, int fd, uint32_t mask)
 {
 	struct stream *stream = data;

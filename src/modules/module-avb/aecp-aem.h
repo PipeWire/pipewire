@@ -13,6 +13,7 @@
 #include "aecp.h"
 #include "aecp-aem-types.h"
 #include "packets.h"
+#include "aaf.h"
 
 /* AVDECC stream_format decoder.
  *
@@ -23,12 +24,8 @@
  * plane plus an `is_audio` shortcut so callers can skip non-media streams
  * (CRF). Fields are 0 when not applicable.
  *
- * NOTE: bit-level decoding inside each subtype is incomplete. Today the
- * decoder identifies the subtype reliably and falls back to the historical
- * 8 ch / 48 kHz / 24-bit defaults for audio — sufficient for current Milan
- * builds where every stream_input_0 / stream_output_0 uses one of those
- * formats. TODO Section H.1 (AAF) and Section F (IEC 61883-6 AM824) fields once a real
- * conformance run needs other rates / channel counts. */
+ * AAF (Section H.1) decodes each field. IEC 61883-6 (Section F) still uses the
+ * historical 8 ch / 48 kHz defaults, TODO decode it. */
 enum avb_aem_stream_format_kind {
 	AVB_AEM_STREAM_FORMAT_KIND_UNKNOWN = 0,
 	AVB_AEM_STREAM_FORMAT_KIND_AAF,
@@ -44,6 +41,9 @@ struct avb_aem_stream_format_info {
 	uint16_t channels;
 	uint8_t bit_depth;
 	uint16_t samples_per_frame;
+	uint8_t format;
+	uint8_t nsr;
+	uint8_t sparse;
 };
 
 static inline void avb_aem_stream_format_decode(uint64_t fmt_be,
@@ -57,15 +57,23 @@ static inline void avb_aem_stream_format_decode(uint64_t fmt_be,
 	out->channels = 0;
 	out->bit_depth = 0;
 	out->samples_per_frame = 0;
+	out->format = 0;
+	out->nsr = 0;
+	out->sparse = 0;
 
 	switch (out->subtype) {
 	case AVB_SUBTYPE_AAF:
+		/* Section H.1 quadlet: nsr[51:48] format[47:40] bit_depth[39:32]
+		 * channels[31:22] samples_per_frame[21:12]. */
 		out->kind = AVB_AEM_STREAM_FORMAT_KIND_AAF;
 		out->is_audio = true;
-		out->rate = 48000;
-		out->channels = 8;
-		out->bit_depth = 24;
-		out->samples_per_frame = 6;
+		out->nsr = (uint8_t)((f >> 48) & 0x0F);
+		out->format = (uint8_t)((f >> 40) & 0xFF);
+		out->bit_depth = (uint8_t)((f >> 32) & 0xFF);
+		out->channels = (uint16_t)((f >> 22) & 0x3FF);
+		out->samples_per_frame = (uint16_t)((f >> 12) & 0x3FF);
+		out->sparse = AVB_AAF_PCM_SP_NORMAL;
+		out->rate = avb_aaf_nsr_to_rate(out->nsr);
 		break;
 	case AVB_SUBTYPE_61883_IIDC:
 		out->kind = AVB_AEM_STREAM_FORMAT_KIND_IEC_61883_6;

@@ -79,4 +79,22 @@ struct avb_packet_aaf {
 	uint8_t payload[0];
 } __attribute__ ((__packed__));
 
+/* IEEE 1722-2016 Table 18: AAF nsr code to rate in Hz, 0 if user/reserved. */
+static inline uint32_t avb_aaf_nsr_to_rate(uint8_t nsr)
+{
+	switch (nsr) {
+	case AVB_AAF_PCM_NSR_8KHZ:	return 8000;
+	case AVB_AAF_PCM_NSR_16KHZ:	return 16000;
+	case AVB_AAF_PCM_NSR_24KHZ:	return 24000;
+	case AVB_AAF_PCM_NSR_32KHZ:	return 32000;
+	case AVB_AAF_PCM_NSR_44_1KHZ:	return 44100;
+	case AVB_AAF_PCM_NSR_48KHZ:	return 48000;
+	case AVB_AAF_PCM_NSR_88_2KHZ:	return 88200;
+	case AVB_AAF_PCM_NSR_96KHZ:	return 96000;
+	case AVB_AAF_PCM_NSR_176_4KHZ:	return 176400;
+	case AVB_AAF_PCM_NSR_192KHZ:	return 192000;
+	default:			return 0;
+	}
+}
+
 #endif /* AVB_AAF_H */

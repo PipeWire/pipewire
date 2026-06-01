@@ -1049,8 +1049,16 @@ static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *p
 		struct pw_impl_port *other, enum pw_impl_port_state old,
 		enum pw_impl_port_state state, const char *error)
 {
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+	struct port_info *info;
+
 	pw_log_debug("%p: port %p old:%d -> state:%d prepared:%d preparing:%d",
 			this, port, old, state, this->prepared, this->preparing);
+
+	if (port == impl->output.port)
+		info = &impl->output;
+	else
+		info = &impl->input;
 
 	switch (state) {
 	case PW_IMPL_PORT_STATE_ERROR:
@@ -1058,6 +1066,11 @@ static void port_state_changed(struct pw_impl_link *this, struct pw_impl_port *p
 		break;
 	case PW_IMPL_PORT_STATE_INIT:
 	case PW_IMPL_PORT_STATE_CONFIGURE:
+		if (old == PW_IMPL_PORT_STATE_INIT) {
+			port_set_busy_id(this, info, SPA_ID_INVALID, SPA_ID_INVALID);
+			pw_work_queue_cancel(impl->work, info, SPA_ID_INVALID);
+			old = PW_IMPL_PORT_STATE_READY;
+		}
 		if (this->prepared || state < old) {
 			this->prepared = this->preparing = false;
 			link_update_state(this, PW_LINK_STATE_INIT, 0, NULL);

@@ -753,16 +753,6 @@ static int parse_player(struct client *client, struct spa_json *player)
 			return -EINVAL;
 		}
 	}
-	else if (spa_streq(codec, "opus")) {
-		client->info.media_subtype = SPA_MEDIA_SUBTYPE_opus;
-		client->info.info.opus.rate = sample_rate;
-		client->info.info.opus.channels = channels;
-	}
-	else if (spa_streq(codec, "flac")) {
-		client->info.media_subtype = SPA_MEDIA_SUBTYPE_flac;
-		client->info.info.flac.rate = sample_rate;
-		client->info.info.flac.channels = channels;
-	}
 	else
 		return -EINVAL;
 

@@ -230,14 +230,14 @@ static void gptp_invalidate_state(struct gptp *gptp)
 			gptp->path_trace_valid;
 	struct avb_aem_desc_avb_interface *iface;
 
-	gptp->data_valid = false;
+	/* keep last-known GM/data_valid across transient ptp4l query timeouts (see avb_gptp_get_grandmaster_id) */
 	gptp->data_valid_current = false;
 	gptp->path_trace_valid = false;
 	gptp->path_trace_count = 0;
 	gptp->steps_removed = 0;
 	gptp->offset_from_master_scaled_ns = 0;
 	memset(gptp->clock_id, 0, sizeof(gptp->clock_id));
-	memset(gptp->gm_id, 0, sizeof(gptp->gm_id));
+	/* gm_id kept (last-known grandmaster) so the ADP does not flap to self on a missed query */
 	memset(gptp->path_trace, 0, sizeof(gptp->path_trace));
 
 	iface = get_avb_interface(gptp);

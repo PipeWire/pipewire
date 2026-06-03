@@ -213,8 +213,8 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 		agc1_mode = webrtc::AudioProcessing::Config::GainController1::Mode::kFixedDigital;
 	else if (spa_streq(str, "adaptive-analog"))
 		spa_log_warn(impl->log, "Adaptive analog mode is not implemented");
-	else
-		spa_log_warn(impl->log, "Unknown AGC2 mode '%s'", str);
+	else if (str != NULL)
+		spa_log_warn(impl->log, "Unknown AGC1 mode '%s'", str);
 
 	config.gain_controller1.enabled = gain_control1;
 	config.gain_controller1.mode = agc1_mode;

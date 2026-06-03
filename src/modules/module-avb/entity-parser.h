@@ -7,7 +7,6 @@
 #include "internal.h"
 #include "descriptors.h"
 #include "strings.h"
-#include <cstddef>
 
 struct avb_entity_config {
     char entity_name[64];
@@ -25,7 +24,7 @@ struct avb_entity_config {
 static inline struct avb_entity_config conf_load_entity (struct pw_properties *props) {
 	// Grab entity field and turn into pw_properties struct
 	struct avb_entity_config entity_conf;
-	char *str;
+	const char *str;
 	pw_log_info("Acquiring entity properties from entity dict in avb.properties");
         str = pw_properties_get(props, "entity");
         struct pw_properties *entity_props;
@@ -37,34 +36,36 @@ static inline struct avb_entity_config conf_load_entity (struct pw_properties *p
 	//TODO: with strings, check utf8 format and set as a filled 64 byte char array
 	// check zero padding and utf8 format
 	pw_log_info("Assigning entity properties");
-        char *name = pw_properties_get(entity_props, "entity_name");
-	char *entity_name;
+        const char *name = pw_properties_get(entity_props, "entity_name");
+	const char *entity_name;
 
 	int use_default = name ? 1 : 0;
-	size_t len;
+	size_t len = 0;
 
-	if (name){
+	if (name) {
 		len = strnlen(name, 64);
-		if (validate_utf8(name, len)) entity_name = name;
-		else use_default = 1;
-
-	if (use_default){
+		if (validate_utf8((uint8_t*)name, len))
+			entity_name = name;
+		else
+			use_default = 1;
+	}
+	if (use_default) {
 		len = strnlen(name, 64);
 		entity_name = (char *)DSC_ENTITY_MODEL_ENTITY_NAME;
 	}
 	memcpy(entity_conf.entity_name, entity_name, 64);
 	memset(entity_conf.entity_name + len, 0, 64 - len);
 
-	char *serial = pw_properties_get(entity_props, "serial_number");
-	char *serial_number = serial ? serial : DSC_ENTITY_MODEL_SERIAL_NUMBER;
+	const char *serial = pw_properties_get(entity_props, "serial_number");
+	const char *serial_number = serial ? serial : DSC_ENTITY_MODEL_SERIAL_NUMBER;
 	strncpy(entity_conf.serial_number, serial_number, sizeof(entity_conf.serial_number));
 
-	char *firmware = pw_properties_get(entity_props, "firmware_version");
-	char *firmware_version = firmware ? firmware : DSC_ENTITY_MODEL_FIRMWARE_VERSION;
+	const char *firmware = pw_properties_get(entity_props, "firmware_version");
+	const char *firmware_version = firmware ? firmware : DSC_ENTITY_MODEL_FIRMWARE_VERSION;
 	strncpy(entity_conf.firmware_version, firmware_version, sizeof(entity_conf.firmware_version));
 
-	char *group = pw_properties_get(entity_props, "group_name");
-	char *group_name = group ? group: DSC_ENTITY_MODEL_GROUP_NAME;
+	const char *group = pw_properties_get(entity_props, "group_name");
+	const char *group_name = group ? group: DSC_ENTITY_MODEL_GROUP_NAME;
 	strncpy(entity_conf.group_name, group_name, sizeof(entity_conf.group_name));
 
 	// Handle integers

@@ -2231,7 +2231,9 @@ static int do_get_playback_latency(struct client *client, uint32_t command, uint
 	if (stream == NULL || stream->type != STREAM_TYPE_PLAYBACK)
 		return -ENOENT;
 
-	delay = stream->delay.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
+	delay = 0;
+	if (stream->ss.rate > 0)
+		delay += stream->delay.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
 	if (stream->delay.rate.denom > 0)
 		delay += stream->delay.delay * SPA_USEC_PER_SEC *
 			stream->delay.rate.num / stream->delay.rate.denom;
@@ -2288,7 +2290,9 @@ static int do_get_record_latency(struct client *client, uint32_t command, uint32
 	if (stream == NULL || stream->type != STREAM_TYPE_RECORD)
 		return -ENOENT;
 
-	delay = stream->delay.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
+	delay = 0;
+	if (stream->ss.rate > 0)
+		delay += stream->delay.buffered * SPA_USEC_PER_SEC / stream->ss.rate;
 	if (stream->delay.rate.denom > 0)
 		delay += stream->delay.delay * SPA_USEC_PER_SEC *
 			stream->delay.rate.num / stream->delay.rate.denom;

@@ -2430,9 +2430,15 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	/* no period size specified. If we are batch or forcing our quantum,
 	 * use the graph requested quantum scaled by our rate */
 	if (period_size == 0 && (state->is_batch || state->force_quantum) && state->position) {
-		period_size = SPA_SCALE32_UP(state->position->clock.target_duration,
-				state->rate, state->position->clock.target_rate.denom);
-		period_size = flp2(period_size);
+		period_size = state->position->clock.target_duration;
+		/* only if we are rate adjusting, scale the period size and round down
+		 * to a power of two. */
+		if (state->position->clock.target_rate.denom != 0 &&
+		    state->rate != (int)state->position->clock.target_rate.denom) {
+			period_size = SPA_SCALE32_UP(period_size,
+					state->rate, state->position->clock.target_rate.denom);
+			period_size = flp2(period_size);
+		}
 	}
 	if (period_size == 0)
 		period_size = default_period;

@@ -51,6 +51,12 @@ struct spa_fga_port {
 #define SPA_FGA_SUPPORTS_NULL_DATA(x)	((x) & SPA_FGA_PORT_SUPPORTS_NULL_DATA)
 #define SPA_FGA_IS_PORT_SEQUENCE(x)	((x) & SPA_FGA_PORT_SEQUENCE)
 
+struct spa_fga_ctx {
+	const char *type;
+	const void *data;
+	size_t size;
+};
+
 struct spa_fga_descriptor {
 	const char *name;
 #define SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA	(1ULL << 0)
@@ -71,7 +77,7 @@ struct spa_fga_descriptor {
 	void (*control_changed) (void *instance);
 	void (*control_sync) (void *instance);
 
-	void (*activate) (void *instance);
+	void (*activate) (void *instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[]);
 	void (*deactivate) (void *instance);
 
 	void (*run) (void *instance, unsigned long SampleCount);

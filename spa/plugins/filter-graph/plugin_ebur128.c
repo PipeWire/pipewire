@@ -238,7 +238,7 @@ static void ebur128_cleanup(void * Instance)
 	free(impl);
 }
 
-static void ebur128_activate(void * Instance)
+static void ebur128_activate(void * Instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[])
 {
 	struct ebur128_impl *impl = Instance;
 	unsigned long max_window;

@@ -1269,6 +1269,8 @@ struct impl {
 
 	struct spa_handle *handle;
 	struct spa_filter_graph *graph;
+	struct spa_filter_graph_ctx ctx[3];
+	uint32_t n_ctx;
 	struct spa_hook graph_listener;
 	uint32_t n_inputs;
 	uint32_t n_outputs;
@@ -1402,7 +1404,8 @@ static int activate_graph(struct impl *impl)
 
 	snprintf(rate, sizeof(rate), "%lu", impl->rate);
 	res = spa_filter_graph_activate(impl->graph, &SPA_DICT_ITEMS(
-				SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, rate)));
+				SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, rate)),
+			impl->n_ctx, impl->ctx);
 
 	if (res >= 0) {
 		struct pw_loop *data_loop = pw_stream_get_data_loop(impl->playback);

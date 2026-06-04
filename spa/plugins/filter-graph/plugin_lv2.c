@@ -491,7 +491,7 @@ static void lv2_connect_port(void *instance, unsigned long port, void *data)
 	lilv_instance_connect_port(i->instance, port, data);
 }
 
-static void lv2_activate(void *instance)
+static void lv2_activate(void *instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[])
 {
 	struct instance *i = instance;
 	lilv_instance_activate(i->instance);

@@ -395,7 +395,7 @@ static void spatializer_control_changed(void * Instance)
 	spatializer_reload(Instance);
 }
 
-static void spatializer_activate(void * Instance)
+static void spatializer_activate(void * Instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[])
 {
 	struct spatializer_impl *impl = Instance;
 	impl->port[6][0] = impl->latency;

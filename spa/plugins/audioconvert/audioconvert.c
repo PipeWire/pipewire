@@ -1278,7 +1278,8 @@ static int setup_filter_graph(struct impl *this, struct filter_graph *g,
 	res = spa_filter_graph_activate(g->graph,
 				     &SPA_DICT_ITEMS(
 					     SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, rate_str),
-					     SPA_DICT_ITEM("filter-graph.n_inputs", channels ? in_ports : NULL)));
+					     SPA_DICT_ITEM("filter-graph.n_inputs", channels ? in_ports : NULL)),
+				     0, NULL);
 
 	g->setup = res >= 0;
 

@@ -6,6 +6,7 @@
 #include "alsa-mixer.h"
 #include "alsa-ucm.h"
 
+#include <spa/monitor/device.h>
 #include <spa/utils/string.h>
 #include <spa/utils/json.h>
 #include <spa/utils/cleanup.h>
@@ -1957,9 +1958,9 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->disable_mixer_path = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.alsa.ignore-dB")) != NULL)
 			impl->ignore_dB = spa_atob(s);
-		if ((s = acp_dict_lookup(props, "device.profile-set")) != NULL)
+		if ((s = acp_dict_lookup(props, SPA_KEY_DEVICE_PROFILE_SET)) != NULL)
 			profile_set = s;
-		if ((s = acp_dict_lookup(props, "device.profile")) != NULL)
+		if ((s = acp_dict_lookup(props, SPA_KEY_DEVICE_PROFILE)) != NULL)
 			profile = s;
 		if ((s = acp_dict_lookup(props, "api.acp.auto-profile")) != NULL)
 			impl->auto_profile = spa_atob(s);

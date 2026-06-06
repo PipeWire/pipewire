@@ -5123,7 +5123,6 @@ void pa_alsa_profile_set_probe(
     snprintf(dev_id, sizeof(dev_id), "%d", card_index);
 
     pa_assert(ps);
-    pa_assert(dev_id);
     pa_assert(ss);
 
     if (ps->probed)

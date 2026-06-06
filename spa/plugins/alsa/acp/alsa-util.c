@@ -1923,16 +1923,19 @@ __close:
     return NULL;
 }
 
-snd_mixer_t *pa_alsa_open_mixer_for_pcm(pa_hashmap *mixers, snd_pcm_t *pcm, bool probe) {
+snd_mixer_t *pa_alsa_open_mixer_for_pcm(pa_hashmap *mixers, snd_pcm_t *pcm, bool probe, uint32_t fallback_index) {
     snd_pcm_info_t* info;
     snd_pcm_info_alloca(&info);
 
     pa_assert(pcm);
 
     if (snd_pcm_info(pcm, info) >= 0) {
-        int card_idx;
+        int card_idx = snd_pcm_info_get_card(info);
 
-        if ((card_idx = snd_pcm_info_get_card(info)) >= 0)
+        if (card_idx < 0)
+            card_idx = fallback_index;
+
+        if (card_idx >= 0)
             return pa_alsa_open_mixer(mixers, card_idx, probe);
     }
 

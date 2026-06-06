@@ -2025,7 +2025,7 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->profile_set->ignore_dB = impl->ignore_dB;
 
 	pa_alsa_profile_set_probe(impl->profile_set, impl->ucm.mixers,
-			device_id,
+			index,
 			&impl->ucm.default_sample_spec,
 			impl->ucm.default_n_fragments,
 			impl->ucm.default_fragment_size_msec);

@@ -4467,7 +4467,7 @@ static void profile_set_set_availability_groups(pa_alsa_profile_set *ps) {
 
 static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
                                 pa_alsa_direction_t direction, pa_hashmap *used_paths,
-                                pa_hashmap *mixers) {
+                                pa_hashmap *mixers, uint32_t card_index) {
 
     pa_alsa_path *p;
     void *state;
@@ -4492,7 +4492,7 @@ static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
 
     pa_assert(pcm_handle);
 
-    mixer_handle = pa_alsa_open_mixer_for_pcm(mixers, pcm_handle, true);
+    mixer_handle = pa_alsa_open_mixer_for_pcm(mixers, pcm_handle, true, card_index);
     if (!mixer_handle) {
         /* Cannot open mixer, remove all entries */
         pa_hashmap_remove_all(ps->paths);
@@ -5106,7 +5106,7 @@ static void mapping_query_hw_device(pa_alsa_mapping *mapping, snd_pcm_t *pcm) {
 void pa_alsa_profile_set_probe(
         pa_alsa_profile_set *ps,
         pa_hashmap *mixers,
-        const char *dev_id,
+        uint32_t card_index,
         const pa_sample_spec *ss,
         unsigned default_n_fragments,
         unsigned default_fragment_size_msec) {
@@ -5118,6 +5118,9 @@ void pa_alsa_profile_set_probe(
     pa_alsa_mapping *m;
     pa_hashmap *broken_inputs, *broken_outputs, *used_paths;
     pa_alsa_mapping *selected_fallback_input = NULL, *selected_fallback_output = NULL;
+
+    char dev_id[16];
+    snprintf(dev_id, sizeof(dev_id), "%d", card_index);
 
     pa_assert(ps);
     pa_assert(dev_id);
@@ -5244,7 +5247,7 @@ void pa_alsa_profile_set_probe(
                     if (p->fallback_output && selected_fallback_output == NULL) {
                         selected_fallback_output = m;
                     }
-                    mapping_paths_probe(m, p, PA_ALSA_DIRECTION_OUTPUT, used_paths, mixers);
+                    mapping_paths_probe(m, p, PA_ALSA_DIRECTION_OUTPUT, used_paths, mixers, card_index);
                 }
 
         if (p->input_mappings)
@@ -5254,7 +5257,7 @@ void pa_alsa_profile_set_probe(
                     if (p->fallback_input && selected_fallback_input == NULL) {
                         selected_fallback_input = m;
                     }
-                    mapping_paths_probe(m, p, PA_ALSA_DIRECTION_INPUT, used_paths, mixers);
+                    mapping_paths_probe(m, p, PA_ALSA_DIRECTION_INPUT, used_paths, mixers, card_index);
                 }
     }
 

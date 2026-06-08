@@ -52,6 +52,7 @@ struct pa_card {
 	bool use_eld_channels;
 	uint32_t rate;
 	uint32_t pro_channels;
+	float volume_range[2];
 
 	pa_alsa_ucm_config ucm;
 	pa_alsa_profile_set *profile_set;

@@ -974,6 +974,31 @@ Disable the "Pro Audio" profile for this device.
 Use the channel count and mapping the connected HDMI device
 provides via ELD information.
 
+@PAR@ device-prop api.acp.min-volume = 0.0 # float
+The minimum default volume for all the nodes from this device.
+
+@PAR@ device-prop api.acp.max-volume = FLT_MAX # float
+The maximum default volume for all the nodes from this device.
+
+@PAR@ device-prop api.acp.device.<node-name>.min-volume = 0.0 # float
+The default minimum volume for the node with the given node-name. This
+overrides the api.acp.min-volume for the device.
+
+@PAR@ device-prop api.acp.device.<node-name>.max-volume = FLT_MAX # float
+The default maximum volume for the node with the given node-name. This
+overrides the api.acp.max-volume for the device.
+
+@PAR@ device-prop api.acp.port.<port-name>.min-volume = FLT_MAX # float
+The minimum volume for the port with the given port-name. This overrides
+the api.acp.device.<node-name>.min-volume for the node. The port name
+can be found as the name property in the EnumRoute param of the device.
+
+@PAR@ device-prop api.acp.port.<port-name>.max-volume = FLT_MAX # float
+The maximum volume for the port with the given port-name. This overrides
+the api.acp.device.<node-name>.max-volume for the node. The port name
+can be found as the name property in the EnumRoute param of the device.
+
+
 ## Node properties
 
 @PAR@ node-prop  audio.channels    # integer

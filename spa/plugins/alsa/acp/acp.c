@@ -526,8 +526,9 @@ static void add_profiles(pa_card *impl)
 	pa_alsa_device *dev;
 	int n_profiles, n_ports, n_devices;
 	uint32_t idx;
-	const char *arr;
+	const char *arr, *str;
 	bool broken_ucm = false;
+	char name[512];
 
 	n_devices = 0;
 	pa_dynarray_init(&impl->out.devices, device_free);
@@ -641,15 +642,56 @@ static void add_profiles(pa_card *impl)
 		dp->port.n_profiles = n_profiles;
 		dp->port.profiles = dp->prof.array.data;
 
+		snprintf(name, sizeof(name), "api.acp.port.%s.min-volume", dp->name);
+		if ((str = pa_proplist_gets(impl->proplist, name)))
+			spa_atof(str, &dp->volume_range[0]);
+		else
+			dp->volume_range[0] = impl->volume_range[0];
+
+		snprintf(name, sizeof(name), "api.acp.port.%s.max-volume", dp->name);
+		if ((str = pa_proplist_gets(impl->proplist, name)))
+			spa_atof(str, &dp->volume_range[1]);
+		else
+			dp->volume_range[1] = impl->volume_range[1];
+
 		pa_proplist_setf(dp->proplist, "card.profile.port", "%u", dp->port.index);
 		pa_proplist_as_dict(dp->proplist, &dp->port.props);
 		pa_dynarray_append(&impl->out.ports, dp);
 	}
 	PA_DYNARRAY_FOREACH(dev, &impl->out.devices, idx) {
+		float vol_range[2] = { 0.0f, FLT_MAX };
+		n_ports = 0;
+
+		snprintf(name, sizeof(name), "api.acp.device.%s.min-volume", dev->device.name);
+		if ((str = pa_proplist_gets(impl->proplist, name)))
+			spa_atof(str, &vol_range[0]);
+		else
+			vol_range[0] = impl->volume_range[0];
+
+		snprintf(name, sizeof(name), "api.acp.device.%s.max-volume", dev->device.name);
+		if ((str = pa_proplist_gets(impl->proplist, name)))
+			spa_atof(str, &vol_range[1]);
+		else
+			vol_range[1] = impl->volume_range[1];
+
 		PA_HASHMAP_FOREACH(dp, dev->ports, state) {
+			if (n_ports == 0) {
+				vol_range[0] = dp->volume_range[0];
+				vol_range[1] = dp->volume_range[1];
+			} else {
+				vol_range[0] = fminf(vol_range[0], dp->volume_range[0]);
+				vol_range[1] = fmaxf(vol_range[1], dp->volume_range[1]);
+			}
 			pa_dynarray_append(&dev->port_array, dp);
 			pa_dynarray_append(&dp->devices, dev);
+			n_ports++;
 		}
+		if (n_ports == 0) {
+			pa_proplist_setf(dev->proplist, "channelmix.min-volume", "%f", vol_range[0]);
+			pa_proplist_setf(dev->proplist, "channelmix.max-volume", "%f", vol_range[1]);
+		}
+		pa_proplist_as_dict(dev->proplist, &dev->device.props);
+
 		dev->device.ports = dev->port_array.array.data;
 		dev->device.n_ports = pa_dynarray_size(&dev->port_array);
 	}
@@ -1948,6 +1990,8 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 	impl->ignore_dB = false;
 	impl->rate = DEFAULT_RATE;
 	impl->pro_channels = DEFAULT_CHANNELS;
+	impl->volume_range[0] = 0.0f;
+	impl->volume_range[1] = FLT_MAX;
 
 	if (props) {
 		if ((s = acp_dict_lookup(props, "api.alsa.use-ucm")) != NULL)
@@ -1976,6 +2020,10 @@ struct acp_card *acp_card_new(uint32_t index, const struct acp_dict *props)
 			impl->disable_pro_audio = spa_atob(s);
 		if ((s = acp_dict_lookup(props, "api.acp.use-eld-channels")) != NULL)
 			impl->use_eld_channels = spa_atob(s);
+		if ((s = acp_dict_lookup(props, "api.acp.min-volume")) != NULL)
+			spa_atof(s, &impl->volume_range[0]);
+		if ((s = acp_dict_lookup(props, "api.acp.max-volume")) != NULL)
+			spa_atof(s, &impl->volume_range[1]);
 	}
 
 #if SND_LIB_VERSION < 0x10207
@@ -2297,15 +2345,23 @@ int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t 
 	pa_card *impl = d->card;
 	uint32_t i;
 	pa_cvolume v, old_volume;
+	pa_device_port *p;
+	float *volume_range;
 
 	if (n_volume == 0)
 		return -EINVAL;
 
 	old_volume = d->real_volume;
 
+	if ((p = d->active_port) != NULL)
+		volume_range = p->volume_range;
+	else
+		volume_range = impl->volume_range;
+
 	v.channels = d->mapping->channel_map.channels;
 	for (i = 0; i < v.channels; i++)
-		v.values[i] = pa_sw_volume_from_linear(volume[i % n_volume]);
+		v.values[i] = pa_sw_volume_from_linear(
+				SPA_CLAMPF(volume[i % n_volume], volume_range[0], volume_range[1]));
 
 	pa_log_info("Set %s volume: min:%d max:%d",
 			d->set_volume ? "hardware" : "software",

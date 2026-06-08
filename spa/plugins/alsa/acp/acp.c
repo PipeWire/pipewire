@@ -2339,6 +2339,41 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 	return res;
 }
 
+int acp_device_get_volume_limit(struct acp_device *dev, float *min, float *max)
+{
+	pa_alsa_device *d = (pa_alsa_device*)dev;
+	pa_card *impl = d->card;
+	pa_device_port *p;
+	float *volume_range;
+
+	if ((p = d->active_port) != NULL)
+		volume_range = p->volume_range;
+	else
+		volume_range = impl->volume_range;
+
+	if (min)
+		*min = volume_range[0];
+	if (max)
+		*max = volume_range[1];
+	return 0;
+}
+int acp_device_set_volume_limit(struct acp_device *dev, float min, float max)
+{
+	pa_alsa_device *d = (pa_alsa_device*)dev;
+	pa_card *impl = d->card;
+	pa_device_port *p;
+	float *volume_range;
+
+	if ((p = d->active_port) != NULL)
+		volume_range = p->volume_range;
+	else
+		volume_range = impl->volume_range;
+
+	volume_range[0] = min;
+	volume_range[1] = max;
+	return 0;
+}
+
 int acp_device_set_volume(struct acp_device *dev, const float *volume, uint32_t n_volume)
 {
 	pa_alsa_device *d = (pa_alsa_device*)dev;

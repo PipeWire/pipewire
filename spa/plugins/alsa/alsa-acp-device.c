@@ -710,6 +710,20 @@ static int apply_device_props(struct impl *this, struct acp_device *dev, struct 
 				changed++;
 			}
 			break;
+		case SPA_PROP_volumeMin:
+			acp_device_get_volume_limit(dev, &volumes[0], &volumes[1]);
+			if (spa_pod_get_float(&prop->value, &volumes[0]) == 0) {
+				acp_device_set_volume_limit(dev, volumes[0], volumes[1]);
+				changed++;
+			}
+			break;
+		case SPA_PROP_volumeMax:
+			acp_device_get_volume_limit(dev, &volumes[0], &volumes[1]);
+			if (spa_pod_get_float(&prop->value, &volumes[1]) == 0) {
+				acp_device_set_volume_limit(dev, volumes[0], volumes[1]);
+				changed++;
+			}
+			break;
 		case SPA_PROP_latencyOffsetNsec:
 		{
 			int64_t latency_ns;

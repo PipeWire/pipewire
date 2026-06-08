@@ -98,6 +98,8 @@ enum spa_prop {
 						  *  to ramp the */
 	SPA_PROP_volumeRampScale,		/**< the scale or graph to used to ramp the
 						  *  volume */
+	SPA_PROP_volumeMin,			/**< the minimum volume */
+	SPA_PROP_volumeMax,			/**< the maximum volume */
 
 	SPA_PROP_START_Video	= 0x20000,	/**< video related properties */
 	SPA_PROP_brightness,

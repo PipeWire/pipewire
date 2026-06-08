@@ -905,6 +905,8 @@ static int node_param_props(struct impl *this, uint32_t id, uint32_t index,
 								SPA_TYPE_Float,
 								p->monitor.n_volumes,
 								p->monitor.volumes),
+			SPA_PROP_volumeMin,		SPA_POD_Float(p->min_volume),
+			SPA_PROP_volumeMax,		SPA_POD_Float(p->max_volume),
 			0);
 		spa_pod_builder_prop(b, SPA_PROP_params, 0);
 		spa_pod_builder_push_struct(b, &f[1]);
@@ -1864,6 +1866,20 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					p->monitor.volumes, SPA_N_ELEMENTS(p->monitor.volumes))) > 0) {
 				p->monitor.n_volumes = n;
+				changed++;
+			}
+			break;
+		case SPA_PROP_volumeMin:
+			if (!p->lock_volumes &&
+			    spa_pod_get_float(&prop->value, &p->min_volume) == 0) {
+				spa_log_debug(this->log, "%p new min-volume %f", this, p->min_volume);
+				changed++;
+			}
+			break;
+		case SPA_PROP_volumeMax:
+			if (!p->lock_volumes &&
+			    spa_pod_get_float(&prop->value, &p->max_volume) == 0) {
+				spa_log_debug(this->log, "%p new max-volume %f", this, p->min_volume);
 				changed++;
 			}
 			break;

@@ -303,6 +303,8 @@ int acp_device_get_soft_volume(struct acp_device *dev, float *volume, uint32_t n
 int acp_device_get_volume(struct acp_device *dev, float *volume, uint32_t n_volume);
 int acp_device_set_mute(struct acp_device *dev, bool mute);
 int acp_device_get_mute(struct acp_device *dev, bool *mute);
+int acp_device_get_volume_limit(struct acp_device *dev, float *min, float *max);
+int acp_device_set_volume_limit(struct acp_device *dev, float min, float max);
 
 typedef void (*acp_log_func) (void *data,
 		int level, const char *file, int line, const char *func,

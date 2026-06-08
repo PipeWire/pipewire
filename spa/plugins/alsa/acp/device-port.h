@@ -76,7 +76,8 @@ struct pa_device_port {
 
 	pa_direction_t direction;
 	int64_t latency_offset;
-	float volume_range[2];
+	float hard_volume_limit[2];
+	float soft_volume_limit[2];
 
 	pa_proplist *proplist;
 	pa_hashmap *profiles;

@@ -142,8 +142,10 @@ pa_device_port *pa_device_port_new(pa_core *c, pa_device_port_new_data *data, si
 	p->port.direction = data->direction == PA_DIRECTION_OUTPUT ?
 		ACP_DIRECTION_PLAYBACK : ACP_DIRECTION_CAPTURE;
 	p->type = data->type;
-	p->volume_range[0] = 0.0f;
-	p->volume_range[1] = FLT_MAX;
+	p->hard_volume_limit[0] = 0.0f;
+	p->hard_volume_limit[1] = FLT_MAX;
+	p->soft_volume_limit[0] = p->hard_volume_limit[0];
+	p->soft_volume_limit[1] = p->hard_volume_limit[1];
 
 	p->proplist = pa_proplist_new();
 	pa_proplist_sets(p->proplist, ACP_KEY_PORT_TYPE, str_port_type(data->type));

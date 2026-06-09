@@ -1723,7 +1723,7 @@ static int mixer_class_event(snd_mixer_class_t *class, unsigned int mask,
 	// assertion in alsa-lib since the list is not empty.
         _helem = snd_mixer_elem_get_private(melem);
         *_helem = NULL;
-        snd_mixer_elem_detach(melem, helem);
+        snd_mixer_elem_remove(melem);
     } else if (mask & SND_CTL_EVENT_MASK_ADD) {
         snd_ctl_elem_iface_t iface = snd_hctl_elem_get_interface(helem);
         if (iface == SND_CTL_ELEM_IFACE_CARD || iface == SND_CTL_ELEM_IFACE_PCM) {

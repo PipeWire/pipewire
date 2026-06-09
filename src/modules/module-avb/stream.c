@@ -265,7 +265,9 @@ static void on_flush_tick(void *data, uint64_t expirations)
 	}
 }
 
-/* Talker egress pacing runs on the RT data loop (impl->data_loop); a source cannot be added/removed off-thread, so the flush timer is created and destroyed ON the RT thread via pw_loop_invoke. */
+/* Talker egress pacing runs on the RT data loop (impl->data_loop)
+ a source cannot be added/removed off-thread, so the flush timer is created
+ and destroyed ON the RT thread via pw_loop_invoke. */
 static int do_add_flush_timer(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
@@ -867,6 +869,39 @@ static const struct pw_stream_events sink_stream_events = {
 	.io_changed = on_sink_stream_io_changed,
 	.process = on_sink_stream_process
 };
+
+/* milan-avb: derive the runtime audio format (rate/channels/stride/frames_per_pdu/pdu_period) */
+static void stream_apply_current_format(struct stream *stream)
+{
+	uint16_t desc_type = (stream->direction == SPA_DIRECTION_INPUT)
+			? AVB_AEM_DESC_STREAM_INPUT : AVB_AEM_DESC_STREAM_OUTPUT;
+	struct descriptor *desc = server_find_descriptor(stream->server, desc_type,
+			stream->index);
+	struct avb_aem_desc_stream *body = desc ? descriptor_body(desc) : NULL;
+	struct avb_aem_stream_format_info fi = { 0 };
+
+	stream->format = body ? body->current_format : stream->format;
+	if (stream->format)
+		avb_aem_stream_format_decode(stream->format, &fi);
+
+	stream->info.info.raw.format = SPA_AUDIO_FORMAT_S32_BE;
+	stream->info.info.raw.flags = SPA_AUDIO_FLAG_UNPOSITIONED;
+	stream->info.info.raw.rate = fi.is_audio && fi.rate ? fi.rate : 48000;
+	stream->info.info.raw.channels = fi.is_audio && fi.channels ? fi.channels : 8;
+	stream->stride = stream->info.info.raw.channels * 4;
+
+	/* AAF Base Format NS samples/PDU: 6/12/24 at 48/96/192 kHz (Milan Base Audio Formats v1.2). */
+	stream->frames_per_pdu = stream->info.info.raw.rate > 96000 ? 24 :
+				 stream->info.info.raw.rate > 48000 ? 12 : 6;
+	stream->pdu_period = SPA_NSEC_PER_SEC * stream->frames_per_pdu /
+			stream->info.info.raw.rate;
+
+	if (stream->server->avb_mode == AVB_MODE_MILAN_V12) {
+		setup_pdu_milan_v12(stream);
+	} else {
+		setup_pdu_legacy(stream);
+	}
+}
 
 struct stream *server_create_stream(struct server *server, struct stream *stream,
 		enum spa_direction direction, uint16_t index)
@@ -1473,6 +1508,18 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 	int fd, res;
 	struct stream_common *common;
 	common = SPA_CONTAINER_OF(stream, struct stream_common, stream);
+
+	/* milan-avb: re-verify the stream format at start. Milan sets the format via SET_STREAM_FORMAT */
+	stream_apply_current_format(stream);
+	if (!stream->is_crf && stream->stream != NULL) {
+		uint8_t fbuf[1024];
+		struct spa_pod_builder fb;
+		const struct spa_pod *fparams[1];
+		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
+		fparams[0] = spa_format_audio_raw_build(&fb, SPA_PARAM_EnumFormat,
+				&stream->info.info.raw);
+		pw_stream_update_params(stream->stream, fparams, 1);
+	}
 
 	/* milan-avb: SR-class priority + VLAN id come from the MSRP Domain (the authoritative network-declared values), not a hardcoded default; read before setup_socket() since the listener uses stream->vlan_id to select its VLAN sub-iface. */
 	{

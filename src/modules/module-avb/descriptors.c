@@ -339,7 +339,8 @@ static void init_descriptor_milan_v12(struct server *server)
 	/**************************************************************************************/
 	/* IEEE 1722.1-2021, Sec. 7.2.1 - ENTITY Descriptor */
 	/* Milan v1.2, Sec. 5.3.3.1 */
-	struct avb_entity_config entity_conf = conf_load_entity(server->impl->props);
+	struct avb_entity_config entity_conf;
+	conf_load_entity(server->impl->props, &entity_conf);
 
 	struct avb_aem_desc_entity entity = {
 		.entity_id = htobe64(server->entity_id),

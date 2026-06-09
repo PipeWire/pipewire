@@ -21,79 +21,96 @@ struct avb_entity_config {
     uint32_t controller_capabilities;
 };
 
-static inline struct avb_entity_config conf_load_entity (struct pw_properties *props) {
-	// Grab entity field and turn into pw_properties struct
-	struct avb_entity_config entity_conf;
-	const char *str;
-	pw_log_info("Acquiring entity properties from entity dict in avb.properties");
-        str = pw_properties_get(props, "entity");
-        struct pw_properties *entity_props;
-	entity_props = pw_properties_new(NULL,NULL);
-        pw_properties_update_string(entity_props, str, strlen(str));
+/* Default entity configuration, taken from the compiled-in Milan entity model. */
+#define AVB_ENTITY_CONFIG_DEFAULT ((struct avb_entity_config) {			\
+    .entity_name = DSC_ENTITY_MODEL_ENTITY_NAME,                        \
+    .group_name = DSC_ENTITY_MODEL_GROUP_NAME,                          \
+    .serial_number = DSC_ENTITY_MODEL_SERIAL_NUMBER,                    \
+    .firmware_version = DSC_ENTITY_MODEL_FIRMWARE_VERSION,              \
+    .vendor_name = DSC_ENTITY_MODEL_VENDOR_NAME_STRING,                 \
+    .model_name = DSC_ENTITY_MODEL_MODEL_NAME_STRING,                   \
+    .talker_capabilities = DSC_ENTITY_MODEL_TALKER_CAPABILITIES,        \
+    .listener_capabilities = DSC_ENTITY_MODEL_LISTENER_CAPABILITIES,    \
+    .entity_capabilities = DSC_ENTITY_MODEL_ENTITY_CAPABILITIES,        \
+    .controller_capabilities = DSC_ENTITY_MODEL_CONTROLLER_CAPABILITIES,\
+})
 
-	// Assign properties to aem_entity_config struct
-	// First handle strings
-	//TODO: with strings, check utf8 format and set as a filled 64 byte char array
-	// check zero padding and utf8 format
-	pw_log_info("Assigning entity properties");
-        const char *name = pw_properties_get(entity_props, "entity_name");
-	const char *entity_name;
+/* Override a 64-byte, zero-padded AVB string field from a property. The default
+ * already in dst is kept when the key is missing or the value is not valid
+ * UTF-8 (IEEE 1722.1, Sec. 7.4.17.1). */
+static inline void conf_load_string(char dst[64], const struct pw_properties *props,
+        const char *key)
+{
+    size_t len;
+    const char *val = pw_properties_get(props, key);
+    if (val == NULL)
+        return;
 
-	int use_default = name ? 1 : 0;
-	size_t len = 0;
+    len = strnlen(val, 64);
+    if (validate_utf8((const unsigned char *)val, len) != 0) {
+        pw_log_warn("entity.%s is not valid UTF-8, keeping default", key);
+        return;
+    }
 
-	if (name) {
-		len = strnlen(name, 64);
-		if (validate_utf8((uint8_t*)name, len))
-			entity_name = name;
-		else
-			use_default = 1;
-	}
-	if (use_default) {
-		len = strnlen(name, 64);
-		entity_name = (char *)DSC_ENTITY_MODEL_ENTITY_NAME;
-	}
-	memcpy(entity_conf.entity_name, entity_name, 64);
-	memset(entity_conf.entity_name + len, 0, 64 - len);
+    memcpy(dst, val, len);
+    memset(dst + len, 0, 64 - len);
+}
 
-	const char *serial = pw_properties_get(entity_props, "serial_number");
-	const char *serial_number = serial ? serial : DSC_ENTITY_MODEL_SERIAL_NUMBER;
-	strncpy(entity_conf.serial_number, serial_number, sizeof(entity_conf.serial_number));
+/* Override a uint16_t field when the key is present and parses as an integer. */
+static inline void conf_load_u16(uint16_t *dst, const struct pw_properties *props,
+        const char *key)
+{
+    uint32_t val;
+    if (pw_properties_fetch_uint32(props, key, &val) == 0) {
+        *dst = (uint16_t)val;
+    }
+}
 
-	const char *firmware = pw_properties_get(entity_props, "firmware_version");
-	const char *firmware_version = firmware ? firmware : DSC_ENTITY_MODEL_FIRMWARE_VERSION;
-	strncpy(entity_conf.firmware_version, firmware_version, sizeof(entity_conf.firmware_version));
+/* Override a uint32_t field when the key is present and parses as an integer. */
+static inline void conf_load_u32(uint32_t *dst, const struct pw_properties *props,
+        const char *key)
+{
+    uint32_t val;
+    if (pw_properties_fetch_uint32(props, key, &val) == 0) {
+        *dst = val;
+    }
+}
 
-	const char *group = pw_properties_get(entity_props, "group_name");
-	const char *group_name = group ? group: DSC_ENTITY_MODEL_GROUP_NAME;
-	strncpy(entity_conf.group_name, group_name, sizeof(entity_conf.group_name));
+/* Fill entity_conf from the "entity" dict in avb.properties, starting from the
+ * compiled-in defaults. Any field absent or invalid keeps its default value. */
+static inline void conf_load_entity(struct pw_properties *props,
+        struct avb_entity_config *entity_conf)
+{
+    struct pw_properties *entity_props;
+    /* Start from the defaults; everything below only overrides. */
+    *entity_conf = AVB_ENTITY_CONFIG_DEFAULT;
 
-	// Handle integers
-	uint32_t vendor_name;
-	int vn_found = pw_properties_fetch_uint32(entity_props, "vendor_name", &vendor_name);
-	entity_conf.vendor_name = !vn_found ? (uint16_t)vendor_name : DSC_ENTITY_MODEL_VENDOR_NAME_STRING;
+    pw_log_info("Acquiring entity properties from entity dict in avb.properties");
+    const char *str = pw_properties_get(props, "entity");
+    if (str == NULL)
+        return;
 
-	uint32_t model_name;
-	int mn_found = pw_properties_fetch_uint32(entity_props, "model_name", &model_name);
-	entity_conf.model_name = !mn_found ? (uint16_t)model_name : DSC_ENTITY_MODEL_MODEL_NAME_STRING;
+    /* The "entity" property is itself a serialized dict; parse it so the
+     * individual entity fields can be read back by key. */
+    entity_props = pw_properties_new(NULL, NULL);
+    if (entity_props == NULL)
+        return;
+    pw_properties_update_string(entity_props, str, strlen(str));
 
-	uint32_t talker_capabilities;
-	int tc_found = pw_properties_fetch_uint32(entity_props, "talker_capabilities", &talker_capabilities);
-	entity_conf.talker_capabilities  = !tc_found ? (uint16_t)talker_capabilities : DSC_ENTITY_MODEL_TALKER_CAPABILITIES;
+    pw_log_info("Assigning entity properties");
+    conf_load_string(entity_conf->entity_name, entity_props, "entity_name");
+    conf_load_string(entity_conf->group_name, entity_props, "group_name");
+    conf_load_string(entity_conf->serial_number, entity_props, "serial_number");
+    conf_load_string(entity_conf->firmware_version, entity_props, "firmware_version");
 
-	uint32_t listener_capabilities;
-	int lc_found =  pw_properties_fetch_uint32(entity_props, "listener_capabilities", &listener_capabilities);
-	entity_conf.listener_capabilities = !lc_found ? (uint16_t)listener_capabilities : DSC_ENTITY_MODEL_LISTENER_CAPABILITIES;
+    conf_load_u16(&entity_conf->vendor_name, entity_props, "vendor_name");
+    conf_load_u16(&entity_conf->model_name, entity_props, "model_name");
+    conf_load_u16(&entity_conf->talker_capabilities, entity_props, "talker_capabilities");
+    conf_load_u16(&entity_conf->listener_capabilities, entity_props, "listener_capabilities");
+    conf_load_u32(&entity_conf->entity_capabilities, entity_props, "entity_capabilities");
+    conf_load_u32(&entity_conf->controller_capabilities, entity_props, "controller_capabilities");
 
-	uint32_t entity_capabilities;
-	int ec_found = pw_properties_fetch_uint32(entity_props, "entity_capabilities", &entity_capabilities);
-	entity_conf.entity_capabilities = !ec_found ? entity_capabilities : DSC_ENTITY_MODEL_ENTITY_CAPABILITIES;
-
-	uint32_t controller_capabilities;
-	int cc_found = pw_properties_fetch_uint32(entity_props, "controller_capabilities", &controller_capabilities);
-	entity_conf.controller_capabilities = !cc_found ? controller_capabilities : DSC_ENTITY_MODEL_CONTROLLER_CAPABILITIES;
-
-        return entity_conf;
+    pw_properties_free(entity_props);
 }
 
 #endif /* ENTITY_PARSER_H */

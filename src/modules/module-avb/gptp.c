@@ -339,7 +339,7 @@ static int send_management_request(struct gptp *gptp, uint16_t management_id,
 	gptp->req_sequence_id = seq;
 	gptp->req_management_id = management_id;
 	gptp->req_sent_ns = now_ns;
-	pw_log_info("PTP management request sent: id=%04x seq=%u",
+	pw_log_debug("PTP management request sent: id=%04x seq=%u",
 			management_id, seq);
 	return 0;
 }
@@ -542,7 +542,7 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 		return;
 	}
 
-	pw_log_info("PTP management socket has data (mask=%#x)", mask);
+	pw_log_debug("PTP management socket has data (mask=%#x)", mask);
 
 	for (;;) {
 		ret = recv(fd, buf, sizeof(buf), 0);
@@ -553,7 +553,7 @@ static void on_ptp_mgmt_data(void *data, int fd, uint32_t mask)
 			pw_log_warn("Failed to receive PTP management response: %m");
 			return;
 		}
-		pw_log_info("PTP management received %zd bytes", ret);
+		pw_log_debug("PTP management received %zd bytes", ret);
 		if (ret < (ssize_t)sizeof(struct ptp_management_msg)) {
 			pw_log_warn("Received undersized PTP management response: %zd bytes",
 					ret);

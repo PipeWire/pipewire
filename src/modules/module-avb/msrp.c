@@ -40,19 +40,19 @@ struct msrp {
 static void debug_msrp_talker_common(const struct avb_packet_msrp_talker *t)
 {
 	char buf[128];
-	pw_log_info(" stream-id: %s", avb_utils_format_id(buf, sizeof(buf), be64toh(t->stream_id)));
-	pw_log_info(" dest-addr: %s", avb_utils_format_addr(buf, sizeof(buf), t->dest_addr));
-	pw_log_info(" vlan-id:   %d", ntohs(t->vlan_id));
-	pw_log_info(" tspec-max-frame-size: %d", ntohs(t->tspec_max_frame_size));
-	pw_log_info(" tspec-max-interval-frames: %d", ntohs(t->tspec_max_interval_frames));
-	pw_log_info(" priority: %d", t->priority);
-	pw_log_info(" rank: %d", t->rank);
-	pw_log_info(" accumulated-latency: %d", ntohl(t->accumulated_latency));
+	pw_log_debug(" stream-id: %s", avb_utils_format_id(buf, sizeof(buf), be64toh(t->stream_id)));
+	pw_log_debug(" dest-addr: %s", avb_utils_format_addr(buf, sizeof(buf), t->dest_addr));
+	pw_log_debug(" vlan-id:   %d", ntohs(t->vlan_id));
+	pw_log_debug(" tspec-max-frame-size: %d", ntohs(t->tspec_max_frame_size));
+	pw_log_debug(" tspec-max-interval-frames: %d", ntohs(t->tspec_max_interval_frames));
+	pw_log_debug(" priority: %d", t->priority);
+	pw_log_debug(" rank: %d", t->rank);
+	pw_log_debug(" accumulated-latency: %d", ntohl(t->accumulated_latency));
 }
 
 static void debug_msrp_talker(const struct avb_packet_msrp_talker *t)
 {
-	pw_log_info("talker");
+	pw_log_debug("talker");
 	debug_msrp_talker_common(t);
 }
 
@@ -169,10 +169,10 @@ static int encode_talker(struct msrp *msrp, struct attr *a, void *m, size_t maxs
 static void debug_msrp_talker_fail(const struct avb_packet_msrp_talker_fail *t)
 {
 	char buf[128];
-	pw_log_info("talker fail");
+	pw_log_debug("talker fail");
 	debug_msrp_talker_common(&t->talker);
-	pw_log_info(" bridge-id: %s", avb_utils_format_id(buf, sizeof(buf), be64toh(t->bridge_id)));
-	pw_log_info(" failure-code: %d", t->failure_code);
+	pw_log_debug(" bridge-id: %s", avb_utils_format_id(buf, sizeof(buf), be64toh(t->bridge_id)));
+	pw_log_debug(" failure-code: %d", t->failure_code);
 }
 
 static int process_talker_fail(struct msrp *msrp, uint64_t now, uint8_t attr_type,
@@ -193,9 +193,9 @@ static int process_talker_fail(struct msrp *msrp, uint64_t now, uint8_t attr_typ
 static void debug_msrp_listener(const struct avb_packet_msrp_listener *l, uint8_t param)
 {
 	char buf[128];
-	pw_log_info("listener");
-	pw_log_info(" %s", avb_utils_format_id(buf, sizeof(buf), be64toh(l->stream_id)));
-	pw_log_info(" %d", param);
+	pw_log_debug("listener");
+	pw_log_debug(" %s", avb_utils_format_id(buf, sizeof(buf), be64toh(l->stream_id)));
+	pw_log_debug(" %d", param);
 }
 
 static void notify_listener(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
@@ -308,10 +308,10 @@ static int encode_listener(struct msrp *msrp, struct attr *a, void *m, size_t ma
 
 static void debug_msrp_domain(const struct avb_packet_msrp_domain *d)
 {
-	pw_log_info("domain");
-	pw_log_info(" id: %d", d->sr_class_id);
-	pw_log_info(" prio: %d", d->sr_class_priority);
-	pw_log_info(" vid: %d", ntohs(d->sr_class_vid));
+	pw_log_debug("domain");
+	pw_log_debug(" id: %d", d->sr_class_id);
+	pw_log_debug(" prio: %d", d->sr_class_priority);
+	pw_log_debug(" vid: %d", ntohs(d->sr_class_vid));
 }
 
 static void notify_domain(struct msrp *msrp, uint64_t now, struct attr *attr, uint8_t notify)
@@ -544,7 +544,7 @@ static void msrp_event(void *data, uint64_t now, uint8_t event)
 		if (dispatch[a->attr->type].encode == NULL)
 			continue;
 
-		pw_log_info("MSRP encode %s %s",
+		pw_log_debug("MSRP encode %s %s",
 				dispatch[a->attr->type].name,
 				avb_mrp_send_name(a->attr->mrp->pending_send));
 
@@ -563,7 +563,7 @@ static void msrp_event(void *data, uint64_t now, uint8_t event)
 	f->end_mark = 0;
 
 	if (count > 0) {
-		pw_log_info("MSRP send: %d attribute(s), %zu bytes", count, total);
+		pw_log_debug("MSRP send: %d attribute(s), %zu bytes", count, total);
 		avb_server_send_packet(msrp->server, msrp_mac, AVB_MSRP_ETH,
 				buffer, total);
 	}

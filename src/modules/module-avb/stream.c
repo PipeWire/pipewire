@@ -395,7 +395,7 @@ static void on_source_stream_process(void *data)
 					int64_t dtai = (int64_t)(consume_tai - stream->play_last_consume_tai);
 					double local_rate = dtai > 0
 						? (double)dticks * 1e9 / (double)dtai : 0.0;
-					pw_log_info("milan-avb: play measure local_rate=%.4f Hz "
+					pw_log_debug("milan-avb: play measure local_rate=%.4f Hz "
 						"mc.rate=%.4f corr=%.6f err_ns=%d ticks=%llu | "
 						"actuator rate=%.6f play_corr=%.6f target=%d avail=%d",
 						local_rate, stream->mc.rate, stream->mc.corr,
@@ -462,7 +462,7 @@ static void on_source_stream_io_changed(void *data, uint32_t id,
 	default:		name = "?";		break;
 	}
 	/* milan-avb: logs whether the adapter gave us SPA_IO_RateMatch (the actuator knob) on this source. */
-	pw_log_info("milan-avb: io_changed id=%u (%s) area=%p size=%u",
+	pw_log_debug("milan-avb: io_changed id=%u (%s) area=%p size=%u",
 			id, name, area, (unsigned)size);
 }
 

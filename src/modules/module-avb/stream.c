@@ -1631,6 +1631,29 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 		/* M2: re-anchor the presentation-timestamp accumulator on connect. */
 		stream->tx_pts = 0;
 
+		/* milan-avb: prime the talker ring with one PipeWire quantum of
+		 * silence so the burst-fill (one quantum per graph cycle) and the
+		 * 125us flush-drain decouple. Without this DC floor the per-cycle
+		 * ring-occupancy trough rides at ~0, and on_flush_tick's
+		 * pad_ringbuffer_with_silence() then splices a zero/partial-zero PDU
+		 * into otherwise-good audio at the trough (an isolated return-to-zero
+		 * 1024 is not a multiple of frames_per_pdu so a
+		 * sub-PDU real remainder is mixed with manufactured zeros). With a
+		 * full-quantum margin the trough never reaches the pad threshold, so
+		 * pad reverts to a genuine last-resort keep-alive for true underruns.
+		 * Mirrors the INPUT prime at the top of this function; reuses the
+		 * stride already derived by stream_apply_current_format(), so it
+		 * cannot reintroduce the stride mismatch. tx_pts is PHC-anchored in
+		 * flush_write_milan_v12(), so this adds only ~one quantum (~21ms) of
+		 * fixed egress latency, well inside the Milan MTT budget. Primed here,
+		 * before do_add_flush_timer arms the drain below. */
+		spa_ringbuffer_init(&stream->ring);
+		if (stream->frames_per_pdu > 0) {
+			uint32_t prefill_pdus = 1024u / stream->frames_per_pdu;
+			if (prefill_pdus > 0)
+				pad_ringbuffer_with_silence(stream, (int)prefill_pdus);
+		}
+
 		common->tastream_attr.attr.talker.stream_id = htobe64(stream->id);
 		memcpy(common->tastream_attr.attr.talker.dest_addr, stream->addr, 6);
 

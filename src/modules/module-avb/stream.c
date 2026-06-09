@@ -1540,8 +1540,18 @@ int stream_activate(struct stream *stream, uint16_t index, uint64_t now)
 		if ((fd = setup_socket(stream)) < 0)
 			return fd;
 
+		/* milan-avb: only listeners (STREAM_INPUT) have an RX path. The talker
+		 * (STREAM_OUTPUT) is the graph driver and transmits on this same fd via
+		 * sendmsg(); since the socket is AF_PACKET/SOCK_RAW opened with ETH_P_ALL
+		 * and the OUTPUT branch never bind()s it, arming SPA_IO_IN would make the
+		 * kernel packet-tap loop every transmitted frame (PACKET_OUTGOING) back
+		 * into on_socket_data. plus all other host egress/ingress — flooding the
+		 * "short packet" guard and even re-ingesting our own AAF egress (h->dest
+		 * == stream->addr matches the RX filter). Talkers get mask 0 so the fd is
+		 * still held for sendmsg()/cleanup but never wakes on inbound packets. */
 		stream->source = pw_loop_add_io(server->impl->loop, fd,
-				SPA_IO_IN, true, on_socket_data, stream);
+				stream->direction == SPA_DIRECTION_INPUT ? SPA_IO_IN : 0,
+				true, on_socket_data, stream);
 		if (stream->source == NULL) {
 			res = -errno;
 			pw_log_error("stream %p: can't create source: %m", stream);
@@ -1698,8 +1708,11 @@ int stream_activate_virtual(struct stream *stream, uint16_t index)
 		if (fd < 0)
 			return fd;
 
+		/* milan-avb: see stream_activate (talkers) (STREAM_OUTPUT) take mask 0
+		 * so the shared TX fd never loops egress back into on_socket_data. */
 		stream->source = pw_loop_add_io(server->impl->loop, fd,
-				SPA_IO_IN, true, on_socket_data, stream);
+				stream->direction == SPA_DIRECTION_INPUT ? SPA_IO_IN : 0,
+				true, on_socket_data, stream);
 		if (stream->source == NULL)
 			return -errno;
 	}

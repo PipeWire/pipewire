@@ -39,6 +39,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.driver");
 #define DEFAULT_CLOCK_PREFIX	"clock.system"
 #define DEFAULT_CLOCK_ID	CLOCK_MONOTONIC
 #define DEFAULT_RESYNC_MS	10
+#define DEFAULT_FORCE_TRACKING	false
 
 #define CLOCK_OFFSET_NAVG	20
 #define CLOCK_OFFSET_MAX_ERR	(50 * SPA_NSEC_PER_USEC)
@@ -60,6 +61,7 @@ struct props {
 	float resync_ms;
 	char clock_device[CLOCK_NAME_MAX];
 	char clock_interface[CLOCK_NAME_MAX];
+	bool force_tracking;
 };
 
 struct clock_offset {
@@ -121,6 +123,7 @@ static void reset_props(struct props *props)
 	props->freewheel_wait = DEFAULT_FREEWHEEL_WAIT;
 	props->resync_ms = DEFAULT_RESYNC_MS;
 	reset_props_strings(props);
+	props->force_tracking = DEFAULT_FORCE_TRACKING;
 }
 
 static const struct clock_info {
@@ -431,7 +434,9 @@ static void on_timeout(struct spa_source *source)
 	 * separate clock. If tracking is false, then this->props.clock_id
 	 * equals timer_clockid, so "nsec" can directly be used as the current
 	 * driver clock time in that case.
-	 * (See the comment above for the purpose of time_since_nsec.) */
+	 * (See the comment above for the purpose of time_since_nsec.)
+	 * Note that it is possible to force tracking even if the clock is usable
+	 * by timerfd, by setting the "sync.force-tracking" property to true. */
 	if (this->tracking) {
 		current_time = gettime_nsec(this, this->props.clock_id);
 		current_time -= SPA_LIKELY(current_time >= time_since_nsec) ? time_since_nsec : 0;
@@ -1048,6 +1053,9 @@ impl_init(const struct spa_handle_factory *factory,
 			this->props.freewheel_wait = atoi(s);
 		} else if (spa_streq(k, "resync.ms")) {
 			this->props.resync_ms = (float)atof(s);
+		} else if (spa_streq(k, "sync.force-tracking")) {
+			this->props.force_tracking = spa_atob(s);
+			spa_log_info(this->log, "forcing DLL based clock tracking: %d", this->props.force_tracking);
 		}
 	}
 	if (this->props.clock_name[0] == '\0') {
@@ -1057,7 +1065,7 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 	ensure_clock_name(this);
 
-	this->tracking = !clock_for_timerfd(this->props.clock_id);
+	this->tracking = this->props.force_tracking || !clock_for_timerfd(this->props.clock_id);
 	this->timer_clockid = this->tracking ? CLOCK_MONOTONIC : this->props.clock_id;
 	this->max_error = 128;
 

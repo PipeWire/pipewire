@@ -366,9 +366,11 @@ static void init_descriptor_milan_v12(struct server *server)
 		.current_configuration = htons(DSC_ENTITY_MODEL_CURRENT_CONFIGURATION)
 	};
 
-	snprintf(entity.entity_name, sizeof(entity.entity_name), "%s", hostname);
-	/* firmware_version = the canonical PipeWire library version */
-	snprintf(entity.firmware_version, sizeof(entity.firmware_version), "%s", pw_get_library_version());
+	memcpy(entity.entity_name, entity_conf.entity_name, sizeof(entity.entity_name));
+	memcpy(entity.firmware_version, entity_conf.firmware_version, sizeof(entity.firmware_version));
+	memcpy(entity.group_name, entity_conf.group_name, sizeof(entity.group_name));
+	memcpy(entity.serial_number, entity_conf.serial_number, sizeof(entity.serial_number));
+
 	es_builder_add_descriptor(server, AVB_AEM_DESC_ENTITY, 0,
 			sizeof(entity), &entity);
 	/**************************************************************************************/

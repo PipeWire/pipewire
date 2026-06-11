@@ -911,6 +911,11 @@ static void card_props_changed(void *data)
 {
 	struct impl *this = data;
 	spa_log_info(this->log, "card properties changed");
+
+	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+	this->params[IDX_EnumRoute].user++;
+	this->params[IDX_Route].user++;
+	emit_info(this, false);
 }
 
 static bool has_device(struct acp_card_profile *pr, uint32_t index)

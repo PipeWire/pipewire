@@ -326,14 +326,20 @@ static void node_param(void *data, int seq,
 	struct node *n = data;
 
 	switch (id) {
+	case SPA_PARAM_Format:
+	{
+		handle_format(n, param);
+		break;
+	}
 	case SPA_PARAM_PortConfig:
 	{
 		const struct spa_pod *format = NULL;
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamPortConfig, NULL,
-				SPA_PARAM_PORT_CONFIG_format,		SPA_POD_OPT_Pod(&format)) < 0)
+				SPA_PARAM_PORT_CONFIG_internalFormat,	SPA_POD_OPT_Pod(&format)) < 0)
 			return;
-		handle_format(n, format);
+		if (format != NULL)
+			handle_format(n, format);
 		break;
 	}
 	default:
@@ -361,7 +367,7 @@ static struct node *add_node(struct data *d, uint32_t id, const char *name)
 
 	n->proxy = pw_registry_bind(d->registry, id, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
 	if (n->proxy) {
-		uint32_t ids[] = { SPA_PARAM_PortConfig };
+		uint32_t ids[] = { SPA_PARAM_Format, SPA_PARAM_PortConfig };
 
 		pw_proxy_add_listener(n->proxy,
 				&n->proxy_listener, &proxy_events, n);

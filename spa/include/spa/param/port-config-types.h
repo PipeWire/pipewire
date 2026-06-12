@@ -40,6 +40,7 @@ static const struct spa_type_info spa_type_param_port_config[] = {
 	{ SPA_PARAM_PORT_CONFIG_control, SPA_TYPE_Bool, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "control", NULL },
 	{ SPA_PARAM_PORT_CONFIG_format, SPA_TYPE_OBJECT_Format, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "format", NULL },
 	{ SPA_PARAM_PORT_CONFIG_group, SPA_TYPE_String, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "group", NULL },
+	{ SPA_PARAM_PORT_CONFIG_internalFormat, SPA_TYPE_OBJECT_Format, SPA_TYPE_INFO_PARAM_PORT_CONFIG_BASE "internalFormat", NULL },
 	{ 0, 0, NULL, NULL },
 };
 

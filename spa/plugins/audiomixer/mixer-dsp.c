@@ -58,7 +58,7 @@ struct buffer {
 	struct spa_meta_header *h;
 	struct spa_buffer buf;
 
-	void *datas[MAX_DATAS];
+	void **datas;
 };
 
 struct port {
@@ -77,7 +77,7 @@ struct port {
 
 	unsigned int have_format:1;
 
-	struct buffer buffers[MAX_BUFFERS];
+	struct buffer *buffers;
 	uint32_t n_buffers;
 
 	struct spa_list queue;
@@ -140,6 +140,8 @@ struct impl {
 #define GET_OUT_PORT(this,p)         (&this->out_ports[p])
 #define GET_PORT(this,d,p)           (d == SPA_DIRECTION_INPUT ? GET_IN_PORT(this,p) : GET_OUT_PORT(this,p))
 #define GET_PORT_ANY(this,d,p)       (CHECK_ANY_IN(this,d,p) ? NULL : GET_PORT(this,d,p))
+
+static int clear_buffers(struct impl *this, struct port *port);
 
 static int impl_node_enum_params(void *object, int seq,
 				 uint32_t id, uint32_t start, uint32_t num,
@@ -313,6 +315,7 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 		if (--this->n_formats == 0)
 			this->have_format = false;
 	}
+	clear_buffers(this, port);
 	spa_memzero(port, sizeof(struct port));
 	spa_list_append(&this->free_list, &port->link);
 
@@ -475,6 +478,8 @@ static int clear_buffers(struct impl *this, struct port *port)
 			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_MAPPED);
 		}
 	}
+	free(port->buffers);
+	port->buffers = NULL;
 	port->n_buffers = 0;
 	spa_list_init(&port->queue);
 	return 0;
@@ -628,15 +633,35 @@ impl_node_port_use_buffers(void *object,
 
 	clear_buffers(this, port);
 
+	if (n_buffers > 0) {
+		size_t buffers_size = n_buffers * sizeof(struct buffer);
+		size_t total_datas = 0;
+		void **datas;
+
+		for (i = 0; i < n_buffers; i++) {
+			if (buffers[i]->n_datas > MAX_DATAS) {
+				res = -ENOSPC;
+				goto error;
+			}
+			total_datas += buffers[i]->n_datas;
+		}
+
+		port->buffers = calloc(1, buffers_size + total_datas * sizeof(void*));
+		if (port->buffers == NULL) {
+			res = -errno;
+			goto error;
+		}
+		datas = SPA_PTROFF(port->buffers, buffers_size, void*);
+		for (i = 0; i < n_buffers; i++) {
+			port->buffers[i].datas = datas;
+			datas += buffers[i]->n_datas;
+		}
+	}
+
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 		uint32_t n_datas = buffers[i]->n_datas;
 		struct spa_data *d = buffers[i]->datas;
-
-		if (n_datas > MAX_DATAS) {
-			res = -ENOSPC;
-			goto error;
-		}
 
 		b = &port->buffers[i];
 		b->buffer = buffers[i];
@@ -929,9 +954,11 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
+	clear_buffers(this, GET_OUT_PORT(this, 0));
 	spa_list_insert_list(&this->free_list, &this->port_list);
 	spa_list_consume(port, &this->free_list, link) {
 		spa_list_remove(&port->link);
+		clear_buffers(this, port);
 		free(port);
 	}
 	return 0;

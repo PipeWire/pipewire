@@ -485,7 +485,7 @@ Value ``0`` means the node will not be suspended.
 @PAR@ node-prop  state.restore-props = true
 Whether session manager should save state for this node.
 
-## Format Properties
+## Format Properties  @IDX@ props
 
 Streams and also most device nodes can be configured in a certain format with properties.
 
@@ -505,7 +505,7 @@ Valid formats include: S16, S32, F32, F64, S16LE, S16BE, ...
 @PAR@ node-prop  audio.allowed-rates
 An array of allowed samplerates for the node. ex. "[ 44100 48000 ]"
 
-## Other Properties
+## Other Properties  @IDX@ props
 
 @PAR@ node-prop  node.param.PARAM = { ... }   # JSON
 \parblock
@@ -527,7 +527,7 @@ performs sample format, sample rate and channel mixing operations.
 
 All properties listed below are node properties.
 
-## Merger Parameters
+## Merger Parameters  @IDX@ props
 
 The merger is used as the input for a sink device node or a capture stream. It takes the various channels and merges them into a single stream for further processing.
 
@@ -538,7 +538,7 @@ apply a software volume on the monitor signal.
 The volume of the input channels is applied to the volume of the monitor ports. Normally
 the monitor ports expose the raw unmodified signal on the input ports.
 
-## Resampler Parameters
+## Resampler Parameters  @IDX@ props
 
 Source, sinks, capture and playback streams contain a high quality adaptive resampler.
 It uses [sinc](https://ccrma.stanford.edu/~jos/resample/resample.pdf) based resampling
@@ -694,7 +694,7 @@ with this property.
 The default quality setting for the kaiser window is 4.254931.
 \endparblock
 
-## Channel Mixer Parameters
+## Channel Mixer Parameters  @IDX@ props
 
 Source, sinks, capture and playback streams can apply channel mixing on the incoming signal.
 
@@ -842,12 +842,12 @@ Dithering is only useful for conversion to a format with less than 24 bits and w
 disabled otherwise.
 \endparblock
 
-## Debug Parameters
+## Debug Parameters  @IDX@ props
 
 @PAR@ node-prop  debug.wav-path = ""
 Make the stream to also write the raw samples to a WAV file for debugging purposes.
 
-## Other Parameters
+## Other Parameters  @IDX@ props
 
 These control low-level technical features:
 

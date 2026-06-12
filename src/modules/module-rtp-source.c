@@ -149,6 +149,8 @@
  *    so any output sinks in the graph will already adjust their consumption pace to
  *    match the pace of the graph driver.
  *    AES67 sessions use this mode, for example.
+ *    \note If an RTP source uses this mode, the associated \ref page_module_rtp_sink
+ *    _must_ use this mode as well.
  *
  * \since 0.3.60
  */

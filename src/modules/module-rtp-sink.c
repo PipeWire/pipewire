@@ -65,6 +65,10 @@
  * - `sess.ts-offset = <int>`: an offset to apply to the timestamp, default -1 = random offset
  * - `sess.ts-refclk = <string>`: the name of a reference clock
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio
+ * - `sess.ts-direct = <bool>`: use direct timestamp mode, default false.
+ *                     \note RTP sources that use direct timestamp mode expect the
+ *                     associated RTP sink to use direct timestamp mode as well. See the
+ *                     `sess.ts-direct` documentation in \ref page_module_rtp_source for more.
  * - `stream.props = {}`: properties to be passed to the stream
  * - `aes67.driver-group = <string>`: for AES67 streams, can be specified in order to allow
  *       the sink to be driven by a different node than the PTP driver.
@@ -590,6 +594,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");
+	copy_props(impl, props, "sess.ts-direct");
 	copy_props(impl, props, "sess.ts-refclk");
 	copy_props(impl, props, "aes67.driver-group");
 

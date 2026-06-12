@@ -140,7 +140,7 @@ struct buffer {
 	uint32_t flags;
 	struct spa_list link;
 	struct spa_buffer *buf;
-	void *datas[MAX_DATAS];
+	void **datas;
 };
 
 struct port {
@@ -162,7 +162,7 @@ struct port {
 	struct spa_param_info params[N_PORT_PARAMS];
 	char position[16];
 
-	struct buffer buffers[MAX_BUFFERS];
+	struct buffer *buffers;
 	uint32_t n_buffers;
 
 	struct spa_latency_info latency[2];
@@ -3051,6 +3051,8 @@ static int clear_buffers(struct impl *this, struct port *port)
 			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_MAPPED);
 		}
 	}
+	free(port->buffers);
+	port->buffers = NULL;
 	port->n_buffers = 0;
 	spa_list_init(&port->queue);
 	return 0;
@@ -3351,6 +3353,21 @@ impl_node_port_use_buffers(void *object,
 
 	maxsize = this->quantum_limit * sizeof(float);
 
+	if (n_buffers > 0) {
+		void **datas;
+		size_t buffers_size = n_buffers * sizeof(struct buffer);
+
+		port->buffers = calloc(1, buffers_size +
+				n_buffers * port->blocks * sizeof(void*));
+		if (port->buffers == NULL) {
+			res = -errno;
+			goto error;
+		}
+		datas = SPA_PTROFF(port->buffers, buffers_size, void*);
+		for (i = 0; i < n_buffers; i++)
+			port->buffers[i].datas = &datas[i * port->blocks];
+	}
+
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 		uint32_t n_datas = buffers[i]->n_datas;
@@ -3369,7 +3386,8 @@ impl_node_port_use_buffers(void *object,
 		if (n_datas != port->blocks) {
 			spa_log_error(this->log, "%p: invalid blocks %d on buffer %d",
 					this, n_datas, i);
-			return -EINVAL;
+			res = -EINVAL;
+			goto error;
 		}
 
 		for (j = 0; j < n_datas; j++) {
@@ -4336,11 +4354,16 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 	return 0;
 }
 
-static void free_dir(struct dir *dir)
+static void free_dir(struct impl *this, enum spa_direction direction)
 {
+	struct dir *dir = &this->dir[direction];
 	uint32_t i;
-	for (i = 0; i < MAX_PORTS; i++)
-		free(dir->ports[i]);
+	for (i = 0; i < MAX_PORTS; i++) {
+		if (dir->ports[i] != NULL) {
+			clear_buffers(this, dir->ports[i]);
+			free(dir->ports[i]);
+		}
+	}
 	if (dir->conv.free)
 		convert_free(&dir->conv);
 	free(dir->tag);
@@ -4355,8 +4378,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	free_dir(&this->dir[SPA_DIRECTION_INPUT]);
-	free_dir(&this->dir[SPA_DIRECTION_OUTPUT]);
+	free_dir(this, SPA_DIRECTION_INPUT);
+	free_dir(this, SPA_DIRECTION_OUTPUT);
 
 	free_tmp(this);
 

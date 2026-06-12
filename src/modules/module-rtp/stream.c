@@ -170,7 +170,7 @@ struct impl {
 	uint8_t timer_running;
 
 	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len,
-			uint64_t current_time);
+			ssize_t hlen, uint64_t current_time);
 	/* Used for resetting the ring buffer before the stream starts, to prevent
 	 * reading from uninitialized memory. This can otherwise happen in direct
 	 * timestamp mode when the read index is set to an uninitialized location.
@@ -1080,7 +1080,51 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
 				uint64_t current_time)
 {
 	struct impl *impl = (struct impl*)s;
-	return impl->receive_rtp(impl, buffer, len, current_time);
+	struct rtp_header *hdr;
+	ssize_t hlen;
+
+	SPA_STATIC_ASSERT(sizeof(struct rtp_header) == 12);
+	if (len < 12)
+		goto short_packet;
+
+	hdr = (struct rtp_header*)buffer;
+	if (hdr->v != 2)
+		goto invalid_version;
+
+	hlen = 12 + hdr->cc * 4;
+	if (hdr->x) {
+		if (hlen + 4 > (ssize_t)len)
+			goto invalid_len;
+		hlen += 4 + ntohs(*(uint16_t *)(buffer + hlen + 2)) * 4;
+	}
+	if (hlen > (ssize_t)len)
+		goto invalid_len;
+
+	if (impl->have_ssrc && impl->ssrc != hdr->ssrc)
+		goto unexpected_ssrc;
+	impl->ssrc = hdr->ssrc;
+	impl->have_ssrc = !impl->ignore_ssrc;
+
+	return impl->receive_rtp(impl, buffer, len, hlen, current_time);
+
+short_packet:
+	pw_log_warn("short packet received");
+	return -EINVAL;
+invalid_version:
+	pw_log_warn("invalid RTP version");
+	spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_INFO, 0, buffer, len);
+	return -EPROTO;
+invalid_len:
+	pw_log_warn("invalid RTP length");
+	return -EINVAL;
+unexpected_ssrc:
+	if (!impl->fixed_ssrc) {
+		/* We didn't have a configured SSRC, and there's more than one SSRC on
+		 * this address/port pair */
+		pw_log_warn("unexpected SSRC (expected %u != %u)", impl->ssrc,
+			hdr->ssrc);
+	}
+	return -EINVAL;
 }
 int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
 {

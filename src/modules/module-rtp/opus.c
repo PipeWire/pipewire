@@ -100,10 +100,10 @@ static void rtp_opus_process_playback(void *data)
 }
 
 static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
-			uint64_t current_time)
+			ssize_t hlen, uint64_t current_time)
 {
 	struct rtp_header *hdr;
-	ssize_t hlen, plen;
+	ssize_t plen;
 	uint16_t seq;
 	uint32_t timestamp, samples, write, expected_write;
 	uint32_t stride = impl->stride;
@@ -111,31 +111,12 @@ static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 	int32_t filled;
 	int res;
 
-	if (len < 12)
-		goto short_packet;
-
 	hdr = (struct rtp_header*)buffer;
-	if (hdr->v != 2)
-		goto invalid_version;
-
-	hlen = 12 + hdr->cc * 4;
-	if (hdr->x) {
-		if (hlen + 4 > len)
-			goto invalid_len;
-		hlen += 4 + ntohs(*(uint16_t *)(buffer + hlen + 2)) * 4;
-	}
-	if (hlen > len)
-		goto invalid_len;
-
-	if (impl->have_ssrc && impl->ssrc != hdr->ssrc)
-		goto unexpected_ssrc;
-	impl->ssrc = hdr->ssrc;
-	impl->have_ssrc = !impl->ignore_ssrc;
 
 	seq = ntohs(hdr->sequence_number);
 	if (impl->have_seq && impl->seq != seq) {
 		pw_log_info("unexpected seq (%d != %d) SSRC:%u",
-				seq, impl->seq, hdr->ssrc);
+				seq, impl->seq, impl->ssrc);
 		impl->have_sync = false;
 	}
 	impl->seq = seq + 1;
@@ -196,25 +177,6 @@ static int rtp_opus_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 		spa_ringbuffer_write_update(&impl->ring, write);
 	}
 	return 0;
-
-short_packet:
-	pw_log_warn("short packet received");
-	return -EINVAL;
-invalid_version:
-	pw_log_warn("invalid RTP version");
-	spa_debug_log_mem(pw_log_get(), SPA_LOG_LEVEL_INFO, 0, buffer, len);
-	return -EPROTO;
-invalid_len:
-	pw_log_warn("invalid RTP length");
-	return -EINVAL;
-unexpected_ssrc:
-	if (!impl->fixed_ssrc) {
-		/* We didn't have a configured SSRC, and there's more than one SSRC on
-		* this address/port pair */
-		pw_log_warn("unexpected SSRC (expected %u != %u)",
-			impl->ssrc, hdr->ssrc);
-	}
-	return -EINVAL;
 }
 
 static void rtp_opus_flush_packets(struct impl *impl)

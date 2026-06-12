@@ -218,6 +218,8 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 
 	config.gain_controller1.enabled = gain_control1;
 	config.gain_controller1.mode = agc1_mode;
+	// This must be explicitly disabled for the above mode to take effect
+	config.gain_controller1.analog_gain_controller.enabled = false;
 
 	config.gain_controller2.enabled = gain_control2;
 	config.gain_controller2.adaptive_digital.enabled =

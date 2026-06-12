@@ -1082,6 +1082,7 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
 	struct impl *impl = (struct impl*)s;
 	struct rtp_header *hdr;
 	ssize_t hlen;
+	uint32_t packet_ssrc;
 
 	SPA_STATIC_ASSERT(sizeof(struct rtp_header) == 12);
 	if (len < 12)
@@ -1100,9 +1101,11 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
 	if (hlen > (ssize_t)len)
 		goto invalid_len;
 
-	if (impl->have_ssrc && impl->ssrc != hdr->ssrc)
+	packet_ssrc = ntohl(hdr->ssrc);
+
+	if (impl->have_ssrc && impl->ssrc != packet_ssrc)
 		goto unexpected_ssrc;
-	impl->ssrc = hdr->ssrc;
+	impl->ssrc = packet_ssrc;
 	impl->have_ssrc = !impl->ignore_ssrc;
 
 	return impl->receive_rtp(impl, buffer, len, hlen, current_time);
@@ -1122,7 +1125,7 @@ unexpected_ssrc:
 		/* We didn't have a configured SSRC, and there's more than one SSRC on
 		 * this address/port pair */
 		pw_log_warn("unexpected SSRC (expected %u != %u)", impl->ssrc,
-			hdr->ssrc);
+			packet_ssrc);
 	}
 	return -EINVAL;
 }

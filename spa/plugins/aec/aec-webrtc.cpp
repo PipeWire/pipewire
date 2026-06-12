@@ -51,6 +51,20 @@ static bool webrtc_get_spa_bool(const struct spa_dict *args, const char *key, bo
 	return default_value;
 }
 
+static void webrtc_get_spa_int(struct impl_data *impl, const struct spa_dict *args, const char *key, int *value)
+{
+	if (auto str = spa_dict_lookup(args, key))
+		if (!spa_atoi32(str, value, 10))
+			spa_log_warn(impl->log, "Could not parse '%s'", key);
+}
+
+static void webrtc_get_spa_float(struct impl_data *impl, const struct spa_dict *args, const char *key, float *value)
+{
+	if (auto str = spa_dict_lookup(args, key))
+		if (!spa_atof(str, value))
+			spa_log_warn(impl->log, "Could not parse '%s'", key);
+}
+
 #ifdef HAVE_WEBRTC
 /* [ f0 f1 f2 ] */
 static int parse_point(struct spa_json *it, float (&f)[3])
@@ -201,7 +215,6 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	config.high_pass_filter.enabled = high_pass_filter;
 	config.noise_suppression.enabled = noise_suppression;
 	config.noise_suppression.level = webrtc::AudioProcessing::Config::NoiseSuppression::kHigh;
-	// FIXME: expose pre/postamp gain
 
 	const char *str;
 	auto agc1_mode = webrtc::AudioProcessing::Config::GainController1::Mode::kAdaptiveDigital;
@@ -220,12 +233,33 @@ static int webrtc_init2(void *object, const struct spa_dict *args,
 	config.gain_controller1.mode = agc1_mode;
 	// This must be explicitly disabled for the above mode to take effect
 	config.gain_controller1.analog_gain_controller.enabled = false;
+	config.gain_controller1.enable_limiter =
+		webrtc_get_spa_bool(args, "webrtc.gain_control1.enable_limiter", true);
+	webrtc_get_spa_int(impl, args, "webrtc.gain_control1.target_level_dbfs", &config.gain_controller1.target_level_dbfs);
+	webrtc_get_spa_int(impl, args, "webrtc.gain_control1.compression_gain_db", &config.gain_controller1.compression_gain_db);
 
 	config.gain_controller2.enabled = gain_control2;
 	config.gain_controller2.adaptive_digital.enabled =
-		webrtc_get_spa_bool(args, "webrtc.gain_control2.adaptive_digital", gain_control2);
-	spa_atof(spa_dict_lookup(args, "webrtc.gain_control2.fixed_gain_db"),
+		webrtc_get_spa_bool(args, "webrtc.gain_control2.adaptive_digital.enabled", gain_control2);
+	webrtc_get_spa_float(impl, args, "webrtc.gain_control2.adaptive_digital.headroom_db",
+			&config.gain_controller2.adaptive_digital.headroom_db);
+	webrtc_get_spa_float(impl, args, "webrtc.gain_control2.adaptive_digital.max_gain_db",
+			&config.gain_controller2.adaptive_digital.max_gain_db);
+	webrtc_get_spa_float(impl, args, "webrtc.gain_control2.adaptive_digital.initial_gain_db",
+			&config.gain_controller2.adaptive_digital.initial_gain_db);
+	webrtc_get_spa_float(impl, args, "webrtc.gain_control2.adaptive_digital.max_gain_change_db_per_second",
+			&config.gain_controller2.adaptive_digital.max_gain_change_db_per_second);
+	webrtc_get_spa_float(impl, args, "webrtc.gain_control2.adaptive_digital.max_output_noise_level_dbfs",
+			&config.gain_controller2.adaptive_digital.max_output_noise_level_dbfs);
+	webrtc_get_spa_float(impl, args, "webrtc.gain_control2.fixed_digital.gain_db",
 			&config.gain_controller2.fixed_digital.gain_db);
+
+	config.capture_level_adjustment.enabled =
+		webrtc_get_spa_bool(args, "webrtc.capture_level_adjust.enabled", false);
+	webrtc_get_spa_float(impl, args, "webrtc.capture_level_adjust.pre_gain_factor",
+			&config.capture_level_adjustment.pre_gain_factor);
+	webrtc_get_spa_float(impl, args, "webrtc.capture_level_adjust.post_gain_factor",
+			&config.capture_level_adjustment.post_gain_factor);
 
 #endif
 

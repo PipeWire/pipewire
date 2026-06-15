@@ -173,20 +173,16 @@ static int convert_enum_port_config(struct impl *this,
 {
 	struct spa_pod *f1, *f2 = NULL, *format = NULL;
 	struct spa_pod_frame f[1];
-	uint32_t fmt_id, fmt_start = 0, pc_id;
+	uint32_t fmt_id, fmt_start = 0;
 	int res;
 
 	if (this->convert == NULL)
 		return 0;
 
-	if (id == SPA_PARAM_EnumPortConfig) {
+	if (id == SPA_PARAM_EnumPortConfig)
 		fmt_id = SPA_PARAM_EnumFormat;
-		pc_id = SPA_PARAM_PORT_CONFIG_format;
-	}
-	else {
+	else
 		fmt_id = SPA_PARAM_Format;
-		pc_id = SPA_PARAM_PORT_CONFIG_internalFormat;
-	}
 
 	res = spa_node_port_enum_params_sync(this->follower,
 			this->direction, 0,
@@ -199,7 +195,7 @@ static int convert_enum_port_config(struct impl *this,
 			0);
 	if (res > 0) {
 		spa_pod_builder_add(builder,
-			pc_id, SPA_POD_Pod(format),
+			SPA_PARAM_PORT_CONFIG_internalFormat, SPA_POD_Pod(format),
 			0);
 	}
 	f1 = spa_pod_builder_pop(builder, &f[0]);

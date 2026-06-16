@@ -93,7 +93,7 @@ int compress_offload_api_set_params(struct compress_offload_api_context *context
 	);
 	assert(
 		(num_fragments == 0) ||
-		((num_fragments >= context->caps.min_fragments) && (fragment_size <= context->caps.max_fragments))
+		((num_fragments >= context->caps.min_fragments) && (num_fragments <= context->caps.max_fragments))
 	);
 
 	context->fragment_size = (fragment_size != 0) ? fragment_size : context->caps.min_fragment_size;

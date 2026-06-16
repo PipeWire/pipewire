@@ -44,8 +44,8 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 struct buffer {
 	struct spa_buffer *outbuf;
 	struct spa_buffer buffer;
-	struct spa_meta metas[MAX_METAS];
-	struct spa_data datas[MAX_DATAS];
+	struct spa_meta *metas;
+	struct spa_data *datas;
 	struct pw_memblock *mem;
 };
 
@@ -55,7 +55,7 @@ struct mix {
 	uint32_t peer_id;
 	uint32_t n_buffers;
 	uint32_t impl_mix_id;
-	struct buffer buffers[MAX_BUFFERS];
+	struct buffer *buffers;
 };
 
 struct params {
@@ -286,6 +286,8 @@ static int clear_buffers(struct impl *impl, struct mix *mix)
 		clear_buffer(impl, &b->buffer);
 		pw_memblock_unref(b->mem);
 	}
+	free(mix->buffers);
+	mix->buffers = NULL;
 	mix->n_buffers = 0;
 	return 0;
 }
@@ -806,6 +808,37 @@ do_port_use_buffers(struct impl *impl,
 
 	if (p->destroyed)
 		return 0;
+
+	if (n_buffers > 0) {
+		size_t buffers_size = n_buffers * sizeof(struct buffer);
+		uint32_t n_datas = 0, n_metas = 0;
+		void *ptr;
+
+		/* size the data/meta pools to the buffers actually in use
+		 * instead of reserving MAX_DATAS/MAX_METAS per buffer */
+		for (i = 0; i < n_buffers; i++) {
+			n_datas += SPA_MIN(buffers[i]->n_datas, MAX_DATAS);
+			n_metas += SPA_MIN(buffers[i]->n_metas, MAX_METAS);
+		}
+
+		mix->buffers = calloc(1, buffers_size +
+				n_datas * sizeof(struct spa_data) +
+				n_metas * sizeof(struct spa_meta));
+		if (mix->buffers == NULL)
+			return -errno;
+
+		ptr = SPA_PTROFF(mix->buffers, buffers_size, void);
+		for (i = 0; i < n_buffers; i++) {
+			mix->buffers[i].datas = ptr;
+			ptr = SPA_PTROFF(ptr,
+				SPA_MIN(buffers[i]->n_datas, MAX_DATAS) * sizeof(struct spa_data), void);
+		}
+		for (i = 0; i < n_buffers; i++) {
+			mix->buffers[i].metas = ptr;
+			ptr = SPA_PTROFF(ptr,
+				SPA_MIN(buffers[i]->n_metas, MAX_METAS) * sizeof(struct spa_meta), void);
+		}
+	}
 
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b = &mix->buffers[i];

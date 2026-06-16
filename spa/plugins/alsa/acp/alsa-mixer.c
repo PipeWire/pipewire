@@ -4500,7 +4500,7 @@ static void mapping_paths_probe(pa_alsa_mapping *m, pa_alsa_profile *profile,
     }
 
     PA_HASHMAP_FOREACH(p, ps->paths, state) {
-        if (p->autodetect_eld_device)
+        if (p->autodetect_eld_device && m->hw_device_index >= 0)
             p->eld_device = m->hw_device_index;
 
         if (pa_alsa_path_probe(p, m, mixer_handle, m->profile_set->ignore_dB) < 0)
@@ -5087,6 +5087,7 @@ static int add_profiles_to_probe(
 static void mapping_query_hw_device(pa_alsa_mapping *mapping, snd_pcm_t *pcm) {
     int r;
     snd_pcm_info_t* pcm_info;
+    const char *name;
     snd_pcm_info_alloca(&pcm_info);
 
     r = snd_pcm_info(pcm, pcm_info);
@@ -5098,9 +5099,12 @@ static void mapping_query_hw_device(pa_alsa_mapping *mapping, snd_pcm_t *pcm) {
     /* XXX: It's not clear what snd_pcm_info_get_device() does if the device is
      * not backed by a hw device or if it's backed by multiple hw devices. We
      * only use hw_device_index for HDMI devices, however, and for those the
-     * return value is expected to be always valid, so this shouldn't be a
-     * significant problem. */
-    mapping->hw_device_index = snd_pcm_info_get_device(pcm_info);
+     * return value is expected to be always valid with a couple of known
+     * exceptions, which we try to avoid below */
+    name = snd_pcm_info_get_name(pcm_info);
+
+    if (!spa_strstartswith(name, "a52") && !spa_strstartswith(name, "dcahdmi"))
+        mapping->hw_device_index = snd_pcm_info_get_device(pcm_info);
 }
 
 void pa_alsa_profile_set_probe(

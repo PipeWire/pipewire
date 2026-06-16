@@ -88,6 +88,9 @@ struct temporary_move_data {
 	uint8_t used:1;
 };
 
+/* Buffer size used for compress-offload streams (frame_size == 1). */
+#define COMPRESS_OFFLOAD_BUF_SIZE  16484u
+
 static struct sample *find_sample(struct impl *impl, uint32_t index, const char *name)
 {
 	union pw_map_item *item;
@@ -1214,10 +1217,18 @@ static const struct spa_pod *get_buffers_param(struct stream *s,
 	blocks = 1;
 	stride = s->frame_size;
 
+	/* compressed offload uses byte granularity */
+	if (s->frame_size == 1) {
+		size = COMPRESS_OFFLOAD_BUF_SIZE;
+		pw_log_debug("[%s] get_buffers_param: compress offload path size=%u", s->client->name, size);
+		goto build_buffers_param;
+	}
+
 	size = defs->quantum_limit * s->frame_size;
 
 	pw_log_info("[%s] stride %d size %u", s->client->name, stride, size);
 
+build_buffers_param:
 	param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(MIN_BUFFERS,
@@ -1243,6 +1254,23 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 	if (id != SPA_PARAM_Format || param == NULL)
 		return;
 
+	/* For compress-offload streams, force byte-granularity regardless
+	 * of negotiated format (we connect with S16LE but data is compressed). */
+	{
+		const char *co = stream->props ?
+			pw_properties_get(stream->props, "compress.offload") : NULL;
+		if (co && pw_properties_parse_bool(co)) {
+			uint32_t media_type = 0, media_subtype = 0;
+			spa_format_parse(param, &media_type, &media_subtype);
+			stream->frame_size = 1;
+			stream->rate = stream->ss.rate ? stream->ss.rate :
+				pw_properties_get_uint32(stream->props, "codec.sample_rate", 44100);
+			pw_log_debug("[%s] compress-offload stream_param_changed: forcing frame_size=1 rate=%u subtype=%u",
+				stream->client->name, stream->rate, media_subtype);
+			goto stream_param_format_done;
+		}
+	}
+
 	if ((res = format_parse_param(param, false, &stream->ss, &stream->map, NULL, NULL)) < 0) {
 		pw_stream_set_error(stream->stream, res, "format not supported");
 		return;
@@ -1258,6 +1286,9 @@ static void stream_param_changed(void *data, uint32_t id, const struct spa_pod *
 		return;
 	}
 	stream->rate = stream->ss.rate;
+stream_param_format_done:
+	pw_log_debug("[%s] stream param done: frame_size=%u rate=%u ss.format=%u",
+			stream->client->name, stream->frame_size, stream->rate, stream->ss.format);
 
 	if (stream->create_tag != SPA_ID_INVALID) {
 		struct pw_manager_object *peer;
@@ -1596,6 +1627,98 @@ static void log_format_info(struct impl *impl, enum spa_log_level level, struct 
 				impl, it->key, it->value);
 }
 
+static const struct spa_pod *build_compress_offload_format(struct spa_pod_builder *b,
+		uint32_t id, const struct pw_properties *props, uint32_t *rate)
+{
+	const char *codec;
+	struct spa_audio_info info;
+	uint32_t sample_rate, channels, bitrate;
+
+	spa_zero(info);
+	info.media_type = SPA_MEDIA_TYPE_audio;
+	codec = pw_properties_get(props, "codec.type");
+	sample_rate = pw_properties_get_uint32(props, "codec.sample_rate", 44100);
+	channels = pw_properties_get_uint32(props, "codec.channels", 2);
+	bitrate = pw_properties_get_uint32(props, "codec.bit_rate", 128000);
+
+	if (codec == NULL || spa_streq(codec, "mp3")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_mp3;
+		info.info.mp3.rate = sample_rate;
+		info.info.mp3.channels = channels;
+		info.info.mp3.channel_mode = channels == 1 ?
+			SPA_AUDIO_MP3_CHANNEL_MODE_MONO : SPA_AUDIO_MP3_CHANNEL_MODE_STEREO;
+	} else if (spa_streq(codec, "aac") || spa_streq(codec, "aac_adts")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_aac;
+		info.info.aac.rate = sample_rate;
+		info.info.aac.channels = channels;
+		info.info.aac.bitrate = bitrate;
+		info.info.aac.stream_format = SPA_AUDIO_AAC_STREAM_FORMAT_MP4ADTS;
+	} else if (spa_streq(codec, "aac_adif")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_aac;
+		info.info.aac.rate = sample_rate;
+		info.info.aac.channels = channels;
+		info.info.aac.bitrate = bitrate;
+		info.info.aac.stream_format = SPA_AUDIO_AAC_STREAM_FORMAT_ADIF;
+	} else if (spa_streq(codec, "aac_latm")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_aac;
+		info.info.aac.rate = sample_rate;
+		info.info.aac.channels = channels;
+		info.info.aac.bitrate = bitrate;
+		info.info.aac.stream_format = SPA_AUDIO_AAC_STREAM_FORMAT_MP4LATM;
+	} else if (spa_streq(codec, "flac")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_flac;
+		info.info.flac.rate = sample_rate;
+		info.info.flac.channels = channels;
+	} else if (spa_streq(codec, "vorbis")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_vorbis;
+		info.info.vorbis.rate = sample_rate;
+		info.info.vorbis.channels = channels;
+	} else if (spa_streq(codec, "opus")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_opus;
+		info.info.opus.rate = sample_rate;
+		info.info.opus.channels = channels;
+	} else if (spa_streq(codec, "wma") || spa_streq(codec, "wma_std")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_wma;
+		info.info.wma.rate = sample_rate;
+		info.info.wma.channels = channels;
+		info.info.wma.bitrate = bitrate;
+		info.info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA9;
+	} else if (spa_streq(codec, "wma_pro")) {
+		info.media_subtype = SPA_MEDIA_SUBTYPE_wma;
+		info.info.wma.rate = sample_rate;
+		info.info.wma.channels = channels;
+		info.info.wma.bitrate = bitrate;
+		info.info.wma.profile = SPA_AUDIO_WMA_PROFILE_WMA9_PRO;
+	} else {
+		errno = ENOTSUP;
+		return NULL;
+	}
+	if (rate != NULL)
+		*rate = sample_rate;
+	return spa_format_audio_build(b, id, &info);
+}
+
+static void synthesize_compress_offload_spec(struct sample_spec *ss,
+		struct channel_map *map, const struct pw_properties *props)
+{
+	uint32_t channels;
+	ss->format = SPA_AUDIO_FORMAT_S16_LE;
+	ss->rate = pw_properties_get_uint32(props, "codec.sample_rate", 44100);
+	channels = pw_properties_get_uint32(props, "codec.channels", 2);
+	ss->channels = (uint8_t)(channels > 0 ? channels : 2);
+	spa_zero(*map);
+	switch (ss->channels) {
+	case 1: channel_map_parse("mono", map); break;
+	case 2: channel_map_parse("stereo", map); break;
+	case 3: channel_map_parse("surround-21", map); break;
+	case 4: channel_map_parse("surround-40", map); break;
+	case 5: channel_map_parse("surround-50", map); break;
+	case 6: channel_map_parse("surround-51", map); break;
+	case 8: channel_map_parse("surround-71", map); break;
+	default: channel_map_parse("stereo", map); ss->channels = 2; break;
+	}
+}
+
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
@@ -1622,7 +1745,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 		muted_set = false,
 		fail_on_suspend = false,
 		relative_volume = false,
-		passthrough = false;
+		passthrough = false,
+		compress_offload = false;
 	struct volume volume;
 	struct pw_properties *props = NULL;
 	uint8_t n_formats = 0;
@@ -1681,6 +1805,68 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	}
 	o = find_device(client, sink_index, sink_name, true, &is_monitor);
 
+	if (o != NULL) {
+		const struct pw_node_info *ninfo = o->info;
+		const struct spa_dict *sp = (ninfo && ninfo->props) ? ninfo->props : NULL;
+		char node_name_buf[256] = {0};
+		const char *node_name;
+		const char *co;
+		const char *_nn = pw_properties_get(o->props, PW_KEY_NODE_NAME);
+
+		if (_nn)
+			snprintf(node_name_buf, sizeof(node_name_buf), "%s", _nn);
+		node_name = node_name_buf[0] ? node_name_buf : NULL;
+		co = sp ? spa_dict_lookup(sp, "compress.offload") : NULL;
+		pw_log_debug("[%s] compress-offload check: node=%s ninfo=%p co=%s",
+				client->name, node_name ? node_name : "(null)", ninfo, co ? co : "(null)");
+		if (co && spa_atob(co)) {
+			char target_buf[256] = {0};
+			char codec_buf[64] = {0};
+			char rate_buf[32] = {0};
+			char channels_buf[16] = {0};
+			char bitrate_buf[32] = {0};
+			const char *target;
+			const char *codec;
+			const char *rate_s;
+			const char *channels;
+			const char *bitrate;
+			const char *_s;
+
+			if ((_s = spa_dict_lookup(sp, "compress.target.object")) != NULL)
+				snprintf(target_buf, sizeof(target_buf), "%s", _s);
+			if ((_s = spa_dict_lookup(sp, "codec.type")) != NULL)
+				snprintf(codec_buf, sizeof(codec_buf), "%s", _s);
+			if ((_s = spa_dict_lookup(sp, "codec.sample_rate")) != NULL)
+				snprintf(rate_buf, sizeof(rate_buf), "%s", _s);
+			if ((_s = spa_dict_lookup(sp, "codec.channels")) != NULL)
+				snprintf(channels_buf, sizeof(channels_buf), "%s", _s);
+			if ((_s = spa_dict_lookup(sp, "codec.bit_rate")) != NULL)
+				snprintf(bitrate_buf, sizeof(bitrate_buf), "%s", _s);
+
+			target = target_buf[0] ? target_buf : NULL;
+			codec = codec_buf[0] ? codec_buf : NULL;
+			rate_s = rate_buf[0] ? rate_buf : NULL;
+			channels = channels_buf[0] ? channels_buf : NULL;
+			bitrate = bitrate_buf[0] ? bitrate_buf : NULL;
+
+			pw_properties_set(props, "compress.offload", "true");
+			pw_properties_set(props, "item.node.supports-encoded-fmts", "true");
+			pw_properties_set(props, PW_KEY_MEDIA_TYPE, "Audio");
+			pw_properties_set(props, PW_KEY_MEDIA_CATEGORY, "Playback");
+			pw_properties_set(props, PW_KEY_MEDIA_ROLE, "Music");
+			if (codec) pw_properties_set(props, "codec.type", codec);
+			if (rate_s) pw_properties_set(props, "codec.sample_rate", rate_s);
+			if (channels) pw_properties_set(props, "codec.channels", channels);
+			if (bitrate) pw_properties_set(props, "codec.bit_rate", bitrate);
+
+			pw_log_info("[%s] detected compress-offload sink=%s target=%s codec=%s",
+					client->name, node_name ? node_name : "(null)",
+					target ? target : "(null)", codec ? codec : "(null)");
+			pw_log_debug("[%s] compress target=%s - leaving sink_name=%s for virtual sink routing",
+					client->name, target ? target : "(null)", sink_name ? sink_name : "(null)");
+		}
+	}
+
 	spa_zero(fix_ss);
 	spa_zero(fix_map);
 	if ((fix_format || fix_rate || fix_channels) && o != NULL) {
@@ -1728,6 +1914,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			goto error_protocol;
 	}
 
+	compress_offload = pw_properties_parse_bool(
+			pw_properties_get(props, "compress.offload"));
+
 	if (client->version >= 21) {
 		if (message_get(m,
 				TAG_U8, &n_formats,
@@ -1745,7 +1934,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 						TAG_INVALID) < 0)
 					goto error_protocol;
 
-				if (n_params < MAX_FORMATS &&
+				if (compress_offload) {
+					log_format_info(impl, SPA_LOG_LEVEL_DEBUG, &format);
+				} else if (n_params < MAX_FORMATS &&
 				    (params[n_params] = format_info_build_param(&b,
 						SPA_PARAM_EnumFormat, &format, &r)) != NULL) {
 					n_params++;
@@ -1759,7 +1950,23 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			}
 		}
 	}
-	if (sample_spec_valid(&ss)) {
+	if (compress_offload) {
+		uint32_t compress_rate = 0;
+		if (n_params < MAX_FORMATS &&
+		    (params[n_params] = build_compress_offload_format(&b,
+					SPA_PARAM_EnumFormat, props, &compress_rate)) != NULL) {
+			n_params++;
+			n_valid_formats++;
+			ss_rate = rate = compress_rate;
+			synthesize_compress_offload_spec(&ss, &map, props);
+			pw_log_debug("[%s] synthesized compress-offload format codec=%s rate=%u channels=%u",
+					client->name, pw_properties_get(props, "codec.type"), compress_rate,
+					pw_properties_get_uint32(props, "codec.channels", 2));
+		} else {
+			pw_log_warn("%p: unsupported compress codec:%s",
+					impl, pw_properties_get(props, "codec.type"));
+		}
+	} else if (sample_spec_valid(&ss)) {
 		struct sample_spec sfix = ss;
 		struct channel_map mfix = map;
 
@@ -1783,6 +1990,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (m->offset != m->length)
 		goto error_protocol;
 
+	pw_log_debug("[%s] format check: n_valid=%u n_params=%u compress=%d passthrough=%d",
+			client->name, n_valid_formats, n_params, compress_offload, passthrough);
 	if (n_valid_formats == 0)
 		goto error_no_formats;
 
@@ -1820,6 +2029,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	flags = 0;
 	if (no_move)
 		flags |= PW_STREAM_FLAG_DONT_RECONNECT;
+	if (compress_offload)
+		flags |= PW_STREAM_FLAG_NO_CONVERT;
 	if (corked)
 		flags |= PW_STREAM_FLAG_INACTIVE;
 
@@ -1848,14 +2059,35 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 			&stream->stream_listener,
 			&stream_events, stream);
 
-	pw_stream_connect(stream->stream,
-			PW_DIRECTION_OUTPUT,
-			SPA_ID_INVALID,
-			flags |
-			PW_STREAM_FLAG_AUTOCONNECT |
-			PW_STREAM_FLAG_RT_PROCESS |
-			PW_STREAM_FLAG_MAP_BUFFERS,
-			params, n_params);
+	if (compress_offload) {
+		uint8_t raw_buf[256];
+		struct spa_pod_builder rb = SPA_POD_BUILDER_INIT(raw_buf, sizeof(raw_buf));
+		struct spa_audio_info_raw raw_info = {
+			.format = SPA_AUDIO_FORMAT_S16_LE,
+			.rate = ss.rate ? ss.rate : 44100,
+			.channels = ss.channels ? ss.channels : 2,
+		};
+		const struct spa_pod *raw_params[1];
+		raw_params[0] = spa_format_audio_raw_build(&rb, SPA_PARAM_EnumFormat, &raw_info);
+		pw_log_debug("[%s] pw_stream_connect: using raw S16LE param for compress sink", client->name);
+		pw_stream_connect(stream->stream,
+				PW_DIRECTION_OUTPUT,
+				SPA_ID_INVALID,
+				flags |
+				PW_STREAM_FLAG_AUTOCONNECT |
+				PW_STREAM_FLAG_RT_PROCESS |
+				PW_STREAM_FLAG_MAP_BUFFERS,
+				raw_params, 1);
+	} else {
+		pw_stream_connect(stream->stream,
+				PW_DIRECTION_OUTPUT,
+				SPA_ID_INVALID,
+				flags |
+				PW_STREAM_FLAG_AUTOCONNECT |
+				PW_STREAM_FLAG_RT_PROCESS |
+				PW_STREAM_FLAG_MAP_BUFFERS,
+				params, n_params);
+	}
 
 	stream_update_tag_param(stream);
 

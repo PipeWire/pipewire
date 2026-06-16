@@ -336,6 +336,8 @@ pipewire_module_protocol_pulse_sources = [
   'module-protocol-pulse/modules/module-alsa-source.c',
   'module-protocol-pulse/modules/module-always-sink.c',
   'module-protocol-pulse/modules/module-combine-sink.c',
+  'module-protocol-pulse/modules/module-compress-offload-sink.c',
+  'module-protocol-pulse/modules/module-compress-offload-forwarder.c',
   'module-protocol-pulse/modules/module-device-manager.c',
   'module-protocol-pulse/modules/module-device-restore.c',
   'module-protocol-pulse/modules/module-echo-cancel.c',

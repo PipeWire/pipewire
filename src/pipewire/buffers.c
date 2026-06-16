@@ -18,6 +18,7 @@ PW_LOG_TOPIC_EXTERN(log_buffers);
 #define PW_LOG_TOPIC_DEFAULT log_buffers
 
 #define MAX_ALIGN	32u
+#define MAX_METAS	64u
 #define MAX_BLOCKS	256u
 
 struct port {
@@ -252,7 +253,7 @@ int pw_buffers_negotiate(struct pw_context *context, uint32_t flags,
 	if ((res = param_filter(result, &input, &output, SPA_PARAM_Meta, &b)) > 0)
 		n_params += res;
 
-	if (n_params > 4096)
+	if (n_params > MAX_METAS)
 		return -EINVAL;
 
 	metas = alloca(sizeof(struct spa_meta) * n_params * 2);

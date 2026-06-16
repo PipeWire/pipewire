@@ -30,7 +30,6 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 
 #define AREA_SLOT	(sizeof(struct spa_io_async_buffers))
 #define AREA_SIZE	(4096u / AREA_SLOT)
-#define MAX_AREAS	32
 
 #define CHECK_FREE_PORT(impl,d,p)	(p <= pw_map_get_size(&impl->ports[d]) && !CHECK_PORT(impl,d,p))
 #define CHECK_PORT(impl,d,p)		(pw_map_lookup(&impl->ports[d], p) != NULL)

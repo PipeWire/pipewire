@@ -28,9 +28,6 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 
 /** \cond */
 
-#define MAX_BUFFERS	64
-#define MAX_METAS	16u
-#define MAX_DATAS	256u
 #define AREA_SLOT	(sizeof(struct spa_io_async_buffers))
 #define AREA_SIZE	(4096u / AREA_SLOT)
 #define MAX_AREAS	32
@@ -782,9 +779,6 @@ do_port_use_buffers(struct impl *impl,
 	if (p == NULL)
 		return n_buffers == 0 ? 0 : -EINVAL;
 
-	if (n_buffers > MAX_BUFFERS)
-		return -ENOSPC;
-
 	pw_log_debug("%p: %s port %d.%d use buffers %p %u flags:%08x", impl,
 			direction == SPA_DIRECTION_INPUT ? "input" : "output",
 			port_id, mix_id, buffers, n_buffers, flags);
@@ -814,11 +808,10 @@ do_port_use_buffers(struct impl *impl,
 		uint32_t n_datas = 0, n_metas = 0;
 		void *ptr;
 
-		/* size the data/meta pools to the buffers actually in use
-		 * instead of reserving MAX_DATAS/MAX_METAS per buffer */
+		/* size the data/meta pools to the buffers actually in use */
 		for (i = 0; i < n_buffers; i++) {
-			n_datas += SPA_MIN(buffers[i]->n_datas, MAX_DATAS);
-			n_metas += SPA_MIN(buffers[i]->n_metas, MAX_METAS);
+			n_datas += buffers[i]->n_datas;
+			n_metas += buffers[i]->n_metas;
 		}
 
 		mix->buffers = calloc(1, buffers_size +
@@ -831,12 +824,10 @@ do_port_use_buffers(struct impl *impl,
 		for (i = 0; i < n_buffers; i++) {
 			mix->buffers[i].datas = ptr;
 			ptr = SPA_PTROFF(ptr,
-				SPA_MIN(buffers[i]->n_datas, MAX_DATAS) * sizeof(struct spa_data), void);
-		}
-		for (i = 0; i < n_buffers; i++) {
+				buffers[i]->n_datas * sizeof(struct spa_data), void);
 			mix->buffers[i].metas = ptr;
 			ptr = SPA_PTROFF(ptr,
-				SPA_MIN(buffers[i]->n_metas, MAX_METAS) * sizeof(struct spa_meta), void);
+				buffers[i]->n_metas * sizeof(struct spa_meta), void);
 		}
 	}
 
@@ -889,11 +880,11 @@ do_port_use_buffers(struct impl *impl,
 		pw_log_debug("%p: buffer %d %d %d %d", impl, i, mb[i].mem_id,
 				mb[i].offset, mb[i].size);
 
-		b->buffer.n_metas = SPA_MIN(buffers[i]->n_metas, MAX_METAS);
+		b->buffer.n_metas = buffers[i]->n_metas;
 		for (j = 0; j < b->buffer.n_metas; j++)
 			memcpy(&b->buffer.metas[j], &buffers[i]->metas[j], sizeof(struct spa_meta));
 
-		b->buffer.n_datas = SPA_MIN(buffers[i]->n_datas, MAX_DATAS);
+		b->buffer.n_datas = buffers[i]->n_datas;
 		for (j = 0; j < b->buffer.n_datas; j++) {
 			struct spa_data *d = &buffers[i]->datas[j];
 

@@ -842,6 +842,23 @@ Dithering is only useful for conversion to a format with less than 24 bits and w
 disabled otherwise.
 \endparblock
 
+@PAR@ node-prop  zeroramp.gap = 0
+\parblock
+This instructs the audio converter to run gap detection. If zeroramp.gap consecutive
+silence samples are found, the audio converter will perform a fade-in or fade-out with
+new/old samples respectively.
+
+Fade-in and fade-out are important when the signal has a sudden changes to and from silence
+samples, which can cause loud pops and cracks.
+
+When an application uses the proper PipeWire pause and resume functions, fades will be
+performed automatically where needed. For applications that simply send silence when
+paused (chrome, ...), zeroramp.gap detection can be a workaround.
+
+This is disabled by default because it might corrupt the signal with excessive fades in
+case the signal has large silence gaps.
+\endparblock
+
 @PAR@ node-prop  zeroramp.duration = 0.005
 The duration of fade-in and fade-out of the signal in seconds on silence gaps.
 

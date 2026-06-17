@@ -39,6 +39,7 @@
 
 #include "volume-ops.h"
 #include "fmt-ops.h"
+#include "gaps-ops.h"
 #include "channelmix-ops.h"
 #include "resample.h"
 #include "wavfile.h"
@@ -108,6 +109,7 @@ struct props {
 	char wav_path[512];
 	unsigned int lock_volumes:1;
 	unsigned int filter_graph_disabled:1;
+	float zeroramp_duration;
 };
 
 static void props_reset(struct props *props)
@@ -131,6 +133,7 @@ static void props_reset(struct props *props)
 	spa_zero(props->wav_path);
 	props->lock_volumes = false;
 	props->filter_graph_disabled = false;
+	props->zeroramp_duration = 0.005f;
 }
 
 struct buffer {
@@ -181,6 +184,7 @@ struct port {
 
 	const struct spa_pod_sequence *ctrl;
 	uint32_t ctrl_offset;
+	bool ramp_start;
 
 	struct spa_list queue;
 };
@@ -212,7 +216,8 @@ struct stage_context {
 #define CTX_DATA_REMAP_SRC	3
 #define CTX_DATA_TMP_0		4
 #define CTX_DATA_TMP_1		5
-#define CTX_DATA_MAX		6
+#define CTX_DATA_GAP		6
+#define CTX_DATA_MAX		7
 	void **datas[CTX_DATA_MAX];
 	uint32_t in_samples;
 	uint32_t n_samples;
@@ -309,6 +314,7 @@ struct impl {
 	struct dir dir[2];
 	struct channelmix mix;
 	struct resample resample;
+	struct gaps gaps;
 	struct volume volume;
 	double rate_scale;
 	struct spa_pod_sequence *vol_ramp_sequence;
@@ -1599,6 +1605,10 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 					order, spa_strerror(res));
 		}
 	}
+	else if (spa_streq(k, "zeroramp.gap"))
+		spa_atou32(s, &this->gaps.gap, 0);
+	else if (spa_streq(k, "zeroramp.duration"))
+		spa_atof(s, &this->props.zeroramp_duration);
 	else
 		return 0;
 	return 1;
@@ -2414,6 +2424,14 @@ static int setup_resample(struct impl *this)
 
 	if (this->resample.free)
 		resample_free(&this->resample);
+	if (this->gaps.free)
+		gaps_free(&this->gaps);
+
+	this->gaps.channels = channels;
+	this->gaps.log = this->log;
+	this->gaps.cpu_flags = this->cpu_flags;
+	this->gaps.duration = (uint32_t)(this->props.zeroramp_duration * in->format.info.raw.rate);
+	gaps_init(&this->gaps);
 
 	this->resample.channels = channels;
 	this->resample.i_rate = in->format.info.raw.rate;
@@ -3419,7 +3437,6 @@ impl_node_port_use_buffers(void *object,
 				spa_log_warn(this->log, "%p: memory %d on buffer %d not aligned",
 						this, j, i);
 			}
-
 			b->datas[j] = data;
 
 			maxsize = SPA_MAX(maxsize, d[j].maxsize);
@@ -3446,6 +3463,8 @@ static int do_set_port_io(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
 	const struct io_data *d = user_data;
+	if (d->data == NULL && d->port->io != NULL)
+		d->port->ramp_start = true;
 	d->port->io = d->data;
 	return 0;
 }
@@ -3724,6 +3743,37 @@ static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 	ctx->src_idx = s->out_idx;
 }
 
+static void run_gap_detect_stage(struct stage *s, struct stage_context *c)
+{
+	struct impl *impl = s->impl;
+	if (gaps_check(&impl->gaps, (const float**)c->datas[s->in_idx], c->n_samples)) {
+		gaps_fix(&impl->gaps, (float**)c->datas[s->out_idx],
+				(const float**)c->datas[s->in_idx], c->n_samples);
+		c->datas[CTX_DATA_GAP] = c->datas[s->out_idx];
+	} else {
+		c->empty = impl->gaps.empty;
+		c->datas[CTX_DATA_GAP] = c->datas[s->in_idx];
+	}
+	spa_log_trace_fp(impl->log, "%p: gap %d", impl, c->n_samples);
+}
+
+static bool is_src(uint32_t idx)
+{
+	return idx == CTX_DATA_REMAP_SRC || idx == CTX_DATA_SRC;
+}
+static void add_gap_detect_stage(struct impl *impl, struct stage_context *ctx)
+{
+	struct stage *s = &impl->stages[impl->n_stages];
+	s->impl = impl;
+	s->in_idx = ctx->src_idx;
+	s->out_idx = is_src(s->in_idx) ? get_dst_idx(ctx) : ctx->src_idx;
+	s->run = run_gap_detect_stage;
+	s->data = NULL;
+	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);
+	impl->n_stages++;
+	ctx->src_idx = CTX_DATA_GAP;
+}
+
 static void run_resample_stage(struct stage *s, struct stage_context *c)
 {
 	struct impl *impl = s->impl;
@@ -3851,7 +3901,7 @@ static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 static void recalc_stages(struct impl *this, struct stage_context *ctx)
 {
 	struct dir *dir;
-	bool test, do_wav;
+	bool test, do_wav, do_gap;
 	struct port *ctrlport = ctx->ctrlport;
 	bool in_need_remap, out_need_remap;
 	uint32_t i;
@@ -3883,6 +3933,8 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 		(ctrlport == NULL || ctrlport->ctrl == NULL) && (this->vol_ramp_sequence == NULL);
 	SPA_FLAG_UPDATE(ctx->bits, MIX_BIT, !test);
 
+	do_gap = this->gaps.duration > 0;
+
 	/* if we have nothing to do, force a conversion to the destination to make sure we
 	 * actually write something to the destination buffer */
 	if (ctx->bits == 0)
@@ -3904,6 +3956,9 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	}
 
 	if (this->direction == SPA_DIRECTION_INPUT) {
+		if (do_gap)
+			add_gap_detect_stage(this, ctx);
+
 		if (SPA_FLAG_IS_SET(ctx->bits, RESAMPLE_BIT))
 			add_resample_stage(this, ctx);
 	}
@@ -3921,6 +3976,9 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 		add_channelmix_stage(this, ctx);
 
 	if (this->direction == SPA_DIRECTION_OUTPUT) {
+		if (do_gap)
+			add_gap_detect_stage(this, ctx);
+
 		if (SPA_FLAG_IS_SET(ctx->bits, RESAMPLE_BIT))
 			add_resample_stage(this, ctx);
 	}
@@ -4030,6 +4088,11 @@ static int impl_node_process(void *object)
 				} else {
 					remap = n_src_datas++;
 					src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
+					if (SPA_UNLIKELY(port->ramp_start)) {
+						this->gaps.states[remap].mode = 3;
+						this->gaps.states[remap].count = 0;
+						port->ramp_start = false;
+					}
 					spa_log_trace_fp(this->log, "%p: empty input %d->%d", this,
 							i * port->blocks + j, remap);
 					max_in = SPA_MIN(max_in, this->scratch_size / port->stride);

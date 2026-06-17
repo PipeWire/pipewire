@@ -109,7 +109,8 @@ stream.properties = {
     #channelmix.surround-level = 0.707106781
     #channelmix.lfe-level      = 0.5
     #channelmix.hilbert-taps = 0
-    #dither.noise = 0
+    #dither.noise            = 0
+    #zeroramp.duration       = 0.005
 }
 
 pulse.properties = {
@@ -137,7 +138,7 @@ pulse.properties = {
     #pulse.min.quantum      = 256/48000     # 5.3ms
     #pulse.idle.timeout     = 0             # don't pause after underruns
     #pulse.max-streams      = 64            # max streams per client
-    #pulse.max-sample-cache   = 67108864      # max total sample cache size (64MB)
+    #pulse.max-sample-cache = 67108864      # max total sample cache size (64MB)
     #pulse.default.format   = F32
     #pulse.default.position = [ FL FR ]
 }

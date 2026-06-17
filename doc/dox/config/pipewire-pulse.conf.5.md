@@ -100,6 +100,7 @@ stream.properties = {
     #dither.noise = 0
     #dither.method = none # rectangular, triangular, triangular-hf, wannamaker3, shaped5
     #debug.wav-path = ""
+    #zeroramp.duration = 0.005
 }
 ```
 

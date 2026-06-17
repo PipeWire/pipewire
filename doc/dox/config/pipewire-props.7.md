@@ -842,6 +842,9 @@ Dithering is only useful for conversion to a format with less than 24 bits and w
 disabled otherwise.
 \endparblock
 
+@PAR@ node-prop  zeroramp.duration = 0.005
+The duration of fade-in and fade-out of the signal in seconds on silence gaps.
+
 ## Debug Parameters  @IDX@ props
 
 @PAR@ node-prop  debug.wav-path = ""

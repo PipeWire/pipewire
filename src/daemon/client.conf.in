@@ -111,7 +111,8 @@ stream.properties = {
     #channelmix.lfe-level      = 0.5
     #channelmix.stereo-widen = 0.0
     #channelmix.hilbert-taps = 0
-    #dither.noise = 0
+    #dither.noise            = 0
+    #zeroramp.duration       = 0.005
 }
 
 stream.rules = [

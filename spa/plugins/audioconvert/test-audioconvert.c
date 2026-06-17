@@ -54,7 +54,7 @@ static int setup_context(struct context *ctx)
 	size_t size;
 	int res;
 	struct spa_support support[1];
-	struct spa_dict_item items[9];
+	struct spa_dict_item items[11];
 	const struct spa_handle_factory *factory;
 	void *iface;
 
@@ -79,10 +79,12 @@ static int setup_context(struct context *ctx)
 	items[6] = SPA_DICT_ITEM_INIT("channelmix.center-level", "0.707106781");
 	items[7] = SPA_DICT_ITEM_INIT("channelmix.surround-level", "0.707106781");
 	items[8] = SPA_DICT_ITEM_INIT("channelmix.lfe-level", "0.5");
+	items[9] = SPA_DICT_ITEM_INIT("zeroramp.gap", "0");
+	items[10] = SPA_DICT_ITEM_INIT("zeroramp.duration", "0.0");
 
 	res = spa_handle_factory_init(factory,
 			ctx->convert_handle,
-			&SPA_DICT_INIT(items, 9),
+			&SPA_DICT_INIT(items, 11),
 			support, 1);
 	spa_assert_se(res >= 0);
 

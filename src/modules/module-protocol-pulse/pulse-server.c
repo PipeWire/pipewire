@@ -69,6 +69,7 @@
 #define DEFAULT_IDLE_TIMEOUT		"0"
 #define DEFAULT_MAX_STREAMS		"64"
 #define DEFAULT_MAX_SAMPLE_CACHE	"67108864"
+#define DEFAULT_ZERORAMP_GAP		"0"
 
 #define MAX_FORMATS	32
 /* The max amount of data we send in one block when capturing. In PulseAudio this
@@ -1836,6 +1837,9 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 
 	if (dont_inhibit_auto_suspend)
 		pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
+
+	if (impl->defs.zeroramp_gap > 0)
+		pw_properties_setf(props, "zeroramp.gap", "%d", impl->defs.zeroramp_gap);
 
 	stream->stream = pw_stream_new(client->core, name, spa_steal_ptr(props));
 	if (stream->stream == NULL)
@@ -5666,6 +5670,7 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_uint32(props, "pulse.idle.timeout", DEFAULT_IDLE_TIMEOUT, &def->idle_timeout);
 	parse_uint32(props, "pulse.max-streams", DEFAULT_MAX_STREAMS, &def->max_streams);
 	parse_uint32(props, "pulse.max-sample-cache", DEFAULT_MAX_SAMPLE_CACHE, &def->max_sample_cache);
+	parse_uint32(props, "pulse.zeroramp.gap", DEFAULT_ZERORAMP_GAP, &def->zeroramp_gap);
 	def->sample_spec.channels = def->channel_map.channels;
 	def->quantum_limit = 8192;
 }

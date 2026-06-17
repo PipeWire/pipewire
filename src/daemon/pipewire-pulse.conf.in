@@ -142,6 +142,7 @@ pulse.properties = {
     #pulse.max-sample-cache = 67108864      # max total sample cache size (64MB)
     #pulse.default.format   = F32
     #pulse.default.position = [ FL FR ]
+    #pulse.zeroramp.gap     = 0             # detect silence of N samples and fade-in/out
 }
 
 pulse.properties.rules = [
@@ -209,4 +210,13 @@ pulse.rules = [
     #    matches = [ { application.process.binary = "Discord" } ]
     #    actions = { quirks = [ block-source-volume ] }
     #}
+
+    {
+        matches = [ { application.process.binary = "chrome" } ]
+        actions = {
+            update-props = {
+                pulse.zeroramp.gap     = 8
+            }
+        }
+    }
 ]

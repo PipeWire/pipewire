@@ -45,6 +45,7 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 #define rtp_stream_emit_open_connection(s,r)	rtp_stream_emit(s, open_connection, 0,r)
 #define rtp_stream_emit_close_connection(s,r)	rtp_stream_emit(s, close_connection, 0,r)
 #define rtp_stream_emit_param_changed(s,i,p)	rtp_stream_emit(s, param_changed,0,i,p)
+#define rtp_stream_emit_command(s,cmd)		rtp_stream_emit(s, command,0,cmd)
 
 #define rtp_stream_call(s,m,v,...)		spa_callbacks_call_fast(&s->rtp_callbacks, \
 							struct rtp_stream_events, m, v, ##__VA_ARGS__)
@@ -584,11 +585,18 @@ static void on_stream_param_changed (void *d, uint32_t id, const struct spa_pod 
 	}
 };
 
+static void on_stream_command(void *d, const struct spa_command *command)
+{
+	struct impl *impl = d;
+	rtp_stream_emit_command(impl, command);
+}
+
 static const struct pw_stream_events stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.destroy = stream_destroy,
 	.state_changed = on_stream_state_changed,
 	.param_changed = on_stream_param_changed,
+	.command = on_stream_command,
 	.io_changed = stream_io_changed,
 };
 
@@ -1224,4 +1232,11 @@ void rtp_stream_update_process_latency(struct rtp_stream *s,
 		sizeof(const struct spa_process_latency_info));
 
 	update_latency_params(impl);
+}
+
+int rtp_stream_run_in_data_loop(struct rtp_stream *s, spa_invoke_func_t func,
+	uint32_t seq, const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = (struct impl*)s;
+	return pw_loop_locked(impl->data_loop, func, seq, data, size, user_data);
 }

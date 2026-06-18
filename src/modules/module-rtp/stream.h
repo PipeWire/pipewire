@@ -50,6 +50,8 @@ struct rtp_stream_events {
 
 	void (*param_changed) (void *data, uint32_t id, const struct spa_pod *param);
 
+	void (*command) (void *data, const struct spa_command *command);
+
 	void (*send_packet) (void *data, struct iovec *iov, size_t iovlen);
 
 	void (*send_feedback) (void *data, uint32_t seqnum);
@@ -90,6 +92,9 @@ int rtp_stream_update_params(struct rtp_stream *stream,
 
 void rtp_stream_update_process_latency(struct rtp_stream *stream,
 				const struct spa_process_latency_info *process_latency);
+
+int rtp_stream_run_in_data_loop(struct rtp_stream *s, spa_invoke_func_t func,
+				uint32_t seq, const void *data, size_t size, void *user_data);
 
 #ifdef __cplusplus
 }

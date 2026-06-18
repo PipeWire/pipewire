@@ -1515,7 +1515,10 @@ static int do_destroy_link(void *data, struct pw_impl_link *link)
 
 void pw_impl_port_unlink(struct pw_impl_port *port)
 {
+	struct pw_context *context = port->node->context;
+	pw_context_freeze_recalc_graph(context);
 	pw_impl_port_for_each_link(port, do_destroy_link, port);
+	pw_context_thaw_recalc_graph(context, "port unlink");
 }
 
 static int do_remove_port(struct spa_loop *loop,

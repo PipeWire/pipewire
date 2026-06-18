@@ -56,7 +56,7 @@ struct impl {
 	struct pw_context this;
 	struct spa_handle *dbus_handle;
 	struct spa_plugin_loader plugin_loader;
-	unsigned int recalc:1;
+	int recalc;
 	unsigned int recalc_pending:1;
 
 	uint32_t cpu_count;
@@ -991,20 +991,36 @@ int pw_context_recalc_graph(struct pw_context *context, const char *reason)
 
 	pw_log_info("%p: busy:%d reason:%s", context, impl->recalc, reason);
 
-	if (impl->recalc) {
+	if (impl->recalc > 0) {
 		impl->recalc_pending = true;
 		return -EBUSY;
 	}
 
 again:
-	impl->recalc = true;
+	impl->recalc++;
 
 	pw_context_emit_recalc_graph(context);
 
-	impl->recalc = false;
-	if (impl->recalc_pending) {
+	if (--impl->recalc == 0 && impl->recalc_pending) {
 		impl->recalc_pending = false;
 		goto again;
+	}
+	return 0;
+}
+
+int pw_context_freeze_recalc_graph(struct pw_context *context)
+{
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
+	impl->recalc++;
+	return 0;
+}
+
+int pw_context_thaw_recalc_graph(struct pw_context *context, const char *reason)
+{
+	struct impl *impl = SPA_CONTAINER_OF(context, struct impl, this);
+	if (--impl->recalc == 0 && impl->recalc_pending) {
+		impl->recalc_pending = false;
+		pw_context_recalc_graph(context, reason);
 	}
 	return 0;
 }

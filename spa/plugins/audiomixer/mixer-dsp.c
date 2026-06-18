@@ -933,7 +933,7 @@ static int impl_node_process(void *object)
 			if (size >= sizeof(float))
 				inport->history[0] = s[size/sizeof(float)-1];
 			inio->status = SPA_STATUS_NEED_DATA;
-		} else if (inport->ramp_pos > 0) {
+		} else if (inio == NULL) {
 			/* removed port, ramp down */
 			struct ramp_info *ri = &ramps[n_ramps++];
 			ri->port = inport;

@@ -26,7 +26,7 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 			break;
 		}
 	}
-	if (gaps->gap > 0 && n_samples > gaps->gap) {
+	if (n_samples > gaps->gap) {
 		for (n = n_samples - gaps->gap - 1; n < n_samples; n++) {
 			if (in[n] == 0.0f) {
 				tail_filled = false;
@@ -50,13 +50,39 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 	*empty = false;
 	return 1;
 }
+
+static int run_gap_check_ramp(struct gaps *gaps, uint32_t c, const float * SPA_RESTRICT src[], uint32_t n_samples,
+		bool *empty)
+{
+	struct gaps_state *s = &gaps->states[c];
+	const float *in = src[c];
+
+	if (s->mode == 0)
+		s->mode = 1;
+
+	if (s->mode == 1) {
+		/* in normal mode remember last sample */
+		if (n_samples > 0)
+			s->history[0] = in[n_samples-1];
+		*empty = false;
+		return 0;
+	}
+	*empty = false;
+	return 1;
+}
+
 int gaps_check_c(struct gaps *gaps, const float * SPA_RESTRICT src[], uint32_t n_samples)
 {
 	uint32_t c;
 	int res = 0;
 	gaps->empty = true;
-	for (c = 0; c < gaps->channels; c++)
-		res += run_gap_check(gaps, c, src, n_samples, &gaps->empty);
+	if (gaps->gap > 0) {
+		for (c = 0; c < gaps->channels; c++)
+			res += run_gap_check(gaps, c, src, n_samples, &gaps->empty);
+	} else {
+		for (c = 0; c < gaps->channels; c++)
+			res += run_gap_check_ramp(gaps, c, src, n_samples, &gaps->empty);
+	}
 	return res;
 }
 

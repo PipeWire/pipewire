@@ -286,6 +286,8 @@ static void node_deactivate(struct pw_impl_node *this)
 	/* make sure the node doesn't get woken up while not active */
 	remove_node_from_graph(this);
 
+	pw_context_freeze_recalc_graph(this->context);
+
 	spa_list_for_each(port, &this->input_ports, link) {
 		spa_list_for_each(link, &port->links, input_link)
 			pw_impl_link_deactivate(link);
@@ -294,6 +296,7 @@ static void node_deactivate(struct pw_impl_node *this)
 		spa_list_for_each(link, &port->links, output_link)
 			pw_impl_link_deactivate(link);
 	}
+	pw_context_thaw_recalc_graph(this->context, "node deactivate");
 }
 
 static int idle_node(struct pw_impl_node *this)
@@ -327,6 +330,8 @@ static void node_activate(struct pw_impl_node *this)
 	struct pw_impl_port *port;
 
 	pw_log_debug("%p: activate", this);
+	pw_context_freeze_recalc_graph(this->context);
+
 	spa_list_for_each(port, &this->output_ports, link) {
 		struct pw_impl_link *link;
 		spa_list_for_each(link, &port->links, output_link)
@@ -337,6 +342,7 @@ static void node_activate(struct pw_impl_node *this)
 		spa_list_for_each(link, &port->links, input_link)
 			pw_impl_link_activate(link);
 	}
+	pw_context_thaw_recalc_graph(this->context, "node activate");
 }
 
 static int start_node(struct pw_impl_node *this)
@@ -537,6 +543,8 @@ static int suspend_node(struct pw_impl_node *this)
 	if (this->info.state > 0 && this->info.state <= PW_NODE_STATE_SUSPENDED)
 		return 0;
 
+	pw_context_freeze_recalc_graph(this->context);
+
 	node_deactivate(this);
 
 	pw_log_debug("%p: suspend node driving:%d driver:%d prepared:%d", this,
@@ -554,6 +562,8 @@ static int suspend_node(struct pw_impl_node *this)
 		pw_impl_port_suspend(p);
 	spa_list_for_each(p, &this->output_ports, link)
 		pw_impl_port_suspend(p);
+
+	pw_context_thaw_recalc_graph(this->context, "node suspend");
 
 	node_update_state(this, PW_NODE_STATE_SUSPENDED, 0, NULL);
 
@@ -2390,14 +2400,14 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	struct pw_impl_port *port;
 	struct pw_impl_node *follower;
 	struct pw_context *context = node->context;
-	bool active, had_driver;
 
-	active = node->active;
 	node->active = false;
 	node->runnable = false;
 
 	pw_log_debug("%p: destroy", impl);
 	pw_log_info("(%s-%u) destroy", node->name, node->info.id);
+
+	pw_context_freeze_recalc_graph(context);
 
 	node_deactivate(node);
 
@@ -2406,7 +2416,6 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	pw_impl_node_emit_destroy(node);
 
 	pw_log_debug("%p: driver node %p", impl, node->driver_node);
-	had_driver = node != node->driver_node;
 
 	/* remove ourself as a follower from the driver node */
 	spa_list_remove(&node->follower_link);
@@ -2440,10 +2449,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 		spa_hook_remove(&node->global_listener);
 		pw_global_destroy(node->global);
 	}
-
-	if (active || had_driver)
-		pw_context_recalc_graph(context,
-				"active node destroy");
+	pw_context_thaw_recalc_graph(context, "node destroy");
 
 	pw_log_debug("%p: free", node);
 	pw_impl_node_emit_free(node);

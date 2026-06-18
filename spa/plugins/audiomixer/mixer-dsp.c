@@ -87,6 +87,7 @@ struct port {
 
 	struct spa_list mix_link;
 	bool active:1;
+	bool removing:1;
 	uint32_t ramp_pos;
 	float history[1];
 };
@@ -750,6 +751,7 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 	if (info->data == NULL || info->size < sizeof(struct spa_io_buffers)) {
 		port->io[0] = NULL;
 		port->io[1] = NULL;
+		port->removing = true;
 		port->ramp_pos = impl->n_curve;
 	} else {
 		if (info->size >= sizeof(struct spa_io_async_buffers)) {
@@ -760,6 +762,7 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 			port->io[0] = info->data;
 			port->io[1] = info->data;
 		}
+		port->removing = false;
 		port->ramp_pos = 0;
 		if (port->direction == SPA_DIRECTION_INPUT && !port->active) {
 			spa_list_append(&info->impl->mix_list, &port->mix_link);
@@ -843,7 +846,7 @@ static void ramp_down(struct impl *this, float *dst, uint32_t size, struct ramp_
 	for (c = port->ramp_pos, i = 0; i < size && c > 0; i++, c--)
 		dst[i] += last_sample * this->curve[c-1];
 	port->ramp_pos = c;
-	if (c == 0 && port->active) {
+	if (c == 0 && port->active && port->removing) {
 		spa_list_remove(&port->mix_link);
 		port->active = false;
 	}
@@ -933,7 +936,7 @@ static int impl_node_process(void *object)
 			if (size >= sizeof(float))
 				inport->history[0] = s[size/sizeof(float)-1];
 			inio->status = SPA_STATUS_NEED_DATA;
-		} else if (inio == NULL) {
+		} else if (inport->ramp_pos > 0) {
 			/* removed port, ramp down */
 			struct ramp_info *ri = &ramps[n_ramps++];
 			ri->port = inport;

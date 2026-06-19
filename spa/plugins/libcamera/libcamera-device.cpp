@@ -102,7 +102,6 @@ int emit_info(struct impl *impl, bool full)
 	struct spa_dict dict;
 	uint32_t n_items = 0;
 	struct spa_device_info info;
-	struct spa_param_info params[2];
 	Camera& camera = *impl->camera;
 
 	info = SPA_DEVICE_INFO_INIT();
@@ -152,12 +151,6 @@ int emit_info(struct impl *impl, bool full)
 
 	dict = SPA_DICT_INIT(items, n_items);
 	info.props = &dict;
-
-	info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
-	info.n_params = SPA_N_ELEMENTS(params);
-	info.params = params;
 
 	spa_device_emit_info(&impl->hooks, &info);
 

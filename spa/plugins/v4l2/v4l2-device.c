@@ -61,7 +61,6 @@ static int emit_info(struct impl *this, bool full)
 	struct spa_dict_item items[13];
 	uint32_t n_items = 0;
 	struct spa_device_info info;
-	struct spa_param_info params[2];
 	char path[128], version[16], capabilities[16], device_caps[16], devices_str[16];
 	struct spa_strbuf buf;
 
@@ -104,12 +103,6 @@ static int emit_info(struct impl *this, bool full)
 	ADD_ITEM(SPA_KEY_API_V4L2_CAP_DEVICE_CAPS, device_caps);
 #undef ADD_ITEM
 	info.props = &SPA_DICT_INIT(items, n_items);
-
-	info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
-	params[0] = SPA_PARAM_INFO(SPA_PARAM_EnumProfile, SPA_PARAM_INFO_READ);
-	params[1] = SPA_PARAM_INFO(SPA_PARAM_Profile, SPA_PARAM_INFO_WRITE);
-	info.n_params = 0;
-	info.params = params;
 
 	spa_device_emit_info(&this->hooks, &info);
 

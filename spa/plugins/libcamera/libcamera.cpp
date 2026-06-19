@@ -2,6 +2,11 @@
 /* SPDX-FileCopyrightText: Copyright © 2020 collabora */
 /* SPDX-License-Identifier: MIT */
 
+#include <memory>
+#include <mutex>
+
+#include <libcamera/camera_manager.h>
+
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 
@@ -37,4 +42,23 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory,
 	return 1;
 }
 
+}
+
+std::shared_ptr<libcamera::CameraManager> libcamera_manager_acquire(int& res)
+{
+	static std::weak_ptr<libcamera::CameraManager> global_manager;
+	static std::mutex lock;
+
+	std::lock_guard guard(lock);
+
+	if (auto manager = global_manager.lock())
+		return manager;
+
+	auto manager = std::make_shared<libcamera::CameraManager>();
+	if ((res = manager->start()) < 0)
+		return {};
+
+	global_manager = manager;
+
+	return manager;
 }

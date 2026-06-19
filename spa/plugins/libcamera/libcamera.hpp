@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <memory>
+
+#include <libcamera/camera_manager.h>
+
 #include <spa/support/log.h>
 
 extern "C" {
@@ -22,3 +26,5 @@ static inline void libcamera_log_topic_init(struct spa_log *log)
 {
 	spa_log_topic_init(log, &libcamera_log_topic);
 }
+
+std::shared_ptr<libcamera::CameraManager> libcamera_manager_acquire(int& res);

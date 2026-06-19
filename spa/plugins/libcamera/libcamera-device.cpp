@@ -22,7 +22,6 @@
 #include <spa/param/param.h>
 
 #include "libcamera.hpp"
-#include "libcamera-manager.hpp"
 
 #include <libcamera/camera.h>
 #include <libcamera/property_ids.h>

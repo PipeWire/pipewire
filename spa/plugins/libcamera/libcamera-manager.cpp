@@ -26,7 +26,6 @@ using namespace libcamera;
 #include <spa/monitor/utils.h>
 
 #include "libcamera.hpp"
-#include "libcamera-manager.hpp"
 
 namespace {
 
@@ -387,23 +386,4 @@ const struct spa_handle_factory spa_libcamera_manager_factory = {
 	impl_init,
 	impl_enum_interface_info,
 };
-}
-
-std::shared_ptr<CameraManager> libcamera_manager_acquire(int& res)
-{
-	static std::weak_ptr<CameraManager> global_manager;
-	static std::mutex lock;
-
-	std::lock_guard guard(lock);
-
-	if (auto manager = global_manager.lock())
-		return manager;
-
-	auto manager = std::make_shared<CameraManager>();
-	if ((res = manager->start()) < 0)
-		return {};
-
-	global_manager = manager;
-
-	return manager;
 }

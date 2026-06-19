@@ -12,6 +12,11 @@
 # define M_PIf  3.14159265358979323846f /* pi */
 #endif
 
+#define MODE_ZERO	0
+#define MODE_NORMAL	1
+#define MODE_FADE_IN	2
+#define MODE_FADE_OUT	3
+
 static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRICT src[], uint32_t n_samples,
 		bool *empty)
 {
@@ -36,14 +41,14 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 	} else {
 		tail_filled = head_filled;
 	}
-	if (s->mode == 1 && head_filled && tail_filled) {
+	if (s->mode == MODE_NORMAL && head_filled && tail_filled) {
 		/* in normal mode and head and tail seem to have data */
 		if (n_samples > 0)
 			s->history[0] = in[n_samples-1];
 		*empty = false;
 		return 0;
 	}
-	else if (s->mode == 0 && !tail_filled && !head_filled) {
+	else if (s->mode == MODE_ZERO && !tail_filled && !head_filled) {
 		/* zero mode and head and tail seem to be empty */
 		return 0;
 	}
@@ -57,10 +62,10 @@ static int run_gap_check_ramp(struct gaps *gaps, uint32_t c, const float * SPA_R
 	struct gaps_state *s = &gaps->states[c];
 	const float *in = src[c];
 
-	if (s->mode == 0)
-		s->mode = 1;
+	if (s->mode == MODE_ZERO)
+		s->mode = MODE_NORMAL;
 
-	if (s->mode == 1) {
+	if (s->mode == MODE_NORMAL) {
 		/* in normal mode remember last sample */
 		if (n_samples > 0)
 			s->history[0] = in[n_samples-1];
@@ -97,23 +102,23 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 	for (n = 0; n < n_samples; n++) {
 		bool is_zero = in[n] == 0.0f;
 
-		if (s->mode == 0) {
+		if (s->mode == MODE_ZERO) {
 			/* zero mode */
 			if (!is_zero) {
 				/* gap ended, move to fade-in mode */
-				s->mode = gaps->gap ? 2 : 1;
+				s->mode = gaps->gap ? MODE_FADE_IN : MODE_NORMAL;
 				s->count = 0;
 			} else {
 				out[n] = 0.0f;
 			}
 		}
-		else if (s->mode == 1) {
+		else if (s->mode == MODE_NORMAL) {
 			out[n] = in[n];
 			/* normal mode, finding gaps */
 			if (is_zero && gaps->gap > 0) {
 				if (++s->count >= gaps->gap) {
 					n -= SPA_MIN(s->count, n);
-					s->mode = 3;
+					s->mode = MODE_FADE_OUT;
 					s->count = 0;
 				}
 			} else {
@@ -122,7 +127,7 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 				s->history[0] = in[n];
 			}
 		}
-		if (s->mode == 2) {
+		if (s->mode == MODE_FADE_IN) {
 			/* fade-in mode */
 			if (s->count == 0)
 				spa_log_info(gaps->log, "%p start %d fade-in %d", gaps, c, n);
@@ -131,12 +136,12 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 
 			if (++s->count >= gaps->duration) {
 				/* fade in complete, back to normal mode */
-				s->mode = 1;
+				s->mode = MODE_NORMAL;
 				s->count = 0;
 				spa_log_debug(gaps->log, "%p stop %d fade-in %d", gaps, c, n);
 			}
 		}
-		else if (s->mode == 3) {
+		else if (s->mode == MODE_FADE_OUT) {
 			/* fade-out mode */
 			if (s->count == 0)
 				spa_log_info(gaps->log, "%p start %d fade-out %f %d",
@@ -146,7 +151,7 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 
 			if (++s->count >= gaps->duration) {
 				/* fade out complete, go to zero mode */
-				s->mode = gaps->gap ? 0 : 1;
+				s->mode = gaps->gap ? MODE_ZERO : MODE_NORMAL;
 				s->count = 0;
 				spa_log_debug(gaps->log, "%p stop %d  fade-out %d", gaps, c, n);
 			}

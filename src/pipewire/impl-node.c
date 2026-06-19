@@ -2400,7 +2400,9 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	struct pw_impl_port *port;
 	struct pw_impl_node *follower;
 	struct pw_context *context = node->context;
+	bool active, had_driver;
 
+	active = node->active;
 	node->active = false;
 	node->runnable = false;
 
@@ -2416,6 +2418,7 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 	pw_impl_node_emit_destroy(node);
 
 	pw_log_debug("%p: driver node %p", impl, node->driver_node);
+	had_driver = node != node->driver_node;
 
 	/* remove ourself as a follower from the driver node */
 	spa_list_remove(&node->follower_link);
@@ -2449,6 +2452,10 @@ void pw_impl_node_destroy(struct pw_impl_node *node)
 		spa_hook_remove(&node->global_listener);
 		pw_global_destroy(node->global);
 	}
+	if (active || had_driver)
+		pw_context_recalc_graph(context,
+				"active node destroy");
+
 	pw_context_thaw_recalc_graph(context, "node destroy");
 
 	pw_log_debug("%p: free", node);

@@ -2,8 +2,6 @@
 /* SPDX-FileCopyrightText: Copyright © 2020 collabora */
 /* SPDX-License-Identifier: MIT */
 
-#include <errno.h>
-
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 

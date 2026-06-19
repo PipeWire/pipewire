@@ -2,12 +2,9 @@
 /* SPDX-FileCopyrightText: Copyright © 2020 collabora */
 /* SPDX-License-Identifier: MIT */
 
-#include <errno.h>
-
-#include <linux/media.h>
+#pragma once
 
 #include <spa/support/log.h>
-#include <spa/support/system.h>
 
 #ifdef __cplusplus
 extern "C" {

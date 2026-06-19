@@ -5,7 +5,9 @@
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>
 
-#include "libcamera.h"
+#include "libcamera.hpp"
+
+extern "C" {
 
 SPA_LOG_TOPIC_DEFINE(libcamera_log_topic, "spa.libcamera");
 
@@ -33,4 +35,6 @@ int spa_handle_factory_enum(const struct spa_handle_factory **factory,
 	}
 	(*index)++;
 	return 1;
+}
+
 }

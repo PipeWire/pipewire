@@ -1,5 +1,5 @@
 libcamera_sources = [
-  'libcamera.c',
+  'libcamera.cpp',
   'libcamera-manager.cpp',
   'libcamera-device.cpp',
   'libcamera-source.cpp'

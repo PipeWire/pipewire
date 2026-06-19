@@ -21,7 +21,7 @@
 #include <spa/monitor/utils.h>
 #include <spa/param/param.h>
 
-#include "libcamera.h"
+#include "libcamera.hpp"
 #include "libcamera-manager.hpp"
 
 #include <libcamera/camera.h>

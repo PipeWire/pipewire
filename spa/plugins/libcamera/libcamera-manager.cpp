@@ -25,7 +25,7 @@ using namespace libcamera;
 #include <spa/monitor/device.h>
 #include <spa/monitor/utils.h>
 
-#include "libcamera.h"
+#include "libcamera.hpp"
 #include "libcamera-manager.hpp"
 
 namespace {

@@ -42,7 +42,7 @@
 #include <libcamera/framebuffer.h>
 #include <libcamera/framebuffer_allocator.h>
 
-#include "libcamera.h"
+#include "libcamera.hpp"
 #include "libcamera-manager.hpp"
 
 using namespace libcamera;

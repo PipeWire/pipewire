@@ -38,7 +38,6 @@ struct defs {
 	uint32_t idle_timeout;
 	uint32_t max_streams;
 	uint32_t max_sample_cache;
-	uint32_t zeroramp_gap;
 };
 
 struct stats {

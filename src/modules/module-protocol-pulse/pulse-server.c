@@ -1600,12 +1600,11 @@ static void log_format_info(struct impl *impl, enum spa_log_level level, struct 
 static int do_create_playback_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	const char *name = NULL;
+	const char *name = NULL, *sink_name, *str;
 	int res;
 	struct sample_spec ss, fix_ss;
 	struct channel_map map, fix_map;
 	uint32_t sink_index, syncid, ss_rate = 0, rate = 0;
-	const char *sink_name;
 	struct buffer_attr attr = { 0 };
 	bool corked = false,
 		no_remap = false,
@@ -1838,8 +1837,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (dont_inhibit_auto_suspend)
 		pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
 
-	if (impl->defs.zeroramp_gap > 0)
-		pw_properties_setf(props, "zeroramp.gap", "%d", impl->defs.zeroramp_gap);
+	if ((str = pw_properties_get(client->props, "pulse.zeroramp.gap")) != NULL)
+		pw_properties_set(props, "zeroramp.gap", str);
 
 	stream->stream = pw_stream_new(client->core, name, spa_steal_ptr(props));
 	if (stream->stream == NULL)
@@ -1890,12 +1889,11 @@ error:
 static int do_create_record_stream(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct impl *impl = client->impl;
-	const char *name = NULL;
+	const char *name = NULL, *source_name;
 	int res;
 	struct sample_spec ss, fix_ss;
 	struct channel_map map, fix_map;
 	uint32_t source_index;
-	const char *source_name;
 	struct buffer_attr attr = { 0 };
 	bool corked = false,
 		no_remap = false,
@@ -5670,7 +5668,6 @@ static void load_defaults(struct defs *def, struct pw_properties *props)
 	parse_uint32(props, "pulse.idle.timeout", DEFAULT_IDLE_TIMEOUT, &def->idle_timeout);
 	parse_uint32(props, "pulse.max-streams", DEFAULT_MAX_STREAMS, &def->max_streams);
 	parse_uint32(props, "pulse.max-sample-cache", DEFAULT_MAX_SAMPLE_CACHE, &def->max_sample_cache);
-	parse_uint32(props, "pulse.zeroramp.gap", DEFAULT_ZERORAMP_GAP, &def->zeroramp_gap);
 	def->sample_spec.channels = def->channel_map.channels;
 	def->quantum_limit = 8192;
 }

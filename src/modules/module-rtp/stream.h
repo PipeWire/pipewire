@@ -11,7 +11,8 @@ extern "C" {
 
 struct rtp_stream;
 
-#define DEFAULT_FORMAT		"S16BE"
+#define DEFAULT_RAW_AUDIO_FORMAT  "S16BE"
+#define DEFAULT_RAOP_AUDIO_FORMAT "S16LE"
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 #define DEFAULT_POSITION	"[ FL FR ]"

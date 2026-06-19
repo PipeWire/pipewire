@@ -140,7 +140,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 		"( sess.min-ptime=<minimum packet time in milliseconds, default:2> ) "		\
 		"( sess.max-ptime=<maximum packet time in milliseconds, default:20> ) "		\
 		"( sess.media=<string, the media type audio|midi|opus, default midi> ) "	\
-		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "				\
+		"( audio.format=<format, default:"DEFAULT_RAW_AUDIO_FORMAT"> ) "		\
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "		\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "\
 		"( audio.position=<channel map, default:"DEFAULT_POSITION"> ) "			\
@@ -1624,7 +1624,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	if (spa_streq(str, "audio")) {
 		struct spa_dict_item items[] = {
-			{ "audio.format", DEFAULT_FORMAT },
+			{ "audio.format", DEFAULT_RAW_AUDIO_FORMAT },
 			{ "audio.rate", SPA_STRINGIFY(DEFAULT_RATE) },
 			{ "audio.channels", SPA_STRINGIFY(DEFAULT_CHANNELS) },
 			{ "audio.position", DEFAULT_POSITION } };

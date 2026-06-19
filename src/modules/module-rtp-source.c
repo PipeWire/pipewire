@@ -174,7 +174,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 		"( sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> ) "\
 		"( sess.ignore-ssrc=<to ignore SSRC, default false> ) "\
  		"( sess.media=<string, the media type audio|midi|opus, default audio> ) "			\
-		"( audio.format=<format, default:"DEFAULT_FORMAT"> ) "						\
+		"( audio.format=<format, default:"DEFAULT_RAW_AUDIO_FORMAT"> ) "				\
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "				\
 		"( audio.channels=<number of channels, default:"SPA_STRINGIFY(DEFAULT_CHANNELS)"> ) "		\
 		"( audio.position=<channel map, default:"DEFAULT_POSITION"> ) "					\

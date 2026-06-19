@@ -613,7 +613,7 @@ static int parse_audio_info(const struct pw_properties *props, struct spa_audio_
 {
 	return spa_audio_info_raw_init_dict_keys(info,
 			&SPA_DICT_ITEMS(
-				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, DEFAULT_FORMAT),
+				 SPA_DICT_ITEM(SPA_KEY_AUDIO_FORMAT, DEFAULT_RAW_AUDIO_FORMAT),
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, SPA_STRINGIFY(DEFAULT_RATE)),
 				 SPA_DICT_ITEM(SPA_KEY_AUDIO_POSITION, DEFAULT_POSITION)),
 			&props->dict,

@@ -1014,6 +1014,13 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	return (struct rtp_stream*)impl;
 out:
 	pw_properties_free(props);
+	if (impl) {
+		if (impl->stream)
+			pw_stream_destroy(impl->stream);
+		if (impl->data_loop)
+			pw_context_release_loop(impl->context, impl->data_loop);
+		free(impl);
+	}
 	errno = -res;
 	return NULL;
 }

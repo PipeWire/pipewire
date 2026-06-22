@@ -448,9 +448,9 @@ impl_init(const struct spa_handle_factory *factory,
 		SPA_TYPE_INTERFACE_AUDIO_AEC,
 		SPA_VERSION_AUDIO_AEC,
 		&impl_aec, impl);
-	impl->aec.name = "webrtc",
+	impl->aec.name = "webrtc";
 	impl->aec.info = NULL;
-	impl->aec.latency = "480/48000",
+	impl->aec.latency = "480/48000";
 
 	impl->log = static_cast<struct spa_log *>(spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log));
 	spa_log_topic_init(impl->log, &log_topic);

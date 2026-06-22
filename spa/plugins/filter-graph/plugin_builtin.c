@@ -1103,6 +1103,10 @@ static int convolver_read_impulse(struct plugin *pl, struct spa_json *obj,
 				goto error;
 			}
 		}
+		else if (spa_streq(key, "blocksize") ||
+		    spa_streq(key, "tailsize") || spa_streq(key, "latency")) {
+			continue;
+		}
 		else {
 			spa_log_warn(pl->log, "convolver: ignoring config key: '%s'", key);
 		}

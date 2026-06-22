@@ -14,9 +14,8 @@
 
 #ifdef HAVE_FFTW
 #include <fftw3.h>
-#else
-#include "pffft.h"
 #endif
+#include "pffft.h"
 
 #include "audio-dsp-impl.h"
 
@@ -827,14 +826,13 @@ static void fft_interleaved_sse(float *data, uint32_t len, float scale)
 
 void *dsp_fft_memalloc_sse(void *obj, uint32_t size, bool real)
 {
-#ifdef HAVE_FFTW
-	return fftwf_alloc_real(real ? size : SPA_ROUND_UP_N(size, FFT_BLOCK) * 2);
-#else
-	if (real)
-		return pffft_aligned_malloc(size * sizeof(float));
-	else
-		return pffft_aligned_malloc(size * 2 * sizeof(float));
-#endif
+	uint32_t asize = real ? size : SPA_ROUND_UP_N(size, FFT_BLOCK) * 2;
+	return pffft_aligned_malloc(asize * sizeof(float));
+}
+
+void dsp_fft_memfree_sse(void *obj, void *data)
+{
+	pffft_aligned_free(data);
 }
 
 void dsp_fft_memclear_sse(void *obj, void *data, uint32_t size, bool real)

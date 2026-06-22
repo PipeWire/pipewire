@@ -14,9 +14,8 @@
 
 #ifdef HAVE_FFTW
 #include <fftw3.h>
-#else
-#include "pffft.h"
 #endif
+#include "pffft.h"
 #include "audio-dsp-impl.h"
 
 void dsp_clear_c(void *obj, float * SPA_RESTRICT dst, uint32_t n_samples)
@@ -261,14 +260,14 @@ void *dsp_fft_new_c(void *obj, uint32_t size, bool real)
 		float *rdata;
 		fftwf_complex *cdata;
 
-		rdata = fftwf_alloc_real(size * 2);
-		cdata = fftwf_alloc_complex(size + 1);
+		rdata = spa_fga_dsp_fft_memalloc(obj, size * 2, true);
+		cdata = spa_fga_dsp_fft_memalloc(obj, size + 1, false);
 
 		info->plan_r2c = fftwf_plan_dft_r2c_1d(size, rdata, cdata, FFTW_ESTIMATE);
 		info->plan_c2r = fftwf_plan_dft_c2r_1d(size, cdata, rdata, FFTW_ESTIMATE);
 
-		fftwf_free(rdata);
-		fftwf_free(cdata);
+		spa_fga_dsp_fft_memfree(obj, rdata);
+		spa_fga_dsp_fft_memfree(obj, cdata);
 	}
 #else
 	info->setup = pffft_new_setup(size, real ? PFFFT_REAL : PFFFT_COMPLEX);
@@ -290,35 +289,18 @@ void dsp_fft_free_c(void *obj, void *fft)
 
 void *dsp_fft_memalloc_c(void *obj, uint32_t size, bool real)
 {
-#ifdef HAVE_FFTW
-	if (real)
-		return fftwf_alloc_real(size);
-	else
-		return fftwf_alloc_complex(size);
-#else
-	if (real)
-		return pffft_aligned_malloc(size * sizeof(float));
-	else
-		return pffft_aligned_malloc(size * 2 * sizeof(float));
-#endif
+	uint32_t asize = real ? size : size * 2;
+	return pffft_aligned_malloc(asize * sizeof(float));
 }
 
 void dsp_fft_memfree_c(void *obj, void *data)
 {
-#ifdef HAVE_FFTW
-	fftwf_free(data);
-#else
 	pffft_aligned_free(data);
-#endif
 }
 
 void dsp_fft_memclear_c(void *obj, void *data, uint32_t size, bool real)
 {
-#ifdef HAVE_FFTW
 	spa_fga_dsp_clear(obj, data, real ? size : size * 2);
-#else
-	spa_fga_dsp_clear(obj, data, real ? size : size * 2);
-#endif
 }
 
 void dsp_fft_run_c(void *obj, void *fft, int direction,

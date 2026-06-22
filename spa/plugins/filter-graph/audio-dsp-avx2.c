@@ -355,12 +355,12 @@ static void fft_blocked_avx2(float *data, uint32_t len)
 	const __m256i idx = _mm256_setr_epi32(0,2,4,6,1,3,5,7);
 	uint32_t i;
 	for (i = 0; i < len; i += FFT_BLOCK) {
-		__m256 v0 = _mm256_load_ps(&data[0]);	/* r0 i0 r1 i1 r2 i2 r3 i3 */
-		__m256 v1 = _mm256_load_ps(&data[8]);	/* r4 i4 r5 i5 r6 i6 r7 i7 */
-		__m256 t0 = _mm256_permutevar8x32_ps(v0, idx); /* r0 r1 r2 r3 i0 i1 i2 i3 */
-		__m256 t1 = _mm256_permutevar8x32_ps(v1, idx); /* r4 r5 r6 r7 i4 i5 i6 i7 */
-		_mm256_store_ps(&data[0], _mm256_permute2f128_ps(t0, t1, 0x20));
-		_mm256_store_ps(&data[8], _mm256_permute2f128_ps(t0, t1, 0x31));
+		__m256 v0 = _mm256_load_ps(&data[0]);		/* r0 i0 r1 i1 r2 i2 r3 i3 */
+		__m256 v1 = _mm256_load_ps(&data[FFT_BLOCK]);	/* r4 i4 r5 i5 r6 i6 r7 i7 */
+		__m256 t0 = _mm256_permutevar8x32_ps(v0, idx);	/* r0 r1 r2 r3 i0 i1 i2 i3 */
+		__m256 t1 = _mm256_permutevar8x32_ps(v1, idx);	/* r4 r5 r6 r7 i4 i5 i6 i7 */
+		_mm256_store_ps(&data[0],         _mm256_permute2f128_ps(t0, t1, 0x20));
+		_mm256_store_ps(&data[FFT_BLOCK], _mm256_permute2f128_ps(t0, t1, 0x31));
 		data += 2 * FFT_BLOCK;
 	}
 }
@@ -372,12 +372,12 @@ static void fft_interleaved_avx2(float *data, uint32_t len, float scale)
 	__m256 s = _mm256_set1_ps(scale);
 	uint32_t i;
 	for (i = 0; i < len; i += FFT_BLOCK) {
-		__m256 r = _mm256_mul_ps(_mm256_load_ps(&data[0]), s);
-		__m256 im = _mm256_mul_ps(_mm256_load_ps(&data[8]), s);
-		__m256 t0 = _mm256_permute2f128_ps(r, im, 0x20);
-		__m256 t1 = _mm256_permute2f128_ps(r, im, 0x31);
-		_mm256_store_ps(&data[0], _mm256_permutevar8x32_ps(t0, idx));
-		_mm256_store_ps(&data[8], _mm256_permutevar8x32_ps(t1, idx));
+		__m256 re = _mm256_mul_ps(_mm256_load_ps(&data[0]), s);
+		__m256 im = _mm256_mul_ps(_mm256_load_ps(&data[FFT_BLOCK]), s);
+		__m256 t0 = _mm256_permute2f128_ps(re, im, 0x20);
+		__m256 t1 = _mm256_permute2f128_ps(re, im, 0x31);
+		_mm256_store_ps(&data[0],         _mm256_permutevar8x32_ps(t0, idx));
+		_mm256_store_ps(&data[FFT_BLOCK], _mm256_permutevar8x32_ps(t1, idx));
 		data += 2 * FFT_BLOCK;
 	}
 }
@@ -428,19 +428,19 @@ void dsp_fft_cmul_avx2(void *obj, void *fft,
 	const float * SPA_RESTRICT b, uint32_t len)
 {
 #ifdef HAVE_FFTW
-	uint32_t i, plen = SPA_ROUND_UP_N(len, 8) * 2;
+	uint32_t i, plen = SPA_ROUND_UP_N(len, FFT_BLOCK) * 2;
 
-	for (i = 0; i < plen; i += 16) {
+	for (i = 0; i < plen; i += FFT_BLOCK*2) {
 		__m256 ar = _mm256_load_ps(&a[i]);
-		__m256 ai = _mm256_load_ps(&a[i+8]);
+		__m256 ai = _mm256_load_ps(&a[i + FFT_BLOCK]);
 		__m256 br = _mm256_load_ps(&b[i]);
-		__m256 bi = _mm256_load_ps(&b[i+8]);
+		__m256 bi = _mm256_load_ps(&b[i + FFT_BLOCK]);
 		__m256 dr = _mm256_mul_ps(ar, br);
 		__m256 di = _mm256_mul_ps(ar, bi);
 		dr = _mm256_fnmadd_ps(ai, bi, dr);	/* ar*br - ai*bi */
 		di = _mm256_fmadd_ps(ai, br, di);	/* ar*bi + ai*br */
 		_mm256_store_ps(&dst[i], dr);
-		_mm256_store_ps(&dst[i+8], di);
+		_mm256_store_ps(&dst[i + FFT_BLOCK], di);
 	}
 #else
 	struct fft_info *info = fft;
@@ -454,21 +454,21 @@ void dsp_fft_cmuladd_avx2(void *obj, void *fft,
 	uint32_t len)
 {
 #ifdef HAVE_FFTW
-	uint32_t i, plen = SPA_ROUND_UP_N(len, 8) * 2;
+	uint32_t i, plen = SPA_ROUND_UP_N(len, FFT_BLOCK) * 2;
 
-	for (i = 0; i < plen; i += 16) {
+	for (i = 0; i < plen; i += FFT_BLOCK*2) {
 		__m256 ar = _mm256_load_ps(&a[i]);
-		__m256 ai = _mm256_load_ps(&a[i+8]);
+		__m256 ai = _mm256_load_ps(&a[i + FFT_BLOCK]);
 		__m256 br = _mm256_load_ps(&b[i]);
-		__m256 bi = _mm256_load_ps(&b[i+8]);
+		__m256 bi = _mm256_load_ps(&b[i + FFT_BLOCK]);
 		__m256 dr = _mm256_mul_ps(ar, br);
 		__m256 di = _mm256_mul_ps(ar, bi);
 		dr = _mm256_fnmadd_ps(ai, bi, dr);	/* ar*br - ai*bi */
 		di = _mm256_fmadd_ps(ai, br, di);	/* ar*bi + ai*br */
 		_mm256_store_ps(&dst[i], _mm256_add_ps(dr,
 					_mm256_load_ps(&src[i])));
-		_mm256_store_ps(&dst[i+8], _mm256_add_ps(di,
-					_mm256_load_ps(&src[i+8])));
+		_mm256_store_ps(&dst[i + FFT_BLOCK], _mm256_add_ps(di,
+					_mm256_load_ps(&src[i + FFT_BLOCK])));
 	}
 #else
 	struct fft_info *info = fft;

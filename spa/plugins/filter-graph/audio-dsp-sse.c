@@ -801,10 +801,10 @@ static void fft_blocked_sse(float *data, uint32_t len)
 {
 	uint32_t i;
 	for (i = 0; i < len; i += FFT_BLOCK) {
-		__m128 v0 = _mm_load_ps(&data[0]);	/* r0 i0 r1 i1 */
-		__m128 v1 = _mm_load_ps(&data[4]);	/* r2 i2 r3 i3 */
-		_mm_store_ps(&data[0], _mm_shuffle_ps(v0, v1, _MM_SHUFFLE(2,0,2,0)));
-		_mm_store_ps(&data[4], _mm_shuffle_ps(v0, v1, _MM_SHUFFLE(3,1,3,1)));
+		__m128 v0 = _mm_load_ps(&data[0]);		/* r0 i0 r1 i1 */
+		__m128 v1 = _mm_load_ps(&data[FFT_BLOCK]);	/* r2 i2 r3 i3 */
+		_mm_store_ps(&data[0], 	       _mm_shuffle_ps(v0, v1, _MM_SHUFFLE(2,0,2,0)));
+		_mm_store_ps(&data[FFT_BLOCK], _mm_shuffle_ps(v0, v1, _MM_SHUFFLE(3,1,3,1)));
 		data += 2 * FFT_BLOCK;
 	}
 }
@@ -815,10 +815,10 @@ static void fft_interleaved_sse(float *data, uint32_t len, float scale)
 	uint32_t i;
 	__m128 s = _mm_set1_ps(scale);
 	for (i = 0; i < len; i += FFT_BLOCK) {
-		__m128 r = _mm_mul_ps(_mm_load_ps(&data[0]), s);
-		__m128 im = _mm_mul_ps(_mm_load_ps(&data[4]), s);
-		_mm_store_ps(&data[0], _mm_unpacklo_ps(r, im));
-		_mm_store_ps(&data[4], _mm_unpackhi_ps(r, im));
+		__m128 re = _mm_mul_ps(_mm_load_ps(&data[0]), s);
+		__m128 im = _mm_mul_ps(_mm_load_ps(&data[FFT_BLOCK]), s);
+		_mm_store_ps(&data[0],         _mm_unpacklo_ps(re, im));
+		_mm_store_ps(&data[FFT_BLOCK], _mm_unpackhi_ps(re, im));
 		data += 2 * FFT_BLOCK;
 	}
 }

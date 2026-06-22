@@ -1010,12 +1010,29 @@ static void manager_metadata(void *data, struct pw_manager_object *o,
 			else
 				client->default_bluetooth_headset_autoswitch = spa_streq(default_, "true");
 		}
+
+		if (spa_streq(key, METADATA_BLUETOOTH_PROFILE_PREFERENCE)) {
+			char default_pref[16];
+
+			client->have_bluetooth_profile_preference = true;
+
+			free(client->default_bluetooth_profile_preference);
+			if (spa_json_str_object_find(value, strlen(value),
+						"default", default_pref, sizeof(default_pref)) < 0)
+				client->default_bluetooth_profile_preference = NULL;
+			else
+				client->default_bluetooth_profile_preference = strdup(default_pref);
+		}
 	}
 	if (subject == PW_ID_CORE && o == client->metadata_sm_settings) {
 		if (spa_streq(key, METADATA_FEATURES_AUDIO_MONO))
 			client->force_mono_audio = spa_streq(value, "true");
 		if (spa_streq(key, METADATA_BLUETOOTH_HEADSET_AUTOSWITCH))
 			client->bluetooth_headset_autoswitch = spa_streq(value, "true");
+		if (spa_streq(key, METADATA_BLUETOOTH_PROFILE_PREFERENCE)) {
+			free(client->bluetooth_profile_preference);
+			client->bluetooth_profile_preference = value ? strdup(value) : NULL;
+		}
 	}
 }
 

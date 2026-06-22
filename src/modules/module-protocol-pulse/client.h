@@ -65,9 +65,12 @@ struct client {
 	bool default_force_mono_audio;
 	bool have_bluetooth_headset_autoswitch;
 	bool default_bluetooth_headset_autoswitch;
+	bool have_bluetooth_profile_preference;
+	char *default_bluetooth_profile_preference;
 	struct pw_manager_object *metadata_sm_settings;
 	bool force_mono_audio;
 	bool bluetooth_headset_autoswitch;
+	char *bluetooth_profile_preference;
 
 	uint32_t connect_tag;
 

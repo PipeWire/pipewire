@@ -176,6 +176,50 @@ static int core_object_bluetooth_headset_autoswitch(struct client *client, const
 	}
 }
 
+static int core_object_bluetooth_profile_preference(struct client *client, const char *params, FILE *response)
+{
+	if (!client->have_bluetooth_profile_preference) {
+		/* Not supported, return a null value to indicate that */
+		fprintf(response, "null");
+		return 0;
+	}
+
+	if (!params || params[0] == '\0') {
+		/* No parameter => query the current value */
+		if (client->bluetooth_profile_preference)
+			fprintf(response, "%s", client->bluetooth_profile_preference);
+		else
+			fprintf(response, "null");
+		return 0;
+	} else {
+		/* The caller is trying to set a value or clear with a null */
+		int ret;
+
+		if (spa_streq(params, "latency") || spa_streq(params, "quality")) {
+			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
+					METADATA_BLUETOOTH_PROFILE_PREFERENCE, "Spa:String:JSON", "%s", params);
+			free(client->bluetooth_profile_preference);
+			client->bluetooth_profile_preference = strdup(params);
+		} else if (spa_streq(params, "null")) {
+			ret = pw_manager_set_metadata(client->manager, client->metadata_sm_settings, PW_ID_CORE,
+					METADATA_BLUETOOTH_PROFILE_PREFERENCE, NULL, NULL);
+			free(client->bluetooth_profile_preference);
+			client->bluetooth_profile_preference = client->default_bluetooth_profile_preference ?
+				strdup(client->default_bluetooth_profile_preference) : NULL;
+		} else {
+			fprintf(response, "Value must be latency or quality");
+			return -EINVAL;
+		}
+
+		if (ret < 0)
+			fprintf(response, "Could not set metadata: %s", spa_strerror(ret));
+		else
+			fprintf(response, "%s", params);
+
+		return ret;
+	}
+}
+
 static int core_object_message_handler(struct client *client, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
 {
 	pw_log_debug(": core %p object message:'%s' params:'%s'", o, message, params);
@@ -192,7 +236,8 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 				"  pipewire-pulse:list-modules    		list all module names\n"
 				"  pipewire-pulse:describe-module 		describe module info for <params>\n"
 				"  pipewire-pulse:force-mono-output		force mono mixdown on all hardware outputs\n"
-				"  pipewire-pulse:bluetooth-headset-autoswitch	use bluetooth headset mic if available"
+				"  pipewire-pulse:bluetooth-headset-autoswitch\tuse bluetooth headset mic if available\n"
+				"  pipewire-pulse:bluetooth-profile-preference\tbluetooth profile preference (latency or quality)"
 				);
 	} else if (spa_streq(message, "list-handlers")) {
 		struct spa_json_builder b;
@@ -260,6 +305,8 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 		return core_object_force_mono_output(client, params, response);
 	} else if (spa_streq(message, "pipewire-pulse:bluetooth-headset-autoswitch")) {
 		return core_object_bluetooth_headset_autoswitch(client, params, response);
+	} else if (spa_streq(message, "pipewire-pulse:bluetooth-profile-preference")) {
+		return core_object_bluetooth_profile_preference(client, params, response);
 	} else {
 		return -ENOSYS;
 	}

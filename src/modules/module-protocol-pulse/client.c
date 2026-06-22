@@ -162,6 +162,9 @@ void client_free(struct client *client)
 	free(client->temporary_default_sink);
 	free(client->temporary_default_source);
 
+	free(client->bluetooth_profile_preference);
+	free(client->default_bluetooth_profile_preference);
+
 	pw_properties_free(client->props);
 	pw_properties_free(client->routes);
 

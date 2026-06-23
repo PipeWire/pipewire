@@ -126,7 +126,7 @@ struct command {
 	const char *name;
 	const char *alias;
 	const char *description;
-	bool (*func) (struct data *data, const char *cmd, char *args, char **error);
+	int (*func) (struct data *data, const char *cmd, char *args, char **error);
 };
 
 
@@ -239,34 +239,34 @@ static void print_params(struct spa_param_info *params, uint32_t n_params, char 
 }
 
 #if 0
-static bool do_not_implemented(struct data *data, const char *cmd, char *args, char **error)
+static int do_not_implemented(struct data *data, const char *cmd, char *args, char **error)
 {
 	*error = spa_aprintf("Command \"%s\" not yet implemented", cmd);
-	return false;
+	return -ENOTSUP;
 }
 #endif
 
-static bool do_help(struct data *data, const char *cmd, char *args, char **error);
-static bool do_list_vars(struct data *data, const char *cmd, char *args, char **error);
-static bool do_load_module(struct data *data, const char *cmd, char *args, char **error);
-static bool do_unload_module(struct data *data, const char *cmd, char *args, char **error);
-static bool do_list_objects(struct data *data, const char *cmd, char *args, char **error);
-static bool do_connect(struct data *data, const char *cmd, char *args, char **error);
-static bool do_disconnect(struct data *data, const char *cmd, char *args, char **error);
-static bool do_list_remotes(struct data *data, const char *cmd, char *args, char **error);
-static bool do_switch_remote(struct data *data, const char *cmd, char *args, char **error);
-static bool do_info(struct data *data, const char *cmd, char *args, char **error);
-static bool do_create_device(struct data *data, const char *cmd, char *args, char **error);
-static bool do_create_node(struct data *data, const char *cmd, char *args, char **error);
-static bool do_destroy(struct data *data, const char *cmd, char *args, char **error);
-static bool do_create_link(struct data *data, const char *cmd, char *args, char **error);
-static bool do_export_node(struct data *data, const char *cmd, char *args, char **error);
-static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error);
-static bool do_set_param(struct data *data, const char *cmd, char *args, char **error);
-static bool do_permissions(struct data *data, const char *cmd, char *args, char **error);
-static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
-static bool do_send_command(struct data *data, const char *cmd, char *args, char **error);
-static bool do_quit(struct data *data, const char *cmd, char *args, char **error);
+static int do_help(struct data *data, const char *cmd, char *args, char **error);
+static int do_list_vars(struct data *data, const char *cmd, char *args, char **error);
+static int do_load_module(struct data *data, const char *cmd, char *args, char **error);
+static int do_unload_module(struct data *data, const char *cmd, char *args, char **error);
+static int do_list_objects(struct data *data, const char *cmd, char *args, char **error);
+static int do_connect(struct data *data, const char *cmd, char *args, char **error);
+static int do_disconnect(struct data *data, const char *cmd, char *args, char **error);
+static int do_list_remotes(struct data *data, const char *cmd, char *args, char **error);
+static int do_switch_remote(struct data *data, const char *cmd, char *args, char **error);
+static int do_info(struct data *data, const char *cmd, char *args, char **error);
+static int do_create_device(struct data *data, const char *cmd, char *args, char **error);
+static int do_create_node(struct data *data, const char *cmd, char *args, char **error);
+static int do_destroy(struct data *data, const char *cmd, char *args, char **error);
+static int do_create_link(struct data *data, const char *cmd, char *args, char **error);
+static int do_export_node(struct data *data, const char *cmd, char *args, char **error);
+static int do_enum_params(struct data *data, const char *cmd, char *args, char **error);
+static int do_set_param(struct data *data, const char *cmd, char *args, char **error);
+static int do_permissions(struct data *data, const char *cmd, char *args, char **error);
+static int do_get_permissions(struct data *data, const char *cmd, char *args, char **error);
+static int do_send_command(struct data *data, const char *cmd, char *args, char **error);
+static int do_quit(struct data *data, const char *cmd, char *args, char **error);
 
 #define DUMP_NAMES "Core|Module|Device|Node|Port|Factory|Client|Link|Session|Endpoint|EndpointStream"
 
@@ -300,13 +300,13 @@ static void program_quit(struct data *data)
 	pw_main_loop_quit(data->loop);
 }
 
-static bool do_quit(struct data *data, const char *cmd, char *args, char **error)
+static int do_quit(struct data *data, const char *cmd, char *args, char **error)
 {
 	program_quit(data);
-	return true;
+	return 0;
 }
 
-static bool do_help(struct data *data, const char *cmd, char *args, char **error)
+static int do_help(struct data *data, const char *cmd, char *args, char **error)
 {
 	printf("Available commands:\n");
 	SPA_FOR_EACH_ELEMENT_VAR(command_list, c) {
@@ -314,17 +314,17 @@ static bool do_help(struct data *data, const char *cmd, char *args, char **error
 		snprintf(cmd, sizeof(cmd), "%s | %s", c->name, c->alias);
 		printf("\t%-20.20s\t%s\n", cmd, c->description);
 	}
-	return true;
+	return 0;
 }
 
-static bool do_list_vars(struct data *data, const char *cmd, char *args, char **error)
+static int do_list_vars(struct data *data, const char *cmd, char *args, char **error)
 {
 	printf("Known variables:\n");
 	list_vars(data);
-	return true;
+	return 0;
 }
 
-static bool do_load_module(struct data *data, const char *cmd, char *args, char **error)
+static int do_load_module(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct pw_impl_module *module;
 	char *a[2];
@@ -334,23 +334,23 @@ static bool do_load_module(struct data *data, const char *cmd, char *args, char 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <module-name> [<module-arguments>]", cmd);
-		return false;
+		return -EINVAL;
 	}
 
 	module = pw_context_load_module(data->context, a[0], n == 2 ? a[1] : NULL, NULL);
 	if (module == NULL) {
-		*error = spa_aprintf("Could not load module");
-		return false;
+		*error = spa_aprintf("Could not load module: %m");
+		return -errno;
 	}
 
 	id = add_var(data, module, TYPE_MODULE);
 	if (data->interactive)
 		print_var(data, id);
 
-	return true;
+	return 0;
 }
 
-static bool do_unload_module(struct data *data, const char *cmd, char *args, char **error)
+static int do_unload_module(struct data *data, const char *cmd, char *args, char **error)
 {
 	char *a[1];
 	int n;
@@ -360,17 +360,17 @@ static bool do_unload_module(struct data *data, const char *cmd, char *args, cha
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <module-var>", cmd);
-		return false;
+		return -EINVAL;
 	}
 	idx = atoi(a[0]);
 	module = find_var(data, idx, TYPE_MODULE);
 	if (module == NULL) {
 		*error = spa_aprintf("%s: unknown module '%s'", cmd, a[0]);
-		return false;
+		return -ENOENT;
 	}
 	remove_var(data, idx, TYPE_MODULE);
 	pw_impl_module_destroy(module);
-	return true;
+	return 0;
 }
 
 static void on_core_info(void *_data, const struct pw_core_info *info)
@@ -604,7 +604,7 @@ static void remote_data_free(struct remote_data *rd)
 	pw_core_disconnect(rd->core);
 }
 
-static bool do_connect(struct data *data, const char *cmd, char *args, char **error)
+static int do_connect(struct data *data, const char *cmd, char *args, char **error)
 {
 	char *a[1];
 	int n;
@@ -619,7 +619,7 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 	core = pw_context_connect(data->context, props, sizeof(struct remote_data));
 	if (core == NULL) {
 		*error = spa_aprintf("failed to connect: %m");
-		return false;
+		return -errno;
 	}
 
 	rd = pw_proxy_get_user_data((struct pw_proxy*)core);
@@ -646,10 +646,10 @@ static bool do_connect(struct data *data, const char *cmd, char *args, char **er
 				       &registry_events, rd);
 	rd->prompt_pending = pw_core_sync(rd->core, 0, 0);
 
-	return true;
+	return 0;
 }
 
-static bool do_disconnect(struct data *data, const char *cmd, char *args, char **error)
+static int do_disconnect(struct data *data, const char *cmd, char *args, char **error)
 {
 	char *a[1];
 	int n;
@@ -662,36 +662,34 @@ static bool do_disconnect(struct data *data, const char *cmd, char *args, char *
 		rd = find_var(data, idx, TYPE_REMOTE);
 		if (rd == NULL)
 			goto no_remote;
-
 	}
 	if (rd)
 		remote_data_free(rd);
 
 	if (data->current == NULL) {
-		if (spa_list_is_empty(&data->remotes)) {
-			return true;
-		}
+		if (spa_list_is_empty(&data->remotes))
+			return 0;
 		data->current = spa_list_last(&data->remotes, struct remote_data, link);
 	}
 
-	return true;
+	return 0;
 
 no_remote:
 	*error = spa_aprintf("Remote %d does not exist", idx);
-	return false;
+	return -ENOENT;
 }
 
-static bool do_list_remotes(struct data *data, const char *cmd, char *args, char **error)
+static int do_list_remotes(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd;
 
 	spa_list_for_each(rd, &data->remotes, link)
 		printf("\t%d = @remote:%p '%s'\n", rd->id, rd->core, rd->name);
 
-	return true;
+	return 0;
 }
 
-static bool do_switch_remote(struct data *data, const char *cmd, char *args, char **error)
+static int do_switch_remote(struct data *data, const char *cmd, char *args, char **error)
 {
 	char *a[1];
 	int n, idx = 0;
@@ -709,11 +707,11 @@ static bool do_switch_remote(struct data *data, const char *cmd, char *args, cha
 	spa_list_append(&data->remotes, &rd->link);
 	data->current = rd;
 
-	return true;
+	return 0;
 
 no_remote:
 	*error = spa_aprintf("Remote %d does not exist", idx);
-	return false;
+	return -ENOENT;
 }
 
 #define MARK_CHANGE(f) ((((info)->change_mask & (f))) ? '*' : ' ')
@@ -1318,11 +1316,11 @@ static const struct pw_proxy_events proxy_events = {
 	.destroy = destroy_proxy,
 };
 
-static bool do_list_objects(struct data *data, const char *cmd, char *args, char **error)
+static int do_list_objects(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	pw_map_for_each(&rd->globals, print_global, args);
-	return true;
+	return 0;
 }
 
 static const struct class core_class = {
@@ -1477,7 +1475,7 @@ static int bind_global(struct remote_data *rd, struct global *global, char **err
 	return 0;
 }
 
-static bool do_global_info(struct global *global, char **error)
+static int do_global_info(struct global *global, char **error)
 {
 	struct remote_data *rd = global->rd;
 	struct proxy_data *pd;
@@ -1485,7 +1483,7 @@ static bool do_global_info(struct global *global, char **error)
 
 	if (global->proxy == NULL) {
 		if ((res = bind_global(rd, global, error)) < 0)
-			return false;
+			return res;
 		global->info_pending = true;
 	} else {
 		pd = pw_proxy_get_user_data(global->proxy);
@@ -1493,7 +1491,7 @@ static bool do_global_info(struct global *global, char **error)
 			pd->class->info(pd);
 		pd->global->info_pending = rd->data->monitoring_info;
 	}
-	return true;
+	return 0;
 }
 static int do_global_info_all(void *obj, void *data)
 {
@@ -1503,37 +1501,37 @@ static int do_global_info_all(void *obj, void *data)
 	if (global == NULL)
 		return 0;
 
-	if (!do_global_info(global, &error)) {
+	if (do_global_info(global, &error) < 0) {
 		fprintf(stderr, "info: %s\n", error);
 		free(error);
 	}
 	return 0;
 }
 
-static bool do_info(struct data *data, const char *cmd, char *args, char **error)
+static int do_info(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[1];
-	int n;
+	int n, res = 0;
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <object-id>|all", cmd);
-		return false;
+		return -EINVAL;
 	}
 	if (spa_streq(a[0], "all")) {
-		pw_map_for_each(&rd->globals, do_global_info_all, NULL);
+		res = pw_map_for_each(&rd->globals, do_global_info_all, NULL);
 	}
 	else {
 		global = find_global(rd, a[0]);
 		if (global == NULL) {
 			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-			return false;
+			return -ENOENT;
 		}
-		return do_global_info(global, error);
+		res = do_global_info(global, error);
 	}
-	return true;
+	return res;
 }
 
 static struct pw_properties *properties_new_checked(const char *str, char **error)
@@ -1549,7 +1547,7 @@ static struct pw_properties *properties_new_checked(const char *str, char **erro
 	return props;
 }
 
-static bool do_create_device(struct data *data, const char *cmd, char *args, char **error)
+static int do_create_device(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[2];
@@ -1561,11 +1559,11 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <factory-name> [<properties>]", cmd);
-		return false;
+		return -EINVAL;
 	}
 	if (n == 2) {
 		if ((props = properties_new_checked(a[1], error)) == NULL)
-			return false;
+			return -EINVAL;
 	}
 
 	proxy = pw_core_create_object(rd->core, a[0],
@@ -1573,8 +1571,10 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 					    PW_VERSION_DEVICE,
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
-
 	pw_properties_free(props);
+
+	if (proxy == NULL)
+		return -errno;
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
@@ -1587,10 +1587,10 @@ static bool do_create_device(struct data *data, const char *cmd, char *args, cha
 	if (rd->data->interactive)
 		print_var(data, pd->id);
 
-	return true;
+	return 0;
 }
 
-static bool do_create_node(struct data *data, const char *cmd, char *args, char **error)
+static int do_create_node(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[2];
@@ -1602,11 +1602,11 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <factory-name> [<properties>]", cmd);
-		return false;
+		return -EINVAL;
 	}
 	if (n == 2) {
 		if ((props = properties_new_checked(a[1], error)) == NULL)
-			return false;
+			return -EINVAL;
 	}
 
 	proxy = pw_core_create_object(rd->core, a[0],
@@ -1614,8 +1614,10 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 					    PW_VERSION_NODE,
 					    props ? &props->dict : NULL,
 					    sizeof(struct proxy_data));
-
 	pw_properties_free(props);
+
+	if (proxy == NULL)
+		return -errno;
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
@@ -1628,10 +1630,10 @@ static bool do_create_node(struct data *data, const char *cmd, char *args, char 
 	if (rd->data->interactive)
 		printf("%d = @proxy:%d\n", pd->id, pw_proxy_get_id(proxy));
 
-	return true;
+	return 0;
 }
 
-static bool do_destroy(struct data *data, const char *cmd, char *args, char **error)
+static int do_destroy(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[1];
@@ -1641,16 +1643,16 @@ static bool do_destroy(struct data *data, const char *cmd, char *args, char **er
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <object-id>", cmd);
-		return false;
+		return -EINVAL;
 	}
 	global = find_global(rd, a[0]);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-		return false;
+		return -ENOENT;
 	}
 	pw_registry_destroy(rd->registry, global->id);
 
-	return true;
+	return 0;
 }
 
 static struct global *
@@ -1683,7 +1685,7 @@ obj_global_port(struct remote_data *rd, struct global *global, const char *port_
 	return global_port_found;
 }
 
-static void create_link_with_properties(struct data *data, const struct pw_properties *props)
+static int create_link_with_properties(struct data *data, const struct pw_properties *props)
 {
 	struct remote_data *rd = data->current;
 	struct pw_proxy *proxy;
@@ -1695,6 +1697,8 @@ static void create_link_with_properties(struct data *data, const struct pw_prope
 					  PW_VERSION_LINK,
 					  props ? &props->dict : NULL,
 					  sizeof(struct proxy_data));
+	if (proxy == NULL)
+		return -errno;
 
 	pd = pw_proxy_get_user_data(proxy);
 	pd->rd = rd;
@@ -1706,24 +1710,24 @@ static void create_link_with_properties(struct data *data, const struct pw_prope
 	pd->id = add_var(data, proxy, TYPE_PROXY);
 	if (rd->data->interactive)
 		printf("%d = @proxy:%d\n", pd->id, pw_proxy_get_id((struct pw_proxy*)proxy));
+	return 0;
 }
 
-static bool do_create_link(struct data *data, const char *cmd, char *args, char **error)
+static int do_create_link(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[5];
-	int n;
-	struct pw_properties *props = NULL;
-	bool res = false;
+	int n, res = 0;
+	spa_autoptr(pw_properties) props = NULL;
 
 	n = pw_split_ip(args, WHITESPACE, 5, a);
 	if (n < 4) {
 		*error = spa_aprintf("%s <node-id> <port> <node-id> <port> [<properties>]", cmd);
-		return false;
+		return -EINVAL;
 	}
 	if (n == 5) {
 		if ((props = properties_new_checked(a[4], error)) == NULL)
-			return false;
+			return -EINVAL;
 	} else {
 		props = pw_properties_new(NULL, NULL);
 	}
@@ -1745,12 +1749,12 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 		global_out = find_global(rd, a[0]);
 		if (global_out == NULL) {
 			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-			goto done;
+			return -ENOENT;
 		}
 		global_in = find_global(rd, a[2]);
 		if (global_in == NULL) {
 			*error = spa_aprintf("%s: unknown global '%s'", cmd, a[2]);
-			goto done;
+			return -ENOENT;
 		}
 
 		pd_out = pw_proxy_get_user_data(global_out->proxy);
@@ -1761,7 +1765,7 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 
 		if (n_output_ports != n_input_ports) {
 			*error = spa_aprintf("%s: Number of ports don't match (%u != %u)", cmd, n_output_ports, n_input_ports);
-			goto done;
+			return -EINVAL;
 		}
 
 		for (uint32_t i = 0; i < n_output_ports; i++) {
@@ -1779,20 +1783,16 @@ static bool do_create_link(struct data *data, const char *cmd, char *args, char 
 			pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%u", global_port_out->id);
 			pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%u", global_port_in->id);
 
-			create_link_with_properties(data, props);
+			if ((res = create_link_with_properties(data, props)) < 0)
+				break;
 		}
 	} else
-		create_link_with_properties(data, props);
-
-	res = true;
-
-done:
-	pw_properties_free(props);
+		res = create_link_with_properties(data, props);
 
 	return res;
 }
 
-static bool do_export_node(struct data *data, const char *cmd, char *args, char **error)
+static int do_export_node(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	struct pw_global *global;
@@ -1805,7 +1805,7 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <node-id> [<remote-var>]", cmd);
-		return false;
+		return -EINVAL;
 	}
 	if (n == 2) {
 		idx = atoi(a[1]);
@@ -1817,11 +1817,11 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	global = pw_context_find_global(data->context, atoi(a[0]));
 	if (global == NULL) {
 		*error = spa_aprintf("object %d does not exist", atoi(a[0]));
-		return false;
+		return -ENOENT;
 	}
 	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Node)) {
 		*error = spa_aprintf("object %d is not a node", atoi(a[0]));
-		return false;
+		return -EINVAL;
 	}
 	node = pw_global_get_object(global);
 	proxy = pw_core_export(rd->core, PW_TYPE_INTERFACE_Node, NULL, node, 0);
@@ -1830,18 +1830,18 @@ static bool do_export_node(struct data *data, const char *cmd, char *args, char 
 	if (rd->data->interactive)
 		printf("%d = @proxy:%d\n", id, pw_proxy_get_id((struct pw_proxy*)proxy));
 
-	return true;
+	return 0;
 
 no_remote:
 	*error = spa_aprintf("Remote %d does not exist", idx);
-	return false;
+	return -ENOENT;
 }
 
-static bool do_enum_params(struct data *data, const char *cmd, char *args, char **error)
+static int do_enum_params(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[2];
-	int n;
+	int n, res;
 	uint32_t param_id;
 	const struct spa_type_info *ti;
 	struct global *global;
@@ -1849,24 +1849,24 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	n = pw_split_ip(args, WHITESPACE, 2, a);
 	if (n < 2) {
 		*error = spa_aprintf("%s <object-id> <param-id>", cmd);
-		return false;
+		return -EINVAL;
 	}
 
 	ti = spa_debug_type_find_short(spa_type_param, a[1]);
 	if (ti == NULL) {
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
-		return false;
+		return -EINVAL;
 	}
 	param_id = ti->type;
 
 	global = find_global(rd, a[0]);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-		return false;
+		return -ENOENT;
 	}
 	if (global->proxy == NULL) {
-		if (bind_global(rd, global, error) < 0)
-			return false;
+		if ((res = bind_global(rd, global, error)) < 0)
+			return res;
 	}
 
 	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node))
@@ -1884,12 +1884,12 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 	else {
 		*error = spa_aprintf("enum-params not implemented on object %d type:%s",
 				atoi(a[0]), global->type);
-		return false;
+		return -ENOTSUP;
 	}
-	return true;
+	return 0;
 }
 
-static bool do_set_param(struct data *data, const char *cmd, char *args, char **error)
+static int do_set_param(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[3];
@@ -1907,23 +1907,23 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 	n = pw_split_ip(args, WHITESPACE, 3, a);
 	if (n < 3) {
 		*error = spa_aprintf("%s <object-id> <param-id> <param-json>", cmd);
-		return false;
+		return -EINVAL;
 	}
 
 	global = find_global(rd, a[0]);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-		return false;
+		return -ENOENT;
 	}
 	if (global->proxy == NULL) {
-		if (bind_global(rd, global, error) < 0)
-			return false;
+		if ((res = bind_global(rd, global, error)) < 0)
+			return res;
 	}
 
 	ti = spa_debug_type_find_short(spa_type_param, a[1]);
 	if (ti == NULL) {
 		*error = spa_aprintf("%s: unknown param type: %s", cmd, a[1]);
-		return false;
+		return -EINVAL;
 	}
 	if ((res = spa_json_to_pod_checked(&b.b, 0, ti, a[2], strlen(a[2]), &loc)) < 0) {
 		if (loc.line != 0) {
@@ -1932,11 +1932,11 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 					a[2], loc.reason);
 		}
 		*error = spa_aprintf("%s: invalid pod: %s", cmd, loc.reason);
-		return false;
+		return -EINVAL;
 	}
 	if ((pod = spa_pod_builder_deref(&b.b, 0)) == NULL) {
 		*error = spa_aprintf("%s: can't make pod", cmd);
-		return false;
+		return -EINVAL;
 	}
 	spa_debug_pod(0, NULL, pod);
 
@@ -1954,16 +1954,16 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 	else {
 		*error = spa_aprintf("set-param not implemented on object %d type:%s",
 				atoi(a[0]), global->type);
-		return false;
+		return -ENOTSUP;
 	}
-	return true;
+	return 0;
 }
 
-static bool do_permissions(struct data *data, const char *cmd, char *args, char **error)
+static int do_permissions(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[3];
-	int n;
+	int res, n;
 	uint32_t p;
 	struct global *global;
 	struct pw_permission permissions[1];
@@ -1971,21 +1971,21 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 	n = pw_split_ip(args, WHITESPACE, 3, a);
 	if (n < 3) {
 		*error = spa_aprintf("%s <client-id> <object> <permission>", cmd);
-		return false;
+		return -EINVAL;
 	}
 
 	global = find_global(rd, a[0]);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-		return false;
+		return -ENOENT;
 	}
 	if (!spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {
 		*error = spa_aprintf("object %d is not a client", atoi(a[0]));
-		return false;
+		return -EINVAL;
 	}
 	if (global->proxy == NULL) {
-		if (bind_global(rd, global, error) < 0)
-			return false;
+		if ((res = bind_global(rd, global, error)) < 0)
+			return res;
 	}
 
 	p = strtol(a[2], NULL, 0);
@@ -1997,42 +1997,42 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 	pw_client_update_permissions((struct pw_client*)global->proxy,
 			1, permissions);
 
-	return true;
+	return 0;
 }
 
-static bool do_get_permissions(struct data *data, const char *cmd, char *args, char **error)
+static int do_get_permissions(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[3];
-	int n;
+	int res, n;
 	struct global *global;
 
 	n = pw_split_ip(args, WHITESPACE, 1, a);
 	if (n < 1) {
 		*error = spa_aprintf("%s <client-id>", cmd);
-		return false;
+		return -EINVAL;
 	}
 
 	global = find_global(rd, a[0]);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-		return false;
+		return -ENOENT;
 	}
 	if (!spa_streq(global->type, PW_TYPE_INTERFACE_Client)) {
 		*error = spa_aprintf("object %d is not a client", atoi(a[0]));
-		return false;
+		return -EINVAL;
 	}
 	if (global->proxy == NULL) {
-		if (bind_global(rd, global, error) < 0)
-			return false;
+		if ((res = bind_global(rd, global, error)) < 0)
+			return res;
 	}
 	pw_client_get_permissions((struct pw_client*)global->proxy,
 			0, UINT32_MAX);
 
-	return true;
+	return 0;
 }
 
-static bool do_send_command(struct data *data, const char *cmd, char *args, char **error)
+static int do_send_command(struct data *data, const char *cmd, char *args, char **error)
 {
 	struct remote_data *rd = data->current;
 	char *a[3];
@@ -2048,17 +2048,17 @@ static bool do_send_command(struct data *data, const char *cmd, char *args, char
 	n = pw_split_ip(args, WHITESPACE, 3, a);
 	if (n < 3) {
 		*error = spa_aprintf("%s <object-id> <command-id> <command-json>", cmd);
-		return false;
+		return -EINVAL;
 	}
 
 	global = find_global(rd, a[0]);
 	if (global == NULL) {
 		*error = spa_aprintf("%s: unknown global '%s'", cmd, a[0]);
-		return false;
+		return -ENOENT;
 	}
 	if (global->proxy == NULL) {
-		if (bind_global(rd, global, error) < 0)
-			return false;
+		if ((res = bind_global(rd, global, error)) < 0)
+			return res;
 	}
 
 	if (spa_streq(global->type, PW_TYPE_INTERFACE_Node)) {
@@ -2066,25 +2066,25 @@ static bool do_send_command(struct data *data, const char *cmd, char *args, char
 	} else {
 		*error = spa_aprintf("send-command not implemented on object %d type:%s",
 				atoi(a[0]), global->type);
-		return false;
+		return -ENOTSUP;
 	}
 
 	if (ti == NULL) {
 		*error = spa_aprintf("%s: unknown node command type: %s", cmd, a[1]);
-		return false;
+		return -EINVAL;
 	}
 	if ((res = spa_json_to_pod(&b.b, 0, ti, a[2], strlen(a[2]))) < 0) {
 		*error = spa_aprintf("%s: can't make pod: %s", cmd, spa_strerror(res));
-		return false;
+		return res;
 	}
 	if ((pod = spa_pod_builder_deref(&b.b, 0)) == NULL) {
 		*error = spa_aprintf("%s: can't make pod", cmd);
-		return false;
+		return -EINVAL;
 	}
 	spa_debug_pod(0, NULL, pod);
 
 	pw_node_send_command((struct pw_node*)global->proxy, (struct spa_command*)pod);
-	return true;
+	return 0;
 }
 
 static struct global *
@@ -2155,7 +2155,6 @@ global_lookup(struct global *global, const char *key)
 		return NULL;
 	return spa_dict_lookup(dict, key);
 }
-
 
 static int
 children_of(struct remote_data *rd, uint32_t parent_id,
@@ -2255,7 +2254,7 @@ children_of(struct remote_data *rd, uint32_t parent_id,
 	return count;
 }
 
-static bool parse(struct data *data, char *buf, char **error)
+static int parse(struct data *data, char *buf, char **error)
 {
 	char *a[2];
 	int n;
@@ -2267,11 +2266,11 @@ static bool parse(struct data *data, char *buf, char **error)
 	p = pw_strip(buf, "\n\r \t");
 
 	if (*p == '\0')
-		return true;
+		return 0;
 
 	n = pw_split_ip(p, WHITESPACE, 2, a);
 	if (n < 1)
-		return true;
+		return 0;
 
 	cmd = a[0];
 	args = n > 1 ? a[1] : "";
@@ -2283,7 +2282,7 @@ static bool parse(struct data *data, char *buf, char **error)
 		}
 	}
 	*error = spa_aprintf("Command \"%s\" does not exist. Type 'help' for usage.", cmd);
-	return false;
+	return -ENOTSUP;
 }
 
 /* We need a global variable, readline doesn't have a closure arg */
@@ -2293,6 +2292,7 @@ static void input_process_line(char *line)
 {
 	struct data *d = input_dataptr;
 	char *error;
+	int res;
 
 	if (!line)
 		line = strdup("quit");
@@ -2301,9 +2301,9 @@ static void input_process_line(char *line)
 #ifdef HAVE_READLINE
 		add_history(line);
 #endif
-		if (!parse(d, line, &error)) {
+		if ((res = parse(d, line, &error)) < 0) {
 			fprintf(stderr, "Error: \"%s\"\n", error);
-			d->res = -EINVAL;
+			d->res = res;
 			free(error);
 		}
 	}
@@ -2427,7 +2427,7 @@ int main(int argc, char *argv[])
 		{ "remote",	required_argument,	NULL, 'r' },
 		{ NULL,	0, NULL, 0}
 	};
-	int c, i;
+	int c, i, res;
 
 	setlinebuf(stdout);
 
@@ -2486,7 +2486,7 @@ int main(int argc, char *argv[])
 
 	pw_context_load_module(data.context, "libpipewire-module-link-factory", NULL, NULL);
 
-	if (!do_connect(&data, "connect", opt_remote, &error)) {
+	if ((res = do_connect(&data, "connect", opt_remote, &error)) < 0) {
 		fprintf(stderr, "Error: \"%s\"\n", error);
 		return -1;
 	}
@@ -2523,9 +2523,9 @@ int main(int argc, char *argv[])
 
 		pw_main_loop_run(data.loop);
 
-		if (!parse(&data, ptr, &error)) {
+		if ((res = parse(&data, ptr, &error)) < 0) {
 			fprintf(stderr, "Error: \"%s\"\n", error);
-			data.res = -EINVAL;
+			data.res = res;
 			free(error);
 		}
 		free(ptr);
@@ -2547,5 +2547,5 @@ int main(int argc, char *argv[])
 	pw_map_clear(&data.vars);
 	pw_deinit();
 
-	return data.res == 0 ? 0 : -1;
+	return data.res < 0 ? -1 : 0;
 }

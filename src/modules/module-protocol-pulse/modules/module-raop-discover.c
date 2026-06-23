@@ -18,7 +18,7 @@
  *
  * ## Module Options
  *
- * No options.
+ * @pulse_module_options@
  *
  * ## See Also
  *
@@ -26,7 +26,7 @@
  */
 
 static const struct module_args valid_args[] = {
-	{ "latency_msec", "latency in ms", },
+	{ "latency_msec", "latency", 0, MODULE_TYPE_MSEC, NULL },
 	{ NULL, }
 };
 
@@ -106,7 +106,6 @@ static int module_raop_discover_unload(struct module *module)
 static const struct spa_dict_item module_raop_discover_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "mDNS/DNS-SD Service Discovery of RAOP devices" },
-	{ PW_KEY_MODULE_USAGE, "" },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

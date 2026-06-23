@@ -25,11 +25,9 @@
  * \ref page_module_zeroconf_discover "libpipewire-module-zeroconf-discover"
  */
 
-static const char *const pulse_module_options =
-	"latency_msec=<fixed latency in ms> ";
 
 static const struct module_args valid_args[] = {
-	{ "latency_msec", "fixed latency in ms", },
+	{ "latency_msec", "fixed latency", 0, MODULE_TYPE_MSEC, NULL },
 	{ NULL, }
 };
 
@@ -109,7 +107,6 @@ static int module_zeroconf_discover_unload(struct module *module)
 static const struct spa_dict_item module_zeroconf_discover_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "mDNS/DNS-SD Service Discovery" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

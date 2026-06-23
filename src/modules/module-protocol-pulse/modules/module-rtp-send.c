@@ -25,37 +25,24 @@
  * \ref page_module_rtp_sink "libpipewire-module-rtp-sink"
  */
 
-static const char *const pulse_module_options =
-	"source=<name of the source> "
-	"format=<sample format> "
-	"channels=<number of channels> "
-	"rate=<sample rate> "
-	"destination_ip=<destination IP address> "
-	"source_ip=<source IP address> "
-	"port=<port number> "
-	"mtu=<maximum transfer unit> "
-	"loop=<loopback to local host?> "
-	"ttl=<ttl value> "
-	"inhibit_auto_suspend=<always|never|only_with_non_monitor_sources> "
-	"stream_name=<name of the stream> "
-	"stream_properties=<properties for the stream> "
-	"enable_opus=<enable OPUS codec>";
+
+static const char *inhibit_auto_suspend_vals[] = { "always", "never", "only_with_non_monitor_sources", NULL };
 
 static const struct module_args valid_args[] = {
-	{ "source", "name of the source", },
-	{ "format", "sample format", },
-	{ "channels", "number of channels", },
-	{ "rate", "sample rate", },
-	{ "destination_ip", "destination IP address", },
-	{ "source_ip", "source IP address", },
-	{ "port", "port number", },
-	{ "mtu", "maximum transfer unit", },
-	{ "loop", "loopback to local host", },
-	{ "ttl", "ttl value", },
-	{ "inhibit_auto_suspend", "always|never|only_with_non_monitor_sources", },
-	{ "stream_name", "name of the stream", },
-	{ "stream_properties", "properties for the stream", },
-	{ "enable_opus", "enable OPUS codec", },
+	{ "source", "name of the source", 0, MODULE_TYPE_STRING, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "destination_ip", "destination IP address", 0, MODULE_TYPE_STRING, NULL },
+	{ "source_ip", "source IP address", 0, MODULE_TYPE_STRING, NULL },
+	{ "port", "port number", 0, MODULE_TYPE_INT, NULL },
+	{ "mtu", "maximum transfer unit", 0, MODULE_TYPE_INT, NULL },
+	{ "loop", "loopback to local host", 0, MODULE_TYPE_BOOL, NULL },
+	{ "ttl", "ttl value", 0, MODULE_TYPE_INT, NULL },
+	{ "inhibit_auto_suspend", "inhibit auto suspend policy", 0, MODULE_TYPE_STRINGE, NULL, inhibit_auto_suspend_vals },
+	{ "stream_name", "name of the stream", 0, MODULE_TYPE_STRING, NULL },
+	{ "stream_properties", "properties for the stream", 0, MODULE_TYPE_PROPS, NULL },
+	{ "enable_opus", "enable OPUS codec", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, },
 };
 
@@ -199,7 +186,6 @@ static int module_rtp_send_unload(struct module *module)
 static const struct spa_dict_item module_rtp_send_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Read data from source and send it to the network via RTP/SAP/SDP" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

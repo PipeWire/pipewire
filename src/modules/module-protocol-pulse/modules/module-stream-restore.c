@@ -18,21 +18,14 @@
  * @pulse_module_options@
  */
 
-static const char *const pulse_module_options =
-	"restore_device=<Save/restore sinks/sources?> "
-	"restore_volume=<Save/restore volumes?> "
-	"restore_muted=<Save/restore muted states?> "
-	"on_hotplug=<This argument is obsolete, please remove it from configuration> "
-	"on_rescue=<This argument is obsolete, please remove it from configuration> "
-	"fallback_table=<filename>";
 
 static const struct module_args valid_args[] = {
-	{ "restore_device", "Save/restore sinks/sources?", },
-	{ "restore_volume", "Save/restore volumes?", },
-	{ "restore_muted", "Save/restore muted states?", },
-	{ "on_hotplug", "This argument is obsolete, please remove it from configuration", },
-	{ "on_rescue", "This argument is obsolete, please remove it from configuration", },
-	{ "fallback_table", "filename", },
+	{ "restore_device", "Save/restore sinks/sources", 0, MODULE_TYPE_BOOL, NULL },
+	{ "restore_volume", "Save/restore volumes", 0, MODULE_TYPE_BOOL, NULL },
+	{ "restore_muted", "Save/restore muted states", 0, MODULE_TYPE_BOOL, NULL },
+	{ "on_hotplug", "recheck streams on hotplug", MODULE_ARG_ENOTIMPL, MODULE_TYPE_BOOL, NULL },
+	{ "on_rescue", "recheck streams on rescue", MODULE_ARG_ENOTIMPL, MODULE_TYPE_BOOL, NULL },
+	{ "fallback_table", "filename", 0, MODULE_TYPE_STRING, NULL },
 	{ NULL, }
 };
 
@@ -50,7 +43,6 @@ struct module_stream_restore_data {
 static const struct spa_dict_item module_stream_restore_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Automatically restore the volume/mute/device state of streams" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

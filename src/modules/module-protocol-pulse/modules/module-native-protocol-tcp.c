@@ -21,15 +21,11 @@
  * @pulse_module_options@
  */
 
-static const char *const pulse_module_options =
-	"port=<TCP port number> "
-	"listen=<address to listen on> "
-	"auth-anonymous=<don't check for cookies?>";
 
 static const struct module_args valid_args[] = {
-	{ "port", "TCP port number", },
-	{ "listen", "address to listen on", },
-	{ "auth-anonymous", "don't check for cookies?", },
+	{ "port", "TCP port number", 0, MODULE_TYPE_INT, "4713" },
+	{ "listen", "address to listen on", 0, MODULE_TYPE_STRING, NULL },
+	{ "auth-anonymous", "don't check for cookies", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -78,7 +74,6 @@ static int module_native_protocol_tcp_unload(struct module *module)
 static const struct spa_dict_item module_native_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Native protocol (TCP sockets)" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

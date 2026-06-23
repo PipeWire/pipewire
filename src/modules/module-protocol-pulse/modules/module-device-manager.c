@@ -17,15 +17,11 @@
  * @pulse_module_options@
  */
 
-static const char *const pulse_module_options =
-	"do_routing=<Automatically route streams based on a priority list (unique per-role)?> "
-	"on_hotplug=<When new device becomes available, recheck streams?> "
-	"on_rescue=<When device becomes unavailable, recheck streams?>";
 
 static const struct module_args valid_args[] = {
-	{ "do_routing", "Automatically route streams based on a priority list (unique per-role)?", },
-	{ "on_hotplug", "When new device becomes available, recheck streams?", },
-	{ "on_rescue", "When device becomes unavailable, recheck streams?", },
+	{ "do_routing", "Automatically route streams based on a priority list (unique per-role)", 0, MODULE_TYPE_BOOL, NULL },
+	{ "on_hotplug", "When new device becomes available, recheck streams", 0, MODULE_TYPE_BOOL, NULL },
+	{ "on_rescue", "When device becomes unavailable, recheck streams", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -41,7 +37,6 @@ struct module_device_manager_data {
 static const struct spa_dict_item module_device_manager_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Keep track of devices (and their descriptions) both past and present and prioritise by role" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

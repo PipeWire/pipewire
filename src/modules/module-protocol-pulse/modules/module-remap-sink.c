@@ -26,29 +26,18 @@
  * \ref page_module_loopback "libpipewire-module-loopback"
  */
 
-static const char *const pulse_module_options =
-	"sink_name=<name for the sink> "
-	"sink_properties=<properties for the sink> "
-	"master=<name of sink to remap> "
-	"master_channel_map=<channel map> "
-	"format=<sample format> "
-	"rate=<sample rate> "
-	"channels=<number of channels> "
-	"channel_map=<channel map> "
-	"resample_method=<resampler> "
-	"remix=<remix channels?>";
 
 static const struct module_args valid_args[] = {
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "master", "name of sink to remap", },
-	{ "master_channel_map", "channel map", },
-	{ "format", "sample format", },
-	{ "rate", "sample rate", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "resample_method", "resampler", },
-	{ "remix", "remix channels?", },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "master", "name of sink to remap", 0, MODULE_TYPE_STRING, NULL },
+	{ "master_channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "resample_method", "resampler", 0, MODULE_TYPE_STRING, NULL },
+	{ "remix", "remix channels", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -141,7 +130,6 @@ static int module_remap_sink_unload(struct module *module)
 static const struct spa_dict_item module_remap_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Remap sink channels" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

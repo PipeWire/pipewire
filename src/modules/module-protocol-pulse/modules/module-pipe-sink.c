@@ -31,25 +31,16 @@
  * \ref page_module_pipe_tunnel "libpipewire-module-pipe-tunnel"
  */
 
-static const char *const pulse_module_options =
-	"file=<name of the FIFO special file to use> "
-	"sink_name=<name for the sink> "
-	"sink_properties=<sink properties> "
-	"format=<sample format> "
-	"rate=<sample rate> "
-	"channels=<number of channels> "
-	"channel_map=<channel map> "
-	"use_system_clock_for_timing=<yes or no> ";
 
 static const struct module_args valid_args[] = {
-	{ "file", "name of the FIFO special file to use", },
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "sink properties", },
-	{ "format", "sample format", },
-	{ "rate", "sample rate", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "use_system_clock_for_timing", "yes or no", },
+	{ "file", "name of the FIFO special file to use", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, "fifo_output" },
+	{ "sink_properties", "sink properties", 0, MODULE_TYPE_PROPS, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "use_system_clock_for_timing", "use system clock for timing", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -134,7 +125,6 @@ static int module_pipe_sink_unload(struct module *module)
 static const struct spa_dict_item module_pipe_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Pipe sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

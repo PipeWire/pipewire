@@ -19,10 +19,9 @@
  * @pulse_module_options@
  */
 
-static const char *const pulse_module_options = "sink_name=<name of sink>";
 
 static const struct module_args valid_args[] = {
-	{ "sink_name", "name of sink", },
+	{ "sink_name", "name of sink", 0, MODULE_TYPE_STRING, NULL },
 	{ NULL, }
 };
 
@@ -98,7 +97,6 @@ static int module_always_sink_unload(struct module *module)
 static const struct spa_dict_item module_always_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Pauli Virtanen <pav@iki.fi>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Always keeps at least one sink loaded even if it's a null one" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

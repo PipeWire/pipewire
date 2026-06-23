@@ -23,17 +23,12 @@
  * \ref page_module_x11_bell "libpipewire-module-x11-bell"
  */
 
-static const char *const pulse_module_options =
-	"sink=<sink to connect to> "
-	"sample=<the sample to play> "
-	"display=<X11 display> "
-	"xauthority=<X11 Authority>";
 
 static const struct module_args valid_args[] = {
-	{ "sink", "sink to connect to", },
-	{ "sample", "the sample to play", },
-	{ "display", "X11 display", },
-	{ "xauthority", "X11 Authority", },
+	{ "sink", "sink to connect to", 0, MODULE_TYPE_STRING, NULL },
+	{ "sample", "the sample to play", 0, MODULE_TYPE_STRING, NULL },
+	{ "display", "X11 display", 0, MODULE_TYPE_STRING, NULL },
+	{ "xauthority", "X11 Authority", 0, MODULE_TYPE_STRING, NULL },
 	{ NULL, }
 };
 
@@ -125,7 +120,6 @@ static int module_x11_bell_prepare(struct module * const module)
 static const struct spa_dict_item module_x11_bell_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "X11 bell interceptor" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

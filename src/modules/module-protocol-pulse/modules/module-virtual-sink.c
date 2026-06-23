@@ -26,23 +26,15 @@
  * \ref page_module_loopback "libpipewire-module-loopback"
  */
 
-static const char *const pulse_module_options =
-	"sink_name=<name for the sink> "
-	"sink_properties=<properties for the sink> "
-	"master=<name of sink to filter> "
-	"channels=<number of channels> "
-	"channel_map=<channel map> "
-	"use_volume_sharing=<yes or no> "
-	"force_flat_volume=<yes or no> ";
 
 static const struct module_args valid_args[] = {
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "master", "name of sink to filter", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "use_volume_sharing", "yes or no", },
-	{ "force_flat_volume", "yes or no", },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, "vsink" },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "master", "name of sink to filter", 0, MODULE_TYPE_STRING, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "use_volume_sharing", "share volume with master", 0, MODULE_TYPE_BOOL, NULL },
+	{ "force_flat_volume", "force flat volume", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -137,7 +129,6 @@ static int module_virtual_sink_unload(struct module *module)
 static const struct spa_dict_item module_virtual_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Virtual sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

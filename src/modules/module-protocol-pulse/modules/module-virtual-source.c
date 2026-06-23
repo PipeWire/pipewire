@@ -27,25 +27,16 @@
  * \ref page_module_loopback "libpipewire-module-loopback"
  */
 
-static const char *const pulse_module_options =
-	"source_name=<name for the source> "
-	"source_properties=<properties for the source> "
-	"master=<name of source to filter> "
-	"uplink_sink=<name> (optional)"
-	"channels=<number of channels> "
-	"channel_map=<channel map> "
-	"use_volume_sharing=<yes or no> "
-	"force_flat_volume=<yes or no> ";
 
 static const struct module_args valid_args[] = {
-	{ "source_name", "name for the source", },
-	{ "source_properties", "properties for the source", },
-	{ "master", "name of source to filter", },
-	{ "uplink_sink", "name", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "use_volume_sharing", "yes or no", },
-	{ "force_flat_volume", "yes or no", },
+	{ "source_name", "name for the source", 0, MODULE_TYPE_STRING, "vsource" },
+	{ "source_properties", "properties for the source", 0, MODULE_TYPE_PROPS, NULL },
+	{ "master", "name of source to filter", 0, MODULE_TYPE_STRING, NULL },
+	{ "uplink_sink", "name", 0, MODULE_TYPE_STRING, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "use_volume_sharing", "share volume with master", 0, MODULE_TYPE_BOOL, NULL },
+	{ "force_flat_volume", "force flat volume", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -140,7 +131,6 @@ static int module_virtual_source_unload(struct module *module)
 static const struct spa_dict_item module_virtual_source_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Loopback from source to sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

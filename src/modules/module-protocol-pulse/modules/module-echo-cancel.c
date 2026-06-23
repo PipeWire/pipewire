@@ -27,31 +27,19 @@
  * \ref page_module_echo_cancel "libpipewire-module-echo-cancel"
  */
 
-static const char *const pulse_module_options =
-	"source_name=<name for the source> "
-	"source_properties=<properties for the source> "
-	"source_master=<name of source to filter> "
-	"sink_name=<name for the sink> "
-	"sink_properties=<properties for the sink> "
-	"sink_master=<name of sink to filter> "
-	"rate=<sample rate> "
-	"channels=<number of channels> "
-	"channel_map=<channel map> "
-	"aec_method=<implementation to use> "
-	"aec_args=<parameters for the AEC engine> ";
 
 static const struct module_args valid_args[] = {
-	{ "source_name", "name for the source", },
-	{ "source_properties", "properties for the source", },
-	{ "source_master", "name of source to filter", },
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "sink_master", "name of sink to filter", },
-	{ "rate", "sample rate", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "aec_method", "implementation to use", },
-	{ "aec_args", "parameters for the AEC engine", },
+	{ "source_name", "name for the source", 0, MODULE_TYPE_STRING, "echo-cancel-source" },
+	{ "source_properties", "properties for the source", 0, MODULE_TYPE_PROPS, NULL },
+	{ "source_master", "name of source to filter", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, "echo-cancel-sink" },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "sink_master", "name of sink to filter", 0, MODULE_TYPE_STRING, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "aec_method", "implementation to use", 0, MODULE_TYPE_STRING, "webrtc" },
+	{ "aec_args", "parameters for the AEC engine", 0, MODULE_TYPE_STRING, NULL },
 	{ NULL, }
 };
 
@@ -175,7 +163,6 @@ static int module_echo_cancel_unload(struct module *module)
 static const struct spa_dict_item module_echo_cancel_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Acoustic echo canceller" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

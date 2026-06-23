@@ -28,31 +28,19 @@
  * \ref page_module_pulse_tunnel "libpipewire-module-pulse-tunnel"
  */
 
-static const char *const pulse_module_options =
-	"server=<address> "
-	"sink=<name of the remote sink> "
-	"sink_name=<name for the local sink> "
-	"sink_properties=<properties for the local sink> "
-	"reconnect_interval_ms=<interval to try reconnects, 0 or omitted if disabled> "
-	"format=<sample format> "
-	"channels=<number of channels> "
-	"rate=<sample rate> "
-	"channel_map=<channel map> "
-	"latency_msec=<fixed latency in ms> "
-	"cookie=<cookie file path>";
 
 static const struct module_args valid_args[] = {
-	{ "server", "address", MODULE_ARG_MANDATORY },
-	{ "sink", "name of the remote sink", },
-	{ "sink_name", "name for the local sink", },
-	{ "sink_properties", "properties for the local sink", },
-	{ "reconnect_interval_ms", "interval to try reconnects, 0 or omitted if disabled", },
-	{ "format", "sample format", },
-	{ "channels", "number of channels", },
-	{ "rate", "sample rate", },
-	{ "channel_map", "channel map", },
-	{ "latency_msec", "fixed latency in ms", },
-	{ "cookie", "cookie file path", },
+	{ "server", "address", MODULE_ARG_MANDATORY, MODULE_TYPE_STRING, NULL },
+	{ "sink", "name of the remote sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_name", "name for the local sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_properties", "properties for the local sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "reconnect_interval_ms", "interval to try reconnects, 0 or omitted if disabled", 0, MODULE_TYPE_MSEC, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "latency_msec", "fixed latency", 0, MODULE_TYPE_MSEC, NULL },
+	{ "cookie", "cookie file path", 0, MODULE_TYPE_STRING, NULL },
 	{ NULL, }
 };
 
@@ -138,7 +126,6 @@ static int module_tunnel_sink_unload(struct module *module)
 static const struct spa_dict_item module_tunnel_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Create a network sink which connects to a remote PulseAudio server" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

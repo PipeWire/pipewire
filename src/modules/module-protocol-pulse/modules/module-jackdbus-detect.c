@@ -25,33 +25,20 @@
  * \ref page_module_jackdbus_detect "libpipewire-module-jackdbus-detect"
  */
 
-static const char *const pulse_module_options =
-	"channels=<number of channels> "
-	"sink_name=<name for the sink> "
-	"sink_properties=<properties for the sink> "
-	"sink_client_name=<jack client name> "
-	"sink_channels=<number of channels> "
-	"sink_channel_map=<channel map> "
-	"source_name=<name for the source> "
-	"source_properties=<properties for the source> "
-	"source_client_name=<jack client name> "
-	"source_channels=<number of channels> "
-	"source_channel_map=<channel map> "
-	"connect=<connect ports?>";
 
 static const struct module_args valid_args[] = {
-	{ "channels", "number of channels", },
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "sink_client_name", "jack client name", },
-	{ "sink_channels", "number of channels", },
-	{ "sink_channel_map", "channel map", },
-	{ "source_name", "name for the source", },
-	{ "source_properties", "properties for the source", },
-	{ "source_client_name", "jack client name", },
-	{ "source_channels", "number of channels", },
-	{ "source_channel_map", "channel map", },
-	{ "connect", "connect ports?", },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, "jack_out" },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "sink_client_name", "jack client name", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "sink_channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "source_name", "name for the source", 0, MODULE_TYPE_STRING, "jack_in" },
+	{ "source_properties", "properties for the source", 0, MODULE_TYPE_PROPS, NULL },
+	{ "source_client_name", "jack client name", 0, MODULE_TYPE_STRING, NULL },
+	{ "source_channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "source_channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "connect", "connect ports", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -147,7 +134,6 @@ static int module_jackdbus_detect_unload(struct module *module)
 static const struct spa_dict_item module_jackdbus_detect_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.con>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Creates a JACK client when jackdbus is started" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

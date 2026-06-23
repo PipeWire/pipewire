@@ -27,37 +27,22 @@
  * \ref page_module_filter_chain "libpipewire-module-filter-chain"
  */
 
-static const char *const pulse_module_options =
-	"sink_name=<name for the sink> "
-	"sink_properties=<properties for the sink> "
-	"sink_input_properties=<properties for the sink input> "
-	"master=<name of sink to filter> "
-	"sink_master=<name of sink to filter> "
-	"format=<sample format> "
-	"rate=<sample rate> "
-	"channels=<number of channels> "
-	"channel_map=<input channel map> "
-	"plugin=<ladspa plugin name> "
-	"label=<ladspa plugin label> "
-	"control=<comma separated list of input control values> "
-	"input_ladspaport_map=<comma separated list of input LADSPA port names> "
-	"output_ladspaport_map=<comma separated list of output LADSPA port names> ";
 
 static const struct module_args valid_args[] = {
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "sink_input_properties", "properties for the sink input", },
-	{ "master", "name of sink to filter", },
-	{ "sink_master", "name of sink to filter", },
-	{ "format", "sample format", },
-	{ "rate", "sample rate", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "plugin", "LADSPA plugin name", MODULE_ARG_MANDATORY },
-	{ "label", "LADSPA plugin label", MODULE_ARG_MANDATORY },
-	{ "control", "comma separated list of input control values", },
-	{ "input_ladspaport_map", "comma separated list of input LADSPA port names", },
-	{ "output_ladspaport_map", "comma separated list of output LADSPA port names", },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "sink_input_properties", "properties for the sink input", 0, MODULE_TYPE_PROPS, NULL },
+	{ "master", "name of sink to filter", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_master", "name of sink to filter", 0, MODULE_TYPE_STRING, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "plugin", "LADSPA plugin name", MODULE_ARG_MANDATORY, MODULE_TYPE_STRING, NULL },
+	{ "label", "LADSPA plugin label", MODULE_ARG_MANDATORY, MODULE_TYPE_STRING, NULL },
+	{ "control", "comma separated list of input control values", 0, MODULE_TYPE_STRINGV, NULL },
+	{ "input_ladspaport_map", "comma separated list of input LADSPA port names", 0, MODULE_TYPE_STRINGV, NULL },
+	{ "output_ladspaport_map", "comma separated list of output LADSPA port names", 0, MODULE_TYPE_STRINGV, NULL },
 	{ NULL, }
 };
 
@@ -196,7 +181,6 @@ static int module_ladspa_sink_unload(struct module *module)
 static const struct spa_dict_item module_ladspa_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Virtual LADSPA sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

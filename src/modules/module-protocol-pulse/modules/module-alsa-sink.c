@@ -18,57 +18,32 @@
  * @pulse_module_options@
  */
 
-static const char *const pulse_module_options =
-	"name=<name of the sink, to be prefixed> "
-	"sink_name=<name for the sink> "
-	"sink_properties=<properties for the sink> "
-	"namereg_fail=<when false attempt to synthesise new sink_name if it is already taken> "
-	"device=<ALSA device> "
-	"device_id=<ALSA card index> "
-	"format=<sample format> "
-	"rate=<sample rate> "
-	"alternate_rate=<alternate sample rate> "
-	"channels=<number of channels> "
-	"channel_map=<channel map> "
-	"fragments=<number of fragments> "
-	"fragment_size=<fragment size> "
-	"mmap=<enable memory mapping?> "
-	"tsched=<enable system timer based scheduling mode?> "
-	"tsched_buffer_size=<buffer size when using timer based scheduling> "
-	"tsched_buffer_watermark=<lower fill watermark> "
-	"ignore_dB=<ignore dB information from the device?> "
-	"control=<name of mixer control, or name and index separated by a comma> "
-	"rewind_safeguard=<number of bytes that cannot be rewound> " 
-	"deferred_volume=<Synchronize software and hardware volume changes to avoid momentary jumps?> "
-	"deferred_volume_safety_margin=<usec adjustment depending on volume direction> "
-	"deferred_volume_extra_delay=<usec adjustment to HW volume changes> "
-	"fixed_latency_range=<disable latency range changes on underrun?> ";
 
 static const struct module_args valid_args[] = {
-	{ "name", "name of the sink, to be prefixed", },
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "namereg_fail", "when false attempt to synthesise new sink_name if it is already taken", },
-	{ "device", "ALSA device", },
-	{ "device_id", "ALSA card index", },
-	{ "format", "sample format", },
-	{ "rate", "sample rate", },
-	{ "alternate_rate", "alternate sample rate", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "fragments", "number of fragments", },
-	{ "fragment_size", "fragment size", },
-	{ "mmap", "enable memory mapping?", },
-	{ "tsched", "enable system timer based scheduling mode?", },
-	{ "tsched_buffer_size", "buffer size when using timer based scheduling", },
-	{ "tsched_buffer_watermark", "lower fill watermark", },
-	{ "ignore_dB", "ignore dB information from the device?", },
-	{ "control", "name of mixer control, or name and index separated by a comma", },
-	{ "rewind_safeguard", "number of bytes that cannot be rewound", },
-	{ "deferred_volume", "Synchronize software and hardware volume changes to avoid momentary jumps?", },
-	{ "deferred_volume_safety_margin", "usec adjustment depending on volume direction", },
-	{ "deferred_volume_extra_delay", "usec adjustment to HW volume changes", },
-	{ "fixed_latency_range", "disable latency range changes on underrun?", },
+	{ "name", "name of the sink, to be prefixed", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "namereg_fail", "when false attempt to synthesise new sink_name if it is already taken", 0, MODULE_TYPE_BOOL, NULL },
+	{ "device", "ALSA device", 0, MODULE_TYPE_STRING, "default" },
+	{ "device_id", "ALSA card index", 0, MODULE_TYPE_STRING, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "alternate_rate", "alternate sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "fragments", "number of fragments", 0, MODULE_TYPE_INT, NULL },
+	{ "fragment_size", "fragment size", 0, MODULE_TYPE_INT, NULL },
+	{ "mmap", "enable memory mapping", 0, MODULE_TYPE_BOOL, NULL },
+	{ "tsched", "enable system timer based scheduling mode", 0, MODULE_TYPE_BOOL, NULL },
+	{ "tsched_buffer_size", "buffer size when using timer based scheduling", 0, MODULE_TYPE_INT, NULL },
+	{ "tsched_buffer_watermark", "lower fill watermark", 0, MODULE_TYPE_INT, NULL },
+	{ "ignore_dB", "ignore dB information from the device", 0, MODULE_TYPE_BOOL, NULL },
+	{ "control", "name of mixer control, or name and index separated by a comma", 0, MODULE_TYPE_STRING, NULL },
+	{ "rewind_safeguard", "number of bytes that cannot be rewound", 0, MODULE_TYPE_INT, NULL },
+	{ "deferred_volume", "Synchronize software and hardware volume changes to avoid momentary jumps", 0, MODULE_TYPE_BOOL, NULL },
+	{ "deferred_volume_safety_margin", "adjustment depending on volume direction", 0, MODULE_TYPE_USEC, NULL },
+	{ "deferred_volume_extra_delay", "adjustment to HW volume changes", 0, MODULE_TYPE_USEC, NULL },
+	{ "fixed_latency_range", "disable latency range changes on underrun", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -196,7 +171,6 @@ static int module_alsa_sink_unload(struct module *module)
 static const struct spa_dict_item module_alsa_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "An ALSA sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

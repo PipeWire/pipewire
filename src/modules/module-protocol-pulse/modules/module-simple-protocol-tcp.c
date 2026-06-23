@@ -25,29 +25,18 @@
  * \ref page_module_protocol_simple "libpipewire-module-protocol-simple"
  */
 
-static const char *const pulse_module_options =
-	"rate=<sample rate> "
-	"format=<sample format> "
-	"channels=<number of channels> "
-	"channel_map=<number of channels> "
-	"sink=<sink to connect to> "
-	"source=<source to connect to> "
-	"playback=<enable playback?> "
-	"record=<enable record?> "
-	"port=<TCP port number> "
-	"listen=<address to listen on>";
 
 static const struct module_args valid_args[] = {
-	{ "rate", "sample rate", },
-	{ "format", "sample format", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "number of channels", },
-	{ "sink", "sink to connect to", },
-	{ "source", "source to connect to", },
-	{ "playback", "enable playback?", },
-	{ "record", "enable record?", },
-	{ "port", "TCP port number", },
-	{ "listen", "address to listen on", },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "number of channels", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "sink", "sink to connect to", 0, MODULE_TYPE_STRING, NULL },
+	{ "source", "source to connect to", 0, MODULE_TYPE_STRING, NULL },
+	{ "playback", "enable playback", 0, MODULE_TYPE_BOOL, NULL },
+	{ "record", "enable record", 0, MODULE_TYPE_BOOL, NULL },
+	{ "port", "TCP port number", 0, MODULE_TYPE_INT, "4711" },
+	{ "listen", "address to listen on", 0, MODULE_TYPE_STRING, NULL },
 	{ NULL, }
 };
 
@@ -128,7 +117,6 @@ static int module_simple_protocol_tcp_unload(struct module *module)
 static const struct spa_dict_item module_simple_protocol_tcp_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Simple protocol (TCP sockets)" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

@@ -57,17 +57,12 @@ enum {
 #include "../reply.h"
 #include "../volume.h"
 
-static const char *const pulse_module_options =
-	"restore_port=<Save/restore port?> "
-	"restore_volume=<Save/restore volumes?> "
-	"restore_muted=<Save/restore muted states?> "
-	"restore_formats=<Save/restore saved formats?>";
 
 static const struct module_args valid_args[] = {
-	{ "restore_port", "Save/restore port?", },
-	{ "restore_volume", "Save/restore volumes?", },
-	{ "restore_muted", "Save/restore muted states?", },
-	{ "restore_formats", "Save/restore saved formats?", },
+	{ "restore_port", "Save/restore port", 0, MODULE_TYPE_BOOL, NULL },
+	{ "restore_volume", "Save/restore volumes", 0, MODULE_TYPE_BOOL, NULL },
+	{ "restore_muted", "Save/restore muted states", 0, MODULE_TYPE_BOOL, NULL },
+	{ "restore_formats", "Save/restore saved formats", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -85,7 +80,6 @@ struct module_device_restore_data {
 static const struct spa_dict_item module_device_restore_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Automatically restore the volume/mute state of devices" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

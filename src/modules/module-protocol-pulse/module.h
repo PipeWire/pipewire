@@ -21,7 +21,22 @@ struct module_args {
 	const char *key;
 	const char *description;
 #define MODULE_ARG_MANDATORY	(1u<<0)
+#define MODULE_ARG_ENOTIMPL	(1u<<1)
 	uint32_t flags;
+#define MODULE_TYPE_NONE	""
+#define MODULE_TYPE_STRING	"string"
+#define MODULE_TYPE_STRINGV	"stringv"
+#define MODULE_TYPE_STRINGE	"stringe"
+#define MODULE_TYPE_USEC	"usec"
+#define MODULE_TYPE_MSEC	"msec"
+#define MODULE_TYPE_INT		"int"
+#define MODULE_TYPE_BOOL	"bool"
+#define MODULE_TYPE_PROPS	"proplist"
+#define MODULE_TYPE_FORMAT	"format"
+#define MODULE_TYPE_CHMAP	"chmap"
+	const char *type;
+	const char *def;
+	const char **vals;
 };
 
 struct module_info {

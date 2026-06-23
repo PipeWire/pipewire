@@ -27,31 +27,19 @@
  * \ref page_module_loopback "libpipewire-module-loopback"
  */
 
-static const char *const pulse_module_options =
-	"source=<source to connect to> "
-	"sink=<sink to connect to> "
-	"latency_msec=<latency in ms> "
-	"rate=<sample rate> "
-	"channels=<number of channels> "
-	"channel_map=<channel map> "
-	"sink_input_properties=<proplist> "
-	"source_output_properties=<proplist> "
-	"source_dont_move=<boolean> "
-	"sink_dont_move=<boolean> "
-	"remix=<remix channels?> ";
 
 static const struct module_args valid_args[] = {
-	{ "source", "source to connect to", },
-	{ "sink", "sink to connect to", },
-	{ "latency_msec", "latency in ms", },
-	{ "rate", "sample rate", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
-	{ "sink_input_properties", "proplist", },
-	{ "source_output_properties", "proplist", },
-	{ "source_dont_move", "boolean", },
-	{ "sink_dont_move", "boolean", },
-	{ "remix", "remix channels?", },
+	{ "source", "source to connect to", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink", "sink to connect to", 0, MODULE_TYPE_STRING, NULL },
+	{ "latency_msec", "latency", 0, MODULE_TYPE_MSEC, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
+	{ "sink_input_properties", "proplist", 0, MODULE_TYPE_PROPS, NULL },
+	{ "source_output_properties", "proplist", 0, MODULE_TYPE_PROPS, NULL },
+	{ "source_dont_move", "boolean", 0, MODULE_TYPE_BOOL, NULL },
+	{ "sink_dont_move", "boolean", 0, MODULE_TYPE_BOOL, NULL },
+	{ "remix", "remix channels", 0, MODULE_TYPE_BOOL, NULL },
 	{ NULL, }
 };
 
@@ -146,7 +134,6 @@ static int module_loopback_unload(struct module *module)
 static const struct spa_dict_item module_loopback_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Arun Raghavan <arun@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Loopback from source to sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

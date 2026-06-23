@@ -25,17 +25,12 @@
  * \ref page_module_rtp_sap "libpipewire-module-rtp-sap"
  */
 
-static const char *const pulse_module_options =
-	"sink=<name of the sink> "
-	"sap_address=<multicast address to listen on> "
-	"latency_msec=<latency in ms> "
-	"stream_properties=<properties for the stream> ";
 
 static const struct module_args valid_args[] = {
-	{ "sink", "name of the sink", },
-	{ "sap_address", "multicast address to listen on", },
-	{ "latency_msec", "latency in ms", },
-	{ "stream_properties", "properties for the stream", },
+	{ "sink", "name of the sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sap_address", "multicast address to listen on", 0, MODULE_TYPE_STRING, NULL },
+	{ "latency_msec", "latency", 0, MODULE_TYPE_MSEC, NULL },
+	{ "stream_properties", "properties for the stream", 0, MODULE_TYPE_PROPS, NULL },
 	{ NULL, }
 };
 
@@ -134,7 +129,6 @@ static int module_rtp_recv_unload(struct module *module)
 static const struct spa_dict_item module_rtp_recv_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "Receive data from a network via RTP/SAP/SDP" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

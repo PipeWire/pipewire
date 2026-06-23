@@ -26,28 +26,20 @@
  * \ref page_module_roc_source "libpipewire-module-roc-source"
  */
 
-static const char *const pulse_module_options =
-	"sink=<name for the sink> "
-	"sink_input_properties=<properties for the sink_input> "
-	"resampler_profile=<empty>|high|medium|low "
-	"fec_code=<empty>|disable|rs8m|ldpc "
-	"sess_latency_msec=<target network latency in milliseconds> "
-	"local_ip=<local receiver ip> "
-	"local_source_port=<local receiver port for source packets> "
-	"local_repair_port=<local receiver port for repair packets> "
-	"local_control_port=<local receiver port for control packets> "
-	;
+
+static const char *resampler_profile_vals[] = { "empty", "high", "medium", "low", NULL };
+static const char *fec_code_vals[] = { "empty", "disable", "rs8m", "ldpc", NULL };
 
 static const struct module_args valid_args[] = {
-	{ "sink", "name for the sink", },
-	{ "sink_input_properties", "properties for the sink_input", },
-	{ "resampler_profile", "empty|high|medium|low", },
-	{ "fec_code", "empty|disable|rs8m|ldpc", },
-	{ "sess_latency_msec", "target network latency in milliseconds", },
-	{ "local_ip", "local receiver ip", },
-	{ "local_source_port", "local receiver port for source packets", },
-	{ "local_repair_port", "local receiver port for repair packets", },
-	{ "local_control_port", "local receiver port for control packets", },
+	{ "sink", "name for the sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_input_properties", "properties for the sink_input", 0, MODULE_TYPE_PROPS, NULL },
+	{ "resampler_profile", "resampler profile", 0, MODULE_TYPE_STRINGE, NULL, resampler_profile_vals },
+	{ "fec_code", "forward error correction code", 0, MODULE_TYPE_STRINGE, NULL, fec_code_vals },
+	{ "sess_latency_msec", "target network latency", 0, MODULE_TYPE_MSEC, NULL },
+	{ "local_ip", "local receiver ip", 0, MODULE_TYPE_STRING, NULL },
+	{ "local_source_port", "local receiver port for source packets", 0, MODULE_TYPE_INT, NULL },
+	{ "local_repair_port", "local receiver port for repair packets", 0, MODULE_TYPE_INT, NULL },
+	{ "local_control_port", "local receiver port for control packets", 0, MODULE_TYPE_INT, NULL },
 	{ NULL, },
 };
 
@@ -135,7 +127,6 @@ static int module_roc_sink_input_unload(struct module *module)
 static const struct spa_dict_item module_roc_sink_input_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink-input" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

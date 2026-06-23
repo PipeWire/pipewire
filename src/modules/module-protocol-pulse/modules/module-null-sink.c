@@ -18,21 +18,14 @@
  * @pulse_module_options@
  */
 
-static const char *const pulse_module_options =
-	"sink_name=<name of sink> "
-	"sink_properties=<properties for the sink> "
-	"format=<sample format> "
-	"rate=<sample rate> "
-	"channels=<number of channels> "
-	"channel_map=<channel map>";
 
 static const struct module_args valid_args[] = {
-	{ "sink_name", "name of sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "format", "sample format", },
-	{ "rate", "sample rate", },
-	{ "channels", "number of channels", },
-	{ "channel_map", "channel map", },
+	{ "sink_name", "name of sink", 0, MODULE_TYPE_STRING, "null-sink" },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "format", "sample format", 0, MODULE_TYPE_FORMAT, NULL },
+	{ "rate", "sample rate", 0, MODULE_TYPE_INT, NULL },
+	{ "channels", "number of channels", 0, MODULE_TYPE_INT, NULL },
+	{ "channel_map", "channel map", 0, MODULE_TYPE_CHMAP, NULL },
 	{ NULL, }
 };
 
@@ -158,7 +151,6 @@ static int module_null_sink_unload(struct module *module)
 static const struct spa_dict_item module_null_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "A NULL sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

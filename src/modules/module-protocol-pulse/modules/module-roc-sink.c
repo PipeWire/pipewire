@@ -26,24 +26,17 @@
  * \ref page_module_roc_sink "libpipewire-module-roc-sink"
  */
 
-static const char *const pulse_module_options =
-	"sink_name=<name for the sink> "
-	"sink_properties=<properties for the sink> "
-	"fec_code=<empty>|disable|rs8m|ldpc "
-	"remote_ip=<remote receiver ip> "
-	"remote_source_port=<remote receiver port for source packets> "
-	"remote_repair_port=<remote receiver port for repair packets> "
-	"remote_control_port=<remote receiver port for control packets> "
-	;
+
+static const char *fec_code_vals[] = { "empty", "disable", "rs8m", "ldpc", NULL };
 
 static const struct module_args valid_args[] = {
-	{ "sink_name", "name for the sink", },
-	{ "sink_properties", "properties for the sink", },
-	{ "fec_code", "empty|disable|rs8m|ldpc", },
-	{ "remote_ip", "remote receiver ip", },
-	{ "remote_source_port", "remote receiver port for source packets", },
-	{ "remote_repair_port", "remote receiver port for repair packets", },
-	{ "remote_control_port", "remote receiver port for control packets", },
+	{ "sink_name", "name for the sink", 0, MODULE_TYPE_STRING, NULL },
+	{ "sink_properties", "properties for the sink", 0, MODULE_TYPE_PROPS, NULL },
+	{ "fec_code", "forward error correction code", 0, MODULE_TYPE_STRINGE, NULL, fec_code_vals },
+	{ "remote_ip", "remote receiver ip", 0, MODULE_TYPE_STRING, NULL },
+	{ "remote_source_port", "remote receiver port for source packets", 0, MODULE_TYPE_INT, NULL },
+	{ "remote_repair_port", "remote receiver port for repair packets", 0, MODULE_TYPE_INT, NULL },
+	{ "remote_control_port", "remote receiver port for control packets", 0, MODULE_TYPE_INT, NULL },
 	{ NULL, },
 };
 
@@ -131,7 +124,6 @@ static int module_roc_sink_unload(struct module *module)
 static const struct spa_dict_item module_roc_sink_info[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Sanchayan Maity <sanchayan@asymptotic.io>" },
 	{ PW_KEY_MODULE_DESCRIPTION, "roc sink" },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

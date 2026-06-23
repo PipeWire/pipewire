@@ -27,15 +27,11 @@
  * @pulse_module_options@
  */
 
-static const char *const pulse_module_options =
-	"only_from_unavailable=<boolean, only switch from unavailable ports (not implemented yet)> "
-	"ignore_virtual=<boolean, ignore new virtual sinks and sources, defaults to true> "
-	"blocklist=<regex, ignore matching devices, default=hdmi> ";
 
 static const struct module_args valid_args[] = {
-	{ "only_from_unavailable", "boolean, only switch from unavailable ports (not implemented yet)", },
-	{ "ignore_virtual", "boolean, ignore new virtual sinks and sources, defaults to true", },
-	{ "blocklist", "regex, ignore matching devices, default=hdmi", },
+	{ "only_from_unavailable", "only switch from unavailable ports", MODULE_ARG_ENOTIMPL, MODULE_TYPE_BOOL, "false" },
+	{ "ignore_virtual", "boolean, ignore new virtual sinks and sources, defaults to true", 0, MODULE_TYPE_BOOL, "true" },
+	{ "blocklist", "regex, ignore matching devices, default=hdmi", 0, MODULE_TYPE_STRING, "hdmi" },
 	{ NULL, }
 };
 
@@ -253,7 +249,6 @@ static const struct spa_dict_item module_switch_on_connect_info[] = {
 	  "This module exists for Pulseaudio compatibility, and is useful only when some applications "
 	  "try to manage the default sinks/sources themselves and interfere with PipeWire's builtin "
 	  "default device switching." },
-	{ PW_KEY_MODULE_USAGE, pulse_module_options },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 

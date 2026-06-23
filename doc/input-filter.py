@@ -5,7 +5,7 @@ Doxygen input filter that:
 
 - adds \privatesection to all files
 - removes macros
-- parses pulse_module_options and substitutes it into @pulse_module_options@
+- parses module_args valid_args[] and substitutes it into @pulse_module_options@
 
 This is used for .c files, and causes Doxygen to not include
 any symbols from them, unless they also appeared in a header file.
@@ -25,22 +25,50 @@ def main():
     text = re.sub("#define.*", "", text)
 
     if "@pulse_module_options@" in text:
-        m = re.search(
-            r"static const char[* ]*const pulse_module_options\s+=\s+(.*?\")\s*;\s*$",
+        type_names = {
+            "MODULE_TYPE_STRING": "string",
+            "MODULE_TYPE_STRINGV": "stringv",
+            "MODULE_TYPE_STRINGE": "stringe",
+            "MODULE_TYPE_INT": "int",
+            "MODULE_TYPE_BOOL": "bool",
+            "MODULE_TYPE_USEC": "usec",
+            "MODULE_TYPE_MSEC": "msec",
+            "MODULE_TYPE_PROPS": "proplist",
+            "MODULE_TYPE_FORMAT": "format",
+            "MODULE_TYPE_CHMAP": "chmap",
+        }
+        res = []
+        args_match = re.search(
+            r'static const struct module_args valid_args\[\]\s*=\s*\{(.*?)\{\s*NULL',
             text,
-            re.M | re.S,
+            re.S,
         )
-        if m:
-            res = []
-            for line in m.group(1).splitlines():
-                m = re.match(r"\s*\"\s*([a-z0-9_]+)\s*=\s*(.*)\"\s*$", line)
-                if m:
-                    name = m.group(1)
-                    value = m.group(2).strip().strip("<>")
-                    res.append(f"- `{name}`: {value}")
+        args_text = args_match.group(1) if args_match else ""
+        for m in re.finditer(
+            r'{\s*"([a-z0-9_]+)"\s*,\s*"([^"]*)"\s*,\s*([^,]*),\s*([^,]*),\s*([^,}]*)',
+            args_text,
+        ):
+            name = m.group(1)
+            desc = m.group(2)
+            flags = m.group(3).strip()
+            typ = m.group(4).strip()
+            defval = m.group(5).strip().strip('"')
+            parts = []
+            typ = type_names.get(typ, "")
+            if typ:
+                parts.append(typ)
+            if defval and defval != "NULL":
+                parts.append(f"default {defval}")
+            parts.append(desc)
+            entry = f"- `{name}`: {', '.join(parts)}"
+            if "MODULE_ARG_MANDATORY" in flags:
+                entry += " *(mandatory)*"
+            if "MODULE_ARG_ENOTIMPL" in flags:
+                entry += " *(not implemented)*"
+            res.append(entry)
 
-            res = "\n * ".join(res)
-            text = text.replace("@pulse_module_options@", res)
+        res = "\n * ".join(res)
+        text = text.replace("@pulse_module_options@", res)
 
     if os.path.basename(fn).startswith("module-") and fn.endswith(".c"):
         text = re.sub(r"^ \* ##", r" * #", text, flags=re.M)

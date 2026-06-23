@@ -1574,8 +1574,10 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
   pwsrc = GST_PIPEWIRE_SRC (psrc);
 
   pw_thread_loop_lock (pwsrc->stream->core->loop);
-  if (!pwsrc->negotiated)
-    goto not_negotiated;
+  if (!pwsrc->negotiated) {
+    if (wait_negotiated(pwsrc) == PW_STREAM_STATE_ERROR)
+      goto not_negotiated;
+  }
 
   while (TRUE) {
     enum pw_stream_state state;

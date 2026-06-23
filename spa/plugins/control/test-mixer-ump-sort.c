@@ -1,5 +1,5 @@
 /* PipeWire */
-/* SPDX-FileCopyrightText: Copyright © 2025 Claude Code */
+/* SPDX-FileCopyrightText: Copyright © 2025 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
 #include <stdio.h>

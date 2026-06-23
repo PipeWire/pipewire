@@ -58,6 +58,8 @@ struct data {
 	struct pw_main_loop *loop;
 	struct pw_context *context;
 
+	int res;
+
 	struct spa_list remotes;
 	struct remote_data *current;
 
@@ -449,7 +451,7 @@ static int print_global(void *obj, void *data)
 }
 
 
-static bool bind_global(struct remote_data *rd, struct global *global, char **error);
+static int bind_global(struct remote_data *rd, struct global *global, char **error);
 
 static void registry_event_global(void *data, uint32_t id,
 		uint32_t permissions, const char *type, uint32_t version,
@@ -459,7 +461,7 @@ static void registry_event_global(void *data, uint32_t id,
 	struct global *global;
 	size_t size;
 	char *error;
-	bool ret;
+	int res;
 
 	global = calloc(1, sizeof(struct global));
 	if (global == NULL) {
@@ -484,10 +486,11 @@ static void registry_event_global(void *data, uint32_t id,
 	pw_map_insert_at(&rd->globals, id, global);
 
 	/* immediately bind the object always */
-	ret = bind_global(rd, global, &error);
-	if (!ret) {
+	if ((res = bind_global(rd, global, &error)) < 0) {
 		if (rd->data->interactive)
 			fprintf(stderr, "Error: \"%s\"\n", error);
+		if (res != -ENOTSUP)
+			rd->data->res = res;
 		free(error);
 	}
 }
@@ -1440,7 +1443,7 @@ static const struct class *find_class(const char *type, uint32_t version)
 	return NULL;
 }
 
-static bool bind_global(struct remote_data *rd, struct global *global, char **error)
+static int bind_global(struct remote_data *rd, struct global *global, char **error)
 {
 	const struct class *class;
 	struct proxy_data *pd;
@@ -1449,7 +1452,7 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 	class = find_class(global->type, global->version);
 	if (class == NULL) {
 		*error = spa_aprintf("unsupported type %s", global->type);
-		return false;
+		return -ENOTSUP;
 	}
 	global->class = class;
 
@@ -1471,16 +1474,17 @@ static bool bind_global(struct remote_data *rd, struct global *global, char **er
 
 	rd->prompt_pending = pw_core_sync(rd->core, 0, 0);
 
-	return true;
+	return 0;
 }
 
 static bool do_global_info(struct global *global, char **error)
 {
 	struct remote_data *rd = global->rd;
 	struct proxy_data *pd;
+	int res;
 
 	if (global->proxy == NULL) {
-		if (!bind_global(rd, global, error))
+		if ((res = bind_global(rd, global, error)) < 0)
 			return false;
 		global->info_pending = true;
 	} else {
@@ -1861,7 +1865,7 @@ static bool do_enum_params(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (global->proxy == NULL) {
-		if (!bind_global(rd, global, error))
+		if (bind_global(rd, global, error) < 0)
 			return false;
 	}
 
@@ -1912,7 +1916,7 @@ static bool do_set_param(struct data *data, const char *cmd, char *args, char **
 		return false;
 	}
 	if (global->proxy == NULL) {
-		if (!bind_global(rd, global, error))
+		if (bind_global(rd, global, error) < 0)
 			return false;
 	}
 
@@ -1980,7 +1984,7 @@ static bool do_permissions(struct data *data, const char *cmd, char *args, char 
 		return false;
 	}
 	if (global->proxy == NULL) {
-		if (!bind_global(rd, global, error))
+		if (bind_global(rd, global, error) < 0)
 			return false;
 	}
 
@@ -2019,7 +2023,7 @@ static bool do_get_permissions(struct data *data, const char *cmd, char *args, c
 		return false;
 	}
 	if (global->proxy == NULL) {
-		if (!bind_global(rd, global, error))
+		if (bind_global(rd, global, error) < 0)
 			return false;
 	}
 	pw_client_get_permissions((struct pw_client*)global->proxy,
@@ -2053,7 +2057,7 @@ static bool do_send_command(struct data *data, const char *cmd, char *args, char
 		return false;
 	}
 	if (global->proxy == NULL) {
-		if (!bind_global(rd, global, error))
+		if (bind_global(rd, global, error) < 0)
 			return false;
 	}
 
@@ -2299,6 +2303,7 @@ static void input_process_line(char *line)
 #endif
 		if (!parse(d, line, &error)) {
 			fprintf(stderr, "Error: \"%s\"\n", error);
+			d->res = -EINVAL;
 			free(error);
 		}
 	}
@@ -2520,6 +2525,7 @@ int main(int argc, char *argv[])
 
 		if (!parse(&data, ptr, &error)) {
 			fprintf(stderr, "Error: \"%s\"\n", error);
+			data.res = -EINVAL;
 			free(error);
 		}
 		free(ptr);
@@ -2541,5 +2547,5 @@ int main(int argc, char *argv[])
 	pw_map_clear(&data.vars);
 	pw_deinit();
 
-	return 0;
+	return data.res == 0 ? 0 : -1;
 }

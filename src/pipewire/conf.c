@@ -982,7 +982,9 @@ static int do_exec(struct pw_context *context, char *const *argv)
 		for (p = argv; *p; ++p)
 			spa_strbuf_append(&s, " '%s'", *p);
 
+#ifdef CLOSE_RANGE_UNSHARE
 		close_range(3, ~0U, CLOSE_RANGE_UNSHARE);
+#endif
 
 		pw_log_info("exec%s", s.buffer);
 		res = execvp(argv[0], argv);

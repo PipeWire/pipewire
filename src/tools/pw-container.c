@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 	struct spa_error_location loc;
 	int c, res, listen_fd, close_fd[2];
 	char temp[] = "/tmp/pipewire-XXXXXX";
-	const char *socket_path = temp;
+	const char *socket_path = NULL;
 	struct sockaddr_un sockaddr = {0};
 
 	data.props = pw_properties_new(
@@ -243,7 +243,6 @@ int main(int argc, char *argv[])
 	}
 
 	if (opt_socket_path) {
-		unlink(opt_socket_path);
 		socket_path = opt_socket_path;
 	} else {
 		res = mkstemp(temp);
@@ -252,8 +251,10 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 		close(res);
-		unlink(temp);
+		socket_path = temp;
 	}
+
+	unlink(socket_path);
 
 	listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 	if (listen_fd < 0) {

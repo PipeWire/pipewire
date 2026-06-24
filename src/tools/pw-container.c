@@ -129,6 +129,7 @@ static void show_help(struct data *d, const char *name, bool error)
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"
+		"  -s, --socket-path                     Socket path\n"
 		"  -P, --properties                      Context properties\n",
 		name);
 	fprintf(out, "\nDefault Context properties:\n");
@@ -142,16 +143,19 @@ int main(int argc, char *argv[])
 	struct data data = { 0 };
 	struct pw_loop *l;
 	const char *opt_remote = NULL;
+	const char *opt_socket_path = NULL;
 	static const struct option long_options[] = {
 		{ "help",		no_argument,		NULL, 'h' },
 		{ "version",		no_argument,		NULL, 'V' },
 		{ "remote",		required_argument,	NULL, 'r' },
+		{ "socket-path",	required_argument,	NULL, 's' },
 		{ "properties",		required_argument,	NULL, 'P' },
 		{ NULL,	0, NULL, 0}
 	};
 	struct spa_error_location loc;
 	int c, res, listen_fd, close_fd[2];
 	char temp[] = "/tmp/pipewire-XXXXXX";
+	const char *socket_path = temp;
 	struct sockaddr_un sockaddr = {0};
 
 	data.props = pw_properties_new(
@@ -162,7 +166,7 @@ int main(int argc, char *argv[])
 	setlocale(LC_ALL, "");
 	pw_init(&argc, &argv);
 
-	while ((c = getopt_long(argc, argv, "hVr:P:", long_options, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "hVr:s:P:", long_options, NULL)) != -1) {
 		switch (c) {
 		case 'h':
 			show_help(&data, argv[0], false);
@@ -177,6 +181,9 @@ int main(int argc, char *argv[])
 			return 0;
 		case 'r':
 			opt_remote = optarg;
+			break;
+		case 's':
+			opt_socket_path = optarg;
 			break;
 		case 'P':
 			if (pw_properties_update_string_checked(data.props, optarg, strlen(optarg), &loc) < 0) {
@@ -235,13 +242,18 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	res = mkstemp(temp);
-	if (res < 0) {
-		fprintf(stderr, "can't make temp file with template %s: %m\n", temp);
-		return -1;
+	if (opt_socket_path) {
+		unlink(opt_socket_path);
+		socket_path = opt_socket_path;
+	} else {
+		res = mkstemp(temp);
+		if (res < 0) {
+			fprintf(stderr, "can't make temp file with template %s: %m\n", temp);
+			return -1;
+		}
+		close(res);
+		unlink(temp);
 	}
-	close(res);
-	unlink(temp);
 
 	listen_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
 	if (listen_fd < 0) {
@@ -250,9 +262,9 @@ int main(int argc, char *argv[])
 	}
 
 	sockaddr.sun_family = AF_UNIX;
-	snprintf(sockaddr.sun_path, sizeof(sockaddr.sun_path), "%s", temp);
+	snprintf(sockaddr.sun_path, sizeof(sockaddr.sun_path), "%s", socket_path);
 	if (bind(listen_fd, (struct sockaddr *) &sockaddr, sizeof (sockaddr)) != 0) {
-		fprintf(stderr, "can't bind unix socket to %s: %m\n", temp);
+		fprintf(stderr, "can't bind unix socket to %s: %m\n", socket_path);
 		return -1;
 	}
 	if (listen(listen_fd, 0) != 0) {
@@ -265,7 +277,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "can't create pipe: %m\n");
 		return -1;
 	}
-	setenv("PIPEWIRE_REMOTE", temp, 1);
+	setenv("PIPEWIRE_REMOTE", socket_path, 1);
 
 	data.create_result = 0;
 	data.pending_create = pw_security_context_create(data.sec,
@@ -296,10 +308,10 @@ int main(int argc, char *argv[])
 		}
 		waitpid(pid, NULL, 0);
 	} else {
-		fprintf(stdout, "new socket: %s\n", temp);
+		fprintf(stdout, "new socket: %s\n", socket_path);
 		pw_main_loop_run(data.loop);
 	}
-	unlink(temp);
+	unlink(socket_path);
 
 	spa_hook_remove(&data.registry_listener);
 	pw_proxy_destroy((struct pw_proxy*)data.sec);

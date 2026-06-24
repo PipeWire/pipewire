@@ -217,6 +217,13 @@ static void rtp_audio_process_playback(void *data)
 
 		avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
 
+		if (impl->io_position) {
+			uint32_t clock_rate = impl->io_position->clock.rate.denom;
+			/* Device delay is reported in clock rate units. If this does not
+			 * match the RTP rate, the device delay must be transformed first. */
+			device_delay = scale_u64(device_delay, impl->rate, clock_rate);
+		}
+
 		/* Reduce target buffer by the delay amount to start playback sooner.
 		 * This compensates for the delay to the device. */
 		if (SPA_UNLIKELY(impl->target_buffer < device_delay)) {

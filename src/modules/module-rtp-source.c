@@ -311,8 +311,21 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	current_time = get_time_ns(impl);
 
 	if (mask & SPA_IO_IN) {
-		if ((len = recvfrom(fd, impl->buffer, impl->buffer_size, 0, (struct sockaddr *)(&recvaddr), &recvaddr_len)) < 0)
+		if ((len = recvfrom(fd, impl->buffer, impl->buffer_size,
+#ifdef __linux__
+				    /* Use this Linux specific feature to get the actual size of the
+				     * packet, even if it was truncated due to it being larger than
+				     * the buffer size. The code below uses this to detect packets
+				     * that exceed the MTU size. */
+				    MSG_TRUNC,
+#else
+				    0,
+#endif
+				    (struct sockaddr *)(&recvaddr), &recvaddr_len)) < 0)
 			goto receive_error;
+
+		if (SPA_UNLIKELY((size_t)len > impl->buffer_size))
+			goto packet_larger_than_mtu;
 
 		/* Filter the packets to exclude those with source addresses
 		 * that do not match the expected one. Only used with unicast.
@@ -372,6 +385,12 @@ short_packet:
 	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
 		pw_log_warn("(%d suppressed) short packet of len %zd received",
 				suppressed, len);
+	return;
+packet_larger_than_mtu:
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
+		pw_log_warn("(%d suppressed) packet received that is larger than "
+				"the configured MTU (%zu bytes)",
+				suppressed, impl->buffer_size);
 	return;
 }
 

@@ -248,6 +248,7 @@ struct mix {
 	struct port *peer_port;
 
 	struct spa_io_buffers *io[2];
+	uint32_t io_busy;
 
 	struct spa_list queue;
 	struct buffer buffers[MAX_BUFFERS];
@@ -652,6 +653,7 @@ static void init_mix(struct mix *mix, uint32_t mix_id, struct port *port, uint32
 	mix->io[0] = mix->io[1] = NULL;
 	mix->n_buffers = 0;
 	spa_list_init(&mix->queue);
+	SPA_ATOMIC_STORE(mix->io_busy, 0);
 	if (mix_id == SPA_ID_INVALID) {
 		port->global_mix = mix;
 		if (port->n_mix > 0)
@@ -733,6 +735,7 @@ static int clear_buffers(struct client *c, struct mix *mix)
 	}
 	mix->n_buffers = 0;
 	spa_list_init(&mix->queue);
+	SPA_ATOMIC_STORE(mix->io_busy, 0);
 	return 0;
 }
 
@@ -1724,11 +1727,11 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 	if (SPA_UNLIKELY((io = mix->io[cycle]) == NULL || mix->n_buffers == 0))
 		return NULL;
 
-	if (io->status == SPA_STATUS_HAVE_DATA &&
+	if (SPA_ATOMIC_LOAD(io->status) == SPA_STATUS_HAVE_DATA &&
 	    io->buffer_id < mix->n_buffers) {
 		b = &mix->buffers[io->buffer_id];
 		d = &b->datas[0];
-	} else {
+	} else if (SPA_ATOMIC_CAS(mix->io_busy, 0, 1)) {
 		if (mix->n_buffers == 1) {
 			b = &mix->buffers[0];
 		} else {
@@ -1739,6 +1742,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 			if (SPA_UNLIKELY(b == NULL)) {
 				pw_log_warn("port %p: out of buffers %d", p, mix->n_buffers);
 				io->buffer_id = SPA_ID_INVALID;
+				SPA_ATOMIC_STORE(mix->io_busy, 0);
 				return NULL;
 			}
 		}
@@ -1748,7 +1752,15 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 		d->chunk->stride = stride;
 
 		io->buffer_id = b->id;
-		io->status = SPA_STATUS_HAVE_DATA;
+		SPA_ATOMIC_STORE(io->status, SPA_STATUS_HAVE_DATA);
+		SPA_ATOMIC_STORE(mix->io_busy, 0);
+	} else {
+		while (SPA_ATOMIC_LOAD(io->status) != SPA_STATUS_HAVE_DATA)
+			;
+		if (SPA_UNLIKELY(io->buffer_id >= mix->n_buffers))
+			return NULL;
+		b = &mix->buffers[io->buffer_id];
+		d = &b->datas[0];
 	}
 	ptr = d->data;
 	if (buf)

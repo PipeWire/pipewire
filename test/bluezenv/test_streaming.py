@@ -511,8 +511,13 @@ hfp_hf_host = [
 hfp_ag_host = [
     Bluetoothctl(),
     PipeWire(
-        roles="hfp_ag",
-        uuids=("0000111f-0000-1000-8000-00805f9b34fb",),
+        roles="hfp_ag hfp_hf hsp_ag hsp_hs",
+        uuids=(
+            "0000111f-0000-1000-8000-00805f9b34fb",
+            "0000111e-0000-1000-8000-00805f9b34fb",
+            "00001108-0000-1000-8000-00805f9b34fb",
+            "00001112-0000-1000-8000-00805f9b34fb",
+        ),
     ),
 ]
 

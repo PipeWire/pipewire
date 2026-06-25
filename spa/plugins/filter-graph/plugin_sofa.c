@@ -50,6 +50,8 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	const char *val;
 	char key[256];
 	char filename[PATH_MAX] = "";
+	bool normalize = false;
+	float normalized;
 	int len;
 
 	errno = EINVAL;
@@ -100,6 +102,13 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 		else if (spa_streq(key, "gain")) {
 			if (spa_json_parse_float(val, len, &impl->gain) <= 0) {
 				spa_log_error(impl->log, "spatializer:gain requires a number");
+				errno = EINVAL;
+				goto error;
+			}
+		}
+		else if (spa_streq(key, "normalize")) {
+			if (spa_json_parse_bool(val, len, &normalize) <= 0) {
+				spa_log_error(impl->log, "spatializer:normalize requires a bool");
 				errno = EINVAL;
 				goto error;
 			}
@@ -206,8 +215,13 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	if (impl->tailsize <= 0)
 		impl->tailsize = SPA_CLAMP(4096, impl->blocksize, 32768);
 
-	spa_log_info(impl->log, "using n_samples:%u %d:%d blocksize gain:%f sofa:%s", impl->n_samples,
-		impl->blocksize, impl->tailsize, impl->gain, filename);
+	if (normalize)
+		normalized = mysofa_loudness(impl->sofa->hrtf);
+
+	spa_log_info(impl->log, "using n_samples:%u %d:%d blocksize %sgain:%f sofa:%s", impl->n_samples,
+		impl->blocksize, impl->tailsize,
+		normalize ? "auto" : "", normalize ? normalized : impl->gain, filename);
+
 
 	impl->tmp[0] = calloc(impl->plugin->quantum_limit, sizeof(float));
 	impl->tmp[1] = calloc(impl->plugin->quantum_limit, sizeof(float));

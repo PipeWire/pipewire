@@ -376,6 +376,8 @@ struct module *module_create(struct impl *impl, const char *name, const char *ar
 		errno = -res;
 		goto error_free;
 	}
+	if (info->properties)
+		pw_properties_update(module->props, info->properties);
 
 	if ((res = module->info->prepare(module)) < 0) {
 		errno = -res;
@@ -413,4 +415,38 @@ struct module *module_lookup(struct impl *impl, uint32_t index, const char *name
 			return m;
 	}
 	return NULL;
+}
+
+char *module_info_usage(const struct module_info *i)
+{
+	const struct module_args *a;
+	FILE *f;
+	size_t size;
+	char *res;
+
+	f = open_memstream(&res, &size);
+	if (f == NULL)
+		return NULL;
+
+	for (a = i->valid_args; a->key; a++) {
+		fprintf(f, "%s=<%s", a->key, a->type);
+		if (a->def)
+			fprintf(f, ", default %s", a->def);
+		fprintf(f, ", %s", a->description);
+		if (a->vals) {
+			const char **v;
+			fprintf(f, " [");
+			for (v = a->vals; *v; v++)
+				fprintf(f, "%s%s", v == a->vals ? "" : "|", *v);
+			fprintf(f, "]");
+		}
+		if (a->flags & MODULE_ARG_MANDATORY)
+			fprintf(f, " (mandatory)");
+		if (a->flags & MODULE_ARG_ENOTIMPL)
+			fprintf(f, " (not implemented)");
+		fprintf(f, ">");
+	}
+	fclose(f);
+
+	return res;
 }

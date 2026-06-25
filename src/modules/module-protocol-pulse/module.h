@@ -86,6 +86,7 @@ struct module {
 
 const struct module_info *module_info_next(struct impl *impl, const struct module_info *info);
 const struct module_info *module_info_find(struct impl *impl, const char *name);
+char *module_info_usage(const struct module_info *info);
 
 struct module *module_create(struct impl *impl, const char *name, const char *args);
 void module_free(struct module *module);

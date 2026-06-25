@@ -293,27 +293,9 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 				if ((s = spa_dict_lookup(i->properties, PW_KEY_MODULE_AUTHOR)))
 					fprintf(response, "Author: %s\n", s);
 				if (i->valid_args) {
-					const struct module_args *a;
-					fprintf(response, "Usage:");
-					for (a = i->valid_args; a->key; a++) {
-						fprintf(response, " %s=<%s", a->key, a->type);
-						if (a->def)
-							fprintf(response, ", default %s", a->def);
-						fprintf(response, ", %s", a->description);
-						if (a->vals) {
-							const char **v;
-							fprintf(response, " [");
-							for (v = a->vals; *v; v++)
-								fprintf(response, "%s%s", v == a->vals ? "" : "|", *v);
-							fprintf(response, "]");
-						}
-						if (a->flags & MODULE_ARG_MANDATORY)
-							fprintf(response, " (mandatory)");
-						if (a->flags & MODULE_ARG_ENOTIMPL)
-							fprintf(response, " (not implemented)");
-						fprintf(response, ">");
-					}
-					fprintf(response, "\n");
+					char *usage = module_info_usage(i);
+					fprintf(response, "Usage: %s\n", usage);
+					free(usage);
 				}
 				fprintf(response, "Load Once: %s\n", i->load_once ? "Yes": "No");
 				if ((s = spa_dict_lookup(i->properties, PW_KEY_MODULE_DEPRECATED)))

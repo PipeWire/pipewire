@@ -91,7 +91,7 @@ monitor.bluez.rules = [
 Native client configuration (requires client application restart to apply).
 See \ref client_conf__stream_rules "pipewire-client.conf(5)"
 ```css
-# ~/.config/pipewire/client.conf/custom-props.conf
+# ~/.config/pipewire/client.conf.d/custom-props.conf
 
 stream.rules = [
   {
@@ -104,7 +104,7 @@ stream.rules = [
 Pulseaudio client configuration (requires \ref page_man_pipewire-pulse_1 "pipewire-pulse(1)" restart to apply).
 See \ref pipewire-pulse_conf__stream_rules "pipewire-pulse.conf(5)"
 ```css
-# ~/.config/pipewire/pipewire-pulse.conf/custom-props.conf
+# ~/.config/pipewire/pipewire-pulse.conf.d/custom-props.conf
 
 stream.rules = [
   {
@@ -117,7 +117,7 @@ stream.rules = [
 JACK client configuration (requires client restart to apply).
 See \ref jack_conf__match_rules "pipewire-jack.conf(5)"
 ```css
-# ~/.config/pipewire/jack.conf/custom-props.conf
+# ~/.config/pipewire/jack.conf.d/custom-props.conf
 
 jack.rules = [
   {

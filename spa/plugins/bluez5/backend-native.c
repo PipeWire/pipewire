@@ -106,7 +106,7 @@ struct impl {
 	struct spa_dbus *dbus;
 	DBusConnection *conn;
 
-	DBusPendingCall *pending_register_profile;
+	DBusPendingCall *pending_register_profile[4];
 
 	const struct media_codec * const * codecs;
 
@@ -3683,12 +3683,40 @@ static DBusHandlerResult profile_handler(DBusConnection *c, DBusMessage *m, void
 	return res;
 }
 
+static bool pending_register_profile_push(struct impl *backend, DBusPendingCall *pending)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(backend->pending_register_profile, p) {
+		if (!*p) {
+			*p = pending;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static DBusMessage *pending_register_profile_pop(struct impl *backend, DBusPendingCall *pending)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(backend->pending_register_profile, p) {
+		if (*p == pending)
+			return steal_reply_and_unref(p);
+	}
+
+	spa_assert_not_reached();
+	return NULL;
+}
+
+static void pending_register_profile_clear(struct impl *backend)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(backend->pending_register_profile, p)
+		cancel_and_unref(p);
+}
+
 static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 {
 	struct impl *backend = user_data;
 
-	spa_assert(backend->pending_register_profile == pending);
-	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&backend->pending_register_profile);
+	spa_autoptr(DBusMessage) r = pending_register_profile_pop(backend, pending);
 	if (r == NULL)
 		return;
 
@@ -3705,6 +3733,8 @@ static void register_profile_reply(DBusPendingCall *pending, void *user_data)
 				dbus_message_get_error_name(r));
 		return;
 	}
+
+	spa_log_debug(backend->log, "RegisterProfile() complete");
 }
 
 static int register_profile(struct impl *backend, const char *profile, const char *uuid)
@@ -3713,13 +3743,11 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 	DBusMessageIter it[4];
 	dbus_bool_t autoconnect;
 	dbus_uint16_t version, chan, features;
+	DBusPendingCall *pending;
 	const char *str;
 
 	if (!(backend->enabled_profiles & spa_bt_profile_from_uuid(uuid)))
 		return -ECANCELED;
-
-	if (backend->pending_register_profile)
-		return -EBUSY;
 
 	spa_log_debug(backend->log, "Registering Profile %s %s", profile, uuid);
 
@@ -3819,9 +3847,12 @@ static int register_profile(struct impl *backend, const char *profile, const cha
 	}
 	dbus_message_iter_close_container(&it[0], &it[1]);
 
-	backend->pending_register_profile = send_with_reply(backend->conn, m, register_profile_reply, backend);
-	if (!backend->pending_register_profile)
+	pending = send_with_reply(backend->conn, m, register_profile_reply, backend);
+	if (!pending || !pending_register_profile_push(backend, pending)) {
+		spa_log_error(backend->log, "Failed to start RegisterProfile() %s", profile);
+		cancel_and_unref(&pending);
 		return -EIO;
+	}
 
 	return 0;
 }
@@ -3887,7 +3918,7 @@ static int backend_native_unregister_profiles(void *data)
 {
 	struct impl *backend = data;
 
-	cancel_and_unref(&backend->pending_register_profile);
+	pending_register_profile_clear(backend);
 
 	sco_close(backend);
 
@@ -4069,7 +4100,7 @@ static int backend_native_free(void *data)
 
 	struct rfcomm *rfcomm;
 
-	cancel_and_unref(&backend->pending_register_profile);
+	pending_register_profile_clear(backend);
 
 	sco_close(backend);
 

@@ -2527,7 +2527,7 @@ static const char *get_default(struct client *client, bool sink)
 	struct selector sel;
 	struct pw_manager *manager = client->manager;
 	struct pw_manager_object *o;
-	const char *def, *str, *mon;
+	const char *def, *str;
 
 	spa_zero(sel);
 	if (sink) {
@@ -2536,7 +2536,7 @@ static const char *get_default(struct client *client, bool sink)
 		sel.value = client->default_sink;
 		def = DEFAULT_SINK;
 	} else {
-		sel.type = pw_manager_object_is_source_or_monitor;
+		sel.type = pw_manager_object_is_source;
 		sel.key = PW_KEY_NODE_NAME;
 		sel.value = client->default_source;
 		def = DEFAULT_SOURCE;
@@ -2547,17 +2547,6 @@ static const char *get_default(struct client *client, bool sink)
 	if (o == NULL || o->props == NULL)
 		return def;
 	str = pw_properties_get(o->props, PW_KEY_NODE_NAME);
-
-	if (!sink && pw_manager_object_is_monitor(o)) {
-		def = DEFAULT_MONITOR;
-		if (str != NULL &&
-		    (mon = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor")) == NULL) {
-			pw_properties_setf(o->props,
-					PW_KEY_NODE_NAME".monitor",
-					"%s.monitor", str);
-		}
-		str = pw_properties_get(o->props, PW_KEY_NODE_NAME".monitor");
-	}
 	if (str == NULL)
 		str = def;
 	return str;

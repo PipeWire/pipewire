@@ -219,7 +219,8 @@ doxygen_env.set('LIBPIPEWIRE_MODULES', '<ul><li>' + '</li><li>'.join(module_manp
 pulse_module_manpage_list = []
 foreach m : pipewire_module_protocol_pulse_sources
   name = fs.stem(fs.name(m))
-  if m.contains('/modules/') and name.startswith('module-')
+  if m.contains('/modules/') and (name.startswith('module-') or name.startswith('pulse-module-'))
+    name = name.replace('pulse-module-', 'module-')
     pagepart = name.replace('-', '_')
     pulse_module_manpage_list += f'\\ref page_pulse_@pagepart@ "pipewire-pulse-@name@(7)"'
     manpages += [[f'pipewire-pulse-@name@.7', f'page_pulse_@pagepart@']]

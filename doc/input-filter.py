@@ -70,7 +70,8 @@ def main():
         res = "\n * ".join(res)
         text = text.replace("@pulse_module_options@", res)
 
-    if os.path.basename(fn).startswith("module-") and fn.endswith(".c"):
+    basename = os.path.basename(fn)
+    if (basename.startswith("module-") or basename.startswith("pulse-module-")) and fn.endswith(".c"):
         text = re.sub(r"^ \* ##", r" * #", text, flags=re.M)
 
     print("/** \\privatesection */")

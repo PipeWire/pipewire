@@ -1021,22 +1021,22 @@ can be found as the name property in the EnumRoute param of the device.
 
 ## Node properties
 
-@PAR@ node-prop  audio.channels    # integer
+\par audio.channels    # integer
 The number of audio channels to open the device with. Defaults depends on the profile of the device.
 
-@PAR@ node-prop  audio.rate    # integer
+\par audio.rate    # integer
 The audio rate to open the device with. Default is 0, which means to open the device with a rate as close to the graph rate as possible.
 
-@PAR@ node-prop  audio.format    # string
+\par audio.format    # string
 The audio format to open the device in. By default this is "UNKNOWN", which will open the device in the best possible bits (32/24/16/8..). You can force a format like S16_LE or S32_LE.
 
-@PAR@ node-prop  audio.position    # JSON array of strings
+\par audio.position    # JSON array of strings
 The audio position of the channels in the device. This is auto detected based on the profile. You can configure an array of channel positions, like "[ FL, FR ]".
 
-@PAR@ node-prop  audio.layout    # string
+\par audio.layout    # string
 The audio layout of the channels in the device. You can use any of the predefined layouts, like "Stereo", "5.1" etc.
 
-@PAR@ node-prop  audio.allowed-rates    # JSON array of integers
+\par audio.allowed-rates    # JSON array of integers
 \parblock
 The allowed audio rates to open the device with. Default is "[ ]", which means the device can be opened in any supported rate.
 
@@ -1620,7 +1620,7 @@ For ACP, PipeWire looks for the profile configuration files under
 
 - ~/.config/alsa-card-profile
 - /etc/alsa-card-profile
-- /usr/share/alsa-card-profile/mixer`.
+- /usr/share/alsa-card-profile/mixer.
 
 The `path` and `profile-set` files are in subdirectories `paths` and `profile-sets` of these directories.
 It is possible to override individual files locally by putting a modified copy into the ACP directories under `~/.config` or `/etc`.

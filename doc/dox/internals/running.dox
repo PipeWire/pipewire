@@ -200,7 +200,7 @@ Sink runnable, for example by linking a playback node:
    +----------+          +--------+          +--------+
 ```
 
-The input port of the filter is `port.passive = follow-suspend' and so it can be
+The input port of the filter is `port.passive = follow-suspend` and so it can be
 activated by the playback node.
 
 Likewise, if the ALSA Sink is runnable, it should not automatically make the
@@ -381,12 +381,9 @@ This is done by setting the same node.sync-group property on all nodes (by defau
 nodes have `node.sync-group = group.sync.0`). When a node sets `node.sync = true` all
 the other nodes with the same `node.sync-group` property are grouped together.
 
-This can be used to implement the JACK transport. When the transport is started, the 
+This can be used to implement the JACK transport. When the transport is started, the
 `node.sync=true` property is set and all nodes join one group with a shared driver
 and timing information.
-
-
-
 
 */
 

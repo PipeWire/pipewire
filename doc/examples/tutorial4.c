@@ -28,7 +28,7 @@ static void on_process(void *userdata)
 	struct data *data = userdata;
 	struct pw_buffer *b;
 	struct spa_buffer *buf;
-	int i, c, n_frames, stride;
+	uint32_t i, c, n_frames, stride;
 	int16_t *dst, val;
 
 	if ((b = pw_stream_dequeue_buffer(data->stream)) == NULL) {

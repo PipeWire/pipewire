@@ -4,7 +4,7 @@ The PipeWire server configuration file
 
 \tableofcontents
 
-# SYNOPSIS
+# SYNOPSIS {#synopsis}
 
 *$PIPEWIRE_CONFIG_DIR/pipewire/pipewire.conf*
 

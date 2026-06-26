@@ -79,10 +79,10 @@ modifier-aware one, or supporting both.
   On the `param_changed` event check if the modifier key is present and has the flag
   \ref SPA_POD_PROP_FLAG_DONT_FIXATE attached to it. In this case, extract all modifiers
   from the list and do a test allocation with your allocator to choose the preferred
-  modifier. Fixate on that \ref EnumFormat by announcing a \ref SPA_PARAM_EnumFormat with
+  modifier. Fixate on that \ref SPA_PARAM_EnumFormat by announcing a \ref SPA_PARAM_EnumFormat with
   only one modifier in the \ref SPA_CHOICE_Enum and without the
   \ref SPA_POD_PROP_FLAG_DONT_FIXATE flag, followed by the previous announced
-  \ref EnumFormat. This will retrigger the `param_changed` event with an
+  \ref SPA_PARAM_EnumFormat. This will retrigger the `param_changed` event with an
   \ref SPA_PARAM_Format as described below.
   If the \ref SPA_PARAM_Format contains a modifier key, without the flag
   \ref SPA_POD_PROP_FLAG_DONT_FIXATE, it should only contain one value in the
@@ -263,7 +263,7 @@ on the buffer:
 
 When the metadata is available, the SyncObj fds are in the last 2 data planes
 of the buffer, the acquire and release syncobj respectively. You can keep a ref to the
-\ref struct spa_meta_sync_timeline because we will need this later when processing
+struct \ref spa_meta_sync_timeline because we will need this later when processing
 the buffers.
 
 If the producer is allocating buffers, when the stream has the \ref PW_STREAM_FLAG_ALLOC_BUFFERS
@@ -281,11 +281,11 @@ for example, to make things easier later:
 
 ## Use the SPA_META_SyncTimeline when processing buffers
 
-The \ref struct spa_meta_sync_timeline contains 2 fields: the acquire_point and
+The struct \ref spa_meta_sync_timeline contains 2 fields: the acquire_point and
 release_point.
 
 Producers will start a render operation on the DMABUF of the buffer and place
-the acquire_point in the \ref struct spa_meta_sync_timeline. When the rendering is
+the acquire_point in the struct \ref spa_meta_sync_timeline. When the rendering is
 complete, the producer should signal the acquire_point on the acquire SyncObjTimeline.
 
 Producers will also add a release_point on the release SyncObjTimeline. They are

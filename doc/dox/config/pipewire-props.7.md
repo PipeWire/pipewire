@@ -906,7 +906,7 @@ See \ref spa_param_port_config for the meaning.
 ## Monitor properties
 
 @PAR@ monitor-prop  alsa.use-acp = true      # boolean
-Use \ref monitor-prop__alsa_card_profiles "ALSA Card Profiles" (ACP) for device configuration.
+Use \ref props__alsa_card_profiles "ALSA Card Profiles" (ACP) for device configuration.
 This autodetects available ALSA devices and configures port and hardware mixers.
 
 @PAR@ monitor-prop  alsa.use-ucm             # boolean

@@ -104,7 +104,7 @@ Some of the properties refer to different aspects of the stream:
 A list of object properties that can be applied to streams can be found in
 \ref props__common_node_properties "pipewire-props(7) Common Node Properties"
 and
-\ref props__audio_converter_properties "pipewire-props(7) Audio Adapter Properties"
+\ref props__audio_adapter_properties "pipewire-props(7) Audio Adapter Properties"
 
 # STREAM RULES  @IDX@ client.conf stream.rules
 

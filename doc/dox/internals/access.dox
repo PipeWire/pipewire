@@ -118,7 +118,4 @@ full access.
 Manager applications (ie. applications that need to modify the graph) will
 set the \ref PW_KEY_MEDIA_CATEGORY property in the client object to "Manager".
 
-For details on the pipewire-media-session implementation of access control,
-see \ref page_media_session.
-
 */

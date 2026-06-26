@@ -45,6 +45,8 @@ module_sources = [
   'module-snapcast-discover.c',
   'module-vban-recv.c',
   'module-vban-send.c',
+  'module-sendspin-recv.c',
+  'module-sendspin-send.c',
   'module-session-manager.c',
   'module-scheduler-v1.c',
   'module-zeroconf-discover.c',

@@ -167,10 +167,10 @@ Enables the use of systemd for the logger, default true.
 ## Other settings
 
 @PAR@ pipewire-env PIPEWIRE_CPU
-Selects the CPU and flags. This is a bitmask of any of the \ref CPU flags
+Selects the CPU and flags. This is a bitmask of any of the \ref spa_cpu "CPU" flags
 
 @PAR@ pipewire-env PIPEWIRE_VM
-Selects the Virtual Machine PipeWire is running on.  This can be any of the \ref CPU "VM"
+Selects the Virtual Machine PipeWire is running on.  This can be any of the \ref spa_cpu "VM"
 types.
 
 @PAR@ pipewire-env DISABLE_RTKIT

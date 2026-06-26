@@ -30,7 +30,7 @@ Load the given config file (Default: pipewire-pulse.conf).
 
 # ENVIRONMENT VARIABLES
 
-The generic \ref pipewire-env "pipewire(1) environment variables"
+The generic \ref pipewire-env__environment_variables "pipewire(1) environment variables"
 are supported.
 
 In addition:

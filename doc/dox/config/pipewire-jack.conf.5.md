@@ -326,9 +326,9 @@ You can use this to link filters to devices. When there is no client connected t
 @PAR@ jack-env  PIPEWIRE_NODE
 \parblock
 ```
-PIPEWIRE_NODE=<id> <application>
+PIPEWIRE_NODE=\<id\> \<application\>
 ```
-Will sort the ports so that only the ports of the node with <id> are listed. You can use this to force an application to only deal with the ports of a certain node, for example when auto connecting.
+Will sort the ports so that only the ports of the node with \<id\> are listed. You can use this to force an application to only deal with the ports of a certain node, for example when auto connecting.
 \endparblock
 
 # AUTHORS

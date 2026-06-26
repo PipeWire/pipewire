@@ -31,7 +31,7 @@ as the input format.
 Number of samples per iteration (default 4096)
 
 \par -P PROPERTIES | \--properties=PROPERTIES
-Set extra stream properties as a JSON object. One can also use @filename to
+Set extra stream properties as a JSON object. One can also use \@filename to
 read the JSON object with properties from filename.
 
 \par -c CHANNELS | \--channels=CHANNELS

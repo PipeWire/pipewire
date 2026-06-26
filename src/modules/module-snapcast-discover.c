@@ -60,7 +60,7 @@
  *
  * - `snapcast.discover-local` = allow discovery of local services as well.
  *    false by default.
- * - `stream.rules` = <rules>: match rules, use create-stream actions. See
+ * - `stream.rules` = \<rules\>: match rules, use create-stream actions. See
  *   \ref page_module_protocol_simple for module properties.
  *
  * ### stream.rules matches

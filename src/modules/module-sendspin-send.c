@@ -72,7 +72,7 @@
  * - `sendspin.delay`: the delay to add to clients in seconds. Default 5.0
  * - `node.always-process = <bool>`: true to send silence even when not connected.
  * - `stream.props = {}`: properties to be passed to all the stream
- * - `stream.rules` = <rules>: match rules, use the create-stream action to
+ * - `stream.rules` = \<rules\>: match rules, use the create-stream action to
  *                    make a stream for the client.
  *
  * ## General options

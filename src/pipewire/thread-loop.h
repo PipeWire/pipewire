@@ -63,7 +63,7 @@ extern "C" {
  *
  * An exception to this is for the data processing callbacks, which are
  * explcitly marked as being emitted from the data realtime threads. One
- * such callback is the \ref pw_stream::process() callback when the
+ * such callback is the `process()` callback of \ref pw_stream when the
  * \ref PW_STREAM_FLAG_RT_PROCESS is set.
  *
  */

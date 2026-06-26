@@ -59,7 +59,7 @@
  * - `source.ip =<str>`: source IP address, default "0.0.0.0"
  * - `net.ttl = <int>`: TTL to use, default 1
  * - `net.loop = <bool>`: loopback multicast, default false
- * - `stream.rules` = <rules>: match rules, use create-stream and announce-stream actions
+ * - `stream.rules` = \<rules\>: match rules, use create-stream and announce-stream actions
  * - `sap.max-sessions = <int>`: maximum number of concurrent send/receive sessions to track
  * - `sap.preamble-extra = [strings]`: extra attributes to add to the atomic SDP preamble
  * - `sap.end-extra = [strings]`: extra attributes to add to the end of the SDP message

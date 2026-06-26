@@ -55,7 +55,7 @@
  * - `node.always-process = <bool>`: true to receive even when not running
  * - `sess.latency.msec = <str>`: target network latency in milliseconds, default 100
  * - `stream.props = {}`: properties to be passed to all the stream
- * - `stream.rules` = <rules>: match rules, use create-stream actions.
+ * - `stream.rules` = \<rules\>: match rules, use create-stream actions.
  *
  * ### stream.rules matches
  *

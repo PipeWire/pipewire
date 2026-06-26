@@ -61,7 +61,7 @@
  *  - `local.ifname = <str>`: interface name to use
  *  - `local.ifaddress = <str>`: interface address to use
  *  - `server.address = []`: an array of server addresses to listen on as
- *                            tcp:(<ip>:)<port>.
+ *                            tcp:(\<ip\>:)\<port\>.
  *  - `capture.props`: optional properties for the capture stream
  *  - `playback.props`: optional properties for the playback stream
  *

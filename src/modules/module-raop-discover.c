@@ -46,7 +46,7 @@
  *    false by default.
  * - `raop.latency.ms` = latency for all streams in microseconds. This
  *    can be overwritten in the stream rules.
- * - `stream.rules` = <rules>: match rules, use create-stream actions. See
+ * - `stream.rules` = \<rules\>: match rules, use create-stream actions. See
  *   \ref page_module_raop_sink for module properties.
  *
  * ## Example configuration

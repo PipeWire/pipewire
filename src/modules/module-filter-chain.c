@@ -1009,16 +1009,16 @@ extern struct spa_handle_factory spa_filter_graph_factory;
  *            therefore at least be blocksize + retain samples large.
  * - `data` where the data for the tensor is comming from. There are different options
  *          based on the value of this file, selected with a prefix:
- *      - `port:<portname>` a new input/output port is created on the plugin with the
- *                          name <portname> and the data for the tensor will be obtained
+ *      - `port:\<portname\>` a new input/output port is created on the plugin with the
+ *                          name \<portname\> and the data for the tensor will be obtained
  *                          or copied from/to the port data.
- *      - `tensor:<tensorname>` the data of this tensor is copied from the given
- *                              <tensorname>. You can use this to copy output state
+ *      - `tensor:\<tensorname\>` the data of this tensor is copied from the given
+ *                              \<tensorname\>. You can use this to copy output state
  *                              info to the input state, for example.
- *      - `param:<paramname>` the data of this tensor is obtained from a parameter with
- *                            <paramname>. Currently only `rate` is a valid paramname,
+ *      - `param:\<paramname\>` the data of this tensor is obtained from a parameter with
+ *                            \<paramname\>. Currently only `rate` is a valid paramname,
  *                            which has the value of the filter samplerate.
- *      - `control:<portname>` a new input/output control port is created and the tensor
+ *      - `control:\<portname\>` a new input/output control port is created and the tensor
  *                             data will be obtained/copied from/to the control data.
  *
  * Here is an example of the silero VAD model:

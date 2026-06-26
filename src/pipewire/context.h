@@ -29,7 +29,7 @@ extern "C" {
  *    clients.
  *
  *  - Connect to another PipeWire instance (the main daemon, for
- *    example) and interact with it (See \ref page_core_api).
+ *    example) and interact with it (See \ref api_pw_core).
  *
  *  - Export a local implementation of an object to another
  *    instance.

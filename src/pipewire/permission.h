@@ -16,7 +16,7 @@ extern "C" {
  * Permissions are kept for a client and describe what the client is
  * allowed to do with an object.
  *
- * See \ref page_core_api
+ * See \ref api_pw_core
  */
 
 /**

@@ -1286,13 +1286,13 @@ int pw_conf_load_conf_for_context(struct pw_properties *props, struct pw_propert
  *             # actions are emitted.
  *             {
  *                 # all keys must match the value. ! negates. ~ starts regex.
- *                 <key> = <value>
+ *                 \<key\> = \<value\>
  *                 ...
  *             }
  *             ...
  *         ]
  *         actions = {
- *             <action> = <value>
+ *             \<action\> = \<value\>
  *             ...
  *         }
  *     }

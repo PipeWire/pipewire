@@ -1291,6 +1291,8 @@ static int ensure_tmp(struct impl *this)
 }
 
 
+static void sync_filter_graph(struct impl *impl);
+
 static int setup_filter_graphs(struct impl *impl, bool force)
 {
 	int res;
@@ -1304,6 +1306,20 @@ static int setup_filter_graphs(struct impl *impl, bool force)
 	channels = in->format.info.raw.channels;
 	position = in->format.info.raw.position;
 	impl->maxports = SPA_MAX(in->format.info.raw.channels, out->format.info.raw.channels);
+
+	if (force) {
+		/* A forced setup deactivates and re-instantiates each graph below,
+		 * which frees and recreates the underlying plugin handles. Pull the
+		 * graphs out of the data-loop's view first (under the loop lock, via
+		 * sync_filter_graph) so the RT thread cannot run a graph while its
+		 * handles are NULL during the rebuild. They are republished by the
+		 * sync_filter_graph() that follows setup. */
+		spa_list_for_each(g, &impl->active_graphs, link) {
+			if (!g->removing)
+				g->setup = false;
+		}
+		sync_filter_graph(impl);
+	}
 
 	spa_list_for_each_safe(g, t, &impl->active_graphs, link) {
 		if (g->removing)

@@ -1240,6 +1240,14 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   result = gst_pipewire_src_stream_start (pwsrc);
 
+  /* Return true when flushing to avoid caps negotiation failure */
+  pw_thread_loop_lock (pwsrc->stream->core->loop);
+  if (pwsrc->flushing) {
+    GST_DEBUG_OBJECT (pwsrc, "is flushing");
+    result = TRUE;
+  }
+  pw_thread_loop_unlock (pwsrc->stream->core->loop);
+
   return result;
 
 no_nego_needed:
@@ -1797,6 +1805,13 @@ gst_pipewire_src_change_state (GstElement * element, GstStateChange transition)
       /* stop recording ASAP by corking */
       GST_DEBUG_OBJECT (this, "in-activating stream");
       pw_thread_loop_lock (this->stream->core->loop);
+      /* Wait if caps negotiation is currently in progress
+       * to prevent caps negotiation failure which can cause
+       * error in basesrc.
+       */
+      if (wait_negotiated(this) == PW_STREAM_STATE_ERROR) {
+        GST_DEBUG_OBJECT (this, "stream state error");
+      }
       pw_stream_set_active (this->stream->pwstream, false);
       pw_thread_loop_unlock (this->stream->core->loop);
       break;

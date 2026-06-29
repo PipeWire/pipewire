@@ -502,6 +502,14 @@ static const struct pw_proxy_events proxy_node_events = {
   .destroy = destroy_node,
 };
 
+static void clear_nodes(GstPipeWireDeviceProvider *self)
+{
+  struct node_data *nd;
+
+  spa_list_consume(nd, &self->nodes, link)
+    pw_proxy_destroy((struct pw_proxy *)nd->proxy);
+}
+
 static void
 removed_port (void *data)
 {
@@ -792,6 +800,7 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
   GST_DEBUG_OBJECT (self, "disconnect");
 
   g_clear_pointer ((struct pw_proxy**)&self->registry, pw_proxy_destroy);
+  clear_nodes (self);
   spa_hook_remove (&self->core_listener);
   pw_thread_loop_unlock (self->core->loop);
   g_clear_pointer (&self->core, gst_pipewire_core_release);
@@ -867,6 +876,7 @@ gst_pipewire_device_provider_stop (GstDeviceProvider * provider)
 
   g_clear_pointer ((struct pw_proxy**)&self->registry, pw_proxy_destroy);
   if (self->core != NULL) {
+    clear_nodes (self);
     spa_hook_remove (&self->core_listener);
     pw_thread_loop_unlock (self->core->loop);
   }

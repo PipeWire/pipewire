@@ -133,6 +133,10 @@ option('bluez5-codec-ldac-dec',
         description: 'Enable LDAC Sony open source codec decoding',
         type: 'feature',
         value: 'auto')
+option('bluez5-codec-lhdc',
+        description: 'Enable LHDC v5 open source codec implementation',
+        type: 'feature',
+        value: 'auto')
 option('bluez5-codec-aac',
         description: 'Enable Fraunhofer FDK AAC open source codec implementation',
         type: 'feature',

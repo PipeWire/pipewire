@@ -194,6 +194,17 @@
 #define LDAC_SAMPLING_FREQ_176400	0x02
 #define LDAC_SAMPLING_FREQ_192000	0x01
 
+#define LHDC_V5_VENDOR_ID		0x0000053a
+#define LHDC_V5_CODEC_ID		0x4c35
+
+#define LHDC_V5_SAMPLING_FREQ_48000	0x10
+#define LHDC_V5_BIT_FMT_16		0x04
+#define LHDC_V5_MIN_BITRATE_64K		0x00
+#define LHDC_V5_MAX_BITRATE_400K	0x10
+#define LHDC_V5_VERSION_1		0x01
+#define LHDC_V5_FRAME_LEN_5MS		0x10
+#define LHDC_V5_FEATURE_LL		0x40
+
 #define FASTSTREAM_VENDOR_ID            0x0000000a
 #define FASTSTREAM_CODEC_ID             0x0001
 
@@ -317,6 +328,15 @@ typedef struct {
 	uint8_t frequency;
 	uint8_t channel_mode;
 } __attribute__ ((packed)) a2dp_ldac_t;
+
+typedef struct {
+	a2dp_vendor_codec_t info;
+	uint8_t sampling_freq;
+	uint8_t bitrate_and_depth;
+	uint8_t frame_len_and_version;
+	uint8_t features;
+	uint8_t reserved;
+} __attribute__ ((packed)) a2dp_lhdc_v5_t;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 

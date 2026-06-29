@@ -1367,8 +1367,28 @@ static int ensure_tmp(struct impl *this)
 	return 0;
 }
 
+static int do_sync_filter_graph(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = user_data;
+	struct filter_graph *g;
 
-static void sync_filter_graph(struct impl *impl);
+	impl->n_graph = 0;
+	spa_list_for_each(g, &impl->active_graphs, link)
+		if (g->setup && !g->removing)
+			impl->filter_graph[impl->n_graph++] = g;
+
+	impl->recalc = true;
+	return 0;
+}
+
+static void sync_filter_graph(struct impl *impl)
+{
+	if (impl->data_loop)
+		spa_loop_locked(impl->data_loop, do_sync_filter_graph, 0, NULL, 0, impl);
+	else
+		do_sync_filter_graph(NULL, false, 0, NULL, 0, impl);
+}
 
 static int setup_filter_graphs(struct impl *impl, bool force)
 {
@@ -1401,8 +1421,6 @@ static int setup_filter_graphs(struct impl *impl, bool force)
 	spa_list_for_each_safe(g, t, &impl->active_graphs, link) {
 		if (g->removing)
 			continue;
-		if (force)
-			g->setup = false;
 		if ((res = setup_filter_graph(impl, g, channels, position)) < 0) {
 			g->removing = true;
 			spa_log_warn(impl->log, "failed to activate graph %d: %s", g->order,
@@ -1419,29 +1437,6 @@ static int setup_filter_graphs(struct impl *impl, bool force)
 		return res;
 
 	return 0;
-}
-
-static int do_sync_filter_graph(struct spa_loop *loop, bool async, uint32_t seq,
-		const void *data, size_t size, void *user_data)
-{
-	struct impl *impl = user_data;
-	struct filter_graph *g;
-
-	impl->n_graph = 0;
-	spa_list_for_each(g, &impl->active_graphs, link)
-		if (g->setup && !g->removing)
-			impl->filter_graph[impl->n_graph++] = g;
-
-	impl->recalc = true;
-	return 0;
-}
-
-static void sync_filter_graph(struct impl *impl)
-{
-	if (impl->data_loop)
-		spa_loop_locked(impl->data_loop, do_sync_filter_graph, 0, NULL, 0, impl);
-	else
-		do_sync_filter_graph(NULL, false, 0, NULL, 0, impl);
 }
 
 static void clean_filter_handles(struct impl *impl, bool force)

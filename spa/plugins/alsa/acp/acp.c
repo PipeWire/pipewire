@@ -330,6 +330,22 @@ static const char *find_best_verb(pa_card *impl)
 	return res;
 }
 
+static void get_pro_description(char *desc, size_t size,
+		snd_pcm_info_t *pcminfo, int dev, int count)
+{
+	const char *sub_name = snd_pcm_info_get_subdevice_name(pcminfo);
+	const char *pcm_name = snd_pcm_info_get_name(pcminfo);
+
+	if (sub_name && *sub_name && !pa_startswith(sub_name, "subdevice #"))
+		snprintf(desc, size, "%s", sub_name);
+	else if (pcm_name && *pcm_name)
+		snprintf(desc, size, "%s", pcm_name);
+	else if (count == 0)
+		snprintf(desc, size, "Pro");
+	else
+		snprintf(desc, size, "Pro %d", dev);
+}
+
 static int add_pro_profile(pa_card *impl, uint32_t index)
 {
 	snd_ctl_t *ctl_hndl;
@@ -398,10 +414,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 		snd_pcm_info_set_subdevice(pcminfo, 0);
 
 		snprintf(devstr, sizeof(devstr), "hw:%d,%d", index, dev);
-		if (count++ == 0)
-			snprintf(desc, sizeof(desc), "Pro");
-		else
-			snprintf(desc, sizeof(desc), "Pro %d", dev);
+		count++;
 
 		snd_pcm_info_set_stream(pcminfo, SND_PCM_STREAM_PLAYBACK);
 		if ((err = snd_ctl_pcm_info(ctl_hndl, pcminfo)) < 0) {
@@ -416,6 +429,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 			m = NULL;
 		}
 		if (m) {
+			get_pro_description(desc, sizeof(desc), pcminfo, dev, count);
 			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);
 
@@ -452,6 +466,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 			m = NULL;
 		}
 		if (m) {
+			get_pro_description(desc, sizeof(desc), pcminfo, dev, count);
 			m->description = pa_xstrdup(desc);
 			m->device_strings = pa_split_spaces_strv(devstr);
 

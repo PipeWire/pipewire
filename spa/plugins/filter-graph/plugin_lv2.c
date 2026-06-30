@@ -374,8 +374,8 @@ static int log_printf(LV2_Log_Handle handle, LV2_URID type, const char* fmt, ...
 	return ret;
 }
 
-static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
-                        unsigned long SampleRate, int index, const char *config)
+static int lv2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+                        uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct descriptor *d = (struct descriptor*)desc;
 	struct plugin *p = d->p;
@@ -385,11 +385,11 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
 	static const int32_t min_block_length = 1;
 	static const int32_t max_block_length = 8192;
 	static const int32_t seq_size = 32768;
-	float fsample_rate = SampleRate;
+	float fsample_rate = rate;
 
 	i = calloc(1, sizeof(*i));
 	if (i == NULL)
-		return NULL;
+		return -errno;
 
 	i->block_length = 1024;
 	i->desc = d;
@@ -436,10 +436,10 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
 	i->features[n_features++] = NULL;
 	spa_assert(n_features < SPA_N_ELEMENTS(i->features));
 
-	i->instance = lilv_plugin_instantiate(p->p, SampleRate, i->features);
+	i->instance = lilv_plugin_instantiate(p->p, rate, i->features);
 	if (i->instance == NULL) {
 		free(i);
-		return NULL;
+		return -ENOMEM;
 	}
 	if (lilv_plugin_has_extension_data(p->p, c->worker_iface)) {
                 i->work_iface = (const LV2_Worker_Interface*)
@@ -461,7 +461,8 @@ static void *lv2_instantiate(const struct spa_fga_plugin *plugin, const struct s
 				&sd, 0, i->features);
 		free(sd.tmp);
 	}
-	return i;
+	*hndl = i;
+	return 0;
 }
 
 static void lv2_cleanup(void *instance)

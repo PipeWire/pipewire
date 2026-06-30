@@ -69,22 +69,23 @@ struct builtin {
 	float hold;
 };
 
-static void *builtin_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int builtin_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct builtin *impl;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->plugin = pl;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 	impl->dsp = impl->plugin->dsp;
 	impl->log = impl->plugin->log;
 
-	return impl;
+	*hndl = impl;
+	return 0;
 }
 
 static void builtin_connect_port(void *Instance, unsigned long Port, void * DataLocation)
@@ -335,8 +336,8 @@ static void bq_raw_update(struct builtin *impl, float b0, float b1, float b2,
  *     ]
  * }
  */
-static void *bq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int bq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct builtin *impl;
@@ -348,16 +349,16 @@ static void *bq_instantiate(const struct spa_fga_plugin *plugin, const struct sp
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->plugin = pl;
 	impl->log = impl->plugin->log;
 	impl->dsp = impl->plugin->dsp;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 	impl->b0 = impl->a0 = 1.0f;
 	impl->type = bq_type_from_name(Descriptor->name);
 	if (impl->type != BQ_NONE)
-		return impl;
+		goto done;
 
 	if (config == NULL) {
 		spa_log_error(impl->log, "biquads:bq_raw requires a config section");
@@ -428,8 +429,8 @@ static void *bq_instantiate(const struct spa_fga_plugin *plugin, const struct sp
 						spa_log_warn(impl->log, "biquads: ignoring coefficients key: '%s'", key);
 					}
 				}
-				if (labs((long)rate - (long)SampleRate) <
-				    labs((long)best_rate - (long)SampleRate)) {
+				if (labs((long)rate - (long)rate) <
+				    labs((long)best_rate - (long)rate)) {
 					best_rate = rate;
 					bq_raw_update(impl, b0, b1, b2, a0, a1, a2);
 				}
@@ -439,12 +440,12 @@ static void *bq_instantiate(const struct spa_fga_plugin *plugin, const struct sp
 			spa_log_warn(impl->log, "biquads: ignoring config key: '%s'", key);
 		}
 	}
-
-	return impl;
+done:
+	*hndl = impl;
+	return 0;
 error:
 	free(impl);
-	errno = EINVAL;
-	return NULL;
+	return -EINVAL;
 }
 
 #define BQ_NUM_PORTS		11
@@ -1139,8 +1140,8 @@ error:
 	return res;
 }
 
-static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int convolver_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct convolver_impl *impl = NULL;
@@ -1152,42 +1153,39 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 	float latency = -1.0f;
 	struct impulse ir = IMPULSE_INIT(index);
 
-	errno = EINVAL;
 	if (config == NULL) {
 		spa_log_error(pl->log, "convolver: requires a config section");
-		return NULL;
+		return -EINVAL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		spa_log_error(pl->log, "convolver:config must be an object");
-		return NULL;
+		return -EINVAL;
 	}
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "blocksize")) {
 			if (spa_json_parse_int(val, len, &blocksize) <= 0) {
 				spa_log_error(pl->log, "convolver:blocksize requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
 			if (spa_json_parse_int(val, len, &tailsize) <= 0) {
 				spa_log_error(pl->log, "convolver:tailsize requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		}
 		else if (spa_streq(key, "latency")) {
 			if (spa_json_parse_float(val, len, &latency) <= 0) {
 				spa_log_error(pl->log, "convolver:latency requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		}
 	}
 	spa_json_begin_object(&it[0], config, strlen(config));
-	if ((res = convolver_read_impulse(pl, &it[0], SampleRate, &ir)) < 0) {
-		errno = -res;
-		return NULL;
-	}
+	if ((res = convolver_read_impulse(pl, &it[0], rate, &ir)) < 0)
+		return res;
 
 	if (blocksize <= 0)
 		blocksize = SPA_CLAMP(ir.n_samples, 64, 256);
@@ -1199,12 +1197,12 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		goto error;
+		goto error_errno;
 
 	impl->plugin = pl;
 	impl->log = pl->log;
 	impl->dsp = pl->dsp;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 	if (latency < 0.0f)
 		impl->latency = ir.latency;
 	else
@@ -1212,15 +1210,19 @@ static void * convolver_instantiate(const struct spa_fga_plugin *plugin, const s
 
 	impl->conv = convolver_new(impl->dsp, blocksize, tailsize, ir.samples, ir.n_samples);
 	if (impl->conv == NULL)
-		goto error;
+		goto error_errno;
+
+	*hndl = impl;
 
 	impulse_clear(&ir);
 
-	return impl;
-error:
+	return 0;
+
+error_errno:
+	res = -errno;
 	impulse_clear(&ir);
 	free(impl);
-	return NULL;
+	return res;
 }
 
 static void convolver_connect_port(void * Instance, unsigned long Port,
@@ -1292,8 +1294,8 @@ static const struct spa_fga_descriptor convolve_desc = {
 };
 
 /** convolver2 */
-static void * convolver2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int convolver2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct convolver_impl *impl = NULL;
@@ -1307,40 +1309,39 @@ static void * convolver2_instantiate(const struct spa_fga_plugin *plugin, const 
 	struct convolver_ir cir[8];
 	int n_ir = 0;
 
-	errno = EINVAL;
 	if (config == NULL) {
 		spa_log_error(pl->log, "convolver: requires a config section");
-		return NULL;
+		return -EINVAL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		spa_log_error(pl->log, "convolver:config must be an object");
-		return NULL;
+		return -EINVAL;
 	}
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "blocksize")) {
 			if (spa_json_parse_int(val, len, &blocksize) <= 0) {
 				spa_log_error(pl->log, "convolver2:blocksize requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
 			if (spa_json_parse_int(val, len, &tailsize) <= 0) {
 				spa_log_error(pl->log, "convolver2:tailsize requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		}
 		else if (spa_streq(key, "latency")) {
 			if (spa_json_parse_float(val, len, &latency) <= 0) {
 				spa_log_error(pl->log, "convolver2:latency requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		}
 		else if (spa_streq(key, "impulses")) {
 			if (!spa_json_is_array(val, len)) {
 				spa_log_error(pl->log, "convolver2:impulses require an array");
-				return NULL;
+				return -EINVAL;
 			}
 			spa_json_enter(&it[0], &it[1]);
 			while (spa_json_enter_object(&it[1], &it[2]) > 0) {
@@ -1349,8 +1350,8 @@ static void * convolver2_instantiate(const struct spa_fga_plugin *plugin, const 
 					goto error;
 				}
 				ir[n_ir] = IMPULSE_INIT(n_ir);
-				if ((res = convolver_read_impulse(pl, &it[2], SampleRate, &ir[n_ir])) < 0)
-					return NULL;
+				if ((res = convolver_read_impulse(pl, &it[2], rate, &ir[n_ir])) < 0)
+					return res;
 
 				max_samples = SPA_MAX(max_samples, ir[n_ir].n_samples);
 				cir[n_ir].ir = ir[n_ir].samples;
@@ -1382,7 +1383,7 @@ static void * convolver2_instantiate(const struct spa_fga_plugin *plugin, const 
 	impl->plugin = pl;
 	impl->log = pl->log;
 	impl->dsp = pl->dsp;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 	if (latency < 0.0f)
 		impl->latency = ir[0].latency;
 	else
@@ -1392,13 +1393,14 @@ static void * convolver2_instantiate(const struct spa_fga_plugin *plugin, const 
 	if (impl->conv == NULL)
 		goto error;
 
+	*hndl = impl;
 
-	return impl;
+	return 0;
 error:
 	for (i = 0; i < n_ir; i++)
 		impulse_clear(&ir[i]);
 	free(impl);
-	return NULL;
+	return -EINVAL;
 }
 
 static void convolver2_run(void * Instance, unsigned long SampleCount)
@@ -1502,8 +1504,8 @@ static void delay_cleanup(void * Instance)
 	free(impl);
 }
 
-static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int delay_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct delay_impl *impl;
@@ -1515,25 +1517,24 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 
 	if (config == NULL) {
 		spa_log_error(pl->log, "delay: requires a config section");
-		errno = EINVAL;
-		return NULL;
+		return -EINVAL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		spa_log_error(pl->log, "delay:config must be an object");
-		return NULL;
+		return -EINVAL;
 	}
 
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "max-delay")) {
 			if (spa_json_parse_float(val, len, &max_delay) <= 0) {
 				spa_log_error(pl->log, "delay:max-delay requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		} else if (spa_streq(key, "latency")) {
 			if (spa_json_parse_float(val, len, &latency) <= 0) {
 				spa_log_error(pl->log, "delay:latency requires a number");
-				return NULL;
+				return -EINVAL;
 			}
 		} else {
 			spa_log_warn(pl->log, "delay: ignoring config key: '%s'", key);
@@ -1546,12 +1547,12 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 	impl->buffer_samples = SPA_ROUND_UP_N((uint32_t)(max_delay * impl->rate), 64);
 	impl->latency = latency * impl->rate;
 	spa_log_info(impl->log, "max-delay:%f seconds rate:%lu samples:%d latency:%f",
@@ -1561,14 +1562,15 @@ static void *delay_instantiate(const struct spa_fga_plugin *plugin, const struct
 	if (spa_overflow_mul((size_t)impl->buffer_samples, (size_t)2, &buf_count) ||
 	    spa_overflow_add(buf_count, (size_t)64, &buf_count)) {
 		delay_cleanup(impl);
-		return NULL;
+		return -ERANGE;
 	}
 	impl->buffer = calloc(buf_count, sizeof(float));
 	if (impl->buffer == NULL) {
 		delay_cleanup(impl);
-		return NULL;
+		return -errno;
 	}
-	return impl;
+	*hndl = impl;
+	return 0;
 }
 
 static void delay_connect_port(void * Instance, unsigned long Port,
@@ -2300,8 +2302,8 @@ static int parse_filters(struct plugin *pl, struct spa_json *iter, int rate,
  *   filtersX = [ ... ] # to load channel X
  * }
  */
-static void *param_eq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int param_eq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct spa_json it[3];
@@ -2313,23 +2315,22 @@ static void *param_eq_instantiate(const struct spa_fga_plugin *plugin, const str
 
 	if (config == NULL) {
 		spa_log_error(pl->log, "param_eq: requires a config section");
-		errno = EINVAL;
-		return NULL;
+		return  -EINVAL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		spa_log_error(pl->log, "param_eq: config must be an object");
-		return NULL;
+		return -EINVAL;
 	}
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 	for (i = 0; i < SPA_N_ELEMENTS(impl->bq); i++)
 		biquad_set(&impl->bq[i], BQ_NONE, 0.0f, 0.0f, 0.0f);
 
@@ -2379,10 +2380,11 @@ static void *param_eq_instantiate(const struct spa_fga_plugin *plugin, const str
 						sizeof(struct biquad) * PARAM_EQ_MAX);
 		}
 	}
-	return impl;
+	*hndl = impl;
+	return 0;
 error:
 	free(impl);
-	return NULL;
+	return -EINVAL;
 }
 
 static void param_eq_connect_port(void * Instance, unsigned long Port,
@@ -2664,21 +2666,22 @@ struct dcblock_impl {
 	struct dcblock dc[8];
 };
 
-static void *dcblock_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int dcblock_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct dcblock_impl *impl;
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
-	impl->rate = SampleRate;
-	return impl;
+	impl->rate = rate;
+	*hndl = impl;
+	return 0;
 }
 
 static void dcblock_run_n(struct dcblock dc[], float *dst[], const float *src[],
@@ -3264,8 +3267,8 @@ struct busy_impl {
 	float cpu_scale;
 };
 
-static void *busy_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int busy_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct busy_impl *impl;
@@ -3278,19 +3281,18 @@ static void *busy_instantiate(const struct spa_fga_plugin *plugin, const struct 
 	if (config != NULL) {
 		if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 			spa_log_error(pl->log, "busy:config must be an object");
-			return NULL;
+			return -EINVAL;
 		}
-
 		while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 			if (spa_streq(key, "wait-percent")) {
 				if (spa_json_parse_float(val, len, &wait_percent) <= 0) {
 					spa_log_error(pl->log, "busy:wait-percent requires a number");
-					return NULL;
+					return -EINVAL;
 				}
 			} else if (spa_streq(key, "cpu-percent")) {
 				if (spa_json_parse_float(val, len, &cpu_percent) <= 0) {
 					spa_log_error(pl->log, "busy:cpu-percent requires a number");
-					return NULL;
+					return -EINVAL;
 				}
 			} else {
 				spa_log_warn(pl->log, "busy: ignoring config key: '%s'", key);
@@ -3304,17 +3306,18 @@ static void *busy_instantiate(const struct spa_fga_plugin *plugin, const struct 
 
 	impl = calloc(1, sizeof(*impl));
 	if (impl == NULL)
-		return NULL;
+		return -errno;
 
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
-	impl->rate = SampleRate;
-	impl->wait_scale = wait_percent * SPA_NSEC_PER_SEC / (100.0f * SampleRate);
-	impl->cpu_scale = cpu_percent * SPA_NSEC_PER_SEC / (100.0f * SampleRate);
+	impl->rate = rate;
+	impl->wait_scale = wait_percent * SPA_NSEC_PER_SEC / (100.0f * rate);
+	impl->cpu_scale = cpu_percent * SPA_NSEC_PER_SEC / (100.0f * rate);
 	spa_log_info(impl->log, "wait-percent:%f cpu-percent:%f", wait_percent, cpu_percent);
+	*hndl = impl;
 
-	return impl;
+	return 0;
 }
 
 static void busy_run(void * Instance, unsigned long SampleCount)

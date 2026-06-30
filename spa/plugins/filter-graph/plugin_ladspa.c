@@ -34,11 +34,14 @@ struct descriptor {
 	const LADSPA_Descriptor *d;
 };
 
-static void *ladspa_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
-                        unsigned long SampleRate, int index, const char *config)
+static int ladspa_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+                        uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct descriptor *d = (struct descriptor *)desc;
-	return d->d->instantiate(d->d, SampleRate);
+	*hndl = d->d->instantiate(d->d, rate);
+	if (*hndl == NULL)
+		return -ENOMEM;
+	return 0;
 }
 
 static const LADSPA_Descriptor *find_desc(LADSPA_Descriptor_Function desc_func, const char *name)

@@ -1685,9 +1685,9 @@ static int impl_activate(void *object, const struct spa_dict *props)
 		for (i = 0; i < node->n_hndl; i++) {
 			spa_log_info(impl->log, "instantiate %s %s[%d] rate:%lu", d->name, node->name, i, impl->rate);
 			errno = EINVAL;
-			if ((node->hndl[i] = d->instantiate(p, d, impl->rate, i, node->config)) == NULL) {
-				spa_log_error(impl->log, "cannot create plugin instance %d rate:%lu: %m", i, impl->rate);
-				res = -errno;
+			if ((res = d->instantiate(p, d, impl->rate, i, node->config, &node->hndl[i])) < 0) {
+				spa_log_error(impl->log, "cannot create plugin instance %d rate:%lu: %s",
+						i, impl->rate, spa_strerror(res));
 				goto error;
 			}
 		}

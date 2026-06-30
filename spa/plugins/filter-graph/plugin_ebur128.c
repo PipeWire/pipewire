@@ -68,8 +68,8 @@ struct ebur128_impl {
 	ebur128_state *st[7];
 };
 
-static void * ebur128_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int ebur128_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct ebur128_impl *impl;
@@ -80,31 +80,27 @@ static void * ebur128_instantiate(const struct spa_fga_plugin *plugin, const str
 	float f;
 
 	impl = calloc(1, sizeof(*impl));
-	if (impl == NULL) {
-		errno = ENOMEM;
-		return NULL;
-	}
+	if (impl == NULL)
+		return -errno;
 
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
 	impl->max_history = 10000;
 	impl->max_window = 0;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 
 	if (config == NULL)
-		return impl;
+		goto done;
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		spa_log_error(pl->log, "ebur128: expected object in config");
-		errno = EINVAL;
 		goto error;
 	}
 	while ((len = spa_json_object_next(&it[0], key, sizeof(key), &val)) > 0) {
 		if (spa_streq(key, "max-history")) {
 			if (spa_json_parse_float(val, len, &f) <= 0) {
 				spa_log_error(impl->log, "ebur128:max-history requires a number");
-				errno = EINVAL;
 				goto error;
 			}
 			impl->max_history = (unsigned int) (f * 1000.0f);
@@ -112,7 +108,6 @@ static void * ebur128_instantiate(const struct spa_fga_plugin *plugin, const str
 		else if (spa_streq(key, "max-window")) {
 			if (spa_json_parse_float(val, len, &f) <= 0) {
 				spa_log_error(impl->log, "ebur128:max-window requires a number");
-				errno = EINVAL;
 				goto error;
 			}
 			impl->max_window = (unsigned int) (f * 1000.0f);
@@ -120,17 +115,18 @@ static void * ebur128_instantiate(const struct spa_fga_plugin *plugin, const str
 		else if (spa_streq(key, "use-histogram")) {
 			if (spa_json_parse_bool(val, len, &impl->use_histogram) <= 0) {
 				spa_log_error(impl->log, "ebur128:use-histogram requires a boolean");
-				errno = EINVAL;
 				goto error;
 			}
 		} else {
 			spa_log_warn(impl->log, "ebur128: unknown key %s", key);
 		}
 	}
-	return impl;
+done:
+	*hndl = impl;
+	return 0;
 error:
 	free(impl);
-	return NULL;
+	return -EINVAL;
 }
 
 static void ebur128_run(void * Instance, unsigned long SampleCount)
@@ -422,24 +418,22 @@ struct lufs2gain_impl {
 	float *port[3];
 };
 
-static void * lufs2gain_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int lufs2gain_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct lufs2gain_impl *impl;
 
 	impl = calloc(1, sizeof(*impl));
-	if (impl == NULL) {
-		errno = ENOMEM;
-		return NULL;
-	}
+	if (impl == NULL)
+		return -errno;
 
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
 	impl->log = pl->log;
-	impl->rate = SampleRate;
-
-	return impl;
+	impl->rate = rate;
+	*hndl = impl;
+	return 0;
 }
 
 static void lufs2gain_connect_port(void * Instance, unsigned long Port,

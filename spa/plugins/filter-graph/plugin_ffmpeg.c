@@ -84,8 +84,8 @@ static void ffmpeg_cleanup(void *instance)
 	free(i);
 }
 
-static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
-                        unsigned long SampleRate, int index, const char *config)
+static int ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+                        uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct descriptor *d = (struct descriptor *)desc;
 	struct plugin *p = d->p;
@@ -99,21 +99,21 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 
 	i = calloc(1, sizeof(*i));
 	if (i == NULL)
-		return NULL;
+		return -errno;
 
 	i->desc = d;
-	i->rate = SampleRate;
+	i->rate = rate;
 
 	i->filter_graph = avfilter_graph_alloc();
 	if (i->filter_graph == NULL) {
-		errno = ENOMEM;
+		res = -ENOMEM;
 		goto error_free;
 	}
 
 	res = avfilter_graph_parse2(i->filter_graph, d->desc.name, &in, &out);
 	if (res < 0) {
 		spa_log_error(p->log, "can parse filter graph %s", d->desc.name);
-		errno = EINVAL;
+		res = -EINVAL;
 		goto error_free;
 	}
 
@@ -121,13 +121,14 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 		ctx = avfilter_graph_alloc_filter(i->filter_graph, d->buffersrc, "src");
 		if (ctx == NULL) {
 			spa_log_error(p->log, "can't alloc buffersrc");
+			res = -ENOMEM;
 			goto error_free;
 		}
 		av_channel_layout_describe(&d->layout[n_fp], channel, sizeof(channel));
 
 		snprintf(options_str, sizeof(options_str),
-	             "sample_fmt=%s:sample_rate=%ld:channel_layout=%s",
-		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), SampleRate, channel);
+	             "sample_fmt=%s:sample_rate=%u:channel_layout=%s",
+		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), rate, channel);
 
 		spa_log_info(p->log, "%d buffersrc %s", n_fp, options_str);
 		avfilter_init_str(ctx, options_str);
@@ -140,14 +141,15 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 		cnv = avfilter_graph_alloc_filter(i->filter_graph, d->format, "format");
 		if (cnv == NULL) {
 			spa_log_error(p->log, "can't alloc format");
+			res = -ENOMEM;
 			goto error_free;
 		}
 
 		av_channel_layout_describe(&d->layout[n_fp], channel, sizeof(channel));
 
 		snprintf(options_str, sizeof(options_str),
-	             "sample_fmts=%s:sample_rates=%ld:channel_layouts=%s",
-		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), SampleRate, channel);
+	             "sample_fmts=%s:sample_rates=%u:channel_layouts=%s",
+		             av_get_sample_fmt_name(AV_SAMPLE_FMT_FLTP), rate, channel);
 
 		spa_log_info(p->log, "%d format %s", n_fp, options_str);
 		avfilter_init_str(cnv, options_str);
@@ -156,6 +158,7 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 		ctx = avfilter_graph_alloc_filter(i->filter_graph, d->buffersink, "sink");
 		if (ctx == NULL) {
 			spa_log_error(p->log, "can't alloc buffersink");
+			res = -ENOMEM;
 			goto error_free;
 		}
 		avfilter_init_str(ctx, NULL);
@@ -175,11 +178,12 @@ static void *ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struc
 	spa_log_debug(p->log, "%s", dump);
 	free(dump);
 #endif
-	return i;
+	*hndl = i;
+	return 0;
 
 error_free:
 	ffmpeg_cleanup(i);
-	return NULL;
+	return res;
 }
 
 static void ffmpeg_free(const struct spa_fga_descriptor *desc)

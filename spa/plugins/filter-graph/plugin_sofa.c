@@ -41,8 +41,8 @@ struct spatializer_impl {
 	struct convolver *conv[3];
 };
 
-static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		unsigned long SampleRate, int index, const char *config)
+static int spatializer_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, int index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct spatializer_impl *impl;
@@ -52,24 +52,21 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	char filename[PATH_MAX] = "";
 	bool normalize = false;
 	float normalized;
-	int len;
+	int res, len;
 
-	errno = EINVAL;
 	if (config == NULL) {
 		spa_log_error(pl->log, "spatializer: no config was given");
-		return NULL;
+		return -EINVAL;
 	}
 
 	if (spa_json_begin_object(&it[0], config, strlen(config)) <= 0) {
 		spa_log_error(pl->log, "spatializer: expected object in config");
-		return NULL;
+		return -EINVAL;
 	}
 
 	impl = calloc(1, sizeof(*impl));
-	if (impl == NULL) {
-		errno = ENOMEM;
-		return NULL;
-	}
+	if (impl == NULL)
+		return -errno;
 
 	impl->plugin = pl;
 	impl->dsp = pl->dsp;
@@ -81,43 +78,37 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 		if (spa_streq(key, "blocksize")) {
 			if (spa_json_parse_int(val, len, &impl->blocksize) <= 0) {
 				spa_log_error(impl->log, "spatializer:blocksize requires a number");
-				errno = EINVAL;
-				goto error;
+				goto error_inval;
 			}
 		}
 		else if (spa_streq(key, "tailsize")) {
 			if (spa_json_parse_int(val, len, &impl->tailsize) <= 0) {
 				spa_log_error(impl->log, "spatializer:tailsize requires a number");
-				errno = EINVAL;
-				goto error;
+				goto error_inval;
 			}
 		}
 		else if (spa_streq(key, "filename")) {
 			if (spa_json_parse_stringn(val, len, filename, sizeof(filename)) <= 0) {
 				spa_log_error(impl->log, "spatializer:filename requires a string");
-				errno = EINVAL;
-				goto error;
+				goto error_inval;
 			}
 		}
 		else if (spa_streq(key, "gain")) {
 			if (spa_json_parse_float(val, len, &impl->gain) <= 0) {
 				spa_log_error(impl->log, "spatializer:gain requires a number");
-				errno = EINVAL;
-				goto error;
+				goto error_inval;
 			}
 		}
 		else if (spa_streq(key, "normalize")) {
 			if (spa_json_parse_bool(val, len, &normalize) <= 0) {
 				spa_log_error(impl->log, "spatializer:normalize requires a bool");
-				errno = EINVAL;
-				goto error;
+				goto error_inval;
 			}
 		}
 		else if (spa_streq(key, "latency")) {
 			if (spa_json_parse_float(val, len, &impl->latency) <= 0) {
 				spa_log_error(impl->log, "spatializer:latency requires a number");
-				errno = EINVAL;
-				goto error;
+				goto error_inval;
 			}
 		}
 		else {
@@ -126,87 +117,86 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	}
 	if (!filename[0]) {
 		spa_log_error(impl->log, "spatializer:filename was not given");
-		errno = EINVAL;
-		goto error;
+		goto error_inval;
 	}
 
 	int ret = MYSOFA_OK;
 
-	impl->sofa = mysofa_open_cached(filename, SampleRate, &impl->n_samples, &ret);
+	impl->sofa = mysofa_open_cached(filename, rate, &impl->n_samples, &ret);
 
 	if (ret != MYSOFA_OK) {
 		const char *reason;
 		switch (ret) {
 		case MYSOFA_INVALID_FORMAT:
 			reason = "Invalid format";
-			errno = EINVAL;
+			res = -EINVAL;
 			break;
 		case MYSOFA_UNSUPPORTED_FORMAT:
 			reason = "Unsupported format";
-			errno = ENOTSUP;
+			res = -ENOTSUP;
 			break;
 		case MYSOFA_NO_MEMORY:
 			reason = "No memory";
-			errno = ENOMEM;
+			res = -ENOMEM;
 			break;
 		case MYSOFA_READ_ERROR:
 			reason = "Read error";
-			errno = ENOENT;
+			res = -ENOENT;
 			break;
 		case MYSOFA_INVALID_ATTRIBUTES:
 			reason = "Invalid attributes";
-			errno = EINVAL;
+			res = -EINVAL;
 			break;
 		case MYSOFA_INVALID_DIMENSIONS:
 			reason = "Invalid dimensions";
-			errno = EINVAL;
+			res = -EINVAL;
 			break;
 		case MYSOFA_INVALID_DIMENSION_LIST:
 			reason = "Invalid dimension list";
-			errno = EINVAL;
+			res = -EINVAL;
 			break;
 		case MYSOFA_INVALID_COORDINATE_TYPE:
 			reason = "Invalid coordinate type";
-			errno = EINVAL;
+			res = -EINVAL;
 			break;
 		case MYSOFA_ONLY_EMITTER_WITH_ECI_SUPPORTED:
 			reason = "Only emitter with ECI supported";
-			errno = ENOTSUP;
+			res = -ENOTSUP;
 			break;
 		case MYSOFA_ONLY_DELAYS_WITH_IR_OR_MR_SUPPORTED:
 			reason = "Only delays with IR or MR supported";
-			errno = ENOTSUP;
+			res = -ENOTSUP;
 			break;
 		case MYSOFA_ONLY_THE_SAME_SAMPLING_RATE_SUPPORTED:
 			reason = "Only the same sampling rate supported";
-			errno = ENOTSUP;
+			res = -ENOTSUP;
 			break;
 		case MYSOFA_RECEIVERS_WITH_RCI_SUPPORTED:
 			reason = "Receivers with RCI supported";
-			errno = ENOTSUP;
+			res = -ENOTSUP;
 			break;
 		case MYSOFA_RECEIVERS_WITH_CARTESIAN_SUPPORTED:
 			reason = "Receivers with cartesian supported";
-			errno = ENOTSUP;
+			res = -ENOTSUP;
 			break;
 		case MYSOFA_INVALID_RECEIVER_POSITIONS:
 			reason = "Invalid receiver positions";
-			errno = EINVAL;
+			res = -EINVAL;
 			break;
 		case MYSOFA_ONLY_SOURCES_WITH_MC_SUPPORTED:
 			reason = "Only sources with MC supported";
-			errno = ENOTSUP;
+			res = -ENOTSUP;
 			break;
 		case MYSOFA_INTERNAL_ERROR:
-			errno = EIO;
+			res = -EIO;
 			reason = "Internal error";
 			break;
 		default:
-			errno = ret;
-			reason = strerror(errno);
+			res = -ret;
+			reason = strerror(-ret);
 			break;
 		}
-		spa_log_error(impl->log, "Unable to load HRTF from %s: %s (%d)", filename, reason, ret);
+		spa_log_error(impl->log, "Unable to load HRTF from %s: %s (%d)", filename, reason, res);
 		goto error;
 	}
 
@@ -227,16 +217,21 @@ static void * spatializer_instantiate(const struct spa_fga_plugin *plugin, const
 	impl->tmp[1] = calloc(impl->plugin->quantum_limit, sizeof(float));
 	if (impl->tmp[0] == NULL || impl->tmp[1] == NULL)
 		goto error;
-	impl->rate = SampleRate;
+	impl->rate = rate;
 
-	return impl;
+	*hndl = impl;
+	return 0;
+
+error_inval:
+	res = -EINVAL;
+	goto error;
 error:
 	free(impl->tmp[0]);
 	free(impl->tmp[1]);
 	if (impl->sofa)
 		mysofa_close_cached(impl->sofa);
 	free(impl);
-	return NULL;
+	return res;
 }
 
 static int

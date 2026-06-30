@@ -35,12 +35,13 @@ struct descriptor {
 };
 
 static int ladspa_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
-                        uint32_t rate, int index, const char *config, void **hndl)
+                        uint32_t rate, const char *config, uint32_t n_hndl, void **hndl)
 {
 	struct descriptor *d = (struct descriptor *)desc;
-	*hndl = d->d->instantiate(d->d, rate);
-	if (*hndl == NULL)
-		return -ENOMEM;
+	for (uint32_t i = 0; i < n_hndl; i++) {
+		if ((hndl[i] = d->d->instantiate(d->d, rate)) == NULL)
+			return -ENOMEM;
+	}
 	return 0;
 }
 

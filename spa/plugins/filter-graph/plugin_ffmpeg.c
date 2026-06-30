@@ -84,8 +84,8 @@ static void ffmpeg_cleanup(void *instance)
 	free(i);
 }
 
-static int ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
-                        uint32_t rate, int index, const char *config, void **hndl)
+static int ffmpeg_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+                        uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct descriptor *d = (struct descriptor *)desc;
 	struct plugin *p = d->p;
@@ -184,6 +184,17 @@ static int ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struct 
 error_free:
 	ffmpeg_cleanup(i);
 	return res;
+}
+
+static int ffmpeg_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	int res;
+	for (uint32_t i = 0; i < n_hndl; i++) {
+		if ((res = ffmpeg_instantiate1(plugin, desc, rate, i, config, &hndl[i])) < 0)
+			return res;
+	}
+	return 0;
 }
 
 static void ffmpeg_free(const struct spa_fga_descriptor *desc)

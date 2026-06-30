@@ -41,8 +41,8 @@ struct spatializer_impl {
 	struct convolver *conv[3];
 };
 
-static int spatializer_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int spatializer_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct spatializer_impl *impl;
@@ -232,6 +232,17 @@ error:
 		mysofa_close_cached(impl->sofa);
 	free(impl);
 	return res;
+}
+
+static int spatializer_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	int res;
+	for (uint32_t i = 0; i < n_hndl; i++) {
+		if ((res = spatializer_instantiate1(plugin, desc, rate, i, config, &hndl[i])) < 0)
+			return res;
+	}
+	return 0;
 }
 
 static int

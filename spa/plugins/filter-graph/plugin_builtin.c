@@ -69,22 +69,39 @@ struct builtin {
 	float hold;
 };
 
-static int builtin_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int instantiate_helper(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[],
+		int (*instantiate1_func) (const struct spa_fga_plugin *plugin,
+			const struct spa_fga_descriptor *desc,
+			uint32_t rate, uint32_t index, const char *config, void **hndl))
+{
+	int res;
+	for (uint32_t i = 0; i < n_hndl; i++) {
+		if ((res = instantiate1_func(plugin, desc, rate, i, config, &hndl[i])) < 0)
+			return res;
+	}
+	return 0;
+}
+
+static int builtin_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
-	struct builtin *impl;
 
-	impl = calloc(1, sizeof(*impl));
-	if (impl == NULL)
-		return -errno;
+	for (uint32_t i = 0; i < n_hndl; i++) {
+		struct builtin *impl;
 
-	impl->plugin = pl;
-	impl->rate = rate;
-	impl->dsp = impl->plugin->dsp;
-	impl->log = impl->plugin->log;
+		impl = calloc(1, sizeof(*impl));
+		if (impl == NULL)
+			return -errno;
 
-	*hndl = impl;
+		impl->plugin = pl;
+		impl->rate = rate;
+		impl->dsp = impl->plugin->dsp;
+		impl->log = impl->plugin->log;
+
+		hndl[i] = impl;
+	}
 	return 0;
 }
 
@@ -336,8 +353,8 @@ static void bq_raw_update(struct builtin *impl, float b0, float b1, float b2,
  *     ]
  * }
  */
-static int bq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int bq_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct builtin *impl;
@@ -446,6 +463,12 @@ done:
 error:
 	free(impl);
 	return -EINVAL;
+}
+
+static int bq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	return instantiate_helper(plugin, desc, rate, config, n_hndl, hndl, bq_instantiate1);
 }
 
 #define BQ_NUM_PORTS		11
@@ -1140,8 +1163,8 @@ error:
 	return res;
 }
 
-static int convolver_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int convolver_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct convolver_impl *impl = NULL;
@@ -1225,6 +1248,12 @@ error_errno:
 	return res;
 }
 
+static int convolver_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	return instantiate_helper(plugin, desc, rate, config, n_hndl, hndl, convolver_instantiate1);
+}
+
 static void convolver_connect_port(void * Instance, unsigned long Port,
                         void * DataLocation)
 {
@@ -1294,8 +1323,8 @@ static const struct spa_fga_descriptor convolve_desc = {
 };
 
 /** convolver2 */
-static int convolver2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int convolver2_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct convolver_impl *impl = NULL;
@@ -1403,6 +1432,12 @@ error:
 	return -EINVAL;
 }
 
+static int convolver2_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	return instantiate_helper(plugin, desc, rate, config, n_hndl, hndl, convolver2_instantiate1);
+}
+
 static void convolver2_run(void * Instance, unsigned long SampleCount)
 {
 	struct convolver_impl *impl = Instance;
@@ -1504,8 +1539,8 @@ static void delay_cleanup(void * Instance)
 	free(impl);
 }
 
-static int delay_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int delay_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct delay_impl *impl;
@@ -1571,6 +1606,12 @@ static int delay_instantiate(const struct spa_fga_plugin *plugin, const struct s
 	}
 	*hndl = impl;
 	return 0;
+}
+
+static int delay_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	return instantiate_helper(plugin, desc, rate, config, n_hndl, hndl, delay_instantiate1);
 }
 
 static void delay_connect_port(void * Instance, unsigned long Port,
@@ -2302,8 +2343,8 @@ static int parse_filters(struct plugin *pl, struct spa_json *iter, int rate,
  *   filtersX = [ ... ] # to load channel X
  * }
  */
-static int param_eq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int param_eq_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct spa_json it[3];
@@ -2385,6 +2426,12 @@ static int param_eq_instantiate(const struct spa_fga_plugin *plugin, const struc
 error:
 	free(impl);
 	return -EINVAL;
+}
+
+static int param_eq_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	return instantiate_helper(plugin, desc, rate, config, n_hndl, hndl, param_eq_instantiate1);
 }
 
 static void param_eq_connect_port(void * Instance, unsigned long Port,
@@ -2666,8 +2713,8 @@ struct dcblock_impl {
 	struct dcblock dc[8];
 };
 
-static int dcblock_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int dcblock_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct dcblock_impl *impl;
@@ -2682,6 +2729,12 @@ static int dcblock_instantiate(const struct spa_fga_plugin *plugin, const struct
 	impl->rate = rate;
 	*hndl = impl;
 	return 0;
+}
+
+static int dcblock_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	return instantiate_helper(plugin, desc, rate, config, n_hndl, hndl, dcblock_instantiate1);
 }
 
 static void dcblock_run_n(struct dcblock dc[], float *dst[], const float *src[],
@@ -3267,8 +3320,8 @@ struct busy_impl {
 	float cpu_scale;
 };
 
-static int busy_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int busy_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct busy_impl *impl;
@@ -3318,6 +3371,12 @@ static int busy_instantiate(const struct spa_fga_plugin *plugin, const struct sp
 	*hndl = impl;
 
 	return 0;
+}
+
+static int busy_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	return instantiate_helper(plugin, desc, rate, config, n_hndl, hndl, busy_instantiate1);
 }
 
 static void busy_run(void * Instance, unsigned long SampleCount)

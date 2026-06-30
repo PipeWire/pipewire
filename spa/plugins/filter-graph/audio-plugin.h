@@ -63,7 +63,7 @@ struct spa_fga_descriptor {
 	struct spa_fga_port *ports;
 
 	int (*instantiate) (const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
-			uint32_t rate, int index, const char *config, void **hndl);
+			uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[]);
 
 	void (*cleanup) (void *instance);
 

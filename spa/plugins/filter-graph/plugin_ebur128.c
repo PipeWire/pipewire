@@ -68,8 +68,8 @@ struct ebur128_impl {
 	ebur128_state *st[7];
 };
 
-static int ebur128_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int ebur128_instantiate1(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, uint32_t index, const char *config, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
 	struct ebur128_impl *impl;
@@ -127,6 +127,17 @@ done:
 error:
 	free(impl);
 	return -EINVAL;
+}
+
+static int ebur128_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void *hndl[])
+{
+	int res;
+	for (uint32_t i = 0; i < n_hndl; i++) {
+		if ((res = ebur128_instantiate1(plugin, desc, rate, i, config, &hndl[i])) < 0)
+			return res;
+	}
+	return 0;
 }
 
 static void ebur128_run(void * Instance, unsigned long SampleCount)
@@ -418,21 +429,24 @@ struct lufs2gain_impl {
 	float *port[3];
 };
 
-static int lufs2gain_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor * Descriptor,
-		uint32_t rate, int index, const char *config, void **hndl)
+static int lufs2gain_instantiate(const struct spa_fga_plugin *plugin, const struct spa_fga_descriptor *desc,
+		uint32_t rate, const char *config, uint32_t n_hndl, void **hndl)
 {
 	struct plugin *pl = SPA_CONTAINER_OF(plugin, struct plugin, plugin);
-	struct lufs2gain_impl *impl;
 
-	impl = calloc(1, sizeof(*impl));
-	if (impl == NULL)
-		return -errno;
+	for (uint32_t i = 0; i < n_hndl; i++) {
+		struct lufs2gain_impl *impl;
 
-	impl->plugin = pl;
-	impl->dsp = pl->dsp;
-	impl->log = pl->log;
-	impl->rate = rate;
-	*hndl = impl;
+		impl = calloc(1, sizeof(*impl));
+		if (impl == NULL)
+			return -errno;
+
+		impl->plugin = pl;
+		impl->dsp = pl->dsp;
+		impl->log = pl->log;
+		impl->rate = rate;
+		hndl[i] = impl;
+	}
 	return 0;
 }
 

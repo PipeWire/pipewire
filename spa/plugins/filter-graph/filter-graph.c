@@ -1682,14 +1682,12 @@ static int impl_activate(void *object, const struct spa_dict *props)
 		d = desc->desc;
 		p = desc->plugin->plugin;
 
-		for (i = 0; i < node->n_hndl; i++) {
-			spa_log_info(impl->log, "instantiate %s %s[%d] rate:%lu", d->name, node->name, i, impl->rate);
-			errno = EINVAL;
-			if ((res = d->instantiate(p, d, impl->rate, i, node->config, &node->hndl[i])) < 0) {
-				spa_log_error(impl->log, "cannot create plugin instance %d rate:%lu: %s",
-						i, impl->rate, spa_strerror(res));
-				goto error;
-			}
+		spa_log_info(impl->log, "instantiate %s %s[%d] rate:%lu", d->name, node->name,
+				node->n_hndl, impl->rate);
+		if ((res = d->instantiate(p, d, impl->rate, node->config, node->n_hndl, node->hndl)) < 0) {
+			spa_log_error(impl->log, "cannot create plugin instance %d rate:%lu: %s",
+					node->n_hndl, impl->rate, spa_strerror(res));
+			goto error;
 		}
 		node->control_changed = true;
 	}

@@ -18,6 +18,7 @@
 #include <spa/utils/overflow.h>
 #include <spa/param/audio/raw-json.h>
 #include <spa/pod/dynamic.h>
+#include <spa/node/type-info.h>
 #include <spa/filter-graph/filter-graph.h>
 
 #include <pipewire/impl.h>
@@ -1278,6 +1279,7 @@ struct impl {
 
 	struct spa_latency_info latency[2];
 	struct spa_process_latency_info process_latency;
+	struct spa_io_latency io_latency;
 };
 
 static void capture_destroy(void *d)
@@ -1483,15 +1485,23 @@ static void update_latencies(struct impl *impl, bool process)
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
-		enum spa_direction direction)
+		enum spa_direction direction, struct pw_stream *stream)
 {
 	struct spa_latency_info latency;
+	struct pw_time time;
 
 	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
 
 	impl->latency[latency.direction] = latency;
 	update_latency(impl, latency.direction, false);
+
+	pw_stream_get_time_n(stream, &time, sizeof(time));
+	impl->io_latency.rate = time.rate;
+	if (latency.direction == SPA_DIRECTION_OUTPUT)
+		impl->io_latency.capture_latency = time.delay;
+	else
+		impl->io_latency.playback_latency = time.delay;
 }
 
 static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param,
@@ -1546,10 +1556,35 @@ static void capture_state_changed(void *data, enum pw_stream_state old,
 		pw_log_info("module %p: error: %s", impl, error);
 		break;
 	case PW_STREAM_STATE_STREAMING:
+	{
+		struct pw_time time;
+		pw_stream_get_time_n(impl->capture, &time, sizeof(time));
+		impl->io_latency.rate = time.rate;
+		impl->io_latency.capture_latency = time.delay;
+		break;
+	}
 	default:
 		break;
 	}
 	return;
+}
+
+static void update_context(struct impl *impl)
+{
+	uint32_t n_ctx = 0;
+
+	if (impl->position != NULL) {
+		impl->ctx[n_ctx].type = SPA_TYPE_INFO_IO_BASE "Position";
+		impl->ctx[n_ctx].data = impl->position;
+		impl->ctx[n_ctx].size = sizeof(*impl->position);
+		n_ctx++;
+	}
+	impl->ctx[n_ctx].type = SPA_TYPE_INFO_IO_BASE "Latency";
+	impl->ctx[n_ctx].data = &impl->io_latency;
+	impl->ctx[n_ctx].size = sizeof(impl->io_latency);
+	n_ctx++;
+
+	impl->n_ctx = n_ctx;
 }
 
 static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
@@ -1558,6 +1593,7 @@ static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
 	switch (id) {
 	case SPA_IO_Position:
 		impl->position = area;
+		update_context(impl);
 		break;
 	default:
 		break;
@@ -1590,7 +1626,7 @@ static void param_changed(struct impl *impl, uint32_t id, const struct spa_pod *
 			spa_filter_graph_set_props(impl->graph, direction, param);
 		break;
 	case SPA_PARAM_Latency:
-		param_latency_changed(impl, param, direction);
+		param_latency_changed(impl, param, direction, stream);
 		break;
 	case SPA_PARAM_ProcessLatency:
 		param_process_latency_changed(impl, param, direction);
@@ -1641,6 +1677,7 @@ static void playback_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_STREAMING:
 	{
 		uint32_t target = impl->info.rate;
+		struct pw_time time;
 		if (target == 0)
 			target = impl->position ?
 				impl->position->clock.target_rate.denom : DEFAULT_RATE;
@@ -1648,6 +1685,11 @@ static void playback_state_changed(void *data, enum pw_stream_state old,
 			res = -EINVAL;
 			goto error;
 		}
+
+		pw_stream_get_time_n(impl->playback, &time, sizeof(time));
+		impl->io_latency.rate = time.rate;
+		impl->io_latency.playback_latency = time.delay;
+
 		if (impl->rate != target) {
 			impl->rate = target;
 			deactivate_graph(impl);

@@ -1,0 +1,335 @@
+/** \page page_rtp_module_internals RTP sink and source module internals
+
+This document explains the architecture of PipeWire's RTP module.
+
+\tableofcontents
+
+# Introduction {#rtp-module-internals-introduction}
+
+The "RTP module" actually refers to a set of three modules which share source code:
+
+- \ref page_module_rtp_sink "RTP sink module" : Creates an RTP sink node and
+  exposes it to the graph. This sink node places PCM audio into an internal ring
+  buffer. This ring buffer is the source for the data of outgoing packets. The
+  RTP timestamps may be synchronized against PTP time, depending on what buffer
+  mode is used. This module also has a special "separate PTP sender" mode, where
+  the actual send portion is done by an internal mini graph that runs on a special
+  PTP based graph driver.
+- \ref page_module_rtp_source "RTP source module" : Creates an RTP source node
+  and exposes it to the graph. This source node receives RTP packets and places
+  their PCM data into an internal ring buffer. The node's process callback reads
+  from that ring buffer and outputs that data to the graph. Depending on what mode
+  is used, the position that the ring buffer is read from may be synchronized
+  against a PTP time source.
+- \ref page_module_rtp_sap "SAP module" : Announces SAP sessions via multicast,
+  and also listens for SAP sessions. If it discovers another SAP session, it
+  instantiates the RTP source module, which in turn creates and exposes its RTP
+  source node. See RFC 2974 for more about SAP.
+
+For notes about the configuration, see the individual module documentation.
+
+# RTP stream details {#rtp-module-internals-stream-details}
+
+The core of the RTP sink and source modules is the `rtp_stream`. This is built around
+a \ref pw_stream "PipeWire stream". This stream can operate in the `PW_DIRECTION_INPUT`
+direction (used by the RTP sink module) or in the `PW_DIRECTION_OUTPUT` direction
+(used by the RTP source module).
+
+The `rtp_stream` is implemented in `stream.c` and `stream.h`. `stream.c` includes
+`audio.c`, `midi.c`, `opus.c`. These handle media subtype specific setups,
+teardowns, and data processing:
+
+- `audio.c` corresponds to `SPA_MEDIA_SUBTYPE_raw` and handles PCM audio.
+- `midi.c` corresponds to `SPA_MEDIA_SUBTYPE_control` and handles MIDI.
+- `opus.c` is similar to `audio.c`, but corresponds to `SPA_MEDIA_SUBTYPE_opus`,
+  and encodes PCM audio to Opus prior to sending out RTP packets and decodes
+  Opus encoded audio from incoming RTP packets.
+
+The process callback in `rtp_stream` is set by these sources depending
+on the media subtype. Other, `rtp_stream` specific callbacks like a flush timeout
+handler are also set by these sources, since they are media subtype specific.
+
+The RTP sink and source modules are configured via properties, represented by
+`pw_properties`. Both support "stream.props" values inside their properties. These
+values in turn are child `pw_properties` instances that are passed directly to
+their `rtp_stream` instances. The modules also copy some of the values of their
+own properties into that child `pw_properties` instance. The exact list of values
+that are copied over depends on the module. But, this means that some values can
+be set directly in the module properties, or inside the stream.props properties.
+One example of this would be `sess.ts-direct`.
+
+\note This document refers to this as "copying to the stream properties". Actually,
+a value is copied from the module's properties to the stream properties if and only
+if that value is not already set in the stream properties. If it is, the already
+existing value takes priority.
+
+`audio.c` is by far the most complex of the media subtype handlers. All three
+handlers have some notion of the direct timestamp and constant latency modes, but
+`audio.c` is (currently) the only one with the fully reworked implementation that
+this document describes (the `impl->actual_max_buffer_size` modulo scheme,
+`impl->ts_align`, device delay compensation, and the exact over/underrun thresholds).
+`midi.c` and `opus.c` still carry their own, simpler direct-vs-constant-latency
+handling and a `TODO` to converge on the `audio.c` approach. `audio.c` also features
+the separate PTP sender mode, which the other two do not have at all.
+
+## Ring buffer and wrap-around behavior {#rtp-module-internals-ring-buffer-behavior}
+
+The `rtp_stream` sets up a fixed-size ring buffer. Its size is derived from the
+`sess.buffer-size` property, in bytes. Note that this is a *stream* property: it
+is read by `rtp_stream_new()` from the properties it is handed, and - unlike e.g.
+`sess.ts-direct` - neither the sink nor the source module copies it over from its
+own properties, so in practice it can only be set inside `stream.props`.
+
+The `sess.buffer-size` value is not used verbatim. `rtp_stream_new()` derives two
+quantities from it:
+
+- `impl->buffer_size` is `sess.buffer-size` rounded *up* to the next power of two
+  (via `SPA_ROUND_UP_POW2_32()`), and is the size of the actual allocation (that is,
+  of `impl->buffer`). It is a power of two because the `midi.c` and `opus.c` handlers
+  wrap their indices with a bit mask (`impl->buffer_mask`, and `impl->buffer_mask2`
+  against the half-sized `impl->buffer_size2`) rather than a modulo, and masking only
+  wraps correctly for power-of-two sizes. `impl->buffer_size` is generally *not* an
+  integer multiple of the stride.
+- `impl->actual_max_buffer_size` is `impl->buffer_size` rounded *down* to an integer
+  multiple of the stride (via `SPA_ROUND_DOWN()`). This is used by `audio.c`, which
+  - unlike `midi.c` and `opus.c` - wraps via a modulo against this value. `audio.c`
+  was reworked to do this to fix the stride-alignment problem described below;
+  `midi.c` and `opus.c` still use the mask scheme and carry a `TODO` to converge on
+  it.
+
+The actual, allocated buffer is present as `impl->buffer`. This is the pure data
+storage buffer, without any read or write index.
+
+\note `impl->buffer` and `impl->target_buffer` are not to be confused. The former
+is the actual buffer, while the latter is the session latency, converted to RTP
+samples. Furthermore, `sess.buffer-size` and the session latency must be picked such
+that `impl->target_buffer` worth of samples fits within the buffer. Since
+`impl->target_buffer` is in samples while `impl->actual_max_buffer_size` is in bytes,
+this means `impl->target_buffer * stride` must not exceed
+`impl->actual_max_buffer_size` (equivalently, `impl->target_buffer` must not exceed
+`impl->actual_max_buffer_size / stride`).
+
+The stride value depends on the media subtype, and is set internally by `rtp_stream_new()`.
+
+The buffer contents are always interleaved when the number of channels is greater
+than 1 and the data is raw audio (so, this does not apply to MIDI for example).
+The stride value specifies the unit size inside the buffer that contains audio
+data for all channels, played at the exact same time. In the PCM case, the stride
+is (num_channels * bytes_per_pcm_sample).
+
+\note It is important to keep in mind that the way the read and write index are
+handled in this ring buffer deviates somewhat from standard ring buffer usage
+in typical producer-consumer schemes, especially in the direct timestamp mode
+(more on that further below).
+
+The read and write index logic is handled by `impl->ring`. Both read and write
+indices increase monotonically (as free-running values) unless they are
+resynchronized. Because they are free-running rather than being wrapped at the
+buffer boundary, the fill level is simply their difference, and that is what removes
+the usual ambiguity about whether the ring buffer is empty or full. When accessing
+the actual buffer contents, an index is first turned into a byte offset (see below),
+and that offset is then reduced to the buffer bounds - in `audio.c` by taking it
+modulo `impl->actual_max_buffer_size`, and in `midi.c` and `opus.c` by masking it
+with `impl->buffer_mask` / `impl->buffer_mask2`. Reducing modulo
+`impl->actual_max_buffer_size` (rather than the raw `impl->buffer_size`) is essential
+for the buffer modes to work properly (explained further below).
+
+The read and write indices are given in RTP sample units. To access data in the
+buffer, the indices are multiplied by the stride to get a byte offset. This also
+means that the buffer size (which is given in bytes) must be an integer multiple
+of the stride size - otherwise, the read and write indices may refer to places in
+the buffer that cannot contain a full data set for all channels. For example, if
+the stride is 6, and the buffer size is 100, then when the read index is 16, the
+byte offset would be 16*6 = 96 - but there, only 4 bytes could be read, not 6.
+For this reason, the buffer size is internally rounded down to the nearest
+integer multiple of the stride size, as mentioned above.
+
+In the RTP sink module, the `rtp_stream` appends data to the ring buffer at its
+write index, except for when a resynchronization happens - the write index is then
+reset to match the `spa_io_clock.position` value (scaled to RTP sample units).
+One resynchronization always happens at startup. The RTP timestamps of outgoing
+packets are derived from the ring buffer's read index.
+
+In the RTP source module, `rtp_stream` reads data from the ring buffer depending
+on the buffer mode. More on that further below.
+
+## Threading model and data processing {#rtp-module-internals-threading-model}
+
+Most of the code in `stream.c` runs in the stream's main loop, while most of the
+code in the media subtype handlers (`audio.c` etc.) runs in the stream's data loop.
+
+`stream_start()` is called by `on_stream_state_changed()`when the stream's state
+changes to `PW_STREAM_STATE_STREAMING`. At that stage, the stream's data loop is
+running, but the stream's PipeWire graph node is not yet attached to the data loop,
+so no data processing takes place at this time. The attachment happens after
+`on_stream_state_changed()` finished. This means that while `stream_start()` is
+run from the main loop, it is safe to set internal states that are accessed and
+modified by other functions that run in the data loop.
+
+Similarly, `stream_stop()` is called by `on_stream_state_changed()`when the stream's
+state changes to `PW_STREAM_STATE_PAUSED`. (It is not called however if the
+`node.always-process` in the stream.props properties in the RTP source module
+is set to true.) At that stage, the stream's graph node has already been detached
+from the data loop. It therefore is safe for `stream_stop()` to touch internal
+states that normally would be accessed by functions that run in the data loop.
+
+The media subtype handlers each have an init function, like `rtp_audio_init()`.
+This is one of the functions from these handlers that runs in the main loop, since
+these init functions are called by `rtp_stream_new()`. The other functions are:
+
+- `stop_timer()` (called by `stream_start()`)
+- `resend_packets()` (RAOP specific - not used by the RTP sink or source modules)
+- `deinit()` (called by `rtp_stream_destroy()`)
+
+Everything else in the media subtype handlers runs in the data loop, with the
+exception of `ptp_sender_process()` in `audio.c`, which runs under the separate
+PTP sender's own driver and may have a separate data loop.
+
+`audio.c` has two extra specialties:
+
+1. It aggregates the contents of the ring buffer such that it can split it up into
+   RTP packets with the specified packet time (see `rtp.ptime` in the module
+   and stream properties). Depending on how full the ring buffer is, it may decide
+   to send out some of its contents within the current graph cycle, and may use
+   a timer (which runs in the data loop) to schedule the output of the remaining
+   data later, to not risk an xrun by blocking the data loop in the current graph
+   cycle for too long.
+2. The separate PTP sender mode is driven by its own driver. More on that
+   mode is documented further below.
+
+# Buffer modes {#rtp-module-internals-buffer-modes}
+
+\note Read the buffer modes documentation in \ref page_module_rtp_source first
+if not already done.
+
+Also, this section specifically describes how the buffer modes in `audio.c` are
+handled. `midi.c` and `opus.c` do branch on `impl->direct_timestamp` too, but with
+their own, simpler handling (and aligning those with what `audio.c` does is an
+open `TODO`); the detailed behavior described here is `audio.c` specific.
+
+The buffer mode only has a minor influence on the RTP sink module. In the constant
+latency mode, `impl->ts_align` is used in resynchronization cases to avoid a
+discontinuity in the outgoing RTP timestamps. In the direct timestamp mode,
+`impl->ts_align` is not used.
+
+The rest of the buffer mode documentation is about the behavior on the receiving
+side, that is, how the RTP source module uses the `rtp_stream`.
+
+In both modes, received data is inserted into the ring buffer according to the
+RTP timestamp. This timestamp is first shifted into the future by the value of
+`impl->target_buffer`. Then, the ring buffer's write index is advanced. It is
+expected by the code that the sender produces continuous timestamps; that is,
+`rtp_timestamp_of_packet_2 = rtp_timestamp_of_packet_1 + rtp_samples_per_packet`.
+In certain cases, resynchronization may take place; the read and write indices
+are then reset; the read index is set to the timestamp of the next incoming RTP
+packet, while the write index is set to that packet timestamp + `impl->target_buffer`;
+that is, the write index is set to be ahead of the read index by the session
+latency in samples.
+
+The write index is advanced in `rtp_audio_receive()`, the read index is advanced
+in `rtp_audio_process_playback()`.
+
+## Constant latency mode {#rtp-module-internals-constant-latency-mode}
+
+As mentioned in the RTP source module documentation, this is the default mode,
+where the fill level is kept at a steady value, which is `impl->target_buffer`.
+If the fill level is above or below this, a DLL is used to compute an error rate,
+which then is fed into the ASRC of the `pw_stream` the `rtp_stream` is based on.
+The estimated amount of samples that are "in-flight" (that is, samples that
+already were sent out but not yet received or which arrived right after the
+last graph cycle) are also factored into this computation. This establishes a
+control loop that resamples the audio data as needed to maintain the fill level
+at `impl->target_buffer`. Should the difference between the target and the
+actual fill level exceed a threshold, the ring buffer indices are resynchronized.
+
+More concretely, the thresholds work as follows. An *underrun* is detected when
+fewer samples are available than the current graph cycle needs (`avail < wanted`);
+the missing samples are filled with silence and the sync state is dropped.
+An *overrun* on the read side is detected when the fill level exceeds
+`SPA_MIN(target_buffer * 8, impl->buffer_size / stride)`; the excess is dropped
+by advancing the read index so that only `target_buffer` worth of data remains
+(a soft correction, not a full resync). Here `target_buffer` is the
+device-delay-adjusted target (see below), i.e. `impl->target_buffer` minus the
+device delay - the two coincide only when the device delay is zero. On the write
+side (`rtp_audio_receive()`), a fill level exceeding the ring capacity
+`impl->buffer_size / stride` sets `impl->have_sync` to false, forcing a full resync.
+
+\note The factor of 8 in `target_buffer * 8` is an arbitrarily / empirically
+chosen headroom multiplier: it sets how far the fill level may run above the target
+before the buffered data is treated as stale. It is *not* a unit conversion - in
+particular, it is unrelated to the eight bits in a byte, despite the superficial
+resemblance. The `impl->buffer_size / stride` term merely caps this bound at the
+physical ring capacity, in samples.
+
+If the device delay (specified by the `pw_time.delay` value) is nonzero, then it
+is subtracted from `impl->target_buffer`, and the result is then used as the target
+fill level instead of `impl->target_buffer` directly.
+
+## Direct timestamp mode {#rtp-module-internals-direct-timestamp-mode}
+
+Since this mode requires that the graph drivers of sender and receiver are somehow
+synchronized, it implies that, if the sender's and the receiver's
+\ref spa_io_clock::position values are sampled at the exact same moment, they
+are identical. In practice, they usually deviate a bit. This deviation is the
+time sync error, and the time synchronization mechanism that is used tries to
+keep this sync error as minimal as possible.
+
+The aforementioned incoming RTP timestamp shift by `impl->target_buffer` plays
+a crucial role here, since it makes sure the transport delay (which is what
+the session latency specifies in this mode) is accounted for.
+
+This mode is called "direct timestamp" mode since, unlike in the constant latency
+mode, the `rtp_audio_process_playback()` function directly reads from the ring
+buffer at an index that is derived from \ref spa_io_clock::position , even if this
+position jumps around. There is some logic to detect underruns and substitute
+missing data with silence, but discontinuities otherwise have no lasting effect.
+The driver must ensure that the \ref spa_io_clock::position value increases steadily
+(except in major discontinuity cases); clock drift compensation is done by the
+driver by adjusting the graph invocation timings. See \ref page_driver for more.
+
+In this mode, the `rtp_stream` DLL is not used.
+
+# Separate PTP sender {#rtp-module-internals-separate-ptp-sender}
+
+This section covers the *internals* of the separate PTP sender. Its user-facing
+behavior - what it is for, how it is activated via `aes67.driver-group`, and its
+benefits and trade-offs - is documented in \ref page_module_rtp_sink .
+
+Only the `audio.c` media subtype handler supports this mode. When it is enabled,
+`rtp_audio_init()` in `audio.c` creates an internal `pw_filter` node that is kept
+isolated from the graph and is driven by the driver from the `aes67.driver-group`
+node group.
+
+When this separate PTP sender is active, `rtp_audio_process_capture()` behaves
+differently. Rather than computing a drift itself, it stores the sink driver's
+timing information (`impl->sink_nsec`, `impl->sink_next_nsec`,
+`impl->sink_resamp_delay`, `impl->sink_quantum`) for the sender to use. From that
+information, `ptp_sender_process()` estimates the current total delay and computes
+the error between it and the target. That error is fed into a separate dedicated DLL
+(`impl->ptp_dll`), which outputs a rate. That rate (`impl->ptp_corr`) is then applied
+as the ASRC's rate at the start of `rtp_audio_process_capture()`. The ASRC then
+produces larger or smaller amounts of data, filling the ring buffer to a larger or
+smaller degree, thus forming a control loop that keeps the fill level at a certain
+target (see below), similar to what the constant latency mode does.
+
+During the refilling state, no packets are sent out. The refilling state ends once
+the estimated total delay reaches `impl->target_buffer` (which is also what the
+control loop mentioned above targets). That estimated total delay is the sum of
+the current ring buffer fill level, the delay of the ASRC, and the estimated
+amount of samples that are "in-flight" (that is, samples that already were sent
+out but not yet received or which arrived right after the last graph cycle).
+
+Additionally, the sender contains code for checking for too severe deviations
+between the send progress and the current PTP time. The tolerance range is
+2x the quantum size. If the deviation goes beyond that, a resynchronization
+(and consequently, another refilling) is performed. This catches cases where
+the separate sender is starved of data (that is, the main graph is lagging
+behind), and also cases when PTP discontinuities occur.
+
+A similar check exists for the node wake up times. The filter node is scheduled
+by its own driver, independently of the sink node, so their wake ups are not
+inherently aligned. It is therefore important to check that the filter wakes
+up within the bounds of the sink node's wake up times (with some tolerance);
+if it does not, a resynchronization is performed.
+
+*/

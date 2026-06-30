@@ -73,6 +73,7 @@ extra_docs = [
   'dox/internals/protocol.dox',
   'dox/internals/pulseaudio.dox',
   'dox/internals/dma-buf.dox',
+  'dox/internals/rtp-module-internals.dox',
   'dox/tutorial/index.dox',
   'dox/tutorial/tutorial1.dox',
   'dox/tutorial/tutorial2.dox',

@@ -227,7 +227,7 @@ struct impl {
  *
  * Also, since GCC __atomic built-ins (which the SPA macros use) are
  * designed to work with integral scalar or pointer type that is 1,
- * 2, 4, or 8 bytes in length, impl->internal_state is of type uint33_t.
+ * 2, 4, or 8 bytes in length, impl->internal_state is of type uint32_t.
  * This guarantee a correct size for the built-ins. The accessors take
  * care of casting from/to rtp_stream_internal_state . The relevant
  * GCC manual page for this is:

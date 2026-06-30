@@ -43,6 +43,9 @@
  * source.ip and source.port and format parameters matches that of the sender that
  * is announced via SAP.
  *
+ * For the internal design of the shared RTP stream implementation (ring buffer,
+ * buffer modes, and threading model), see \ref page_rtp_module_internals .
+ *
  * ## Module Name
  *
  * `libpipewire-module-rtp-source`

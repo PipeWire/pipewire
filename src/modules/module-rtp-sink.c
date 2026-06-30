@@ -42,6 +42,10 @@
  * The `rtp-sink` module creates a PipeWire sink that sends audio
  * RTP packets.
  *
+ * For the internal design of the shared RTP stream implementation (ring buffer,
+ * buffer modes, threading model, and the separate PTP sender mechanism), see
+ * \ref page_rtp_module_internals .
+ *
  * ## Module Name
  *
  * `libpipewire-module-rtp-sink`
@@ -75,6 +79,41 @@
  * - `stream.props = {}`: properties to be passed to the stream
  * - `aes67.driver-group = <string>`: for AES67 streams, can be specified in order to allow
  *       the sink to be driven by a different node than the PTP driver.
+ *
+ * ### Additional information about `source.ip` and `local.ifname`
+ *
+ * The default (ANY, 0.0.0.0 or ::) lets the kernel choose the local egress interface
+ * (and, from it, the source address) based on the route to `destination.ip`.
+ * Setting a concrete `source.ip` address instead of ANY alters how the source-address
+ * field in the outgoing packets is populated, and interacts with routing.
+ *
+ * In the unicast case, `source.ip` binds the socket to that local IP, setting the
+ * source-address field that will appear in outgoing packets. Egress is still determined
+ * by the kernel's routing lookup for the destination rather than by this address, thoug
+ * source-based policy routing (if configured in the OS) can factor it into the lookup.
+ *
+ * \important In the multicast case, do not rely on `source.ip` to choose the outgoing
+ * interface. The sockets API makes no guarantee that the source address selects multicast
+ * egress, and what happens is not portable across address families (it differs between
+ * IPv4 and IPv6) or operating systems. For example, the Linux kernel implicitly uses a
+ * bound IPv4 source to pin the egress device for legacy compatibility, but does not do
+ * so for IPv6. To control which interface multicast packets leave on, set `local.ifname`.
+ *
+ * (No corresponding `source.port` property exists, because the kernel
+ * automatically picks an ephemeral local egress port during bind.)
+ *
+ * Should `local.ifname` be set, egress is strictly forced out of that named interface
+ * via SO_BINDTODEVICE. If `source.ip` is left at ANY, the kernel auto-selects a source
+ * address belonging to that interface, and uses that source address as the value of the
+ * source-address field in the outgoing packets.
+ *
+ * These two properties can be combined. `local.ifname` chooses the physical interface,
+ * while `source.ip` fixates the exact value of the source-address field in outgoing packets.
+ * Setting them inconsistently (a `source.ip` that belongs to a different interface
+ * than `local.ifname`) is not rejected at setup, but it is almost always a
+ * misconfiguration. The packet then leaves via the `local.ifname` device carrying a
+ * source address from another interface, which is a common cause of reverse-path
+ * filtering (rp_filter) drops at the receiver or an intermediate hop.
  *
  * ## General options
  *
@@ -168,6 +207,50 @@
  * pw-cli c 56 User '{ extra="{ \"command.id\" : \"remove-receiver\", \"destination.ip\" : \"10.42.0.1\" }" }'
  * pw-cli c 56 User '{ extra="{ \"command.id\" : \"clear-receivers\" }" }'
  * \endcode
+ *
+ * ## Separate PTP sender
+ *
+ * For AES67-style streams, the sink can be driven by a graph driver that is
+ * separate from the main graph, decoupling RTP transmission timing from whatever
+ * drives the rest of the graph. This is the "separate PTP sender".
+ *
+ * This feature is only available on the sink (sending) side; receivers cannot use
+ * it. It is activated by setting `aes67.driver-group` to a non-empty string. The
+ * value may be given either directly in the module's properties (in which case the
+ * module copies it into `stream.props`) or in `stream.props` directly.
+ *
+ * `aes67.driver-group` is the name of a node group. The graph driver that shall be
+ * used for sending out RTP packets and generating RTP timestamps must have its node
+ * group set to that same name. It is called the "PTP sender" because that driver
+ * typically synchronizes itself using PTP, but any time-synchronization method works
+ * as long as the driver keeps \ref spa_io_clock::position synchronized.
+ *
+ * The benefits of decoupling the main graph from the synchronized driver are:
+ *
+ * 1. Any discontinuities and resynchronizations in the time-sync protocol do not
+ *    affect the entire graph, just the separate sender.
+ * 2. Local audio sinks running in parallel to the RTP sink do not have to rate-match
+ *    to follow the synchronized graph driver, so their local output is left unaltered
+ *    (rate matching would otherwise be done with an ASRC or a tweakable PLL).
+ * 3. Graph clock rate changes (for example, playing audio at a rate that does not
+ *    match the current one) no longer affect the synchronized driver's time sync.
+ * 4. Linking/unlinking the RTP sink does not trigger a graph driver renegotiation,
+ *    which otherwise can cause subtle bugs if not handled carefully.
+ *
+ * The main downsides are:
+ *
+ * 1. Increased complexity, and thus more places where something can go wrong. In
+ *    particular, the fill-level-based control loop can suffer from over/underruns,
+ *    making it an additional potential source of audible dropouts.
+ * 2. Increased latency. Since the control loop keeps the fill level at the target,
+ *    the separate PTP sender adds roughly `sess.latency.msec` minus one quantum of
+ *    latency (the last quantum's worth of data is already being used to produce the
+ *    current graph cycle).
+ * 3. It only benefits the sender. The receiver still has to use the synchronized
+ *    graph driver for its entire graph.
+ *
+ * The internal mechanism (the dedicated DLL, the refilling state machine, and the
+ * clock-drift computation) is described in \ref page_rtp_module_internals .
  *
  * \since 0.3.60
  */

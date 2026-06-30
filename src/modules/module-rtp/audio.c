@@ -210,8 +210,8 @@ static void rtp_audio_process_playback(void *data)
 			spa_ringbuffer_read_update(&impl->ring, timestamp);
 		}
 	} else {
-		/* In the constant delay mode, it is assumed that the ring buffer fill
-		 * level matches impl->target_buffer. If not, check for over- and
+		/* In the constant latency mode, it is assumed that the ring buffer
+		 * fill level matches impl->target_buffer. If not, check for over- and
 		 * underruns. Adjust the DLL as needed. If the over/underruns are too
 		 * severe, resynchronize. */
 
@@ -387,7 +387,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 				write, expected_write);
 	}
 
-	/* Write overrun only makes sense in constant delay mode. See the
+	/* Write overrun only makes sense in constant latency mode. See the
 	 * RTP source module documentation and the rtp_audio_process_playback()
 	 * code for an explanation why. */
 	if (!impl->direct_timestamp && (filled + samples > impl->buffer_size / stride)) {
@@ -425,7 +425,7 @@ static int rtp_audio_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
 		 * to be done differently to account for the wrap-around.
 		 *
 		 * (Note that this write index update is only important if
-		 * the constant delay mode is active, or if no spa_io_position
+		 * the constant latency mode is active, or if no spa_io_position
 		 * was not provided yet. See the rtp_audio_process_playback()
 		 * code for more about this.) */
 

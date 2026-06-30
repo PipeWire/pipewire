@@ -33,8 +33,7 @@ enum spa_io_type {
 	SPA_IO_Buffers,		/**< area to exchange buffers, struct spa_io_buffers */
 	SPA_IO_Range,		/**< expected byte range, struct spa_io_range (currently not used in PipeWire) */
 	SPA_IO_Clock,		/**< area to update clock information, struct spa_io_clock */
-	SPA_IO_Latency,		/**< latency reporting, struct spa_io_latency (currently not used in
-				  * PipeWire). \see spa_param_latency */
+	SPA_IO_Latency,		/**< latency reporting, struct spa_io_latency  */
 	SPA_IO_Control,		/**< area for control messages, struct spa_io_sequence */
 	SPA_IO_Notify,		/**< area for notify messages, struct spa_io_sequence */
 	SPA_IO_Position,	/**< position information in the graph, struct spa_io_position */
@@ -207,12 +206,12 @@ struct spa_io_video_size {
 /**
  * Latency reporting
  *
- * Currently not used in PipeWire. Instead, \see spa_param_latency
+ * This gives the latency to the capture and playback hardware.
  */
 struct spa_io_latency {
-	struct spa_fraction rate;	/**< rate for min/max */
-	uint64_t min;			/**< min latency */
-	uint64_t max;			/**< max latency */
+	struct spa_fraction rate;	/**< rate for latencies */
+	int64_t capture_latency;	/**< capture latency */
+	int64_t playback_latency;	/**< playback latency */
 };
 
 /** control stream, io area for SPA_IO_Control and SPA_IO_Notify */

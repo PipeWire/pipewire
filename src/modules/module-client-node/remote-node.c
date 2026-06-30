@@ -972,12 +972,10 @@ static void clean_node(struct node_data *d)
 {
 	struct mix *mix;
 
-	if (d->have_transport) {
-		spa_list_consume(mix, &d->mix[SPA_DIRECTION_INPUT], link)
-			clear_mix(d, mix);
-		spa_list_consume(mix, &d->mix[SPA_DIRECTION_OUTPUT], link)
-			clear_mix(d, mix);
-	}
+	spa_list_consume(mix, &d->mix[SPA_DIRECTION_INPUT], link)
+		clear_mix(d, mix);
+	spa_list_consume(mix, &d->mix[SPA_DIRECTION_OUTPUT], link)
+		clear_mix(d, mix);
 	spa_list_consume(mix, &d->free_mix, link) {
 		spa_list_remove(&mix->link);
 		free(mix);

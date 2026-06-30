@@ -27,7 +27,7 @@
 
 #define SPA_TYPE_INTERFACE_Bluez5CodecMedia	SPA_TYPE_INFO_INTERFACE_BASE "Bluez5:Codec:Media:Private"
 
-#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		16
+#define SPA_VERSION_BLUEZ5_CODEC_MEDIA		17
 
 struct spa_bluez5_codec_a2dp {
 	struct spa_interface iface;
@@ -93,13 +93,36 @@ struct media_codec {
 				 * After successful decode, start_decode() should be
 				 * called again to parse the remaining data. */
 
+	/** True for codecs that share an endpoint with another codec and let
+	 * that other codec own the endpoint registration. The owner's caps
+	 * are advertised, with enabled companions merged in via combine_caps.
+	 * The default (false) means this codec owns its endpoint; set this
+	 * to true only on companion codec objects (e.g. aac_eld, sbc_xq).
+	 */
+	bool endpoint_companion;
+
 	int (*get_bis_config)(const struct media_codec *codec, uint8_t *caps,
 				uint8_t *caps_size, struct spa_dict *settings,
 				struct bap_codec_qos *qos);
 
-	/** If fill_caps is NULL, no endpoint is registered (for sharing with another codec). */
+	/** Fill in this codec's own capability bits.
+	 * For codecs that share an endpoint, only the bits belonging to this
+	 * codec object are advertised; the monitor merges siblings using
+	 * combine_caps on the endpoint owner. May be NULL on a companion
+	 * codec whose advertised caps are identical to the owner's.
+	 */
 	int (*fill_caps) (const struct media_codec *codec, uint32_t flags,
 			const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE]);
+
+	/** Merge another sibling codec's caps blob (same codec_id) into caps.
+	 * Only required on the endpoint owner when an enabled companion's
+	 * caps differ from the owner's. If NULL, only the owner's caps are
+	 * advertised and companions' fill_caps is not called.
+	 * Returns the new caps_size, or < 0 on error.
+	 */
+	int (*combine_caps) (const struct media_codec *codec, uint32_t flags,
+			uint8_t caps[A2DP_MAX_CAPS_SIZE], int caps_size,
+			const uint8_t *other, int other_size);
 
 	int (*select_config) (const struct media_codec *codec, uint32_t flags,
 			const void *caps, size_t caps_size,

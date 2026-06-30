@@ -1390,7 +1390,7 @@ const struct media_codec a2dp_codec_opus_05_51 = {
 	.name = "opus_05_51",
 	.description = "Opus 05 5.1 Surround",
 	.endpoint_name = "opus_05",
-	.fill_caps = NULL,
+	.endpoint_companion = true,
 };
 
 const struct media_codec a2dp_codec_opus_05_71 = {
@@ -1399,7 +1399,7 @@ const struct media_codec a2dp_codec_opus_05_71 = {
 	.name = "opus_05_71",
 	.description = "Opus 05 7.1 Surround",
 	.endpoint_name = "opus_05",
-	.fill_caps = NULL,
+	.endpoint_companion = true,
 };
 
 /* Bidi return channel codec: doesn't have endpoints */
@@ -1428,7 +1428,7 @@ const struct media_codec a2dp_codec_opus_05_pro = {
 	.clear_props = codec_clear_props,
 	.duplex_codec = &a2dp_codec_opus_05_return,
 	.endpoint_name = "opus_05_duplex",
-	.fill_caps = NULL,
+	.endpoint_companion = true,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

@@ -507,6 +507,41 @@ static int media_codec_to_endpoint(const struct media_codec *codec,
 	return 0;
 }
 
+static bool is_media_codec_enabled(struct spa_bt_monitor *monitor, const struct media_codec *codec)
+{
+	/* Mandatory codecs are always enabled */
+	switch (codec->id) {
+	case SPA_BLUETOOTH_AUDIO_CODEC_SBC:
+	case SPA_BLUETOOTH_AUDIO_CODEC_CVSD:
+	case SPA_BLUETOOTH_AUDIO_CODEC_LC3:
+		return true;
+	default:
+		return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
+	}
+}
+
+static const char *media_endpoint_to_ep_name(const char *endpoint, bool *sink)
+{
+	static const struct { const char *prefix; bool sink; } prefixes[] = {
+		{ A2DP_SINK_ENDPOINT "/",            true  },
+		{ A2DP_SOURCE_ENDPOINT "/",          false },
+		{ BAP_SOURCE_ENDPOINT "/",           false },
+		{ BAP_SINK_ENDPOINT "/",             true  },
+		{ BAP_BROADCAST_SOURCE_ENDPOINT "/", false },
+		{ BAP_BROADCAST_SINK_ENDPOINT "/",   true  },
+	};
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(prefixes); i++) {
+		if (spa_strstartswith(endpoint, prefixes[i].prefix)) {
+			*sink = prefixes[i].sink;
+			return endpoint + strlen(prefixes[i].prefix);
+		}
+	}
+	*sink = true;
+	return NULL;
+}
+
 static const struct media_codec *media_endpoint_to_codec(struct spa_bt_monitor *monitor, const char *endpoint, bool *sink, const struct media_codec *preferred)
 {
 	const char *ep_name;
@@ -514,49 +549,95 @@ static const struct media_codec *media_endpoint_to_codec(struct spa_bt_monitor *
 	const struct media_codec *found = NULL;
 	int i;
 
-	if (spa_strstartswith(endpoint, A2DP_SINK_ENDPOINT "/")) {
-		ep_name = endpoint + strlen(A2DP_SINK_ENDPOINT "/");
-		*sink = true;
-	} else if (spa_strstartswith(endpoint, A2DP_SOURCE_ENDPOINT "/")) {
-		ep_name = endpoint + strlen(A2DP_SOURCE_ENDPOINT "/");
-		*sink = false;
-	} else if (spa_strstartswith(endpoint, BAP_SOURCE_ENDPOINT "/")) {
-		ep_name = endpoint + strlen(BAP_SOURCE_ENDPOINT "/");
-		*sink = false;
-	} else if (spa_strstartswith(endpoint, BAP_SINK_ENDPOINT "/")) {
-		ep_name = endpoint + strlen(BAP_SINK_ENDPOINT "/");
-		*sink = true;
-	} else if (spa_strstartswith(endpoint, BAP_BROADCAST_SOURCE_ENDPOINT "/")) {
-		ep_name = endpoint + strlen(BAP_BROADCAST_SOURCE_ENDPOINT "/");
-		*sink = false;
-	} else if (spa_strstartswith(endpoint, BAP_BROADCAST_SINK_ENDPOINT "/")) {
-		ep_name = endpoint + strlen(BAP_BROADCAST_SINK_ENDPOINT "/");
-		*sink = true;
-	} else {
-		*sink = true;
+	ep_name = media_endpoint_to_ep_name(endpoint, sink);
+	if (ep_name == NULL)
 		return NULL;
-	}
 
 	for (i = 0; media_codecs[i]; i++) {
 		const struct media_codec *codec = media_codecs[i];
 		const char *codec_ep_name =
 			codec->endpoint_name ? codec->endpoint_name : codec->name;
 
-		if (!preferred && !codec->fill_caps)
+		if (!is_media_codec_enabled(monitor, codec))
 			continue;
 		if (!spa_streq(ep_name, codec_ep_name))
 			continue;
 		if ((*sink && !codec->decode) || (!*sink && !codec->encode))
 			continue;
 
-		/* Same endpoint may be shared with multiple codec objects,
-		 * which may e.g. correspond to different encoder settings.
-		 * Look up which one we selected.
+		/* Same endpoint may be shared with multiple codec objects.
+		 * Prefer the requested one, then the endpoint owner, else
+		 * fall back to the first match.
 		 */
-		if ((preferred && codec == preferred) || found == NULL)
+		if (preferred && codec == preferred)
+			return codec;
+		if (found == NULL || (found->endpoint_companion && !codec->endpoint_companion))
 			found = codec;
 	}
 	return found;
+}
+
+/* Like media_endpoint_to_codec, but when multiple codecs share the endpoint,
+ * pick the one whose validate_config accepts the given on-the-wire config.
+ * Falls back to the preferred/owner heuristic if none accepts (or if no codec
+ * implements validate_config).
+ */
+static const struct media_codec *media_endpoint_to_codec_for_config(
+		struct spa_bt_monitor *monitor, const char *endpoint, bool *sink,
+		const struct media_codec *preferred,
+		const void *config, size_t config_size)
+{
+	const char *ep_name;
+	const struct media_codec * const * const media_codecs = monitor->media_codecs;
+	const struct media_codec *fallback;
+	const struct media_codec *accepted_preferred = NULL;
+	const struct media_codec *accepted_owner = NULL;
+	const struct media_codec *accepted_first = NULL;
+	int i;
+
+	fallback = media_endpoint_to_codec(monitor, endpoint, sink, preferred);
+	if (fallback == NULL || config == NULL || config_size == 0)
+		return fallback;
+
+	ep_name = media_endpoint_to_ep_name(endpoint, sink);
+	if (ep_name == NULL)
+		return fallback;
+
+	for (i = 0; media_codecs[i]; i++) {
+		const struct media_codec *codec = media_codecs[i];
+		const char *codec_ep_name =
+			codec->endpoint_name ? codec->endpoint_name : codec->name;
+		struct spa_audio_info info;
+
+		if (!is_media_codec_enabled(monitor, codec))
+			continue;
+		if (!spa_streq(ep_name, codec_ep_name))
+			continue;
+		if ((*sink && !codec->decode) || (!*sink && !codec->encode))
+			continue;
+		if (!codec->validate_config)
+			continue;
+		if (codec->validate_config(codec, *sink ? MEDIA_CODEC_FLAG_SINK : 0,
+					config, config_size, &info) < 0)
+			continue;
+
+		if (preferred && codec == preferred) {
+			accepted_preferred = codec;
+			break;
+		}
+		if (accepted_owner == NULL && !codec->endpoint_companion)
+			accepted_owner = codec;
+		if (accepted_first == NULL)
+			accepted_first = codec;
+	}
+
+	if (accepted_preferred)
+		return accepted_preferred;
+	if (accepted_owner)
+		return accepted_owner;
+	if (accepted_first)
+		return accepted_first;
+	return fallback;
 }
 
 static int media_endpoint_to_profile(const char *endpoint)
@@ -576,19 +657,6 @@ static int media_endpoint_to_profile(const char *endpoint)
 		return SPA_BT_PROFILE_BAP_BROADCAST_SINK;
 	else
 		return SPA_BT_PROFILE_NULL;
-}
-
-static bool is_media_codec_enabled(struct spa_bt_monitor *monitor, const struct media_codec *codec)
-{
-	/* Mandatory codecs are always enabled */
-	switch (codec->id) {
-	case SPA_BLUETOOTH_AUDIO_CODEC_SBC:
-	case SPA_BLUETOOTH_AUDIO_CODEC_CVSD:
-	case SPA_BLUETOOTH_AUDIO_CODEC_LC3:
-		return true;
-	default:
-		return spa_dict_lookup(&monitor->enabled_codecs, codec->name) != NULL;
-	}
 }
 
 static enum spa_bt_profile get_codec_profile(const struct media_codec *codec,
@@ -686,10 +754,11 @@ static bool endpoint_should_be_registered(struct spa_bt_monitor *monitor,
 					  const struct media_codec *codec,
 					  enum spa_bt_media_direction direction)
 {
-	/* Codecs with fill_caps == NULL share endpoint with another codec,
-	 * and don't have their own endpoint
+	/* Companion codecs share another codec's endpoint and don't get
+	 * registered themselves; the owner's registration covers them.
 	 */
 	return codec_has_direction(monitor, codec, direction) &&
+		!codec->endpoint_companion &&
 		codec->fill_caps;
 }
 
@@ -765,6 +834,60 @@ static void bap_features_clear(struct bap_features *feat)
 const struct spa_dict *get_device_codec_settings(struct spa_bt_device *device, bool bap)
 {
     return bap ? device->settings : &device->monitor->global_settings;
+}
+
+/* Build the endpoint's advertised caps by filling the owner's own caps and
+ * merging in those of every enabled companion sharing the same endpoint.
+ * \a owner must satisfy endpoint_should_be_registered() for \a direction.
+ */
+static int media_codec_fill_endpoint_caps(struct spa_bt_monitor *monitor,
+					  const struct media_codec *owner,
+					  enum spa_bt_media_direction direction,
+					  uint8_t caps[A2DP_MAX_CAPS_SIZE])
+{
+	const struct media_codec * const * const media_codecs = monitor->media_codecs;
+	const char *owner_ep = owner->endpoint_name ? owner->endpoint_name : owner->name;
+	uint32_t flags = (direction == SPA_BT_MEDIA_SINK ||
+			direction == SPA_BT_MEDIA_SINK_BROADCAST) ? MEDIA_CODEC_FLAG_SINK : 0;
+	int caps_size;
+	int i;
+
+	caps_size = owner->fill_caps(owner, flags, &monitor->global_settings, caps);
+	if (caps_size < 0)
+		return caps_size;
+
+	if (!owner->combine_caps)
+		return caps_size;
+
+	for (i = 0; media_codecs[i]; i++) {
+		const struct media_codec *c = media_codecs[i];
+		const char *c_ep = c->endpoint_name ? c->endpoint_name : c->name;
+		uint8_t other[A2DP_MAX_CAPS_SIZE];
+		int other_size;
+
+		if (c == owner || !c->endpoint_companion)
+			continue;
+		if (!spa_streq(c_ep, owner_ep))
+			continue;
+		if (c->codec_id != owner->codec_id || c->kind != owner->kind)
+			continue;
+		if (!codec_has_direction(monitor, c, direction))
+			continue;
+		if (!is_media_codec_enabled(monitor, c))
+			continue;
+		if (!c->fill_caps)
+			continue;
+
+		other_size = c->fill_caps(c, flags, &monitor->global_settings, other);
+		if (other_size < 0)
+			continue;
+
+		caps_size = owner->combine_caps(owner, flags, caps, caps_size, other, other_size);
+		if (caps_size < 0)
+			return caps_size;
+	}
+
+	return caps_size;
 }
 
 static DBusHandlerResult endpoint_select_configuration(DBusConnection *conn, DBusMessage *m, void *userdata)
@@ -5351,9 +5474,13 @@ static DBusHandlerResult endpoint_set_configuration(DBusConnection *conn,
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 	}
 
-	/* If multiple codecs share the endpoint, pick the one we wanted */
-	transport->media_codec = codec = media_endpoint_to_codec(monitor, endpoint, &sink,
-			transport->device->preferred_codec);
+	/* If multiple codecs share the endpoint, pick the one whose
+	 * validate_config accepts the configuration BlueZ sent us. This is
+	 * how we tell e.g. AAC LC from AAC ELD on the shared "aac" endpoint.
+	 */
+	transport->media_codec = codec = media_endpoint_to_codec_for_config(monitor, endpoint, &sink,
+			transport->device->preferred_codec,
+			transport->configuration, transport->configuration_len);
 	spa_assert(codec != NULL);
 	spa_log_debug(monitor->log, "%p: %s codec:%s", monitor, path, codec ? codec->name : "<null>");
 
@@ -5700,7 +5827,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				continue;
 
 			if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK)) {
-				caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, &monitor->global_settings, caps);
+				caps_size = media_codec_fill_endpoint_caps(monitor, codec, SPA_BT_MEDIA_SINK, caps);
 				if (caps_size < 0)
 					continue;
 
@@ -5715,7 +5842,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 			}
 
 			if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE)) {
-				caps_size = codec->fill_caps(codec, 0, &monitor->global_settings, caps);
+				caps_size = media_codec_fill_endpoint_caps(monitor, codec, SPA_BT_MEDIA_SOURCE, caps);
 				if (caps_size < 0)
 					continue;
 
@@ -5731,7 +5858,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 
 			if (is_bap && register_bcast) {
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST)) {
-					caps_size = codec->fill_caps(codec, 0, &monitor->global_settings, caps);
+					caps_size = media_codec_fill_endpoint_caps(monitor, codec, SPA_BT_MEDIA_SOURCE_BROADCAST, caps);
 					if (caps_size < 0)
 						continue;
 
@@ -5746,7 +5873,7 @@ static DBusHandlerResult object_manager_handler(DBusConnection *c, DBusMessage *
 				}
 
 				if (endpoint_should_be_registered(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST)) {
-					caps_size = codec->fill_caps(codec, MEDIA_CODEC_FLAG_SINK, &monitor->global_settings, caps);
+					caps_size = media_codec_fill_endpoint_caps(monitor, codec, SPA_BT_MEDIA_SINK_BROADCAST, caps);
 					if (caps_size < 0)
 						continue;
 

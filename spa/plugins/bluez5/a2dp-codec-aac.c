@@ -73,13 +73,21 @@ done:
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
+	uint8_t object_type;
+
+	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD) {
+		if (!eld_supported())
+			return -ENOTSUP;
+		object_type = AAC_OBJECT_TYPE_MPEG4_AAC_ELD;
+	} else {
+		/* NOTE: AAC Long Term Prediction and AAC Scalable are
+		 *       not supported by the FDK-AAC library. */
+		object_type = AAC_OBJECT_TYPE_MPEG2_AAC_LC |
+			AAC_OBJECT_TYPE_MPEG4_AAC_LC;
+	}
+
 	const a2dp_aac_t a2dp_aac = {
-		.object_type =
-			/* NOTE: AAC Long Term Prediction and AAC Scalable are
-			 *       not supported by the FDK-AAC library. */
-			AAC_OBJECT_TYPE_MPEG2_AAC_LC |
-			AAC_OBJECT_TYPE_MPEG4_AAC_LC |
-			(eld_supported() ? AAC_OBJECT_TYPE_MPEG4_AAC_ELD : 0),
+		.object_type = object_type,
 		AAC_INIT_FREQUENCY(
 			AAC_SAMPLING_FREQ_8000 |
 			AAC_SAMPLING_FREQ_11025 |
@@ -102,6 +110,32 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 
 	memcpy(caps, &a2dp_aac, sizeof(a2dp_aac));
 	return sizeof(a2dp_aac);
+}
+
+static int codec_combine_caps(const struct media_codec *codec, uint32_t flags,
+		uint8_t caps[A2DP_MAX_CAPS_SIZE], int caps_size,
+		const uint8_t *other, int other_size)
+{
+	a2dp_aac_t *dst = (a2dp_aac_t *)caps;
+	const a2dp_aac_t *src = (const a2dp_aac_t *)other;
+	uint32_t freq;
+	uint32_t dst_bitrate, src_bitrate;
+
+	if (caps_size != (int)sizeof(*dst) || other_size != (int)sizeof(*src))
+		return -EINVAL;
+
+	dst->object_type |= src->object_type;
+	dst->channels |= src->channels;
+	dst->vbr |= src->vbr;
+
+	freq = AAC_GET_FREQUENCY(*dst) | AAC_GET_FREQUENCY(*src);
+	AAC_SET_FREQUENCY(*dst, freq);
+
+	dst_bitrate = AAC_GET_BITRATE(*dst);
+	src_bitrate = AAC_GET_BITRATE(*src);
+	AAC_SET_BITRATE(*dst, SPA_MAX(dst_bitrate, src_bitrate));
+
+	return caps_size;
 }
 
 static const struct media_codec_config
@@ -153,7 +187,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD) {
 		if (!eld_supported())
 			return -ENOTSUP;
-			
+
 		if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD)
 			conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_ELD;
 		else
@@ -218,11 +252,20 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	 *
 	 * Some devices also set multiple bits in frequencies & channels.
 	 * For these, pick a "preferred" choice.
+	 *
+	 * Each codec object only accepts its own object types: a2dp_codec_aac
+	 * accepts LC variants, a2dp_codec_aac_eld accepts ELD. This lets the
+	 * monitor's config-aware resolver attribute the transport to the
+	 * correct codec object.
 	 */
-	if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
-					AAC_OBJECT_TYPE_MPEG4_AAC_LC |
-					AAC_OBJECT_TYPE_MPEG4_AAC_ELD)))
-		return -EINVAL;
+	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD) {
+		if (!(conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD))
+			return -EINVAL;
+	} else {
+		if (!(conf.object_type & (AAC_OBJECT_TYPE_MPEG2_AAC_LC |
+						AAC_OBJECT_TYPE_MPEG4_AAC_LC)))
+			return -EINVAL;
+	}
 	j = 0;
 	SPA_FOR_EACH_ELEMENT_VAR(aac_frequencies, f) {
 		if (AAC_GET_FREQUENCY(conf) & f->config) {
@@ -331,17 +374,15 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		goto error;
 
 	/* If object type has multiple bits set (invalid per spec, see above),
-	 * assume the device usually means MPEG2 AAC LC which is mandatory.
+	 * the validate_config step is gated by codec->id so we trust the
+	 * configuration matches this codec object. Within the LC family,
+	 * prefer MPEG2 AAC LC which is mandatory.
 	 */
-	if (conf->object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC) {
-		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_MP2_AAC_LC);
-		if (res != AACENC_OK)
+	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD) {
+		if (!(conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD)) {
+			res = -EINVAL;
 			goto error;
-	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC) {
-		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_AAC_LC);
-		if (res != AACENC_OK)
-			goto error;
-	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD) {
+		}
 		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_ER_AAC_ELD);
 		if (res != AACENC_OK)
 			goto error;
@@ -349,7 +390,15 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		res = aacEncoder_SetParam(this->aacenc,  AACENC_SBR_MODE, 1);
 		if (res != AACENC_OK)
 			goto error;
-	} else {		
+	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC) {
+		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_MP2_AAC_LC);
+		if (res != AACENC_OK)
+			goto error;
+	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC) {
+		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_AAC_LC);
+		if (res != AACENC_OK)
+			goto error;
+	} else {
 		res = -EINVAL;
 		goto error;
 	}
@@ -665,6 +714,7 @@ const struct media_codec a2dp_codec_aac = {
 	.name = "aac",
 	.description = "AAC",
 	.fill_caps = codec_fill_caps,
+	.combine_caps = codec_combine_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,
@@ -691,7 +741,8 @@ const struct media_codec a2dp_codec_aac_eld = {
 	.name = "aac_eld",
 	.description = "AAC-ELD",
 	.endpoint_name = "aac",
-	.fill_caps = NULL,
+	.endpoint_companion = true,
+	.fill_caps = codec_fill_caps,
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,

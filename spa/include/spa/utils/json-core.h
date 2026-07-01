@@ -665,14 +665,18 @@ SPA_API_JSON int spa_json_parse_string(const char *val, int len, char *result)
 	return spa_json_parse_stringn(val, len, result, len+1);
 }
 
-SPA_API_JSON int spa_json_encode_string(char *str, int size, const char *val)
+SPA_API_JSON size_t spa_json_encode_stringn(char *dst, size_t capacity, const char *src, size_t length)
 {
-	int len = 0;
 	static const char hex[] = { "0123456789abcdef" };
-#define __PUT(c) { if (len < size) *str++ = c; len++; }
+
+	size_t len = 0;
+#define __PUT(c) do { if (len < capacity) *dst++ = c; len++; } while (0)
+
 	__PUT('"');
-	while (*val) {
-		switch (*val) {
+	for (; length > 0; length--, src++) {
+		const char val = *src;
+
+		switch (val) {
 		case '\n':
 			__PUT('\\'); __PUT('n');
 			break;
@@ -690,24 +694,28 @@ SPA_API_JSON int spa_json_encode_string(char *str, int size, const char *val)
 			break;
 		case '\\':
 		case '"':
-			__PUT('\\'); __PUT(*val);
+			__PUT('\\'); __PUT(val);
 			break;
 		default:
-			if (*val > 0 && *val < 0x20) {
+			if ((unsigned char) val < 0x20) {
 				__PUT('\\'); __PUT('u');
 				__PUT('0'); __PUT('0');
-				__PUT(hex[((*val)>>4)&0xf]); __PUT(hex[(*val)&0xf]);
+				__PUT(hex[(val>>4)&0xf]); __PUT(hex[val&0xf]);
 			} else {
-				__PUT(*val);
+				__PUT(val);
 			}
 			break;
 		}
-		val++;
 	}
 	__PUT('"');
 	__PUT('\0');
 #undef __PUT
 	return len-1;
+}
+
+SPA_API_JSON int spa_json_encode_string(char *dst, int capacity, const char *src)
+{
+	return spa_json_encode_stringn(dst, capacity, src, strlen(src));
 }
 
 /**

@@ -890,7 +890,7 @@ static int flush_write(struct state *state, uint64_t current_time)
 
 		n = sendmsg(state->sockfd, &state->msg, MSG_NOSIGNAL);
 		if (n < 0 || n != (ssize_t)state->pdu_size) {
-			spa_log_error(state->log, "sendmdg() failed: %m");
+			spa_log_error(state->log, "sendmsg() failed: %m");
 		}
 		txtime += state->pdu_period;
 		ptime += state->pdu_period;

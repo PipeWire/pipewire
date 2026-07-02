@@ -77,6 +77,8 @@ struct spa_filter_graph_methods {
 	int (*get_props) (void *object, struct spa_pod_builder *b, struct spa_pod **props);
 	int (*set_props) (void *object, enum spa_direction direction, const struct spa_pod *props);
 
+	int (*set_io) (void *object, const char *type, void *data, size_t size);
+
 	int (*activate) (void *object, const struct spa_dict *props);
 	int (*deactivate) (void *object);
 
@@ -112,6 +114,13 @@ SPA_API_FILTER_GRAPH int spa_filter_graph_set_props(struct spa_filter_graph *obj
 {
 	return spa_api_method_r(int, -ENOTSUP,
 			spa_filter_graph, &object->iface, set_props, 0, direction, props);
+}
+
+SPA_API_FILTER_GRAPH int spa_filter_graph_set_io(struct spa_filter_graph *object,
+		const char *type, void *data, size_t size)
+{
+	return spa_api_method_r(int, -ENOTSUP,
+			spa_filter_graph, &object->iface, set_io, 0, type, data, size);
 }
 
 SPA_API_FILTER_GRAPH int spa_filter_graph_activate(struct spa_filter_graph *object, const struct spa_dict *props)

@@ -67,6 +67,8 @@ struct spa_fga_descriptor {
 
 	void (*cleanup) (void *instance);
 
+	void (*set_io) (void *instance, const char *type, void *data, size_t size);
+
 	void (*connect_port) (void *instance, unsigned long port, void *data);
 	void (*control_changed) (void *instance);
 	void (*control_sync) (void *instance);

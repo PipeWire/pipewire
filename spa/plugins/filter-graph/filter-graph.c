@@ -875,6 +875,25 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 	return 0;
 }
 
+static int impl_set_io(void *object, const char *type, void *data, size_t size)
+{
+	struct impl *impl = object;
+	struct graph *graph = &impl->graph;
+	struct node *node;
+	uint32_t i;
+
+	spa_list_for_each(node, &graph->node_list, link) {
+		const struct spa_fga_descriptor *d = node->desc->desc;
+		if (d->set_io == NULL)
+			continue;
+		for (i = 0; i < node->n_hndl; i++) {
+			if (node->hndl[i] != NULL)
+				d->set_io(node->hndl[i], type, data, size);
+		}
+	}
+	return 0;
+}
+
 static uint32_t count_array(struct spa_json *json)
 {
 	struct spa_json it = *json;
@@ -1757,9 +1776,7 @@ static int impl_activate(void *object, const struct spa_dict *props)
 
 	/* now activate */
 	spa_list_for_each(node, &graph->node_list, link) {
-		desc = node->desc;
-		d = desc->desc;
-
+		d = node->desc->desc;
 		for (i = 0; i < node->n_hndl; i++) {
 			if (d->activate)
 				d->activate(node->hndl[i]);
@@ -2399,6 +2416,7 @@ static const struct spa_filter_graph_methods impl_filter_graph = {
 	.enum_prop_info = impl_enum_prop_info,
 	.get_props = impl_get_props,
 	.set_props = impl_set_props,
+	.set_io = impl_set_io,
 	.activate = impl_activate,
 	.deactivate = impl_deactivate,
 	.reset = impl_reset,

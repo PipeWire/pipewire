@@ -52,12 +52,6 @@ struct spa_filter_graph_info {
 	struct spa_dict *props;
 };
 
-struct spa_filter_graph_ctx {
-	const char *type;
-	void *data;
-	size_t size;
-};
-
 struct spa_filter_graph_events {
 #define SPA_VERSION_FILTER_GRAPH_EVENTS	0
 	uint32_t version;
@@ -83,8 +77,7 @@ struct spa_filter_graph_methods {
 	int (*get_props) (void *object, struct spa_pod_builder *b, struct spa_pod **props);
 	int (*set_props) (void *object, enum spa_direction direction, const struct spa_pod *props);
 
-	int (*activate) (void *object, const struct spa_dict *props,
-			uint32_t n_ctx, const struct spa_filter_graph_ctx ctx[]);
+	int (*activate) (void *object, const struct spa_dict *props);
 	int (*deactivate) (void *object);
 
 	int (*reset) (void *object);
@@ -121,11 +114,10 @@ SPA_API_FILTER_GRAPH int spa_filter_graph_set_props(struct spa_filter_graph *obj
 			spa_filter_graph, &object->iface, set_props, 0, direction, props);
 }
 
-SPA_API_FILTER_GRAPH int spa_filter_graph_activate(struct spa_filter_graph *object,
-		const struct spa_dict *props, uint32_t n_ctx, const struct spa_filter_graph_ctx ctx[])
+SPA_API_FILTER_GRAPH int spa_filter_graph_activate(struct spa_filter_graph *object, const struct spa_dict *props)
 {
 	return spa_api_method_r(int, -ENOTSUP,
-			spa_filter_graph, &object->iface, activate, 0, props, n_ctx, ctx);
+			spa_filter_graph, &object->iface, activate, 0, props);
 }
 SPA_API_FILTER_GRAPH int spa_filter_graph_deactivate(struct spa_filter_graph *object)
 {

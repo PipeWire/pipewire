@@ -1270,8 +1270,6 @@ struct impl {
 
 	struct spa_handle *handle;
 	struct spa_filter_graph *graph;
-	struct spa_filter_graph_ctx ctx[3];
-	uint32_t n_ctx;
 	struct spa_hook graph_listener;
 	uint32_t n_inputs;
 	uint32_t n_outputs;
@@ -1406,8 +1404,7 @@ static int activate_graph(struct impl *impl)
 
 	snprintf(rate, sizeof(rate), "%lu", impl->rate);
 	res = spa_filter_graph_activate(impl->graph, &SPA_DICT_ITEMS(
-				SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, rate)),
-			impl->n_ctx, impl->ctx);
+				SPA_DICT_ITEM(SPA_KEY_AUDIO_RATE, rate)));
 
 	if (res >= 0) {
 		struct pw_loop *data_loop = pw_stream_get_data_loop(impl->playback);
@@ -1569,31 +1566,12 @@ static void capture_state_changed(void *data, enum pw_stream_state old,
 	return;
 }
 
-static void update_context(struct impl *impl)
-{
-	uint32_t n_ctx = 0;
-
-	if (impl->position != NULL) {
-		impl->ctx[n_ctx].type = SPA_TYPE_INFO_IO_BASE "Position";
-		impl->ctx[n_ctx].data = impl->position;
-		impl->ctx[n_ctx].size = sizeof(*impl->position);
-		n_ctx++;
-	}
-	impl->ctx[n_ctx].type = SPA_TYPE_INFO_IO_BASE "Latency";
-	impl->ctx[n_ctx].data = &impl->io_latency;
-	impl->ctx[n_ctx].size = sizeof(impl->io_latency);
-	n_ctx++;
-
-	impl->n_ctx = n_ctx;
-}
-
 static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
 {
 	struct impl *impl = data;
 	switch (id) {
 	case SPA_IO_Position:
 		impl->position = area;
-		update_context(impl);
 		break;
 	default:
 		break;

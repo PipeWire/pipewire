@@ -42,7 +42,6 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
 
 #define MAX_HNDL 64
 #define MAX_CHANNELS SPA_AUDIO_MAX_CHANNELS
-#define MAX_CTX	8u
 
 #define DEFAULT_RATE	48000
 
@@ -228,8 +227,6 @@ struct impl {
 
 	uint64_t info_all;
 	struct spa_filter_graph_info info;
-	struct spa_fga_ctx ctx[MAX_CTX];
-	uint32_t n_ctx;
 
 	struct graph graph;
 
@@ -711,7 +708,7 @@ static int impl_reset(void *object)
 		if (d->deactivate)
 			d->deactivate(*hndl->hndl);
 		if (d->activate)
-			d->activate(*hndl->hndl, impl->n_ctx, impl->ctx);
+			d->activate(*hndl->hndl);
 	}
 	return 0;
 }
@@ -1630,8 +1627,7 @@ static struct node *sort_next_node(struct graph *graph)
 
 static int setup_graph(struct graph *graph);
 
-static int impl_activate(void *object, const struct spa_dict *props,
-		uint32_t n_ctx, const struct spa_filter_graph_ctx ctx[])
+static int impl_activate(void *object, const struct spa_dict *props)
 {
 	struct impl *impl = object;
 	struct graph *graph = &impl->graph;
@@ -1649,16 +1645,7 @@ static int impl_activate(void *object, const struct spa_dict *props,
 	if (graph->activated)
 		return 0;
 
-	if (n_ctx > MAX_CTX)
-		return -EINVAL;
-
 	graph->activated = true;
-	for (i = 0; i < n_ctx; i++) {
-		impl->ctx[i].type = ctx[i].type;
-		impl->ctx[i].data = ctx[i].data;
-		impl->ctx[i].size = ctx[i].size;
-	}
-	impl->n_ctx = n_ctx;
 
 	rate = spa_dict_lookup(props, SPA_KEY_AUDIO_RATE);
 	impl->rate = rate ? atoi(rate) : DEFAULT_RATE;
@@ -1775,7 +1762,7 @@ static int impl_activate(void *object, const struct spa_dict *props,
 
 		for (i = 0; i < node->n_hndl; i++) {
 			if (d->activate)
-				d->activate(node->hndl[i], impl->n_ctx, impl->ctx);
+				d->activate(node->hndl[i]);
 		}
 	}
 	emit_node_control_changed(impl);

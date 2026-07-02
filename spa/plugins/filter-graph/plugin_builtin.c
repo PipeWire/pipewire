@@ -545,7 +545,7 @@ static void bq_freq_update(struct builtin *impl, int type, float freq, float Q, 
 	impl->port[10][0] = impl->a2 = bq->a2;
 }
 
-static void bq_activate(void * Instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[])
+static void bq_activate(void * Instance)
 {
 	struct builtin *impl = Instance;
 	if (impl->type == BQ_NONE) {
@@ -1285,7 +1285,7 @@ static struct spa_fga_port convolve_ports[] = {
 	},
 };
 
-static void convolver_activate(void * Instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[])
+static void convolver_activate(void * Instance)
 {
 	struct convolver_impl *impl = Instance;
 	if (impl->port[2] != NULL)
@@ -1447,7 +1447,7 @@ static void convolver2_run(void * Instance, unsigned long SampleCount)
 		impl->port[1][0] = impl->latency;
 }
 
-static void convolver2_activate(void * Instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[])
+static void convolver2_activate(void * Instance)
 {
 	struct convolver_impl *impl = Instance;
 	if (impl->port[1] != NULL)
@@ -1621,7 +1621,7 @@ static void delay_connect_port(void * Instance, unsigned long Port,
 	impl->port[Port] = DataLocation;
 }
 
-static void delay_activate(void * Instance, uint32_t n_ctx, const struct spa_fga_ctx ctx[])
+static void delay_activate(void * Instance)
 {
 	struct delay_impl *impl = Instance;
 	if (impl->port[3] != NULL)

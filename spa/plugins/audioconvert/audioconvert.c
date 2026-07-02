@@ -296,6 +296,7 @@ struct impl {
 	struct spa_io_clock *io_clock;
 	struct spa_io_position *io_position;
 	struct spa_io_rate_match *io_rate_match;
+	struct spa_io_latency io_latency;
 
 	uint64_t info_all;
 	struct spa_node_info info;
@@ -1281,6 +1282,12 @@ static int setup_filter_graph(struct impl *this, struct filter_graph *g,
 					     SPA_DICT_ITEM("filter-graph.n_inputs", channels ? in_ports : NULL)));
 
 	g->setup = res >= 0;
+	if (g->setup) {
+		spa_filter_graph_set_io(g->graph, SPA_TYPE_INFO_IO_BASE "Position",
+				this->io_position, sizeof(struct spa_io_position));
+		spa_filter_graph_set_io(g->graph, SPA_TYPE_INFO_IO_BASE "Latency",
+				&this->io_latency, sizeof(this->io_latency));
+	}
 
 	return res;
 }

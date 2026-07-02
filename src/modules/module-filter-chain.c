@@ -1408,6 +1408,12 @@ static int activate_graph(struct impl *impl)
 
 	if (res >= 0) {
 		struct pw_loop *data_loop = pw_stream_get_data_loop(impl->playback);
+
+		spa_filter_graph_set_io(impl->graph, SPA_TYPE_INFO_IO_BASE "Latency",
+			&impl->io_latency, sizeof(impl->io_latency));
+		spa_filter_graph_set_io(impl->graph, SPA_TYPE_INFO_IO_BASE "Position",
+				impl->position, sizeof(struct spa_io_position));
+
 		pw_loop_lock(data_loop);
 		impl->graph_active = true;
 		pw_loop_unlock(data_loop);
@@ -1481,11 +1487,28 @@ static void update_latencies(struct impl *impl, bool process)
 	update_latency(impl, SPA_DIRECTION_OUTPUT, process);
 }
 
+static void update_io_latency(struct impl *impl, enum spa_direction direction)
+{
+	struct pw_stream *stream;
+	struct pw_time time;
+
+	if (direction == SPA_DIRECTION_OUTPUT)
+		stream = impl->capture;
+	else
+		stream = impl->playback;
+
+	pw_stream_get_time_n(stream, &time, sizeof(time));
+	impl->io_latency.rate = time.rate;
+	if (direction == SPA_DIRECTION_OUTPUT)
+		impl->io_latency.capture_latency = time.delay;
+	else
+		impl->io_latency.playback_latency = time.delay;
+}
+
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
 		enum spa_direction direction, struct pw_stream *stream)
 {
 	struct spa_latency_info latency;
-	struct pw_time time;
 
 	if (param == NULL || spa_latency_parse(param, &latency) < 0)
 		return;
@@ -1493,12 +1516,7 @@ static void param_latency_changed(struct impl *impl, const struct spa_pod *param
 	impl->latency[latency.direction] = latency;
 	update_latency(impl, latency.direction, false);
 
-	pw_stream_get_time_n(stream, &time, sizeof(time));
-	impl->io_latency.rate = time.rate;
-	if (latency.direction == SPA_DIRECTION_OUTPUT)
-		impl->io_latency.capture_latency = time.delay;
-	else
-		impl->io_latency.playback_latency = time.delay;
+	update_io_latency(impl, latency.direction);
 }
 
 static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param,
@@ -1553,13 +1571,8 @@ static void capture_state_changed(void *data, enum pw_stream_state old,
 		pw_log_info("module %p: error: %s", impl, error);
 		break;
 	case PW_STREAM_STATE_STREAMING:
-	{
-		struct pw_time time;
-		pw_stream_get_time_n(impl->capture, &time, sizeof(time));
-		impl->io_latency.rate = time.rate;
-		impl->io_latency.capture_latency = time.delay;
+		update_io_latency(impl, SPA_DIRECTION_OUTPUT);
 		break;
-	}
 	default:
 		break;
 	}
@@ -1655,7 +1668,7 @@ static void playback_state_changed(void *data, enum pw_stream_state old,
 	case PW_STREAM_STATE_STREAMING:
 	{
 		uint32_t target = impl->info.rate;
-		struct pw_time time;
+
 		if (target == 0)
 			target = impl->position ?
 				impl->position->clock.target_rate.denom : DEFAULT_RATE;
@@ -1664,9 +1677,7 @@ static void playback_state_changed(void *data, enum pw_stream_state old,
 			goto error;
 		}
 
-		pw_stream_get_time_n(impl->playback, &time, sizeof(time));
-		impl->io_latency.rate = time.rate;
-		impl->io_latency.playback_latency = time.delay;
+		update_io_latency(impl, SPA_DIRECTION_INPUT);
 
 		if (impl->rate != target) {
 			impl->rate = target;

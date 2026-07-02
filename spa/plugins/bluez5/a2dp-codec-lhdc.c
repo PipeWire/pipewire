@@ -7,7 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <spa/param/props.h>
 #include <spa/param/audio/format.h>
+#include <spa/pod/parser.h>
+#include <spa/utils/dict.h>
 #include <spa/utils/string.h>
 
 #include <lhdcv5BT.h>
@@ -15,13 +18,58 @@
 #include "rtp.h"
 #include "media-codecs.h"
 
-#define LHDCV5_SAMPLE_RATE 48000
 #define LHDCV5_CHANNELS 2
-#define LHDCV5_BITS_PER_SAMPLE LHDCBT_SMPL_FMT_S16
 #define LHDCV5_INTERVAL_MS LHDC_ENC_INTERVAL_10MS
-#define LHDCV5_MAX_PACKET_BYTES 504u
+#define LHDCV5_FRAME_CONFIG (LHDC_V5_FRAME_LEN_5MS | LHDC_V5_VERSION_1)
+#define LHDCV5_LOCAL_MIN_BITRATE LHDC_V5_MIN_BITRATE_64K
+#define LHDCV5_LOCAL_MAX_BITRATE LHDC_V5_MAX_BITRATE_400K
+#define LHDCV5_BITRATE_CONFIG (LHDCV5_LOCAL_MIN_BITRATE | LHDCV5_LOCAL_MAX_BITRATE)
+#define LHDCV5_FORMAT_CONFIG (LHDC_V5_BIT_FMT_16 | LHDC_V5_BIT_FMT_24)
+#define LHDCV5_MAX_FRAME_COUNT 0x3f
 
 static struct spa_log *log_;
+
+static const struct media_codec_config lhdc_frequencies[] = {
+	{ LHDC_V5_SAMPLING_FREQ_44100, 44100, 3 },
+	{ LHDC_V5_SAMPLING_FREQ_48000, 48000, 2 },
+	{ LHDC_V5_SAMPLING_FREQ_96000, 96000, 1 },
+	{ LHDC_V5_SAMPLING_FREQ_192000, 192000, 0 },
+};
+
+struct lhdc_format_config {
+	uint32_t config;
+	enum spa_audio_format format;
+	uint32_t bits_per_sample;
+	uint32_t sample_size;
+};
+
+static const struct lhdc_format_config lhdc_formats[] = {
+	{ LHDC_V5_BIT_FMT_24, SPA_AUDIO_FORMAT_S24, LHDCBT_SMPL_FMT_S24, 3 },
+	{ LHDC_V5_BIT_FMT_16, SPA_AUDIO_FORMAT_S16, LHDCBT_SMPL_FMT_S16, sizeof(int16_t) },
+};
+
+struct lhdc_bitrate_config {
+	uint32_t config;
+	uint32_t bitrate;
+};
+
+static const struct lhdc_bitrate_config lhdc_min_bitrates[] = {
+	{ LHDC_V5_MIN_BITRATE_64K, 64 },
+	{ LHDC_V5_MIN_BITRATE_160K, 160 },
+	{ LHDC_V5_MIN_BITRATE_256K, 256 },
+	{ LHDC_V5_MIN_BITRATE_400K, 400 },
+};
+
+static const struct lhdc_bitrate_config lhdc_max_bitrates[] = {
+	{ LHDC_V5_MAX_BITRATE_400K, 400 },
+	{ LHDC_V5_MAX_BITRATE_500K, 500 },
+	{ LHDC_V5_MAX_BITRATE_900K, 900 },
+	{ LHDC_V5_MAX_BITRATE_1000K, 1000 },
+};
+
+struct props {
+	uint32_t quality;
+};
 
 struct lhdc_media_payload {
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -41,19 +89,176 @@ struct impl {
 	struct lhdc_media_payload *payload;
 	uint8_t media_seqnum;
 
+	uint32_t quality;
+	uint32_t rate;
+	uint32_t bits_per_sample;
+	uint32_t sample_size;
+	uint32_t mtu;
+	uint32_t min_bitrate_index;
+	uint32_t max_bitrate_index;
+
 	uint32_t block_samples;
 	uint32_t block_bytes;
 };
+
+static const struct lhdc_format_config *select_format_config(uint32_t config)
+{
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(lhdc_formats); i++)
+		if (config & lhdc_formats[i].config)
+			return &lhdc_formats[i];
+	return NULL;
+}
+
+static const struct lhdc_format_config *get_format_config(uint32_t config)
+{
+	uint32_t format = config & LHDCV5_FORMAT_CONFIG;
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(lhdc_formats); i++)
+		if (format == lhdc_formats[i].config)
+			return &lhdc_formats[i];
+	return NULL;
+}
+
+static const struct lhdc_bitrate_config *get_bitrate_config(
+		const struct lhdc_bitrate_config configs[], size_t n, uint32_t config)
+{
+	size_t i;
+
+	for (i = 0; i < n; i++)
+		if (config == configs[i].config)
+			return &configs[i];
+	return NULL;
+}
+
+static const struct lhdc_bitrate_config *get_min_bitrate_config(uint32_t config)
+{
+	return get_bitrate_config(lhdc_min_bitrates, SPA_N_ELEMENTS(lhdc_min_bitrates),
+			config & LHDC_V5_MIN_BITRATE_MASK);
+}
+
+static const struct lhdc_bitrate_config *get_max_bitrate_config(uint32_t config)
+{
+	return get_bitrate_config(lhdc_max_bitrates, SPA_N_ELEMENTS(lhdc_max_bitrates),
+			config & LHDC_V5_MAX_BITRATE_MASK);
+}
+
+static const struct lhdc_bitrate_config *find_min_bitrate_config(uint32_t bitrate)
+{
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(lhdc_min_bitrates); i++)
+		if (lhdc_min_bitrates[i].bitrate >= bitrate)
+			return &lhdc_min_bitrates[i];
+	return NULL;
+}
+
+static const struct lhdc_bitrate_config *find_max_bitrate_config(uint32_t bitrate)
+{
+	const struct lhdc_bitrate_config *res = NULL;
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(lhdc_max_bitrates); i++)
+		if (lhdc_max_bitrates[i].bitrate <= bitrate)
+			res = &lhdc_max_bitrates[i];
+	return res;
+}
+
+static int select_bitrate_config(uint32_t peer_config, uint8_t *bitrate_config)
+{
+	const struct lhdc_bitrate_config *peer_min, *peer_max, *local_min, *local_max;
+	const struct lhdc_bitrate_config *min, *max;
+	uint32_t min_bitrate, max_bitrate;
+
+	peer_min = get_min_bitrate_config(peer_config);
+	peer_max = get_max_bitrate_config(peer_config);
+	local_min = get_min_bitrate_config(LHDCV5_LOCAL_MIN_BITRATE);
+	local_max = get_max_bitrate_config(LHDCV5_LOCAL_MAX_BITRATE);
+	if (peer_min == NULL || peer_max == NULL || local_min == NULL || local_max == NULL)
+		return -EINVAL;
+
+	min_bitrate = peer_min->bitrate > local_min->bitrate ? peer_min->bitrate : local_min->bitrate;
+	max_bitrate = peer_max->bitrate < local_max->bitrate ? peer_max->bitrate : local_max->bitrate;
+	if (min_bitrate > max_bitrate)
+		return -ENOTSUP;
+
+	min = find_min_bitrate_config(min_bitrate);
+	max = find_max_bitrate_config(max_bitrate);
+	if (min == NULL || max == NULL || min->bitrate > max->bitrate)
+		return -ENOTSUP;
+
+	*bitrate_config = min->config | max->config;
+	return 0;
+}
+
+static bool get_bitrate_indices(uint32_t config, uint32_t rate,
+		uint32_t *min_bitrate_index, uint32_t *max_bitrate_index)
+{
+	switch (config & LHDC_V5_MIN_BITRATE_MASK) {
+	case LHDC_V5_MIN_BITRATE_64K:
+		*min_bitrate_index = LHDC_QUALITY_LOW0;
+		break;
+	case LHDC_V5_MIN_BITRATE_160K:
+		*min_bitrate_index = LHDC_QUALITY_LOW1;
+		break;
+	case LHDC_V5_MIN_BITRATE_256K:
+		/* Pick the first liblhdcv5 bitrate table index >= 256k:
+		 * 44.1 kHz maps LOW3 to 240k and LOW4 to 320k.
+		 */
+		*min_bitrate_index = rate == 44100 ? LHDC_QUALITY_LOW4 : LHDC_QUALITY_LOW3;
+		break;
+	case LHDC_V5_MIN_BITRATE_400K:
+		*min_bitrate_index = LHDC_QUALITY_LOW;
+		break;
+	default:
+		return false;
+	}
+
+	switch (config & LHDC_V5_MAX_BITRATE_MASK) {
+	case LHDC_V5_MAX_BITRATE_400K:
+		*max_bitrate_index = LHDC_QUALITY_LOW;
+		break;
+	case LHDC_V5_MAX_BITRATE_500K:
+		*max_bitrate_index = LHDC_QUALITY_MID;
+		break;
+	case LHDC_V5_MAX_BITRATE_900K:
+		*max_bitrate_index = LHDC_QUALITY_HIGH;
+		break;
+	case LHDC_V5_MAX_BITRATE_1000K:
+		*max_bitrate_index = LHDC_QUALITY_HIGH1;
+		break;
+	default:
+		return false;
+	}
+
+	return *min_bitrate_index <= *max_bitrate_index;
+}
+
+static uint32_t clamp_quality(uint32_t quality,
+		uint32_t min_bitrate_index, uint32_t max_bitrate_index)
+{
+	if (quality == LHDC_QUALITY_AUTO)
+		return quality;
+	if (quality < min_bitrate_index)
+		return min_bitrate_index;
+	if (quality > max_bitrate_index)
+		return max_bitrate_index;
+	return quality;
+}
 
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
 	const a2dp_lhdc_v5_t conf = {
 		.info = codec->vendor,
-		.sampling_freq = LHDC_V5_SAMPLING_FREQ_48000,
-		.bitrate_and_depth = LHDC_V5_MIN_BITRATE_64K |
-			LHDC_V5_MAX_BITRATE_400K | LHDC_V5_BIT_FMT_16,
-		.frame_len_and_version = LHDC_V5_FRAME_LEN_5MS | LHDC_V5_VERSION_1,
+		.sampling_freq = LHDC_V5_SAMPLING_FREQ_44100 |
+			LHDC_V5_SAMPLING_FREQ_48000 |
+			LHDC_V5_SAMPLING_FREQ_96000 |
+			LHDC_V5_SAMPLING_FREQ_192000,
+		.bitrate_and_depth = LHDCV5_BITRATE_CONFIG | LHDCV5_FORMAT_CONFIG,
+		.frame_len_and_version = LHDCV5_FRAME_CONFIG,
 		.features = LHDC_V5_FEATURE_LL,
 		.reserved = 0,
 	};
@@ -68,6 +273,9 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		void **config_data)
 {
 	a2dp_lhdc_v5_t conf;
+	int i;
+	const struct lhdc_format_config *format;
+	uint8_t bitrate_config;
 
 	if (caps_size < sizeof(conf))
 		return -EINVAL;
@@ -78,18 +286,25 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	    codec->vendor.codec_id != conf.info.codec_id)
 		return -ENOTSUP;
 
-	if ((conf.sampling_freq & LHDC_V5_SAMPLING_FREQ_48000) == 0)
+	i = media_codec_select_config(lhdc_frequencies,
+			SPA_N_ELEMENTS(lhdc_frequencies), conf.sampling_freq,
+			info ? info->rate : A2DP_CODEC_DEFAULT_RATE);
+	if (i < 0)
 		return -ENOTSUP;
-	if ((conf.bitrate_and_depth & LHDC_V5_BIT_FMT_16) == 0)
-		return -ENOTSUP;
-	if ((conf.frame_len_and_version & LHDC_V5_FRAME_LEN_5MS) == 0 ||
-	    (conf.frame_len_and_version & LHDC_V5_VERSION_1) == 0)
+	conf.sampling_freq = lhdc_frequencies[i].config;
+
+	format = select_format_config(conf.bitrate_and_depth);
+	if (format == NULL)
 		return -ENOTSUP;
 
-	conf.sampling_freq = LHDC_V5_SAMPLING_FREQ_48000;
-	conf.bitrate_and_depth = LHDC_V5_MIN_BITRATE_64K |
-		LHDC_V5_MAX_BITRATE_400K | LHDC_V5_BIT_FMT_16;
-	conf.frame_len_and_version = LHDC_V5_FRAME_LEN_5MS | LHDC_V5_VERSION_1;
+	if (select_bitrate_config(conf.bitrate_and_depth, &bitrate_config) < 0)
+		return -ENOTSUP;
+
+	if ((conf.frame_len_and_version & LHDCV5_FRAME_CONFIG) != LHDCV5_FRAME_CONFIG)
+		return -ENOTSUP;
+
+	conf.bitrate_and_depth = bitrate_config | format->config;
+	conf.frame_len_and_version = LHDCV5_FRAME_CONFIG;
 	conf.features &= LHDC_V5_FEATURE_LL;
 	conf.reserved = 0;
 
@@ -97,53 +312,228 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	return sizeof(conf);
 }
 
+static int codec_validate_config(const struct media_codec *codec, uint32_t flags,
+		const void *caps, size_t caps_size, struct spa_audio_info *info)
+{
+	const a2dp_lhdc_v5_t *conf = caps;
+	const struct lhdc_format_config *format;
+	uint32_t min_bitrate_index, max_bitrate_index;
+	int rate;
+
+	if (caps == NULL || caps_size < sizeof(*conf))
+		return -EINVAL;
+
+	if (codec->vendor.vendor_id != conf->info.vendor_id ||
+	    codec->vendor.codec_id != conf->info.codec_id)
+		return -EINVAL;
+
+	rate = media_codec_get_config(lhdc_frequencies,
+			SPA_N_ELEMENTS(lhdc_frequencies), conf->sampling_freq);
+	if (rate < 0)
+		return -EINVAL;
+
+	format = get_format_config(conf->bitrate_and_depth);
+	if (format == NULL)
+		return -EINVAL;
+
+	if ((conf->frame_len_and_version & LHDCV5_FRAME_CONFIG) != LHDCV5_FRAME_CONFIG)
+		return -EINVAL;
+
+	if (!get_bitrate_indices(conf->bitrate_and_depth, rate,
+				&min_bitrate_index, &max_bitrate_index))
+		return -EINVAL;
+
+	spa_zero(*info);
+	info->media_type = SPA_MEDIA_TYPE_audio;
+	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
+	info->info.raw.format = format->format;
+	info->info.raw.rate = rate;
+	info->info.raw.channels = LHDCV5_CHANNELS;
+	info->info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+	info->info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+	return 0;
+}
+
 static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 		const void *caps, size_t caps_size, uint32_t id, uint32_t idx,
 		struct spa_pod_builder *b, struct spa_pod **param)
 {
+	struct spa_audio_info info;
 	struct spa_pod_frame f[1];
-	uint32_t position[2] = { SPA_AUDIO_CHANNEL_FL, SPA_AUDIO_CHANNEL_FR };
+	int res;
+
+	if ((res = codec_validate_config(codec, flags, caps, caps_size, &info)) < 0)
+		return res;
 
 	if (idx > 0)
 		return 0;
-	if (caps_size < sizeof(a2dp_lhdc_v5_t))
-		return -EINVAL;
 
 	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, id);
 	spa_pod_builder_add(b,
-			SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format, SPA_POD_Id(SPA_AUDIO_FORMAT_S16),
-			SPA_FORMAT_AUDIO_rate, SPA_POD_Int(LHDCV5_SAMPLE_RATE),
-			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(LHDCV5_CHANNELS),
+			SPA_FORMAT_mediaType, SPA_POD_Id(info.media_type),
+			SPA_FORMAT_mediaSubtype, SPA_POD_Id(info.media_subtype),
+			SPA_FORMAT_AUDIO_format, SPA_POD_Id(info.info.raw.format),
+			SPA_FORMAT_AUDIO_rate, SPA_POD_Int(info.info.raw.rate),
+			SPA_FORMAT_AUDIO_channels, SPA_POD_Int(info.info.raw.channels),
 			SPA_FORMAT_AUDIO_position, SPA_POD_Array(sizeof(uint32_t),
-				SPA_TYPE_Id, 2, position),
+				SPA_TYPE_Id, info.info.raw.channels, info.info.raw.position),
 			0);
 	*param = spa_pod_builder_pop(b, &f[0]);
 	return *param == NULL ? -EIO : 1;
 }
 
-static int codec_validate_config(const struct media_codec *codec, uint32_t flags,
-		const void *caps, size_t caps_size, struct spa_audio_info *info)
+static uint32_t string_to_quality(const char *quality)
 {
-	uint8_t config[A2DP_MAX_CAPS_SIZE];
-	struct media_codec_audio_info audio_info = {
-		.rate = info->info.raw.rate,
-		.channels = info->info.raw.channels,
-	};
+	if (spa_streq(quality, "400k"))
+		return LHDC_QUALITY_LOW;
+	return LHDC_QUALITY_AUTO;
+}
 
-	if (codec_select_config(codec, flags, caps, caps_size,
-				&audio_info, NULL, config, NULL) < 0)
-		return -EINVAL;
+static bool is_valid_quality(uint32_t quality)
+{
+	/* Keep the fixed choices in sync with LHDCV5_LOCAL_MAX_BITRATE. */
+	return quality == LHDC_QUALITY_AUTO || quality == LHDC_QUALITY_LOW;
+}
 
-	info->media_type = SPA_MEDIA_TYPE_audio;
-	info->media_subtype = SPA_MEDIA_SUBTYPE_raw;
-	info->info.raw.format = SPA_AUDIO_FORMAT_S16;
-	info->info.raw.rate = LHDCV5_SAMPLE_RATE;
-	info->info.raw.channels = LHDCV5_CHANNELS;
-	info->info.raw.position[0] = SPA_AUDIO_CHANNEL_FL;
-	info->info.raw.position[1] = SPA_AUDIO_CHANNEL_FR;
+static void *codec_init_props(const struct media_codec *codec, uint32_t flags,
+		const struct spa_dict *settings)
+{
+	struct props *p = calloc(1, sizeof(struct props));
+	const char *str;
+
+	if (p == NULL)
+		return NULL;
+
+	if (settings == NULL || (str = spa_dict_lookup(settings, "bluez5.a2dp.lhdc.quality")) == NULL)
+		str = "auto";
+
+	p->quality = string_to_quality(str);
+	return p;
+}
+
+static void codec_clear_props(void *props)
+{
+	free(props);
+}
+
+static int codec_enum_props(void *props, const struct spa_dict *settings, uint32_t id, uint32_t idx,
+		struct spa_pod_builder *b, struct spa_pod **param)
+{
+	struct props *p = props;
+	struct spa_pod_frame f[2];
+
+	switch (id) {
+	case SPA_PARAM_PropInfo:
+		switch (idx) {
+		case 0:
+			spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
+			spa_pod_builder_prop(b, SPA_PROP_INFO_id, 0);
+			spa_pod_builder_id(b, SPA_PROP_quality);
+			spa_pod_builder_prop(b, SPA_PROP_INFO_description, 0);
+			spa_pod_builder_string(b, "LHDC v5 quality");
+
+			spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
+			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
+			spa_pod_builder_int(b, p->quality);
+			spa_pod_builder_int(b, LHDC_QUALITY_AUTO);
+			spa_pod_builder_int(b, LHDC_QUALITY_LOW);
+			spa_pod_builder_pop(b, &f[1]);
+
+			spa_pod_builder_prop(b, SPA_PROP_INFO_labels, 0);
+			spa_pod_builder_push_struct(b, &f[1]);
+			spa_pod_builder_int(b, LHDC_QUALITY_AUTO);
+			spa_pod_builder_string(b, "auto");
+			spa_pod_builder_int(b, LHDC_QUALITY_LOW);
+			spa_pod_builder_string(b, "400k");
+			spa_pod_builder_pop(b, &f[1]);
+
+			*param = spa_pod_builder_pop(b, &f[0]);
+			break;
+		default:
+			return 0;
+		}
+		break;
+	case SPA_PARAM_Props:
+		switch (idx) {
+		case 0:
+			*param = spa_pod_builder_add_object(b,
+					SPA_TYPE_OBJECT_Props, id,
+					SPA_PROP_quality, SPA_POD_Int(p->quality));
+			break;
+		default:
+			return 0;
+		}
+		break;
+	default:
+		return -ENOENT;
+	}
+	return 1;
+}
+
+static int codec_set_props(void *props, const struct spa_pod *param)
+{
+	struct props *p = props;
+	const uint32_t prev_quality = p->quality;
+	int quality = p->quality;
+
+	if (param == NULL) {
+		p->quality = LHDC_QUALITY_AUTO;
+	} else {
+		spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_Props, NULL,
+				SPA_PROP_quality, SPA_POD_OPT_Int(&quality));
+		if (is_valid_quality(quality))
+			p->quality = quality;
+	}
+
+	return prev_quality != p->quality;
+}
+
+static int init_lhdc_handle(HANDLE_LHDC_BT *handle, uint32_t rate,
+		uint32_t bits_per_sample, uint32_t quality, uint32_t mtu,
+		uint32_t min_bitrate_index, uint32_t max_bitrate_index,
+		uint32_t *block_samples)
+{
+	HANDLE_LHDC_BT lhdc = NULL;
+	int32_t res;
+
+	res = lhdcv5BT_get_handle(LHDC_VERSION_1, &lhdc);
+	if (res != LHDC_FRET_SUCCESS || lhdc == NULL) {
+		spa_log_error(log_, "LHDC v5 get_handle failed: %d", res);
+		return -EIO;
+	}
+
+	res = lhdcv5BT_init_encoder(lhdc, rate, bits_per_sample, quality, mtu,
+			LHDCV5_INTERVAL_MS, 0);
+	if (res != LHDC_FRET_SUCCESS) {
+		spa_log_error(log_, "LHDC v5 encoder initialization failed: %d", res);
+		goto error;
+	}
+
+	res = lhdcv5BT_set_min_bitrate(lhdc, min_bitrate_index);
+	if (res != LHDC_FRET_SUCCESS) {
+		spa_log_error(log_, "LHDC v5 set min bitrate failed: %d", res);
+		goto error;
+	}
+
+	res = lhdcv5BT_set_max_bitrate(lhdc, max_bitrate_index);
+	if (res != LHDC_FRET_SUCCESS) {
+		spa_log_error(log_, "LHDC v5 set max bitrate failed: %d", res);
+		goto error;
+	}
+
+	res = lhdcv5BT_get_block_Size(lhdc, block_samples);
+	if (res != LHDC_FRET_SUCCESS || *block_samples == 0) {
+		spa_log_error(log_, "LHDC v5 get block size failed: %d", res);
+		goto error;
+	}
+
+	*handle = lhdc;
 	return 0;
+
+error:
+	lhdcv5BT_free_handle(lhdc);
+	return -EIO;
 }
 
 static void *codec_init(const struct media_codec *codec, uint32_t flags,
@@ -151,37 +541,72 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		void *props, size_t mtu)
 {
 	struct impl *this;
-	int32_t res;
+	struct spa_audio_info config_info;
+	const a2dp_lhdc_v5_t *conf = config;
+	const struct lhdc_format_config *format;
+	const struct props *p = props;
+	uint32_t rate;
+	uint32_t min_bitrate_index, max_bitrate_index;
+	uint32_t quality = p != NULL ? p->quality : LHDC_QUALITY_AUTO;
+	int res;
 
-	if (info->info.raw.format != SPA_AUDIO_FORMAT_S16 ||
-	    info->info.raw.rate != LHDCV5_SAMPLE_RATE ||
-	    info->info.raw.channels != LHDCV5_CHANNELS) {
+	if (codec_validate_config(codec, flags, config, config_len, &config_info) < 0) {
 		errno = EINVAL;
 		return NULL;
 	}
+
+	format = get_format_config(conf->bitrate_and_depth);
+	if (format == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (info->media_type != SPA_MEDIA_TYPE_audio ||
+	    info->media_subtype != SPA_MEDIA_SUBTYPE_raw ||
+	    info->info.raw.format != config_info.info.raw.format ||
+	    info->info.raw.rate != config_info.info.raw.rate ||
+	    info->info.raw.channels != config_info.info.raw.channels) {
+		spa_log_error(log_, "LHDC v5 invalid audio format");
+		errno = EINVAL;
+		return NULL;
+	}
+	if (mtu > UINT32_MAX) {
+		spa_log_error(log_, "LHDC v5 MTU too large: %zu", mtu);
+		errno = EINVAL;
+		return NULL;
+	}
+
+	rate = config_info.info.raw.rate;
+	if (!get_bitrate_indices(conf->bitrate_and_depth, rate,
+				&min_bitrate_index, &max_bitrate_index)) {
+		errno = EINVAL;
+		return NULL;
+	}
+	quality = clamp_quality(quality, min_bitrate_index, max_bitrate_index);
 
 	this = calloc(1, sizeof(struct impl));
 	if (this == NULL)
 		return NULL;
 
-	res = lhdcv5BT_get_handle(LHDC_VERSION_1, &this->lhdc);
-	if (res != LHDC_FRET_SUCCESS || this->lhdc == NULL)
+	this->quality = quality;
+	this->rate = rate;
+	this->bits_per_sample = format->bits_per_sample;
+	this->sample_size = format->sample_size;
+	this->mtu = (uint32_t)mtu;
+	this->min_bitrate_index = min_bitrate_index;
+	this->max_bitrate_index = max_bitrate_index;
+
+	res = init_lhdc_handle(&this->lhdc, this->rate, this->bits_per_sample,
+			this->quality, this->mtu, this->min_bitrate_index,
+			this->max_bitrate_index, &this->block_samples);
+	if (res < 0)
 		goto error;
 
-	res = lhdcv5BT_init_encoder(this->lhdc, LHDCV5_SAMPLE_RATE,
-			LHDCV5_BITS_PER_SAMPLE, LHDC_QUALITY_AUTO, mtu,
-			LHDCV5_INTERVAL_MS, 0);
-	if (res != LHDC_FRET_SUCCESS)
+	if (this->block_samples > UINT32_MAX / LHDCV5_CHANNELS / this->sample_size) {
+		spa_log_error(log_, "LHDC v5 block size overflow");
 		goto error;
-
-	lhdcv5BT_set_min_bitrate(this->lhdc, LHDC_QUALITY_LOW0);
-	lhdcv5BT_set_max_bitrate(this->lhdc, LHDC_QUALITY_HIGH1);
-
-	res = lhdcv5BT_get_block_Size(this->lhdc, &this->block_samples);
-	if (res != LHDC_FRET_SUCCESS || this->block_samples == 0)
-		goto error;
-
-	this->block_bytes = this->block_samples * LHDCV5_CHANNELS * sizeof(int16_t);
+	}
+	this->block_bytes = this->block_samples * LHDCV5_CHANNELS * format->sample_size;
 	return this;
 
 error:
@@ -190,6 +615,50 @@ error:
 	free(this);
 	errno = EIO;
 	return NULL;
+}
+
+static int codec_update_props(void *data, void *props)
+{
+	struct impl *this = data;
+	const struct props *p = props;
+	HANDLE_LHDC_BT lhdc = NULL;
+	uint32_t block_samples = 0;
+	uint32_t block_bytes;
+	uint32_t quality;
+	int res;
+
+	if (p == NULL)
+		return 0;
+
+	quality = clamp_quality(p->quality, this->min_bitrate_index,
+			this->max_bitrate_index);
+	if (quality == this->quality)
+		return 0;
+
+	res = init_lhdc_handle(&lhdc, this->rate, this->bits_per_sample,
+			quality, this->mtu, this->min_bitrate_index,
+			this->max_bitrate_index,
+			&block_samples);
+	if (res < 0)
+		return res;
+
+	if (block_samples > UINT32_MAX / LHDCV5_CHANNELS / this->sample_size) {
+		spa_log_error(log_, "LHDC v5 block size overflow");
+		lhdcv5BT_free_handle(lhdc);
+		return -EOVERFLOW;
+	}
+
+	block_bytes = block_samples * LHDCV5_CHANNELS * this->sample_size;
+	if (block_bytes != this->block_bytes) {
+		spa_log_error(log_, "LHDC v5 block size changed during props update");
+		lhdcv5BT_free_handle(lhdc);
+		return -EINVAL;
+	}
+
+	lhdcv5BT_free_handle(this->lhdc);
+	this->lhdc = lhdc;
+	this->quality = quality;
+	return 0;
 }
 
 static void codec_deinit(void *data)
@@ -204,15 +673,6 @@ static int codec_get_block_size(void *data)
 {
 	struct impl *this = data;
 	return this->block_bytes;
-}
-
-static int codec_abr_process(void *data, size_t unsent)
-{
-	struct impl *this = data;
-	uint32_t queue_len = (unsent + LHDCV5_MAX_PACKET_BYTES - 1) / LHDCV5_MAX_PACKET_BYTES;
-	int32_t res = lhdcv5BT_adjust_bitrate(this->lhdc, queue_len);
-
-	return res == LHDC_FRET_SUCCESS ? 0 : -EIO;
 }
 
 static int codec_start_encode(void *data,
@@ -263,11 +723,17 @@ static int codec_encode(void *data,
 
 	res = lhdcv5BT_encode(this->lhdc, (void *)src, this->block_bytes,
 			dst, (uint32_t)dst_size, &written, &frames);
-	if (res != LHDC_FRET_SUCCESS)
+	if (res != LHDC_FRET_SUCCESS) {
+		spa_log_error(log_, "LHDC v5 encode failed: %d", res);
 		return -EIO;
+	}
 
 	if (written == 0)
 		return this->block_bytes;
+	if (written > dst_size)
+		return -EIO;
+	if (frames == 0 || frames > LHDCV5_MAX_FRAME_COUNT)
+		return -EIO;
 
 	this->payload->latency = 0;
 	this->payload->frame_count = frames;
@@ -276,15 +742,6 @@ static int codec_encode(void *data,
 	*dst_out = written;
 	*need_flush = NEED_FLUSH_ALL;
 	return this->block_bytes;
-}
-
-static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
-{
-	struct impl *this = data;
-	if (encoder)
-		*encoder = this->block_samples * 2;
-	if (decoder)
-		*decoder = 0;
 }
 
 static void codec_set_log(struct spa_log *global_log)
@@ -306,13 +763,16 @@ const struct media_codec a2dp_codec_lhdc_v5 = {
 	.select_config = codec_select_config,
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,
+	.init_props = codec_init_props,
+	.enum_props = codec_enum_props,
+	.set_props = codec_set_props,
+	.clear_props = codec_clear_props,
 	.init = codec_init,
 	.deinit = codec_deinit,
+	.update_props = codec_update_props,
 	.get_block_size = codec_get_block_size,
-	.abr_process = codec_abr_process,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,
-	.get_delay = codec_get_delay,
 	.set_log = codec_set_log,
 };
 

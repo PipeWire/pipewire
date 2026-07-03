@@ -7272,14 +7272,14 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 								goto parse_failed;
 							spa_log_debug(monitor->log, "bis_entry->qos_preset %s", bis_entry->qos_preset);
 						} else if (spa_streq(bis_key, "retransmissions")) {
-							if (spa_json_get_int(&it[2], &bis_entry->retransmissions) <= 0)
+							if (spa_json_get_int(&it[1], &bis_entry->retransmissions) <= 0)
 								goto parse_failed;
 							if (bis_entry->retransmissions > RTN_MAX)
 								goto parse_failed;
 							bis_entry->rtn_manual_set = 1;
 							spa_log_debug(monitor->log, "bis_entry->retransmissions %d", bis_entry->retransmissions);
 						} else if (spa_streq(bis_key, "max_transport_latency")) {
-							if (spa_json_get_int(&it[2], &bis_entry->max_transport_latency) <= 0)
+							if (spa_json_get_int(&it[1], &bis_entry->max_transport_latency) <= 0)
 								goto parse_failed;
 							if (bis_entry->max_transport_latency < MAX_TRANSPORT_LATENCY_MIN &&
 								bis_entry->max_transport_latency > MAX_TRANSPORT_LATENCY_MAX)

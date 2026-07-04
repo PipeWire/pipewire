@@ -85,17 +85,34 @@ struct impl {
 };
 
 static int emit_info(struct impl *this, bool full);
+static void remove_sources(struct impl *this);
 
 static void handle_acp_poll(struct spa_source *source)
 {
 	struct impl *this = source->data;
+	uint32_t rmask = 0;
 	int i;
 
-	for (i = 0; i < this->n_pfds; i++)
+	for (i = 0; i < this->n_pfds; i++) {
 		this->pfds[i].revents = this->sources[i].rmask;
+		rmask |= this->sources[i].rmask;
+	}
 	acp_card_handle_events(this->card);
 	for (i = 0; i < this->n_pfds; i++)
 		this->sources[i].rmask = 0;
+
+	/* A POLLERR/POLLHUP on a poll fd (e.g. the ALSA control device was
+	 * unplugged) is level-triggered and never clears, so the loop would
+	 * redispatch this handler on every iteration and spin at 100% CPU.
+	 * Stop polling the dead descriptors; the udev monitor handles the
+	 * actual device removal, and setup_sources() re-arms on the next
+	 * profile change if the card comes back. */
+	if (rmask & (SPA_IO_ERR | SPA_IO_HUP)) {
+		spa_log_warn(this->log, "%p: poll fd error/hangup (card removed?), "
+				"removing poll sources", this);
+		remove_sources(this);
+		return;
+	}
 	emit_info(this, false);
 }
 

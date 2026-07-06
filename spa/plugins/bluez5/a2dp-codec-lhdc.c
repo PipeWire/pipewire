@@ -22,7 +22,7 @@
 #define LHDCV5_INTERVAL_MS LHDC_ENC_INTERVAL_10MS
 #define LHDCV5_FRAME_CONFIG (LHDC_V5_FRAME_LEN_5MS | LHDC_V5_VERSION_1)
 #define LHDCV5_LOCAL_MIN_BITRATE LHDC_V5_MIN_BITRATE_64K
-#define LHDCV5_LOCAL_MAX_BITRATE LHDC_V5_MAX_BITRATE_400K
+#define LHDCV5_LOCAL_MAX_BITRATE LHDC_V5_MAX_BITRATE_1000K
 #define LHDCV5_BITRATE_CONFIG (LHDCV5_LOCAL_MIN_BITRATE | LHDCV5_LOCAL_MAX_BITRATE)
 #define LHDCV5_FORMAT_CONFIG (LHDC_V5_BIT_FMT_16 | LHDC_V5_BIT_FMT_24)
 #define LHDCV5_MAX_FRAME_COUNT 0x3f
@@ -65,6 +65,18 @@ static const struct lhdc_bitrate_config lhdc_max_bitrates[] = {
 	{ LHDC_V5_MAX_BITRATE_500K, 500 },
 	{ LHDC_V5_MAX_BITRATE_900K, 900 },
 	{ LHDC_V5_MAX_BITRATE_1000K, 1000 },
+};
+
+struct lhdc_quality_config {
+	uint32_t quality;
+	const char *label;
+};
+
+static const struct lhdc_quality_config lhdc_quality_configs[] = {
+	{ LHDC_QUALITY_LOW, "400k" },
+	{ LHDC_QUALITY_MID, "500k" },
+	{ LHDC_QUALITY_HIGH, "900k" },
+	{ LHDC_QUALITY_HIGH1, "1000k" },
 };
 
 struct props {
@@ -236,6 +248,21 @@ static bool get_bitrate_indices(uint32_t config, uint32_t rate,
 	return *min_bitrate_index <= *max_bitrate_index;
 }
 
+static const struct lhdc_quality_config *find_quality_config(uint32_t quality)
+{
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(lhdc_quality_configs); i++)
+		if (lhdc_quality_configs[i].quality == quality)
+			return &lhdc_quality_configs[i];
+	return NULL;
+}
+
+static bool is_fixed_quality(uint32_t quality)
+{
+	return find_quality_config(quality) != NULL;
+}
+
 static uint32_t clamp_quality(uint32_t quality,
 		uint32_t min_bitrate_index, uint32_t max_bitrate_index)
 {
@@ -243,9 +270,17 @@ static uint32_t clamp_quality(uint32_t quality,
 		return quality;
 	if (quality < min_bitrate_index)
 		return min_bitrate_index;
-	if (quality > max_bitrate_index)
+	if (!is_fixed_quality(quality) && quality > max_bitrate_index)
 		return max_bitrate_index;
 	return quality;
+}
+
+static uint32_t get_effective_max_bitrate_index(uint32_t max_bitrate_index,
+		uint32_t quality)
+{
+	if (is_fixed_quality(quality) && max_bitrate_index < quality)
+		return quality;
+	return max_bitrate_index;
 }
 
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
@@ -384,15 +419,17 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 
 static uint32_t string_to_quality(const char *quality)
 {
-	if (spa_streq(quality, "400k"))
-		return LHDC_QUALITY_LOW;
+	size_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(lhdc_quality_configs); i++)
+		if (spa_streq(quality, lhdc_quality_configs[i].label))
+			return lhdc_quality_configs[i].quality;
 	return LHDC_QUALITY_AUTO;
 }
 
 static bool is_valid_quality(uint32_t quality)
 {
-	/* Keep the fixed choices in sync with LHDCV5_LOCAL_MAX_BITRATE. */
-	return quality == LHDC_QUALITY_AUTO || quality == LHDC_QUALITY_LOW;
+	return quality == LHDC_QUALITY_AUTO || is_fixed_quality(quality);
 }
 
 static void *codec_init_props(const struct media_codec *codec, uint32_t flags,
@@ -426,6 +463,10 @@ static int codec_enum_props(void *props, const struct spa_dict *settings, uint32
 	case SPA_PARAM_PropInfo:
 		switch (idx) {
 		case 0:
+		{
+			const struct lhdc_quality_config *quality;
+			size_t i;
+
 			spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
 			spa_pod_builder_prop(b, SPA_PROP_INFO_id, 0);
 			spa_pod_builder_id(b, SPA_PROP_quality);
@@ -436,19 +477,24 @@ static int codec_enum_props(void *props, const struct spa_dict *settings, uint32
 			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
 			spa_pod_builder_int(b, p->quality);
 			spa_pod_builder_int(b, LHDC_QUALITY_AUTO);
-			spa_pod_builder_int(b, LHDC_QUALITY_LOW);
+			for (i = 0; i < SPA_N_ELEMENTS(lhdc_quality_configs); i++)
+				spa_pod_builder_int(b, lhdc_quality_configs[i].quality);
 			spa_pod_builder_pop(b, &f[1]);
 
 			spa_pod_builder_prop(b, SPA_PROP_INFO_labels, 0);
 			spa_pod_builder_push_struct(b, &f[1]);
 			spa_pod_builder_int(b, LHDC_QUALITY_AUTO);
 			spa_pod_builder_string(b, "auto");
-			spa_pod_builder_int(b, LHDC_QUALITY_LOW);
-			spa_pod_builder_string(b, "400k");
+			for (i = 0; i < SPA_N_ELEMENTS(lhdc_quality_configs); i++) {
+				quality = &lhdc_quality_configs[i];
+				spa_pod_builder_int(b, quality->quality);
+				spa_pod_builder_string(b, quality->label);
+			}
 			spa_pod_builder_pop(b, &f[1]);
 
 			*param = spa_pod_builder_pop(b, &f[0]);
 			break;
+		}
 		default:
 			return 0;
 		}
@@ -495,6 +541,7 @@ static int init_lhdc_handle(HANDLE_LHDC_BT *handle, uint32_t rate,
 		uint32_t *block_samples)
 {
 	HANDLE_LHDC_BT lhdc = NULL;
+	uint32_t effective_max_bitrate_index;
 	int32_t res;
 
 	res = lhdcv5BT_get_handle(LHDC_VERSION_1, &lhdc);
@@ -516,10 +563,20 @@ static int init_lhdc_handle(HANDLE_LHDC_BT *handle, uint32_t rate,
 		goto error;
 	}
 
-	res = lhdcv5BT_set_max_bitrate(lhdc, max_bitrate_index);
+	effective_max_bitrate_index =
+		get_effective_max_bitrate_index(max_bitrate_index, quality);
+	res = lhdcv5BT_set_max_bitrate(lhdc, effective_max_bitrate_index);
 	if (res != LHDC_FRET_SUCCESS) {
 		spa_log_error(log_, "LHDC v5 set max bitrate failed: %d", res);
 		goto error;
+	}
+
+	if (is_fixed_quality(quality)) {
+		res = lhdcv5BT_set_bitrate(lhdc, quality);
+		if (res != LHDC_FRET_SUCCESS) {
+			spa_log_error(log_, "LHDC v5 set bitrate failed: %d", res);
+			goto error;
+		}
 	}
 
 	res = lhdcv5BT_get_block_Size(lhdc, block_samples);

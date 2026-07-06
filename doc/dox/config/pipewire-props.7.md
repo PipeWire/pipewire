@@ -1403,6 +1403,19 @@ Available values:
 - sq   (Standard Quality, 660/606kbps)
 - mq   (Mobile use Quality, 330/303kbps)
 
+@PAR@ device-prop  bluez5.a2dp.lhdc.quality = "auto"   # string
+LHDC v5 encoding quality
+Available values:
+- auto  (default, use the negotiated bitrate range)
+- 400k
+- 500k
+- 900k
+- 1000k
+
+The fixed values select LHDC v5 encoder quality indices. They may exceed the
+selected AVDTP maximum bitrate class reported by the device, so use auto or a
+lower fixed value if audio is unstable.
+
 @PAR@ device-prop  bluez5.a2dp.aac.bitratemode = 0   # integer
 AAC variable bitrate mode.
 Available values: 0 (cbr, default), 1-5 (quality level)

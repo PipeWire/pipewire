@@ -284,7 +284,7 @@ int emit_info(struct impl *impl, bool full)
 		/* encode device numbers into a json array */
 		s << "[ ";
 		for (const auto& devid : device_numbers)
-			s << devid << ' ';
+			s << devid << ', ';
 		s << ']';
 
 		devids = std::move(s).str();

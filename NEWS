@@ -1,3 +1,46 @@
+# PipeWire 1.6.8 (2026-07-09)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Fix a data race in JACK that could cause lost MIDI events in ardour.
+  - Fix some unbounded memory allocations.
+  - Various small fixes.
+
+
+## PipeWire
+  - Avoid some graph recalcs, which fixes a bug when suspending a node
+    while it is active.
+
+## Modules
+  - Do Content-Length and allocation check in RAOP to avoid OOM errors.
+  - Fix a potential memory leak in the error path of client-node. (#5348)
+
+## SPA
+  - Fix filter-graph dynamic graph updates.
+  - Avoid 100% when unplugging a card.
+  - Fix filter-graph volumes when the filter is loaded inside a node with
+    hardware volume. (#5344)
+  - Add normalize and latency options to the SOFA filter. (#5322)
+
+## Bluetooth
+  - Fix a potential leak when transport fails to start.
+
+## Pulse-server
+  - Avoid stack exhaustion via unbounded alloca.
+
+## JACK
+  - Fix a data race in jack_port_get_buffer() when called from concurrent
+    threads, like in ardour. (#5324)
+
+## GStreamer
+  - Skip invalid crop metadata.
+  - Avoid crash because metadata listener was registered twice.
+
+
+Older versions:
+
 # PipeWire 1.6.7 (2026-06-18)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -33,9 +76,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## Misc
   - Make sure we don't deal with uninitialized spa_dict.
-
-
-Older versions:
 
 # PipeWire 1.6.6 (2026-05-26)
 

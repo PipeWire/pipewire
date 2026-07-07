@@ -1685,6 +1685,10 @@ static int transport_start(struct impl *this)
 	return 0;
 
 fail:
+	if (this->update_delay_event) {
+		spa_loop_utils_destroy_source(this->loop_utils, this->update_delay_event);
+		this->update_delay_event = NULL;
+	}
 	if (this->codec_data) {
 		if (this->own_codec_data)
 			this->codec->deinit(this->codec_data);

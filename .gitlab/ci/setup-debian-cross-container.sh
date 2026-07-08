@@ -25,6 +25,7 @@ packages=(
 	liblilv-dev
 	libmysofa-dev
 	libopus-dev
+	libplist-dev
 	libpulse-dev
 	libreadline-dev
 	libsbc-dev

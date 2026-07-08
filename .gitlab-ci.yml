@@ -43,7 +43,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2026-09-20.0'
+    FDO_DISTRIBUTION_TAG: '2026-10-20.0'
     FDO_DISTRIBUTION_VERSION: '44'
     FDO_DISTRIBUTION_PACKAGES: >-
       alsa-lib-devel
@@ -77,6 +77,7 @@ include:
       libffado-devel
       libldac-devel
       libmysofa-devel
+      libplist-devel
       libsndfile-devel
       libubsan
       libusb1-devel
@@ -173,7 +174,7 @@ include:
 .debian:
   variables:
      # Update this tag when you want to trigger a rebuild
-    BASE_TAG: '2026-09-22.0'
+    BASE_TAG: '2026-10-20.0'
     FDO_DISTRIBUTION_VERSION: 'trixie'
     FDO_DISTRIBUTION_PACKAGES: >-
       build-essential

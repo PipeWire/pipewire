@@ -793,6 +793,9 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 	char buf[1024];
 	struct spa_pod_dynamic_builder b;
 	struct volume *vol = &graph->volume[direction];
+	float soft_vols[MAX_CHANNELS];
+	uint32_t n_soft_vols = 0;
+	bool soft_mute = false, have_soft_mute = false;
 	bool do_volume = false;
 
 	spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 1024);
@@ -838,7 +841,12 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 			break;
 		}
 		case SPA_PROP_softVolumes:
+			n_soft_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float, soft_vols,
+					SPA_N_ELEMENTS(soft_vols));
+			break;
 		case SPA_PROP_softMute:
+			if (spa_pod_get_bool(&prop->value, &soft_mute) == 0)
+				have_soft_mute = true;
 			break;
 		default:
 			spa_pod_builder_raw_padded(&b.b, prop, SPA_POD_PROP_SIZE(prop));
@@ -846,24 +854,27 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 		}
 	}
 	if (do_volume && vol->n_ports != 0) {
-		float soft_vols[MAX_CHANNELS];
 		uint32_t i;
 
 		for (i = 0; i < vol->n_volumes; i++)
 			soft_vols[i] = (vol->mute || vol->volumes[i] == 0.0f) ? 0.0f : 1.0f;
-
-		spa_pod_builder_prop(&b.b, SPA_PROP_softMute, 0);
-		spa_pod_builder_bool(&b.b, vol->mute);
-		spa_pod_builder_prop(&b.b, SPA_PROP_softVolumes, 0);
-		spa_pod_builder_array(&b.b, sizeof(float), SPA_TYPE_Float,
-				vol->n_volumes, soft_vols);
-		props = spa_pod_builder_pop(&b.b, &f[0]);
+		n_soft_vols = vol->n_volumes;
+		soft_mute = vol->mute;
+		have_soft_mute = true;
 
 		sync_volume(graph, vol);
-
-	} else {
-		props = spa_pod_builder_pop(&b.b, &f[0]);
 	}
+	if (have_soft_mute) {
+		spa_pod_builder_prop(&b.b, SPA_PROP_softMute, 0);
+		spa_pod_builder_bool(&b.b, soft_mute);
+	}
+	if (n_soft_vols > 0) {
+		spa_pod_builder_prop(&b.b, SPA_PROP_softVolumes, 0);
+		spa_pod_builder_array(&b.b, sizeof(float), SPA_TYPE_Float,
+				n_soft_vols, soft_vols);
+	}
+	props = spa_pod_builder_pop(&b.b, &f[0]);
+
 	spa_filter_graph_emit_apply_props(&impl->hooks, direction, props);
 
 	spa_pod_dynamic_builder_clean(&b);

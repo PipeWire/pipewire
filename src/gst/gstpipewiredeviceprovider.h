@@ -52,6 +52,7 @@ struct _GstPipeWireDeviceProvider {
   struct spa_hook registry_listener;
 
   struct pw_metadata *metadata;
+  uint32_t metadata_id;
   struct spa_hook metadata_listener;
 
   gchar *default_audio_source_name;

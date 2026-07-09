@@ -1775,6 +1775,7 @@ again:
 			if (do_reconfigure) {
 				reconfigure_driver(context, n);
 				/* we might be suspended now and the links need to be prepared again */
+				impl->recalc--;
 				goto again;
 			}
 			/* we have a pending change. We place the new values in the

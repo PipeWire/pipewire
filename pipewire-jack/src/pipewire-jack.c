@@ -879,6 +879,8 @@ static struct object *find_port_by_name(struct client *c, const char *name)
 static struct object *find_by_id(struct client *c, uint32_t id)
 {
 	struct object *o;
+	if (id == SPA_ID_INVALID)
+		return NULL;
 	spa_list_for_each(o, &c->context.objects, link) {
 		if (o->id == id)
 			return o;
@@ -893,6 +895,14 @@ static struct object *find_by_serial(struct client *c, uint32_t serial)
 		if (o->serial == serial)
 			return o;
 	}
+	return NULL;
+}
+
+static struct object *find_port_by_serial(struct client *c, uint32_t serial)
+{
+	struct object *o = find_by_serial(c, serial);
+	if (o != NULL && o->type == INTERFACE_Port)
+		return o;
 	return NULL;
 }
 
@@ -917,15 +927,17 @@ static struct object *find_client(struct client *c, uint32_t client_id)
 	return find_type(c, client_id, INTERFACE_Client, false);
 }
 
-static struct object *find_link(struct client *c, uint32_t src, uint32_t dst)
+/* Matches a link by serial instead of object id, since the object id might be
+ * re-used. See #5356. */
+static struct object *find_link(struct client *c, uint32_t src_serial, uint32_t dst_serial)
 {
 	struct object *l;
 
 	spa_list_for_each(l, &c->context.objects, link) {
-		if (l->type != INTERFACE_Link || l->removed)
+		if (l->type != INTERFACE_Link || l->removing || l->removed)
 			continue;
-		if (l->port_link.src == src &&
-		    l->port_link.dst == dst) {
+		if (l->port_link.src_serial == src_serial &&
+		    l->port_link.dst_serial == dst_serial) {
 			return l;
 		}
 	}
@@ -4173,6 +4185,13 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	}
 	o->removing = true;
 
+	/* pipewire will reuse the global id for this object from now on, so we
+	 * retire it here instead of when the jack object is freed. Until then the
+	 * object remains reachable by its serial which is what's being used as
+	 * jack_port_id, but unassigning the global id prevents that serial from
+	 * being re-issued to new ports as they appear in the future. See #5356. */
+	o->id = SPA_ID_INVALID;
+
 	switch (o->type) {
 	case INTERFACE_Client:
 		free_object(c, o);
@@ -4185,20 +4204,20 @@ static void registry_event_global_remove(void *data, uint32_t id)
 				c->metadata->default_audio_source[0] = '\0';
 		}
 		if (find_node(c, o->node.name) == NULL) {
-			pw_log_info("%p: client %u removed \"%s\"", c, o->id, o->node.name);
+			pw_log_info("%p: client %u removed \"%s\"", c, id, o->node.name);
 			queue_notify(c, NOTIFY_TYPE_REGISTRATION, o, 0, NULL);
 		} else {
 			free_object(c, o);
 		}
 		break;
 	case INTERFACE_Port:
-		pw_log_info("%p: port %u/%u removed \"%s\"", c, o->id, o->serial, o->port.name);
+		pw_log_info("%p: port %u/%u removed \"%s\"", c, id, o->serial, o->port.name);
 		queue_notify(c, NOTIFY_TYPE_PORTREGISTRATION, o, 0, NULL);
 		break;
 	case INTERFACE_Link:
-		if (find_type(c, o->port_link.src, INTERFACE_Port, true) != NULL &&
-		    find_type(c, o->port_link.dst, INTERFACE_Port, true) != NULL) {
-			pw_log_info("%p: link %u %u/%u -> %u/%u removed", c, o->id,
+		if (find_port_by_serial(c, o->port_link.src_serial) != NULL &&
+		    find_port_by_serial(c, o->port_link.dst_serial) != NULL) {
+			pw_log_info("%p: link %u %u/%u -> %u/%u removed", c, id,
 					o->port_link.src, o->port_link.src_serial,
 					o->port_link.dst, o->port_link.dst_serial);
 			queue_notify(c, NOTIFY_TYPE_CONNECT, o, 0, NULL);
@@ -4956,7 +4975,7 @@ int jack_deactivate (jack_client_t *client)
 	pw_client_node_set_active(c->node, false);
 
 	spa_list_for_each(o, &c->context.objects, link) {
-		if (o->type != INTERFACE_Link || o->removed)
+		if (o->type != INTERFACE_Link || o->removing || o->removed)
 			continue;
 		if (o->port_link.src_ours || o->port_link.dst_ours)
 			pw_registry_destroy(c->registry, o->id);
@@ -6119,7 +6138,7 @@ int jack_port_connected_to (const jack_port_t *port,
 		p = o;
 		o = l;
 	}
-	if ((l = find_link(c, o->id, p->id)) != NULL)
+	if ((l = find_link(c, o->serial, p->serial)) != NULL)
 		res = 1;
 
      exit:
@@ -6163,9 +6182,9 @@ const char ** jack_port_get_all_connections (const jack_client_t *client,
 		if (l->type != INTERFACE_Link || l->removed)
 			continue;
 		if (l->port_link.src_serial == o->serial)
-			p = find_type(c, l->port_link.dst, INTERFACE_Port, true);
+			p = find_port_by_serial(c, l->port_link.dst_serial);
 		else if (l->port_link.dst_serial == o->serial)
-			p = find_type(c, l->port_link.src, INTERFACE_Port, true);
+			p = find_port_by_serial(c, l->port_link.src_serial);
 		else
 			continue;
 
@@ -6614,7 +6633,7 @@ int jack_disconnect (jack_client_t *client,
 	if ((res = check_connect(c, src, dst)) != 1)
 		goto exit;
 
-	if ((l = find_link(c, src->id, dst->id)) == NULL) {
+	if ((l = find_link(c, src->serial, dst->serial)) == NULL) {
 		res = -ENOENT;
 		goto exit;
 	}

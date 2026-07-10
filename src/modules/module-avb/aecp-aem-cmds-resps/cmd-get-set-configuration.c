@@ -9,6 +9,31 @@
 #include "cmd-get-set-configuration.h"
 #include "cmd-resp-helpers.h"
 
+/*
+ * IEEE 1722.1-2021 Sec. 7.4.8.2: the GET_CONFIGURATION response carries a
+ * {reserved, configuration_index} payload, so the response frame is longer
+ * than the command (which has no payload). Build the response at this fixed
+ * length and patch the AVTP control_data_length accordingly.
+ */
+#define AVB_AECP_GET_CONFIGURATION_RESPONSE_LEN \
+	(int)(sizeof(struct avb_ethernet_header) + \
+		sizeof(struct avb_packet_aecp_aem) + \
+		sizeof(struct avb_packet_aecp_aem_setget_configuration))
+
+/*
+ * A GET_CONFIGURATION command is a bare AECPDU (no payload); the response has to
+ * be the full frame regardless of the received length, so zero the trailing
+ * payload bytes. reply_success_len() patches the control_data_length on send.
+ */
+static void extend_get_configuration_response(uint8_t *buf, int in_len)
+{
+	int total = AVB_AECP_GET_CONFIGURATION_RESPONSE_LEN;
+
+	if (in_len < total) {
+		memset(buf + in_len, 0, total - in_len);
+	}
+}
+
 
 #if 0
 static int handle_unsol_set_configuration_milan_v12(struct aecp *aecp, struct descriptor *desc,
@@ -190,9 +215,14 @@ int handle_cmd_get_configuration_common(struct aecp *aecp, int64_t now,
 				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, p, len);
 	}
 
+	/* The response is longer than the command: extend it first, then write the
+	 * payload so a short command cannot get it zeroed. */
+	extend_get_configuration_response(buf, len);
+
+	cfg->reserved = 0;
 	cfg->configuration_index = entity_desc->current_configuration;
 
-	rc = reply_success(aecp, buf, len);
+	rc = reply_success_len(aecp, buf, AVB_AECP_GET_CONFIGURATION_RESPONSE_LEN);
 	if (rc) {
 		pw_log_error("Reply Failed");
 		return rc;

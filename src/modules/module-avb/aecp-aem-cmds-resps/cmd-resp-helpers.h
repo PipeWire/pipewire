@@ -112,6 +112,40 @@ static inline int reply_success(struct aecp *aecp, const void *m, int len)
 	return reply_status(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len);
 }
 
+/*
+ * IEEE 1722.1-2021 Sec. 9.2.1.1.7: the AECP control_data_length counts the
+ * octets after the 12-byte AVTPDU common header (avb_packet_header + the 8-byte
+ * target_entity_id). Derive it from a full on-wire response length so each
+ * command keeps only its own response-length constant while this one formula
+ * lives in a single place.
+ */
+#define AVB_AECP_CDL_FROM_LEN(response_len) \
+	(uint16_t)((size_t)(response_len) - sizeof(struct avb_ethernet_header) - \
+		sizeof(struct avb_packet_header) - sizeof(uint64_t))
+
+/*
+ * Reply when the response length differs from the received command: patch the
+ * AVTP control_data_length to match response_len, then send. The caller has
+ * already filled buf[0..response_len) (and zero-filled past a shorter command).
+ */
+static inline int reply_status_len(struct aecp *aecp, int status, void *buf,
+	int response_len)
+{
+	struct avb_packet_aecp_header *reply =
+		SPA_PTROFF(buf, sizeof(struct avb_ethernet_header), void);
+
+	AVB_PACKET_SET_LENGTH(&reply->hdr, AVB_AECP_CDL_FROM_LEN(response_len));
+
+	return reply_status(aecp, status, buf, response_len);
+}
+
+static inline int reply_success_len(struct aecp *aecp, void *buf,
+	int response_len)
+{
+	return reply_status_len(aecp, AVB_AECP_AEM_STATUS_SUCCESS, buf,
+			response_len);
+}
+
 /** \brief The function is be directly hooked with the cmd_info structure */
 static inline int direct_reply_success(struct aecp *aecp, int64_t now,
 	const void *m, int len)

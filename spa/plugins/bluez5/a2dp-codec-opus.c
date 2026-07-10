@@ -551,41 +551,111 @@ static int get_mapping(const struct media_codec *codec, const a2dp_opus_05_direc
 	return 0;
 }
 
+static const uint8_t opus_05_frame_durations =
+	OPUS_05_FRAME_DURATION_25 |
+	OPUS_05_FRAME_DURATION_50 |
+	OPUS_05_FRAME_DURATION_100 |
+	OPUS_05_FRAME_DURATION_200 |
+	OPUS_05_FRAME_DURATION_400;
+
+/*
+ * Each codec object advertises only its own channel profile. Companions on the
+ * same endpoint (51/71 on "opus_05", pro on "opus_05_duplex") are merged by the
+ * monitor via combine_caps when enabled — same model as AAC LC + AAC-ELD.
+ */
 static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		const struct spa_dict *settings, uint8_t caps[A2DP_MAX_CAPS_SIZE])
 {
-	a2dp_opus_05_t a2dp_opus_05 = {
-		.info = codec->vendor,
-		.main = {
-			.channels = SPA_MIN(255u, MAX_CHANNELS),
-			.frame_duration = (OPUS_05_FRAME_DURATION_25 |
-					OPUS_05_FRAME_DURATION_50 |
-					OPUS_05_FRAME_DURATION_100 |
-					OPUS_05_FRAME_DURATION_200 |
-					OPUS_05_FRAME_DURATION_400),
-			OPUS_05_INIT_LOCATION(BT_AUDIO_LOCATION_ANY)
-			OPUS_05_INIT_BITRATE(0)
-		},
-		.bidi = {
-			.channels = SPA_MIN(255u, MAX_CHANNELS),
-			.frame_duration = (OPUS_05_FRAME_DURATION_25 |
-					OPUS_05_FRAME_DURATION_50 |
-					OPUS_05_FRAME_DURATION_100 |
-					OPUS_05_FRAME_DURATION_200 |
-					OPUS_05_FRAME_DURATION_400),
-			OPUS_05_INIT_LOCATION(BT_AUDIO_LOCATION_ANY)
-			OPUS_05_INIT_BITRATE(0)
-		}
-	};
+	uint8_t channels;
+	uint32_t location;
+	bool has_bidi = false;
+	uint8_t bidi_channels = 0;
+	uint32_t bidi_location = 0;
+	a2dp_opus_05_t a2dp_opus_05;
 
-	/* Only duplex/pro codec has bidi, since bluez5-device has to know early
-	 * whether to show nodes or not. */
-	if (codec->id != SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX &&
-			codec->id != SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO)
-		spa_zero(a2dp_opus_05.bidi);
+	switch (codec->id) {
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05:
+		channels = 2;
+		location = BT_AUDIO_LOCATION_FL | BT_AUDIO_LOCATION_FR;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51:
+		channels = surround_encoders[5].channels;
+		location = surround_encoders[5].location;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71:
+		channels = surround_encoders[7].channels;
+		location = surround_encoders[7].location;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX:
+		channels = 2;
+		location = BT_AUDIO_LOCATION_FL | BT_AUDIO_LOCATION_FR;
+		has_bidi = true;
+		bidi_channels = 2;
+		bidi_location = BT_AUDIO_LOCATION_FL | BT_AUDIO_LOCATION_FR;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO:
+		/* Pro Audio allows arbitrary layouts; keep the wide advertisement. */
+		channels = SPA_MIN(255u, MAX_CHANNELS);
+		location = BT_AUDIO_LOCATION_ANY;
+		has_bidi = true;
+		bidi_channels = SPA_MIN(255u, MAX_CHANNELS);
+		bidi_location = BT_AUDIO_LOCATION_ANY;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	spa_zero(a2dp_opus_05);
+	a2dp_opus_05.info = codec->vendor;
+	a2dp_opus_05.main.channels = channels;
+	a2dp_opus_05.main.frame_duration = opus_05_frame_durations;
+	OPUS_05_SET_LOCATION(a2dp_opus_05.main, location);
+	OPUS_05_SET_BITRATE(a2dp_opus_05.main, 0);
+
+	if (has_bidi) {
+		a2dp_opus_05.bidi.channels = bidi_channels;
+		a2dp_opus_05.bidi.frame_duration = opus_05_frame_durations;
+		OPUS_05_SET_LOCATION(a2dp_opus_05.bidi, bidi_location);
+		OPUS_05_SET_BITRATE(a2dp_opus_05.bidi, 0);
+	}
 
 	memcpy(caps, &a2dp_opus_05, sizeof(a2dp_opus_05));
 	return sizeof(a2dp_opus_05);
+}
+
+static void combine_direction_caps(a2dp_opus_05_direction_t *dst,
+		const a2dp_opus_05_direction_t *src)
+{
+	uint32_t dst_bitrate, src_bitrate;
+
+	dst->channels = SPA_MAX(dst->channels, src->channels);
+	dst->frame_duration |= src->frame_duration;
+	OPUS_05_SET_LOCATION(*dst,
+			OPUS_05_GET_LOCATION(*dst) | OPUS_05_GET_LOCATION(*src));
+
+	/* bitrate 0 means unlimited */
+	dst_bitrate = OPUS_05_GET_BITRATE(*dst);
+	src_bitrate = OPUS_05_GET_BITRATE(*src);
+	if (dst_bitrate == 0 || src_bitrate == 0)
+		OPUS_05_SET_BITRATE(*dst, 0);
+	else
+		OPUS_05_SET_BITRATE(*dst, SPA_MAX(dst_bitrate, src_bitrate));
+}
+
+static int codec_combine_caps(const struct media_codec *codec, uint32_t flags,
+		uint8_t caps[A2DP_MAX_CAPS_SIZE], int caps_size,
+		const uint8_t *other, int other_size)
+{
+	a2dp_opus_05_t *dst = (a2dp_opus_05_t *)caps;
+	const a2dp_opus_05_t *src = (const a2dp_opus_05_t *)other;
+
+	if (caps_size != (int)sizeof(*dst) || other_size != (int)sizeof(*src))
+		return -EINVAL;
+
+	combine_direction_caps(&dst->main, &src->main);
+	combine_direction_caps(&dst->bidi, &src->bidi);
+
+	return caps_size;
 }
 
 static int codec_select_config(const struct media_codec *codec, uint32_t flags,
@@ -829,6 +899,35 @@ static int codec_validate_config(const struct media_codec *codec, uint32_t flags
 	} else {
 		dir1 = &conf->bidi;
 		dir2 = &conf->main;
+	}
+
+	/*
+	 * Each codec object only accepts its own channel profile. This lets the
+	 * monitor's config-aware resolver attribute the transport to the correct
+	 * companion (opus_05 vs opus_05_51/71, duplex vs pro), matching AAC LC/ELD.
+	 */
+	switch (codec->id) {
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05:
+		if (dir1->channels > 2 || dir2->channels != 0)
+			return -EINVAL;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_51:
+		if (dir1->channels != surround_encoders[5].channels || dir2->channels != 0)
+			return -EINVAL;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_71:
+		if (dir1->channels != surround_encoders[7].channels || dir2->channels != 0)
+			return -EINVAL;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_DUPLEX:
+		if (dir1->channels > 2 || dir2->channels > 2)
+			return -EINVAL;
+		break;
+	case SPA_BLUETOOTH_AUDIO_CODEC_OPUS_05_PRO:
+	case 0: /* duplex bidi return channel */
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	info->info.raw.channels = dir1->channels;
@@ -1382,6 +1481,7 @@ const struct media_codec a2dp_codec_opus_05 = {
 	.name = "opus_05",
 	.description = "Opus 05",
 	.fill_caps = codec_fill_caps,
+	.combine_caps = codec_combine_caps,
 };
 
 const struct media_codec a2dp_codec_opus_05_51 = {
@@ -1391,6 +1491,7 @@ const struct media_codec a2dp_codec_opus_05_51 = {
 	.description = "Opus 05 5.1 Surround",
 	.endpoint_name = "opus_05",
 	.endpoint_companion = true,
+	.fill_caps = codec_fill_caps,
 };
 
 const struct media_codec a2dp_codec_opus_05_71 = {
@@ -1400,6 +1501,7 @@ const struct media_codec a2dp_codec_opus_05_71 = {
 	.description = "Opus 05 7.1 Surround",
 	.endpoint_name = "opus_05",
 	.endpoint_companion = true,
+	.fill_caps = codec_fill_caps,
 };
 
 /* Bidi return channel codec: doesn't have endpoints */
@@ -1417,6 +1519,7 @@ const struct media_codec a2dp_codec_opus_05_duplex = {
 	.description = "Opus 05 Duplex",
 	.duplex_codec = &a2dp_codec_opus_05_return,
 	.fill_caps = codec_fill_caps,
+	.combine_caps = codec_combine_caps,
 };
 
 const struct media_codec a2dp_codec_opus_05_pro = {
@@ -1429,6 +1532,7 @@ const struct media_codec a2dp_codec_opus_05_pro = {
 	.duplex_codec = &a2dp_codec_opus_05_return,
 	.endpoint_name = "opus_05_duplex",
 	.endpoint_companion = true,
+	.fill_caps = codec_fill_caps,
 };
 
 MEDIA_CODEC_EXPORT_DEF(

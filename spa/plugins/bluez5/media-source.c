@@ -1001,8 +1001,10 @@ static int transport_start(struct impl *this)
 			&port->current_format,
 			this->codec_props,
 			this->transport->read_mtu);
-	if (this->codec_data == NULL)
-		return -EIO;
+	if (this->codec_data == NULL) {
+		res = -EIO;
+		goto fail;
+	}
 
 	spa_log_info(this->log, "%p: using %s codec %s", this,
 			media_codec_kind_str(this->codec), this->codec->description);
@@ -1012,8 +1014,10 @@ static int transport_start(struct impl *this)
 	 * and this won't work properly with epoll. Always dup to avoid problems.
 	 */
 	this->fd = dup(this->transport->fd);
-	if (this->fd < 0)
-		return -errno;
+	if (this->fd < 0) {
+		res = -errno;
+		goto fail;
+	}
 
 	val = 6;
 	if (setsockopt(this->fd, SOL_SOCKET, SO_PRIORITY, &val, sizeof(val)) < 0)
@@ -1025,7 +1029,7 @@ static int transport_start(struct impl *this)
 	if ((res = spa_bt_decode_buffer_init(&port->buffer, this->log,
 			port->frame_size, port->current_format.info.raw.rate,
 			this->quantum_limit, this->quantum_limit)) < 0)
-		return res;
+		goto fail;
 
 	spa_bt_decode_buffer_set_target_latency(&port->buffer, (int32_t) this->decode_buffer_target);
 
@@ -1066,8 +1070,10 @@ static int transport_start(struct impl *this)
 					spa_strerror(res));
 	} else {
 		spa_zero(this->source);
-		if (spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system) < 0)
+		if (spa_bt_transport_ensure_sco_io(this->transport, this->data_loop, this->data_system) < 0) {
+			res = -EIO;
 			goto fail;
+		}
 		spa_loop_locked(this->data_loop, do_start_sco_iso_io, 0, NULL, 0, this);
 	}
 
@@ -1079,11 +1085,20 @@ static int transport_start(struct impl *this)
 	return 0;
 
 fail:
+	if (this->update_delay_event) {
+		spa_loop_utils_destroy_source(this->loop_utils, this->update_delay_event);
+		this->update_delay_event = NULL;
+	}
+	if (this->fd >= 0) {
+		close(this->fd);
+		this->fd = -1;
+	}
+	spa_bt_decode_buffer_clear(&port->buffer);
 	if (this->codec_data) {
 		this->codec->deinit(this->codec_data);
 		this->codec_data = NULL;
 	}
-	return -EIO;
+	return res;
 }
 
 static int do_start(struct impl *this)

@@ -7,9 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <spa/param/props.h>
 #include <spa/param/audio/format.h>
-#include <spa/pod/parser.h>
 #include <spa/utils/dict.h>
 #include <spa/utils/string.h>
 
@@ -19,7 +17,6 @@
 #include "media-codecs.h"
 
 #define LHDCV5_CHANNELS 2
-#define LHDCV5_INTERVAL_MS LHDC_ENC_INTERVAL_10MS
 #define LHDCV5_FRAME_CONFIG (LHDC_V5_FRAME_LEN_5MS | LHDC_V5_VERSION_1)
 #define LHDCV5_LOCAL_MIN_BITRATE LHDC_V5_MIN_BITRATE_64K
 #define LHDCV5_LOCAL_MAX_BITRATE LHDC_V5_MAX_BITRATE_1000K
@@ -101,15 +98,6 @@ struct impl {
 	struct lhdc_media_payload *payload;
 	uint8_t media_seqnum;
 
-	uint32_t quality;
-	uint32_t rate;
-	uint32_t bits_per_sample;
-	uint32_t sample_size;
-	uint32_t mtu;
-	uint32_t min_bitrate_index;
-	uint32_t max_bitrate_index;
-
-	uint32_t block_samples;
 	uint32_t block_bytes;
 };
 
@@ -427,11 +415,6 @@ static uint32_t string_to_quality(const char *quality)
 	return LHDC_QUALITY_AUTO;
 }
 
-static bool is_valid_quality(uint32_t quality)
-{
-	return quality == LHDC_QUALITY_AUTO || is_fixed_quality(quality);
-}
-
 static void *codec_init_props(const struct media_codec *codec, uint32_t flags,
 		const struct spa_dict *settings)
 {
@@ -453,90 +436,8 @@ static void codec_clear_props(void *props)
 	free(props);
 }
 
-static int codec_enum_props(void *props, const struct spa_dict *settings, uint32_t id, uint32_t idx,
-		struct spa_pod_builder *b, struct spa_pod **param)
-{
-	struct props *p = props;
-	struct spa_pod_frame f[2];
-
-	switch (id) {
-	case SPA_PARAM_PropInfo:
-		switch (idx) {
-		case 0:
-		{
-			const struct lhdc_quality_config *quality;
-			size_t i;
-
-			spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_PropInfo, id);
-			spa_pod_builder_prop(b, SPA_PROP_INFO_id, 0);
-			spa_pod_builder_id(b, SPA_PROP_quality);
-			spa_pod_builder_prop(b, SPA_PROP_INFO_description, 0);
-			spa_pod_builder_string(b, "LHDC v5 quality");
-
-			spa_pod_builder_prop(b, SPA_PROP_INFO_type, 0);
-			spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
-			spa_pod_builder_int(b, p->quality);
-			spa_pod_builder_int(b, LHDC_QUALITY_AUTO);
-			for (i = 0; i < SPA_N_ELEMENTS(lhdc_quality_configs); i++)
-				spa_pod_builder_int(b, lhdc_quality_configs[i].quality);
-			spa_pod_builder_pop(b, &f[1]);
-
-			spa_pod_builder_prop(b, SPA_PROP_INFO_labels, 0);
-			spa_pod_builder_push_struct(b, &f[1]);
-			spa_pod_builder_int(b, LHDC_QUALITY_AUTO);
-			spa_pod_builder_string(b, "auto");
-			for (i = 0; i < SPA_N_ELEMENTS(lhdc_quality_configs); i++) {
-				quality = &lhdc_quality_configs[i];
-				spa_pod_builder_int(b, quality->quality);
-				spa_pod_builder_string(b, quality->label);
-			}
-			spa_pod_builder_pop(b, &f[1]);
-
-			*param = spa_pod_builder_pop(b, &f[0]);
-			break;
-		}
-		default:
-			return 0;
-		}
-		break;
-	case SPA_PARAM_Props:
-		switch (idx) {
-		case 0:
-			*param = spa_pod_builder_add_object(b,
-					SPA_TYPE_OBJECT_Props, id,
-					SPA_PROP_quality, SPA_POD_Int(p->quality));
-			break;
-		default:
-			return 0;
-		}
-		break;
-	default:
-		return -ENOENT;
-	}
-	return 1;
-}
-
-static int codec_set_props(void *props, const struct spa_pod *param)
-{
-	struct props *p = props;
-	const uint32_t prev_quality = p->quality;
-	int quality = p->quality;
-
-	if (param == NULL) {
-		p->quality = LHDC_QUALITY_AUTO;
-	} else {
-		spa_pod_parse_object(param,
-				SPA_TYPE_OBJECT_Props, NULL,
-				SPA_PROP_quality, SPA_POD_OPT_Int(&quality));
-		if (is_valid_quality(quality))
-			p->quality = quality;
-	}
-
-	return prev_quality != p->quality;
-}
-
 static int init_lhdc_handle(HANDLE_LHDC_BT *handle, uint32_t rate,
-		uint32_t bits_per_sample, uint32_t quality, uint32_t mtu,
+		uint32_t bits_per_sample, uint32_t quality, uint32_t mtu, uint32_t interval,
 		uint32_t min_bitrate_index, uint32_t max_bitrate_index,
 		uint32_t *block_samples)
 {
@@ -551,7 +452,7 @@ static int init_lhdc_handle(HANDLE_LHDC_BT *handle, uint32_t rate,
 	}
 
 	res = lhdcv5BT_init_encoder(lhdc, rate, bits_per_sample, quality, mtu,
-			LHDCV5_INTERVAL_MS, 0);
+			interval, 0);
 	if (res != LHDC_FRET_SUCCESS) {
 		spa_log_error(log_, "LHDC v5 encoder initialization failed: %d", res);
 		goto error;
@@ -602,7 +503,11 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	const a2dp_lhdc_v5_t *conf = config;
 	const struct lhdc_format_config *format;
 	const struct props *p = props;
+	const size_t header_size = sizeof(struct rtp_header) + sizeof(struct lhdc_media_payload);
 	uint32_t rate;
+	uint32_t block_samples;
+	uint32_t encoder_mtu;
+	uint32_t interval;
 	uint32_t min_bitrate_index, max_bitrate_index;
 	uint32_t quality = p != NULL ? p->quality : LHDC_QUALITY_AUTO;
 	int res;
@@ -627,11 +532,14 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		errno = EINVAL;
 		return NULL;
 	}
-	if (mtu > UINT32_MAX) {
-		spa_log_error(log_, "LHDC v5 MTU too large: %zu", mtu);
+	if (mtu <= header_size || mtu - header_size > UINT32_MAX) {
+		spa_log_error(log_, "LHDC v5 invalid MTU: %zu", mtu);
 		errno = EINVAL;
 		return NULL;
 	}
+	encoder_mtu = (uint32_t)(mtu - header_size);
+	interval = conf->features & LHDC_V5_FEATURE_LL ?
+		LHDC_ENC_INTERVAL_10MS : LHDC_ENC_INTERVAL_20MS;
 
 	rate = config_info.info.raw.rate;
 	if (!get_bitrate_indices(conf->bitrate_and_depth, rate,
@@ -645,25 +553,17 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	if (this == NULL)
 		return NULL;
 
-	this->quality = quality;
-	this->rate = rate;
-	this->bits_per_sample = format->bits_per_sample;
-	this->sample_size = format->sample_size;
-	this->mtu = (uint32_t)mtu;
-	this->min_bitrate_index = min_bitrate_index;
-	this->max_bitrate_index = max_bitrate_index;
-
-	res = init_lhdc_handle(&this->lhdc, this->rate, this->bits_per_sample,
-			this->quality, this->mtu, this->min_bitrate_index,
-			this->max_bitrate_index, &this->block_samples);
+	res = init_lhdc_handle(&this->lhdc, rate, format->bits_per_sample,
+			quality, encoder_mtu, interval, min_bitrate_index,
+			max_bitrate_index, &block_samples);
 	if (res < 0)
 		goto error;
 
-	if (this->block_samples > UINT32_MAX / LHDCV5_CHANNELS / this->sample_size) {
+	if (block_samples > UINT32_MAX / LHDCV5_CHANNELS / format->sample_size) {
 		spa_log_error(log_, "LHDC v5 block size overflow");
 		goto error;
 	}
-	this->block_bytes = this->block_samples * LHDCV5_CHANNELS * format->sample_size;
+	this->block_bytes = block_samples * LHDCV5_CHANNELS * format->sample_size;
 	return this;
 
 error:
@@ -672,50 +572,6 @@ error:
 	free(this);
 	errno = EIO;
 	return NULL;
-}
-
-static int codec_update_props(void *data, void *props)
-{
-	struct impl *this = data;
-	const struct props *p = props;
-	HANDLE_LHDC_BT lhdc = NULL;
-	uint32_t block_samples = 0;
-	uint32_t block_bytes;
-	uint32_t quality;
-	int res;
-
-	if (p == NULL)
-		return 0;
-
-	quality = clamp_quality(p->quality, this->min_bitrate_index,
-			this->max_bitrate_index);
-	if (quality == this->quality)
-		return 0;
-
-	res = init_lhdc_handle(&lhdc, this->rate, this->bits_per_sample,
-			quality, this->mtu, this->min_bitrate_index,
-			this->max_bitrate_index,
-			&block_samples);
-	if (res < 0)
-		return res;
-
-	if (block_samples > UINT32_MAX / LHDCV5_CHANNELS / this->sample_size) {
-		spa_log_error(log_, "LHDC v5 block size overflow");
-		lhdcv5BT_free_handle(lhdc);
-		return -EOVERFLOW;
-	}
-
-	block_bytes = block_samples * LHDCV5_CHANNELS * this->sample_size;
-	if (block_bytes != this->block_bytes) {
-		spa_log_error(log_, "LHDC v5 block size changed during props update");
-		lhdcv5BT_free_handle(lhdc);
-		return -EINVAL;
-	}
-
-	lhdcv5BT_free_handle(this->lhdc);
-	this->lhdc = lhdc;
-	this->quality = quality;
-	return 0;
 }
 
 static void codec_deinit(void *data)
@@ -821,12 +677,9 @@ const struct media_codec a2dp_codec_lhdc_v5 = {
 	.enum_config = codec_enum_config,
 	.validate_config = codec_validate_config,
 	.init_props = codec_init_props,
-	.enum_props = codec_enum_props,
-	.set_props = codec_set_props,
 	.clear_props = codec_clear_props,
 	.init = codec_init,
 	.deinit = codec_deinit,
-	.update_props = codec_update_props,
 	.get_block_size = codec_get_block_size,
 	.start_encode = codec_start_encode,
 	.encode = codec_encode,

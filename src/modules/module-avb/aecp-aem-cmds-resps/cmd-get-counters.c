@@ -32,6 +32,16 @@
 #define COUNTERS_BLOCK_LEN	128
 #define COUNTERS_VALID_BIT(n)	(1u << (n))
 
+/* IEEE 1722.1-2021 Section 7.4.42.2: the GET_COUNTERS response always carries
+ * descriptor_type/id + counters_valid + the fixed 128-octet counters_block.
+ * Per Section 9.2.1.1.5 this also holds for non-success statuses: the payload
+ * keeps the success response format, only the status field changes. */
+#define AVB_AECP_GET_COUNTERS_RESPONSE_LEN \
+	(int)(sizeof(struct avb_ethernet_header) + \
+		sizeof(struct avb_packet_aecp_aem) + \
+		sizeof(struct avb_packet_aecp_aem_get_counters) + \
+		COUNTERS_BLOCK_LEN)
+
 /* Milan Table 5.16: Stream Input counters (mandatory per Milan Section 5.4.5.3). */
 #define BIT_MEDIA_LOCKED		0
 #define BIT_MEDIA_UNLOCKED		1
@@ -69,36 +79,38 @@ static inline void put_counter(uint8_t *block, int bit_number, uint32_t value)
 	*(uint32_t *)(block + bit_number * 4) = htonl(value);
 }
 
-static int build_response(struct aecp *aecp, const void *m, int len,
-		uint32_t valid_host, uint8_t counters_block[COUNTERS_BLOCK_LEN])
+static int reply_counters(struct aecp *aecp, int status, const void *m, int len,
+		uint32_t valid_host, const uint8_t counters_block[COUNTERS_BLOCK_LEN])
 {
 	uint8_t buf[2048];
 	struct avb_ethernet_header *h_reply;
 	struct avb_packet_aecp_aem *p_reply;
 	struct avb_packet_aecp_aem_get_counters *reply;
-	int total = (int)(sizeof(struct avb_ethernet_header) +
-			sizeof(struct avb_packet_aecp_aem) +
-			sizeof(struct avb_packet_aecp_aem_get_counters) +
-			COUNTERS_BLOCK_LEN);
+
+	if (len < 0 || (size_t)len > sizeof(buf)) {
+		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+	}
 
 	memcpy(buf, m, len);
-	if (len < total)
-		memset(buf + len, 0, total - len);
+	if (len < AVB_AECP_GET_COUNTERS_RESPONSE_LEN) {
+		memset(buf + len, 0, AVB_AECP_GET_COUNTERS_RESPONSE_LEN - len);
+	}
 
 	h_reply = (struct avb_ethernet_header *)buf;
 	p_reply = SPA_PTROFF(h_reply, sizeof(*h_reply), void);
-
-	/* IEEE 1722-2011 Section 5.3: CDL excludes the 12-byte AVTPDU common header. */
-	AVB_PACKET_SET_LENGTH(&p_reply->aecp.hdr,
-			(uint16_t)(total - sizeof(*h_reply) -
-				sizeof(struct avb_packet_header) -
-				sizeof(uint64_t)));
 
 	reply = (struct avb_packet_aecp_aem_get_counters *)p_reply->payload;
 	reply->counters_valid = htonl(valid_host);
 	memcpy(reply->counters_block, counters_block, COUNTERS_BLOCK_LEN);
 
-	return reply_success(aecp, buf, total);
+	return reply_status_len(aecp, status, buf, AVB_AECP_GET_COUNTERS_RESPONSE_LEN);
+}
+
+static int reply_counters_error(struct aecp *aecp, int status, const void *m, int len)
+{
+	uint8_t block[COUNTERS_BLOCK_LEN] = { 0 };
+
+	return reply_counters(aecp, status, m, len, 0, block);
 }
 
 static int do_stream_input(struct aecp *aecp, const void *m, int len, uint16_t desc_index)
@@ -109,8 +121,10 @@ static int do_stream_input(struct aecp *aecp, const void *m, int len, uint16_t d
 	uint8_t block[COUNTERS_BLOCK_LEN] = { 0 };
 
 	desc = server_find_descriptor(aecp->server, AVB_AEM_DESC_STREAM_INPUT, desc_index);
-	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	if (desc == NULL) {
+		return reply_counters_error(aecp,
+				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	}
 	si = desc->ptr;
 
 	/* All Stream Input counters are mandatory per Milan Section 5.4.2.25/Table 5.16. */
@@ -136,7 +150,7 @@ static int do_stream_input(struct aecp *aecp, const void *m, int len, uint16_t d
 	put_counter(block, BIT_EARLY_TIMESTAMP,        si->counters.early_timestamp);
 	put_counter(block, BIT_FRAMES_RX,              si->counters.frame_rx);
 
-	return build_response(aecp, m, len, valid, block);
+	return reply_counters(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len, valid, block);
 }
 
 static int do_stream_output(struct aecp *aecp, const void *m, int len, uint16_t desc_index)
@@ -147,8 +161,10 @@ static int do_stream_output(struct aecp *aecp, const void *m, int len, uint16_t 
 	uint8_t block[COUNTERS_BLOCK_LEN] = { 0 };
 
 	desc = server_find_descriptor(aecp->server, AVB_AEM_DESC_STREAM_OUTPUT, desc_index);
-	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	if (desc == NULL) {
+		return reply_counters_error(aecp,
+				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	}
 	so = desc->ptr;
 
 	/* All Stream Output counters are mandatory per Milan Section 5.4.2.25/Table 5.17. */
@@ -164,7 +180,7 @@ static int do_stream_output(struct aecp *aecp, const void *m, int len, uint16_t 
 	put_counter(block, BIT_TIMESTAMP_UNCERTAIN_OUT,  so->counters.tu);
 	put_counter(block, BIT_FRAMES_TX,                so->counters.frame_tx);
 
-	return build_response(aecp, m, len, valid, block);
+	return reply_counters(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len, valid, block);
 }
 
 static int do_avb_interface(struct aecp *aecp, const void *m, int len, uint16_t desc_index)
@@ -175,8 +191,10 @@ static int do_avb_interface(struct aecp *aecp, const void *m, int len, uint16_t 
 	uint8_t block[COUNTERS_BLOCK_LEN] = { 0 };
 
 	desc = server_find_descriptor(aecp->server, AVB_AEM_DESC_AVB_INTERFACE, desc_index);
-	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	if (desc == NULL) {
+		return reply_counters_error(aecp,
+				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	}
 	ifs = desc->ptr;
 
 	/* Milan Section 5.4.2.25 / Table 5.13: LINK_UP, LINK_DOWN, GPTP_GM_CHANGED are
@@ -190,7 +208,7 @@ static int do_avb_interface(struct aecp *aecp, const void *m, int len, uint16_t 
 	put_counter(block, BIT_LINK_DOWN,       ifs->counters.link_down);
 	put_counter(block, BIT_GPTP_GM_CHANGED, ifs->counters.gptp_gm_changed);
 
-	return build_response(aecp, m, len, valid, block);
+	return reply_counters(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len, valid, block);
 }
 
 static int do_clock_domain(struct aecp *aecp, const void *m, int len, uint16_t desc_index)
@@ -200,13 +218,15 @@ static int do_clock_domain(struct aecp *aecp, const void *m, int len, uint16_t d
 	uint8_t block[COUNTERS_BLOCK_LEN] = { 0 };
 
 	desc = server_find_descriptor(aecp->server, AVB_AEM_DESC_CLOCK_DOMAIN, desc_index);
-	if (desc == NULL)
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	if (desc == NULL) {
+		return reply_counters_error(aecp,
+				AVB_AECP_AEM_STATUS_NO_SUCH_DESCRIPTOR, m, len);
+	}
 
 	valid |= COUNTERS_VALID_BIT(BIT_LOCKED);
 	valid |= COUNTERS_VALID_BIT(BIT_UNLOCKED);
 
-	return build_response(aecp, m, len, valid, block);
+	return reply_counters(aecp, AVB_AECP_AEM_STATUS_SUCCESS, m, len, valid, block);
 }
 
 int handle_cmd_get_counters_milan_v12(struct aecp *aecp, int64_t now,
@@ -231,7 +251,11 @@ int handle_cmd_get_counters_milan_v12(struct aecp *aecp, int64_t now,
 	case AVB_AEM_DESC_CLOCK_DOMAIN:
 		return do_clock_domain(aecp, m, len, desc_index);
 	default:
-		return reply_status(aecp, AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
+		/* Not a counters-bearing descriptor type (e.g. Hive queries the
+		 * optional ENTITY counters); still answer with the full-size
+		 * response format. */
+		return reply_counters_error(aecp,
+				AVB_AECP_AEM_STATUS_BAD_ARGUMENTS, m, len);
 	}
 }
 
@@ -243,12 +267,6 @@ int handle_cmd_get_counters_milan_v12(struct aecp *aecp, int64_t now,
  * registered controller. Called once per second from
  * avb_aecp_aem_periodic. ---------------------------------------------- */
 
-#define COUNTERS_PACKET_LEN \
-	(int)(sizeof(struct avb_ethernet_header) + \
-		sizeof(struct avb_packet_aecp_aem) + \
-		sizeof(struct avb_packet_aecp_aem_get_counters) + \
-		COUNTERS_BLOCK_LEN)
-
 static void build_unsol_packet(struct aecp *aecp, uint8_t *buf,
 		uint16_t desc_type, uint16_t desc_index,
 		uint32_t valid_host, const uint8_t counters_block[COUNTERS_BLOCK_LEN])
@@ -259,7 +277,7 @@ static void build_unsol_packet(struct aecp *aecp, uint8_t *buf,
 		(struct avb_packet_aecp_aem_get_counters *)p->payload;
 	(void)aecp;
 
-	memset(buf, 0, COUNTERS_PACKET_LEN);
+	memset(buf, 0, AVB_AECP_GET_COUNTERS_RESPONSE_LEN);
 
 	AVB_PACKET_AECP_SET_MESSAGE_TYPE(&p->aecp, AVB_AECP_MESSAGE_TYPE_AEM_RESPONSE);
 	AVB_PACKET_AECP_SET_STATUS(&p->aecp, AVB_AECP_AEM_STATUS_SUCCESS);
@@ -276,13 +294,13 @@ static void emit_one(struct aecp *aecp,
 		uint16_t desc_type, uint16_t desc_index,
 		uint32_t valid_host, const uint8_t counters_block[COUNTERS_BLOCK_LEN])
 {
-	uint8_t buf[COUNTERS_PACKET_LEN];
+	uint8_t buf[AVB_AECP_GET_COUNTERS_RESPONSE_LEN];
 	struct aecp_aem_base_info b_state = { 0 };
 
 	build_unsol_packet(aecp, buf, desc_type, desc_index, valid_host, counters_block);
 
 	(void)reply_unsolicited_notifications(aecp, &b_state, buf,
-			COUNTERS_PACKET_LEN, true);
+			AVB_AECP_GET_COUNTERS_RESPONSE_LEN, true);
 }
 
 static void emit_stream_input_counters(struct aecp *aecp, uint16_t desc_index,

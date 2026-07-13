@@ -25,7 +25,7 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 	struct gaps_state *s = &gaps->states[c];
 	const float *in = src[c];
 
-	for (n = 0; n < gaps->gap; n++) {
+	for (n = 0; n < SPA_MIN(gaps->gap, n_samples); n++) {
 		if (in[n] == 0.0f) {
 			head_filled = false;
 			break;

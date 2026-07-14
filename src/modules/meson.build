@@ -640,6 +640,7 @@ if build_module_raop
   pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
     [ 'module-raop-sink.c',
       'module-raop/rtsp-client.c',
+      'module-raop/srp.c',
       'module-raop/tlv.c' ],
     include_directories : [configinc],
     install : true,

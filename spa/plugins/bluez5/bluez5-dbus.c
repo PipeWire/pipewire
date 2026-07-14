@@ -7408,7 +7408,7 @@ static void parse_broadcast_source_config(struct spa_bt_monitor *monitor, const 
 						} else if (spa_streq(bis_key, "max_transport_latency")) {
 							if (spa_json_get_int(&it[1], &bis_entry->max_transport_latency) <= 0)
 								goto parse_failed;
-							if (bis_entry->max_transport_latency < MAX_TRANSPORT_LATENCY_MIN &&
+							if (bis_entry->max_transport_latency < MAX_TRANSPORT_LATENCY_MIN ||
 								bis_entry->max_transport_latency > MAX_TRANSPORT_LATENCY_MAX)
 								goto parse_failed;
 							spa_log_debug(monitor->log, "bis_entry->max_transport_latency %d", bis_entry->max_transport_latency);

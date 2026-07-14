@@ -321,6 +321,8 @@ summary({'dbus (Bluetooth, rt, portal, pw-reserve)': dbus_dep.found()}, bool_yn:
 cdata.set('HAVE_DBUS', dbus_dep.found())
 sdl_dep = dependency('sdl2', required : get_option('sdl2'))
 summary({'SDL2 (video examples)': sdl_dep.found()}, bool_yn: true, section: 'Misc dependencies')
+plist_lib = dependency('libplist-2.0', required: get_option('raop'))
+summary({'plist (RAOP AirPlay support)': plist_lib.found()}, bool_yn: true, section: 'Misc dependencies')
 drm_dep = dependency('libdrm', required : false)
 fftw_dep = dependency('fftw3f', required : get_option('fftw'))
 summary({'fftw3f (filter-chain convolver)': fftw_dep.found()}, bool_yn: true, section: 'Misc dependencies')

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -33,6 +34,11 @@
  *
  * If no stream.rules are given, it will create a sink for all announced
  * streams.
+ *
+ * Receivers are only announced when they accept transient pairing. Receivers
+ * whose status flags require persistent (HomeKit) or PIN pairing are skipped
+ * on both service types, since pairing them needs a PIN typed in
+ * interactively; load module-raop-sink directly for those.
  *
  * ## Module Name
  *
@@ -68,7 +74,7 @@
  *                          #raop.domain = ""
  *                          #raop.device = ""
  *                          #raop.transport = "udp" | "tcp"
- *                          #raop.encryption.type = "none" | "RSA" | "auth_setup" | "fp_sap25"
+ *                          #raop.encryption.type = "none" | "RSA" | "auth_setup" | "fp_sap25" | "pair_transient" | "pair_homekit" | "pair_apple"
  *                          #raop.audio.codec = "PCM" | "ALAC" | "AAC" | "AAC-ELD"
  *                          #audio.channels = 2
  *                          #audio.format = "S16" | "S24" | "S32"
@@ -110,12 +116,25 @@ PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_KEY_MODULE_DESCRIPTION, "Discover remote streams" },
+	{ PW_KEY_MODULE_DESCRIPTION, "Discover remote speakers" },
 	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
 
-#define SERVICE_TYPE_SINK "_raop._tcp"
+#define SERVICE_TYPE_RAOP "_raop._tcp"
+#define SERVICE_TYPE_AP "_airplay._tcp"
+
+enum service_type {
+	SERVICE_RAOP,
+	SERVICE_AIRPLAY,
+};
+
+/* AirPlay 2 device capabilities (bitmask from the "features" TXT record). */
+#define AP2_FEATURE_AUDIO               (1ULL << 9)   /* supports audio streaming */
+
+/* AirPlay 2 device state (bitmask from the "statusFlags" TXT record). */
+#define AP2_FLAG_PIN_REQUIRED              (1u << 3)  /* a PIN must be entered to pair */
+#define AP2_FLAG_ONE_TIME_PAIRING_REQUIRED (1u << 9)  /* persistent pairing required */
 
 struct impl {
 	struct pw_context *context;
@@ -133,14 +152,22 @@ struct impl {
 	struct spa_list tunnel_list;
 };
 
+struct tunnel_info {
+	const char *name;
+	const char *device_id;
+	enum service_type service_type;
+};
+
+#define TUNNEL_INFO(...) ((struct tunnel_info){ __VA_ARGS__ })
+
 struct tunnel {
 	struct spa_list link;
-	char *name;
+	struct tunnel_info info;
 	struct pw_impl_module *module;
 	struct spa_hook module_listener;
 };
 
-static struct tunnel *tunnel_new(struct impl *impl, const char *name)
+static struct tunnel *make_tunnel(struct impl *impl, const struct tunnel_info *info)
 {
 	struct tunnel *t;
 
@@ -148,21 +175,19 @@ static struct tunnel *tunnel_new(struct impl *impl, const char *name)
 	if (t == NULL)
 		return NULL;
 
-	t->name = strdup(name);
-	if (t->name == NULL) {
-		free(t);
-		return NULL;
-	}
+	t->info.name = strdup(info->name);
+	t->info.device_id = info->device_id ? strdup(info->device_id) : NULL;
+	t->info.service_type = info->service_type;
 	spa_list_append(&impl->tunnel_list, &t->link);
 
 	return t;
 }
 
-static struct tunnel *find_tunnel(struct impl *impl, const char *name)
+static struct tunnel *find_tunnel(struct impl *impl, const struct tunnel_info *info)
 {
 	struct tunnel *t;
 	spa_list_for_each(t, &impl->tunnel_list, link) {
-		if (spa_streq(t->name, name))
+		if (spa_streq(t->info.name, info->name))
 			return t;
 	}
 	return NULL;
@@ -173,8 +198,21 @@ static void tunnel_free(struct tunnel *t)
 	spa_list_remove(&t->link);
 	if (t->module)
 		pw_impl_module_destroy(t->module);
-	free(t->name);
+	free((char *) t->info.name);
+	free((char *) t->info.device_id);
 	free(t);
+}
+
+static struct tunnel *find_tunnel_by_device_id(struct impl *impl, const char *device_id)
+{
+	struct tunnel *t;
+	if (device_id == NULL)
+		return NULL;
+	spa_list_for_each(t, &impl->tunnel_list, link) {
+		if (t->info.device_id && spa_streq(t->info.device_id, device_id))
+			return t;
+	}
+	return NULL;
 }
 
 static void impl_free(struct impl *impl)
@@ -282,7 +320,7 @@ static int rule_matched(void *data, const char *location, const char *action,
 	return res;
 }
 
-static void pw_properties_from_zeroconf(const char *key, const char *value,
+static bool pw_properties_from_zeroconf(const char *key, const char *value,
 		struct pw_properties *props)
 {
 	if (spa_streq(key, PW_KEY_ZEROCONF_IFINDEX)) {
@@ -303,8 +341,89 @@ static void pw_properties_from_zeroconf(const char *key, const char *value,
 	else if (spa_streq(key, PW_KEY_ZEROCONF_DOMAIN)) {
 		pw_properties_set(props, "raop.domain", value);
 	}
-	else if (spa_streq(key, "device")) {
+	else
+		return false;
+	return true;
+}
+
+static void pw_properties_from_ap_txt(const char *key, const char *value,
+		struct pw_properties *props)
+{
+	if (pw_properties_from_zeroconf(key, value, props))
+		return;
+
+	if (spa_streq(key, "deviceid")) {
 		pw_properties_set(props, "raop.device", value);
+	}
+	else if (spa_streq(key, "features")) {
+		pw_properties_set(props, "raop.features", value);
+	}
+	else if (spa_streq(key, "flags")) {
+		pw_properties_set(props, "raop.flags", value);
+	}
+	else if (spa_streq(key, "pk")) {
+		pw_properties_set(props, "raop.pk", value);
+	}
+	else if (spa_streq(key, "pi")) {
+		pw_properties_set(props, "raop.pi", value);
+	}
+	else if (spa_streq(key, "psi")) {
+		pw_properties_set(props, "raop.psi", value);
+	}
+	else if (spa_streq(key, "model") || spa_streq(key, "am")) {
+		pw_properties_set(props, "device.model", value);
+	}
+	else if (spa_streq(key, "manufacturer")) {
+		pw_properties_set(props, "device.vendor.name", value);
+	}
+}
+
+/* Parse the AirPlay 2 "features" TXT value, which may be advertised either as a
+ * single 64-bit hex value or as two comma-separated 32-bit hex words. */
+static uint64_t parse_ap2_features(const char *str)
+{
+	uint64_t features = 0;
+	if (str) {
+		char *endptr;
+		features = strtoull(str, &endptr, 0);
+		if (*endptr == ',')
+			features |= strtoull(endptr + 1, NULL, 0) << 32;
+	}
+	return features;
+}
+
+/* Receivers that accept transient pairing (SRP with the fixed PIN 3939 and no
+ * stored keys) are the only ones this module can set up on its own. Receivers
+ * that insist on persistent (HomeKit) pairing or on a PIN need the PIN shown
+ * on their screen typed in once, which takes a pairing UI; leave them out
+ * until one exists. They announce this in their status flags on both service
+ * types ("flags" in _airplay._tcp, "sf" in _raop._tcp), and the legacy RAOP
+ * path cannot complete device verification either, so neither record gets a
+ * sink. module-raop-sink can still be loaded by hand for them with
+ * raop.encryption.type = pair_homekit. */
+static bool needs_pairing_ui(uint32_t flags)
+{
+	return flags & (AP2_FLAG_ONE_TIME_PAIRING_REQUIRED | AP2_FLAG_PIN_REQUIRED);
+}
+
+static void pw_properties_from_raop_txt(const char *key, const char *value,
+		struct pw_properties *props)
+{
+	if (pw_properties_from_zeroconf(key, value, props))
+		return;
+
+	if (spa_streq(key, "device")) {
+		pw_properties_set(props, "raop.device", value);
+	}
+	else if (spa_streq(key, "pk")) {
+		/* Device public key, identical to the one in the _airplay._tcp record;
+		 * used to de-duplicate a device advertised over both service types. */
+		pw_properties_set(props, "raop.pk", value);
+	}
+	else if (spa_streq(key, "sf")) {
+		/* Status flags, the same bitfield as "flags" in the _airplay._tcp
+		 * record; the pairing requirements live in it. */
+		pw_properties_set(props, "raop.flags", value);
 	}
 	else if (spa_streq(key, "tp")) {
 		/* transport protocol, "UDP", "TCP", "UDP,TCP" */
@@ -372,19 +491,102 @@ static void pw_properties_from_zeroconf(const char *key, const char *value,
 static void on_zeroconf_added(void *data, const void *user, const struct spa_dict *info)
 {
 	struct impl *impl = data;
-	const char *name, *str;
-	struct tunnel *t;
+	const char *name, *str, *type;
+	const char *device_id = NULL;
+	struct tunnel_info tinfo;
+	struct tunnel *t, *t_by_device;
 	const struct spa_dict_item *it;
 	struct pw_properties *props = NULL;
+	enum service_type svc_type;
+	uint32_t flags = 0;
 
 	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 
-	t = find_tunnel(impl, name);
-	if (t == NULL) {
-		if ((t = tunnel_new(impl, name)) == NULL) {
-			pw_log_error("Can't make tunnel: %m");
+	type = spa_dict_lookup(info, PW_KEY_ZEROCONF_TYPE);
+	svc_type = spa_streq(type, SERVICE_TYPE_AP) ? SERVICE_AIRPLAY : SERVICE_RAOP;
+
+	if ((props = pw_properties_new(NULL, NULL)) == NULL) {
+		pw_log_error("Can't allocate properties: %m");
+		goto done;
+	}
+
+	pw_log_info("mdns service type: %s", type);
+	if (svc_type == SERVICE_AIRPLAY) {
+		uint64_t features;
+
+		spa_dict_for_each(it, info)
+			pw_properties_from_ap_txt(it->key, it->value, props);
+
+		/* Check if device supports audio streaming */
+		features = parse_ap2_features(pw_properties_get(props, "raop.features"));
+		if (!(features & AP2_FEATURE_AUDIO)) {
+			pw_log_info("AirPlay device %s does not support audio, skipping", name);
 			goto done;
 		}
+		pw_log_info("AirPlay device %s: features=0x%" PRIx64, name, features);
+
+		pw_properties_set(props, "raop.encryption.type", "pair_transient");
+		pw_properties_set(props, "raop.transport", "udp");
+	} else {
+		spa_dict_for_each(it, info)
+			pw_properties_from_raop_txt(it->key, it->value, props);
+	}
+
+	/* Status flags are hex, with or without a 0x prefix. */
+	if ((str = pw_properties_get(props, "raop.flags")) != NULL)
+		flags = strtoul(str, NULL, 16);
+	pw_log_info("%s device %s: flags=0x%x",
+			svc_type == SERVICE_AIRPLAY ? "AirPlay" : "RAOP", name, flags);
+	if (needs_pairing_ui(flags)) {
+		pw_log_info("device %s requires %s pairing, skipping until a pairing UI exists",
+				name, flags & AP2_FLAG_ONE_TIME_PAIRING_REQUIRED ? "persistent" : "PIN");
+		goto done;
+	}
+
+	/* AirPlay 2 devices advertise both _raop._tcp and _airplay._tcp; both
+	 * resolve to the same host:port and would otherwise create two identical
+	 * sinks. De-duplicate by the device public key (identical in both records;
+	 * the _raop._tcp TXT has no deviceid). Prefer the AirPlay path: Apple
+	 * receivers running OS 27 and later still accept a legacy RAOP session but
+	 * play nothing on it, while AirPlay 2 works. Only use RAOP when the device
+	 * does not advertise _airplay._tcp.
+	 *
+	 * device_id is NULL when a record carries neither a pk nor a device TXT
+	 * key; find_tunnel_by_device_id() then returns NULL and we fall through to
+	 * name-based tracking (no crash, but such a device cannot be de-duplicated
+	 * across the two service types). Known limitations, kept simple on purpose:
+	 * (1) if the RAOP record is seen first its sink is created and then
+	 * destroyed+reloaded when the AirPlay record arrives (brief startup churn);
+	 * (2) removal is matched by service name, so if the preferred AirPlay
+	 * service drops while _raop is still advertised the device is not
+	 * re-derived from the surviving record. Both would need
+	 * multi-service-per-device tracking to resolve. */
+	device_id = pw_properties_get(props, "raop.pk");
+	if (device_id == NULL)
+		device_id = pw_properties_get(props, "raop.device");
+
+	t_by_device = find_tunnel_by_device_id(impl, device_id);
+	if (t_by_device != NULL) {
+		if (svc_type == SERVICE_AIRPLAY &&
+		    t_by_device->info.service_type == SERVICE_RAOP) {
+			pw_log_info("device %s: replacing RAOP tunnel with AirPlay", device_id);
+			tunnel_free(t_by_device);
+			t_by_device = NULL;
+		} else {
+			pw_log_info("device %s already tracked, skipping %s service", device_id,
+					svc_type == SERVICE_AIRPLAY ? "AirPlay" : "RAOP");
+			goto done;
+		}
+	}
+
+	tinfo = TUNNEL_INFO(.name = name, .device_id = device_id, .service_type = svc_type);
+
+	t = find_tunnel(impl, &tinfo);
+	if (t == NULL)
+		t = make_tunnel(impl, &tinfo);
+	if (t == NULL) {
+		pw_log_error("Can't make tunnel: %m");
+		goto done;
 	}
 	if (t->module != NULL) {
 		pw_log_info("found duplicate mdns entry for %s on IP %s - "
@@ -392,14 +594,6 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 				spa_dict_lookup(info, PW_KEY_ZEROCONF_ADDRESS));
 		goto done;
 	}
-
-	if ((props = pw_properties_new(NULL, NULL)) == NULL) {
-		pw_log_error("Can't allocate properties: %m");
-		goto done;
-	}
-
-	spa_dict_for_each(it, info)
-		pw_properties_from_zeroconf(it->key, it->value, props);
 
 	if ((str = pw_properties_get(impl->properties, "raop.latency.ms")) != NULL)
 		pw_properties_set(props, "raop.latency.ms", str);
@@ -426,15 +620,18 @@ static void on_zeroconf_removed(void *data, const void *user, const struct spa_d
 {
 	struct impl *impl = data;
 	const char *name;
+	struct tunnel_info tinfo;
 	struct tunnel *t;
 
 	name = spa_dict_lookup(info, PW_KEY_ZEROCONF_NAME);
 
-	if ((t = find_tunnel(impl, name)) == NULL)
+	tinfo = TUNNEL_INFO(.name = name);
+	if ((t = find_tunnel(impl, &tinfo)) == NULL)
 		return;
 
 	tunnel_free(t);
 }
+
 static const struct pw_zeroconf_events zeroconf_events = {
 	PW_VERSION_ZEROCONF_EVENTS,
 	.added = on_zeroconf_added,
@@ -486,9 +683,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	pw_zeroconf_add_listener(impl->zeroconf, &impl->zeroconf_listener,
 			&zeroconf_events, impl);
 
-	pw_zeroconf_set_browse(impl->zeroconf, NULL,
+	pw_zeroconf_set_browse(impl->zeroconf, SERVICE_TYPE_RAOP,
 		&SPA_DICT_ITEMS(
-			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, SERVICE_TYPE_SINK)));
+			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, SERVICE_TYPE_RAOP)));
+	pw_zeroconf_set_browse(impl->zeroconf, SERVICE_TYPE_AP,
+		&SPA_DICT_ITEMS(
+			SPA_DICT_ITEM(PW_KEY_ZEROCONF_TYPE, SERVICE_TYPE_AP)));
 	return 0;
 
 error_errno:

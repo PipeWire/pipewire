@@ -635,7 +635,7 @@ if build_module_snapcast_discover
 endif
 summary({'snapcast-discover (needs Avahi)': build_module_snapcast_discover}, bool_yn: true, section: 'Optional Modules')
 
-build_module_raop = openssl_lib.found()
+build_module_raop = openssl_lib.found() and plist_lib.found()
 if build_module_raop
   pipewire_module_raop_sink = shared_library('pipewire-module-raop-sink',
     [ 'module-raop-sink.c',
@@ -646,15 +646,17 @@ if build_module_raop
     install : true,
     install_dir : modules_install_dir,
     install_rpath: modules_install_dir,
-    dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
+    dependencies : [pipewire_module_rtp_common_dep, openssl_lib, plist_lib],
   )
   if get_option('tests').allowed()
     test('pw-test-raop-auth',
       executable('pw-test-raop-auth',
         [ 'module-raop/test-auth.c',
-          'module-raop/rtsp-client.c' ],
+          'module-raop/rtsp-client.c',
+          'module-raop/srp.c',
+          'module-raop/tlv.c' ],
         include_directories : [configinc],
-        dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
+        dependencies : [pipewire_module_rtp_common_dep, openssl_lib, plist_lib],
       ),
       env : [
         'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
@@ -673,7 +675,7 @@ if build_module_raop
     )
   endif
 endif
-summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
+summary({'raop-sink (requires OpenSSL + libplist)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
 
 roc_dep = dependency('roc', version: '>= 0.4.0', required: get_option('roc'))
 summary({'ROC': roc_dep.found()}, bool_yn: true, section: 'Streaming between daemons')

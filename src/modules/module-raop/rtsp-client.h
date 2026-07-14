@@ -30,6 +30,15 @@ struct pw_rtsp_client_events {
 
 };
 
+struct pw_rtsp_cipher_context {
+	uint8_t encryption_key[32];
+	uint8_t decryption_key[32];
+	uint64_t encryption_counter;
+	uint64_t decryption_counter;
+	uint64_t encryption_counter_prev;
+	uint64_t decryption_counter_prev;
+};
+
 struct pw_rtsp_client * pw_rtsp_client_new(struct pw_loop *main_loop,
 				struct pw_properties *props,
 				size_t user_data_size);
@@ -64,6 +73,14 @@ int pw_rtsp_client_send(struct pw_rtsp_client *client,
 		int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content),
 		void *user_data);
 
+void pw_rtsp_client_set_decryption(struct pw_rtsp_client *client,
+		ssize_t (*decrypt) (uint8_t **plaintext, size_t *plaintext_len, const uint8_t *ciphertext, size_t ciphertext_len, struct pw_rtsp_cipher_context *cctx));
+
+void pw_rtsp_client_set_encryption(struct pw_rtsp_client *client,
+		ssize_t (*encrypt) (uint8_t **ciphertext, size_t *ciphertext_len, const uint8_t *plaintext, size_t plaintext_len, struct pw_rtsp_cipher_context *cctx));
+
+void pw_rtsp_client_set_cipher_ctx(struct pw_rtsp_client *client,
+		struct pw_rtsp_cipher_context *cipher_ctx);
 
 #ifdef __cplusplus
 }

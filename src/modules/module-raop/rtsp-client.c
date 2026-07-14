@@ -27,7 +27,8 @@ struct message {
 	uint32_t cseq;
 	int (*reply) (void *user_data, int status, const struct spa_dict *headers, const struct pw_array *content);
 	void *user_data;
-	unsigned char data[];
+	unsigned char *payload; // pointer to actual data buffer
+	unsigned char data[];   // flexible array for default storage
 };
 
 enum client_recv_state {
@@ -53,12 +54,23 @@ struct pw_rtsp_client {
 	unsigned int need_flush:1;
 
 	enum client_recv_state recv_state;
+	struct pw_rtsp_cipher_context *cipher_ctx;
+	ssize_t (*decrypt) (uint8_t **plaintext, size_t *plaintext_len, const uint8_t *ciphertext, size_t ciphertext_len, struct pw_rtsp_cipher_context *cctx);
+	ssize_t (*encrypt) (uint8_t **ciphertext, size_t *ciphertext_len, const uint8_t *plaintext, size_t plaintext_len, struct pw_rtsp_cipher_context *cctx);
 	int status;
 	char line_buf[1024];
 	size_t line_pos;
 	struct pw_properties *headers;
 	struct pw_array content;
 	size_t content_length;
+
+	/* When a cipher is installed, incoming data is an AEAD block stream.
+	 * in_cipher accumulates raw socket bytes until whole blocks can be
+	 * decrypted; in_plain holds the decrypted plaintext the RTSP parser
+	 * consumes (from in_plain_offset onwards). */
+	struct pw_array in_cipher;
+	struct pw_array in_plain;
+	size_t in_plain_offset;
 
 	uint32_t cseq;
 
@@ -92,11 +104,35 @@ struct pw_rtsp_client *pw_rtsp_client_new(struct pw_loop *main_loop,
 		return NULL;
 	}
 	pw_array_init(&client->content, 4096);
+	pw_array_init(&client->in_cipher, 4096);
+	pw_array_init(&client->in_plain, 4096);
+	client->in_plain_offset = 0;
 	client->recv_state = CLIENT_RECV_NONE;
+	client->cipher_ctx = NULL;
+	client->decrypt = NULL;
+	client->encrypt = NULL;
 
 	pw_log_info("new client %p", client);
 
 	return client;
+}
+
+void pw_rtsp_client_set_decryption(struct pw_rtsp_client *client,
+		ssize_t (*decrypt) (uint8_t **plaintext, size_t *plaintext_len, const uint8_t *ciphertext, size_t ciphertext_len, struct pw_rtsp_cipher_context *cctx))
+{
+	client->decrypt = decrypt;
+}
+
+void pw_rtsp_client_set_encryption(struct pw_rtsp_client *client,
+		ssize_t (*encrypt) (uint8_t **ciphertext, size_t *ciphertext_len, const uint8_t *plaintext, size_t plaintext_len, struct pw_rtsp_cipher_context *cctx))
+{
+	client->encrypt = encrypt;
+}
+
+void pw_rtsp_client_set_cipher_ctx(struct pw_rtsp_client *client,
+		struct pw_rtsp_cipher_context *cipher_ctx)
+{
+	client->cipher_ctx = cipher_ctx;
 }
 
 void pw_rtsp_client_destroy(struct pw_rtsp_client *client)
@@ -109,6 +145,8 @@ void pw_rtsp_client_destroy(struct pw_rtsp_client *client)
 	pw_properties_free(client->props);
 	spa_hook_list_clean(&client->listener_list);
 	pw_array_clear(&client->content);
+	pw_array_clear(&client->in_cipher);
+	pw_array_clear(&client->in_plain);
 	free(client);
 }
 
@@ -182,47 +220,182 @@ static int handle_connect(struct pw_rtsp_client *client, int fd)
 
 	client->recv_state = CLIENT_RECV_STATUS;
 	pw_properties_clear(client->headers);
+	pw_array_reset(&client->content);
+	pw_array_reset(&client->in_cipher);
+	pw_array_reset(&client->in_plain);
+	client->in_plain_offset = 0;
 	client->status = 0;
 	client->line_pos = 0;
 	client->content_length = 0;
+	/* A fresh connection starts unencrypted; the owner re-installs the cipher
+	 * after (re-)pairing. The cipher context is owned by the caller, not freed
+	 * here. */
+	client->decrypt = NULL;
+	client->encrypt = NULL;
+	client->cipher_ctx = NULL;
 
 	pw_rtsp_client_emit_connected(client);
 
 	return 0;
 }
 
-static int read_line(struct pw_rtsp_client *client, char **buf)
+/* Reset the decrypted-input buffer once fully consumed. */
+static void input_compact(struct pw_rtsp_client *client)
 {
-	int res;
+	if (client->in_plain_offset >= client->in_plain.size) {
+		client->in_plain_offset = 0;
+		pw_array_reset(&client->in_plain);
+	}
+}
 
+/* Read from the socket into the cipher buffer and decrypt as many whole
+ * AEAD blocks as are available into the plaintext buffer. Returns >0 if
+ * plaintext was produced, 0 if nothing (yet) available, -errno on error. */
+static int fill_plain(struct pw_rtsp_client *client)
+{
+	uint8_t tmp[4096];
+	uint8_t *plain = NULL;
+	size_t plain_len = 0;
+	ssize_t res, consumed;
+	void *p;
+
+	res = read(client->source->fd, tmp, sizeof(tmp));
+	if (res == 0)
+		return -EPIPE;
+	if (res < 0) {
+		res = -errno;
+		if (res == -EINTR || res == -EAGAIN || res == -EWOULDBLOCK)
+			return 0;
+		return res;
+	}
+	if ((p = pw_array_add(&client->in_cipher, res)) == NULL)
+		return -ENOMEM;
+	memcpy(p, tmp, res);
+
+	consumed = client->decrypt(&plain, &plain_len,
+			client->in_cipher.data, client->in_cipher.size, client->cipher_ctx);
+	if (consumed < 0) {
+		free(plain);
+		pw_log_error("client %p: decryption failed", client);
+		return -EIO;
+	}
+	if (plain != NULL && plain_len > 0) {
+		if ((p = pw_array_add(&client->in_plain, plain_len)) == NULL) {
+			free(plain);
+			return -ENOMEM;
+		}
+		memcpy(p, plain, plain_len);
+	}
+	free(plain);
+
+	/* Drop the ciphertext bytes that formed complete blocks, keeping any
+	 * partial trailing block for the next read. */
+	if (consumed > 0) {
+		size_t remain = client->in_cipher.size - consumed;
+		if (remain > 0)
+			memmove(client->in_cipher.data,
+				SPA_PTROFF(client->in_cipher.data, consumed, void), remain);
+		client->in_cipher.size = remain;
+	}
+	return plain_len > 0 ? 1 : 0;
+}
+
+/* Fetch one input byte from the decrypted stream (when a cipher is installed)
+ * or directly from the socket. Returns 1 (*c set), 0 if no data is currently
+ * available, or -errno on error/EOF. */
+static int input_get_byte(struct pw_rtsp_client *client, uint8_t *c)
+{
+	if (client->decrypt != NULL && client->cipher_ctx != NULL) {
+		if (client->in_plain_offset >= client->in_plain.size) {
+			int res = fill_plain(client);
+			if (res <= 0)
+				return res;
+		}
+		*c = *SPA_PTROFF(client->in_plain.data, client->in_plain_offset++, uint8_t);
+		input_compact(client);
+		return 1;
+	}
 	while (true) {
-		uint8_t c;
-
-		res = read(client->source->fd, &c, 1);
+		ssize_t res = read(client->source->fd, c, 1);
 		if (res == 0)
 			return -EPIPE;
 		if (res < 0) {
 			res = -errno;
 			if (res == -EINTR)
 				continue;
-			if (res != -EAGAIN && res != -EWOULDBLOCK)
-				return res;
-			return 0;
+			if (res == -EAGAIN || res == -EWOULDBLOCK)
+				return 0;
+			return res;
 		}
+		return 1;
+	}
+}
+
+/* Read up to len bytes of message body from the decrypted stream or socket.
+ * Returns bytes read (>0), 0 if none available, or -errno on error/EOF. */
+static ssize_t input_read(struct pw_rtsp_client *client, void *buf, size_t len)
+{
+	if (client->decrypt != NULL && client->cipher_ctx != NULL) {
+		size_t avail;
+		if (client->in_plain_offset >= client->in_plain.size) {
+			int res = fill_plain(client);
+			if (res <= 0)
+				return res;
+		}
+		avail = client->in_plain.size - client->in_plain_offset;
+		len = SPA_MIN(avail, len);
+		memcpy(buf, SPA_PTROFF(client->in_plain.data, client->in_plain_offset, void), len);
+		client->in_plain_offset += len;
+		input_compact(client);
+		return len;
+	}
+	while (true) {
+		ssize_t res = read(client->source->fd, buf, len);
+		if (res == 0)
+			return -EPIPE;
+		if (res < 0) {
+			res = -errno;
+			if (res == -EINTR)
+				continue;
+			if (res == -EAGAIN || res == -EWOULDBLOCK)
+				return 0;
+			return res;
+		}
+		return res;
+	}
+}
+
+/* Read one CRLF-terminated line. On a complete line returns its length and
+ * sets *buf; on a partial line (no data yet) returns 0 and sets *buf = NULL;
+ * on error returns -errno. */
+static int read_line(struct pw_rtsp_client *client, char **buf)
+{
+	int res, idx = 0;
+
+	*buf = NULL;
+	while (true) {
+		uint8_t c;
+
+		res = input_get_byte(client, &c);
+		if (res < 0)
+			return res;
+		if (res == 0)
+			return 0;
 		if (c == '\n') {
 			client->line_buf[client->line_pos] = '\0';
 			client->line_pos = 0;
-			if (buf)
-				*buf = client->line_buf;
-			return 1;
+			*buf = client->line_buf;
+			return idx;
 		}
 		if (c == '\r')
 			continue;
-		if (client->line_pos < sizeof(client->line_buf) - 1)
+		if (client->line_pos < sizeof(client->line_buf) - 1) {
 			client->line_buf[client->line_pos++] = c;
+			idx++;
+		}
 		client->line_buf[client->line_pos] = '\0';
 	}
-	return 0;
+	return idx;
 }
 
 static struct message *find_pending(struct pw_rtsp_client *client, uint32_t cseq)
@@ -235,16 +408,30 @@ static struct message *find_pending(struct pw_rtsp_client *client, uint32_t cseq
 	return NULL;
 }
 
+/* Free a message and, if it was encrypted, its separately-allocated payload.
+ * The payload is kept alive until the message itself is freed. */
+static void message_free(struct message *msg)
+{
+	if (msg->payload != msg->data)
+		free(msg->payload);
+	free(msg);
+}
+
 static int process_status(struct pw_rtsp_client *client, char *buf)
 {
 	const char *state = NULL, *s;
 	size_t len;
 
-	pw_log_info("status: %s", buf);
+	pw_log_info("processing status: %s", buf);
 
 	s = pw_split_walk(buf, " ", &len, &state);
-	if (!spa_strstartswith(s, "RTSP/"))
-		return -EPROTO;
+	if (client->encrypt != NULL && client->cipher_ctx != NULL) {
+		if (!spa_strstartswith(s, "HTTP/"))
+			return -EPROTO;
+	} else {
+		if (!spa_strstartswith(s, "RTSP/"))
+			return -EPROTO;
+	}
 
 	s = pw_split_walk(buf, " ", &len, &state);
 	if (s == NULL)
@@ -277,13 +464,24 @@ static void dispatch_handler(struct pw_rtsp_client *client)
 
 	msg = find_pending(client, cseq);
 	if (msg) {
+		/* Unlink before dispatching: a reply handler may synchronously
+		 * disconnect the client (e.g. TEARDOWN with Connection: close), and
+		 * pw_rtsp_client_disconnect() frees every message still on the pending
+		 * list. With msg already unlinked, disconnect leaves it alone and we
+		 * free it exactly once below — avoiding a use-after-free/double-free. */
 		spa_list_remove(&msg->link);
-		res = msg->reply(msg->user_data, client->status, &client->headers->dict, &client->content);
-		free(msg);
 
-		if (res < 0)
+		res = msg->reply(msg->user_data, client->status, &client->headers->dict, &client->content);
+		message_free(msg);
+
+		if (res < 0) {
 			pw_log_warn("client %p: handle reply cseq:%u error: %s",
 					client, cseq, spa_strerror(res));
+			/* A reply handler that fails fatally (e.g. a broken AP2
+			 * handshake step) must not leave the client wedged: surface
+			 * it as a terminal error so the owner can tear down. */
+			pw_rtsp_client_emit_error(client, res);
+		}
 	}
 	else {
 		pw_rtsp_client_emit_message(client, client->status, &client->headers->dict);
@@ -340,17 +538,11 @@ static int process_content(struct pw_rtsp_client *client)
 	while (client->content_length > 0) {
 		const size_t max_recv = SPA_MIN(sizeof(buf), client->content_length);
 
-		ssize_t res = read(client->source->fd, buf, max_recv);
+		ssize_t res = input_read(client, buf, max_recv);
 		if (res == 0)
-			return -EPIPE;
-
-		if (res < 0) {
-			res = -errno;
-			if (res == -EAGAIN || res == -EWOULDBLOCK)
-				return 0;
-
+			return 0;
+		if (res < 0)
 			return res;
-		}
 
 		void *p = pw_array_add(&client->content, res);
 		if (p == NULL)
@@ -359,6 +551,8 @@ static int process_content(struct pw_rtsp_client *client)
 
 		spa_assert((size_t) res <= client->content_length);
 		client->content_length -= res;
+		pw_log_debug("processing content (%zu of %zu bytes)",
+				client->content.size, client->content.size + client->content_length);
 	}
 
 	if (client->content_length == 0)
@@ -369,30 +563,41 @@ static int process_content(struct pw_rtsp_client *client)
 
 static int process_input(struct pw_rtsp_client *client)
 {
-	if (client->recv_state == CLIENT_RECV_STATUS || client->recv_state == CLIENT_RECV_HEADERS) {
-		char *buf = NULL;
-		int res;
+	/* Drain all currently-available input: on a level-triggered fd (and with
+	 * the decrypted-input buffer) a single wakeup can carry many lines and
+	 * whole message bodies, so loop until no further progress can be made,
+	 * or until a reply handler disconnected the client, which drops the
+	 * socket and any input still buffered for it. */
+	while (client->source != NULL) {
+		if (client->recv_state == CLIENT_RECV_STATUS ||
+		    client->recv_state == CLIENT_RECV_HEADERS) {
+			char *buf = NULL;
+			int res;
 
-		if ((res = read_line(client, &buf)) <= 0)
-			return res;
+			if ((res = read_line(client, &buf)) < 0)
+				return res;
+			if (buf == NULL)
+				return 0;	/* partial line, wait for more data */
 
-		pw_log_debug("received line: %s", buf);
-
-		switch (client->recv_state) {
-		case CLIENT_RECV_STATUS:
-			return process_status(client, buf);
-		case CLIENT_RECV_HEADERS:
-			return process_header(client, buf);
-		default:
+			if (client->recv_state == CLIENT_RECV_STATUS)
+				res = process_status(client, buf);
+			else
+				res = process_header(client, buf);
+			if (res < 0)
+				return res;
+		}
+		else if (client->recv_state == CLIENT_RECV_CONTENT) {
+			int res = process_content(client);
+			if (res < 0)
+				return res;
+			if (client->recv_state == CLIENT_RECV_CONTENT)
+				return 0;	/* need more body bytes */
+		}
+		else {
 			spa_assert_not_reached();
 		}
 	}
-	else if (client->recv_state == CLIENT_RECV_CONTENT) {
-		return process_content(client);
-	}
-	else {
-		spa_assert_not_reached();
-	}
+	return 0;
 }
 
 static int flush_output(struct pw_rtsp_client *client)
@@ -412,15 +617,17 @@ static int flush_output(struct pw_rtsp_client *client)
 		msg = spa_list_first(&client->messages, struct message, link);
 
 		if (msg->offset < msg->len) {
-			data = SPA_PTROFF(msg->data, msg->offset, void);
+			data = SPA_PTROFF(msg->payload, msg->offset, void);
 			size = msg->len - msg->offset;
 		} else {
-			pw_log_debug("sent: %s", (char *)msg->data);
+			pw_log_debug("client %p: sent %zu bytes", client, msg->len);
 			spa_list_remove(&msg->link);
+			/* Keep the payload alive until the reply is handled (or the
+			 * message is dropped); message_free releases both together. */
 			if (msg->reply != NULL)
 				spa_list_append(&client->pending, &msg->link);
 			else
-				free(msg);
+				message_free(msg);
 			continue;
 		}
 
@@ -458,6 +665,9 @@ on_source_io(void *data, int fd, uint32_t mask)
 	if (mask & SPA_IO_IN) {
 		if ((res = process_input(client)) < 0)
 			goto error;
+		/* A reply handler may have disconnected the client. */
+		if (client->source == NULL)
+			goto done;
 	}
 	if (mask & SPA_IO_OUT || client->need_flush) {
 		if (client->connecting) {
@@ -567,14 +777,22 @@ int pw_rtsp_client_disconnect(struct pw_rtsp_client *client)
 	client->url = NULL;
 	free(client->session_id);
 	client->session_id = NULL;
+	/* The cipher context is owned by the caller (installed via
+	 * pw_rtsp_client_set_cipher_ctx); only drop our borrowed reference. */
+	client->cipher_ctx = NULL;
+	client->decrypt = NULL;
+	client->encrypt = NULL;
+	pw_array_reset(&client->in_cipher);
+	pw_array_reset(&client->in_plain);
+	client->in_plain_offset = 0;
 
 	spa_list_consume(msg, &client->messages, link) {
 		spa_list_remove(&msg->link);
-		free(msg);
+		message_free(msg);
 	}
 	spa_list_consume(msg, &client->pending, link) {
 		spa_list_remove(&msg->link);
-		free(msg);
+		message_free(msg);
 	}
 	pw_rtsp_client_emit_disconnected(client);
 	return 0;
@@ -597,9 +815,12 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 
 	fseek(f, offsetof(struct message, data), SEEK_SET);
 
-	cseq = ++client->cseq;
+	if (client->encrypt != NULL && client->cipher_ctx != NULL)
+		fprintf(f, "%s %s HTTP/1.1\r\n", cmd, url);
+	else
+		fprintf(f, "%s %s RTSP/1.0\r\n", cmd, url);
 
-	fprintf(f, "%s %s RTSP/1.0\r\n", cmd, url);
+	cseq = ++client->cseq;
 	fprintf(f, "CSeq: %" PRIu32 "\r\n", cseq);
 
 	if (headers != NULL) {
@@ -617,7 +838,21 @@ int pw_rtsp_client_url_send(struct pw_rtsp_client *client, const char *url,
 
 	fclose(f);
 
-	msg->len = len - offsetof(struct message, data);
+	if (client->encrypt != NULL && client->cipher_ctx != NULL) {
+		uint8_t *enc_buf;
+		size_t enc_len;
+		ssize_t enc = client->encrypt(&enc_buf, &enc_len, SPA_PTROFF(msg, sizeof(*msg), uint8_t), len - sizeof(*msg), client->cipher_ctx);
+		if (enc < 0) {
+			free(msg);
+			return enc;
+		}
+		msg->payload = enc_buf;
+		msg->len = enc_len;
+	}
+	else {
+		msg->payload = SPA_PTROFF(msg, offsetof(struct message, data), unsigned char);
+		msg->len = len - offsetof(struct message, data);
+	}
 	msg->offset = 0;
 	msg->reply = reply;
 	msg->user_data = user_data;

@@ -4,8 +4,11 @@
 
 #include "config.h"
 
+#include <ctype.h>
+#include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -18,6 +21,7 @@
 #include <math.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <plist/plist.h>
 
 #include <openssl/err.h>
 #if OPENSSL_API_LEVEL >= 30000
@@ -28,6 +32,7 @@
 #include <openssl/aes.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>
+#include <openssl/kdf.h>
 
 #include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
@@ -43,9 +48,10 @@
 #include <pipewire/i18n.h>
 
 #include "network-utils.h"
-
 #include "module-raop/rtsp-client.h"
 #include "module-raop/base64.h"
+#include "module-raop/srp.h"
+#include "module-raop/tlv.h"
 #include "module-rtp/rtp.h"
 #include "module-rtp/stream.h"
 
@@ -71,8 +77,14 @@
  * - `raop.hostname`: The hostname of the remote end.
  * - `raop.transport`: The data transport to use, one of "udp" or "tcp". Defaults
  *                    to "udp".
- * - `raop.encryption.type`: The encryption type to use. One of "none", "RSA" or
- *                    "auth_setup". Default is "none".
+ * - `raop.encryption.type`: The encryption type to use. One of:
+ *                    - "none" - No encryption
+ *                    - "RSA" - Legacy RSA encryption
+ *                    - "auth_setup" - Legacy auth setup
+ *                    - "pair_transient" - Transient pairing (3rd party devices, PIN 3939)
+ *                    - "pair_homekit" - HomeKit pairing (3rd party with persistent keys)
+ *                    - "pair_apple" - Apple pairing (Apple TV, HomePod)
+ *                    Default is "none".
  * - `raop.audio.codec`: The audio codec to use. Needs to be "PCM". Defaults to "PCM".
  * - `raop.password`: The password to use.
  * - `raop.latency.ms`: The playback delay on the receiver in milliseconds, i.e.
@@ -84,6 +96,14 @@
  *                    to the remote device. Volume and mute are then applied in software
  *                    instead and the sink is advertised as having no hardware volume
  *                    control. Default is "false".
+ * - `raop.auth_key`: Stored authorization key from pair-setup (for pair_homekit/pair_apple).
+ *                    Format: 128 hex chars (Ed25519 private key) + 64 hex chars (server public key).
+ * - `raop.pairing-pin`: PIN shown on an Apple device (Apple TV/HomePod) to perform the
+ *                    one-time pairing that produces `raop.auth_key`. When set, the module
+ *                    runs pair-setup, logs the resulting key, and stops (it does not stream).
+ *                    Set `raop.auth_key` to that value and remove `raop.pairing-pin` to
+ *                    connect from then on.
+ * - `raop.auth-key-file`: Optional path to also write the authorization key to after pairing.
  * - `stream.props = {}`: properties to be passed to the sink stream
  *
  * Options with well-known behavior.
@@ -155,9 +175,54 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define MD5_DIGEST_LENGTH	16
 #endif
 #define MD5_HASH_LENGTH		(2*MD5_DIGEST_LENGTH)
+#ifndef SHA512_DIGEST_LENGTH
+#define SHA512_DIGEST_LENGTH 64
+#endif
 
 #define DEFAULT_USER_NAME	"PipeWire"
 #define RAOP_AUTH_USER_NAME	"iTunes"
+/* Apple receivers on OS 27 and later answer GET /info with 403 unless the
+ * User-Agent looks like a recent AirPlay sender ("AirPlay/1.0" is rejected,
+ * "AirPlay/380.20.1" is accepted); a version far above any shipping one keeps
+ * passing the check. */
+#define AP_USER_AGENT		"AirPlay/999.0.0"
+#define AP_USER_NAME		"AirPlay"
+#define AP_REQUEST_BUFSIZE	4096
+#define AP_SRP_USER_NAME	"Pair-Setup"
+#define AP_CONTROL_SALT 	"Control-Salt"
+#define AP_CONTROL_ENC_INFO "Control-Write-Encryption-Key"
+#define AP_CONTROL_DEC_INFO "Control-Read-Encryption-Key"
+#define AP_NONCE_LENGTH 12
+#define AP_AUTHTAG_LENGTH 16
+#define AP_ENCRYPTED_BLOCK_LENGTH_MAX 1024
+// For transient pairing the key_len will be 64 bytes, but only 32 are used for
+// audio payload encryption. For normal pairing the key is 32 bytes.
+#define AP_AUDIO_KEY_LEN 32
+#define AP_ED25519_SIGNATURE_LENGTH 64
+#define AP_ED25519_PUBLIC_KEY_LENGTH 32
+// The stored "private key" is the 32-byte seed followed by the 32-byte public
+// key (libsodium layout). OpenSSL's raw Ed25519 private key is just the seed.
+#define AP_ED25519_SEED_LENGTH 32
+#define AP_ED25519_PRIVATE_KEY_LENGTH 64
+#define AP_X25519_KEY_LENGTH 32
+
+// HKDF salt and info strings for pair-verify (HomeKit standard)
+#define AP_PAIR_VERIFY_ENC_SALT "Pair-Verify-Encrypt-Salt"
+#define AP_PAIR_VERIFY_ENC_INFO "Pair-Verify-Encrypt-Info"
+
+// HKDF salt and info strings for pair-verify (Apple)
+#define AP_PAIR_VERIFY_APPLE_SALT "Pair-Verify-AES-Key"
+#define AP_PAIR_VERIFY_APPLE_INFO "Pair-Verify-AES-IV"
+
+// Pair-setup encryption salt/info (for step 5/6 of full pairing)
+#define AP_PAIR_SETUP_ENC_SALT "Pair-Setup-Encrypt-Salt"
+#define AP_PAIR_SETUP_ENC_INFO "Pair-Setup-Encrypt-Info"
+
+// Accessory info (for signing during pair-setup)
+#define AP_PAIR_SETUP_ACCESSORY_SIGN_SALT "Pair-Setup-Accessory-Sign-Salt"
+#define AP_PAIR_SETUP_ACCESSORY_SIGN_INFO "Pair-Setup-Accessory-Sign-Info"
+#define AP_PAIR_SETUP_CONTROLLER_SIGN_SALT "Pair-Setup-Controller-Sign-Salt"
+#define AP_PAIR_SETUP_CONTROLLER_SIGN_INFO "Pair-Setup-Controller-Sign-Info"
 
 #define MAX_PORT_RETRY		128
 
@@ -165,6 +230,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 #define RAOP_STRIDE		(2*DEFAULT_CHANNELS)
 #define RAOP_RATE		44100
 #define RAOP_LATENCY_MS		250
+#define RAOP_LATENCY_MIN	11025	/* Minimum latency in samples (250ms at 44100Hz) */
 #define DEFAULT_LATENCY_MS	1500
 
 #define MAX_CHANNELS		SPA_AUDIO_MAX_CHANNELS
@@ -181,6 +247,8 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 			"( raop.audio.codec=PCM ) "						\
 			"( raop.password=<password for auth> ) "				\
 			"( raop.disable-volume=<disable volume, default:false> ) "		\
+			"( raop.auth_key=<stored auth key from pair-setup> ) "				\
+			"( raop.pairing-pin=<PIN for one-time Apple device pairing> ) "			\
 			"( raop.latency.ms=<min latency in ms, default:"SPA_STRINGIFY(DEFAULT_LATENCY_MS)"> ) "	\
 			"( node.latency=<latency as fraction> ) "				\
 			"( node.name=<name of the nodes> ) "					\
@@ -194,7 +262,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
-	{ PW_KEY_MODULE_DESCRIPTION, "An RAOP audio sink" },
+	{ PW_KEY_MODULE_DESCRIPTION, "An AirPlay audio sink" },
 	{ PW_KEY_MODULE_USAGE, MODULE_USAGE },
 	{ PW_KEY_MODULE_VERSION, PACKAGE_VERSION },
 };
@@ -206,9 +274,17 @@ enum {
 enum {
 	CRYPTO_NONE,
 	CRYPTO_RSA,
-	CRYPTO_AUTH_SETUP,
-	CRYPTO_FP_SAP25,
+	CRYPTO_AUTH_SETUP = 4,
+	CRYPTO_FP_SAP25 = 5,
+	CRYPTO_PAIR_TRANSIENT = 8,       // Transient pairing (3rd party, PIN 3939)
+	CRYPTO_PAIR_HOMEKIT = 9,         // HomeKit normal pairing (3rd party with persistent keys)
+	CRYPTO_PAIR_APPLE = 10,          // Apple pairing (Apple TV, HomePod)
 };
+
+// Helper macro to check if using AirPlay 2 encryption (any pair mode)
+#define IS_AP2_ENCRYPTION(e) ((e) == CRYPTO_PAIR_TRANSIENT || (e) == CRYPTO_PAIR_HOMEKIT || (e) == CRYPTO_PAIR_APPLE)
+// Helper macro to check if using pair-verify (persistent keys required)
+#define IS_PAIR_VERIFY(e) ((e) == CRYPTO_PAIR_HOMEKIT || (e) == CRYPTO_PAIR_APPLE)
 enum {
 	CODEC_PCM,
 	CODEC_ALAC,
@@ -243,6 +319,7 @@ struct impl {
 	struct pw_properties *headers;
 
 	char session_id[32];
+	char session_uuid[37];
 	char *password;
 	char *auth_method;
 	char *realm;
@@ -257,15 +334,48 @@ struct impl {
 	uint8_t aes_iv[AES_CHUNK_SIZE];  /* Initialization vector for cbc */
 	EVP_CIPHER_CTX *ctx;
 
+	struct SRPUser *srp_user;
+	uint8_t public_key[32];
+	uint8_t private_key[64];
+	const uint8_t *pkA;
+	int pkA_len;
+	uint8_t *pkB;
+	uint64_t pkB_len;
+	const uint8_t *M1;
+	int M1_len;
+	uint8_t *M2;
+	int M2_len;
+	uint8_t *salt;
+	uint64_t salt_len;
+	uint8_t shared_secret[64];
+	size_t shared_secret_len; // Will be 32 (normal) or 64 (transient)
+	struct pw_rtsp_cipher_context *cipher_ctx;
+	uint64_t audio_nonce; // Monotonic per-packet AEAD nonce for AP2 audio
+
+	// Pair-verify state
+	uint8_t client_public_key[AP_ED25519_PUBLIC_KEY_LENGTH];
+	uint8_t client_private_key[AP_ED25519_PRIVATE_KEY_LENGTH];
+	uint8_t server_public_key[AP_ED25519_PUBLIC_KEY_LENGTH];
+	bool have_server_public_key;
+	uint8_t client_eph_public_key[AP_X25519_KEY_LENGTH];
+	uint8_t client_eph_private_key[AP_X25519_KEY_LENGTH];
+	uint8_t server_eph_public_key[AP_X25519_KEY_LENGTH];
+	char *auth_key;  // Stored authorization key from pair-setup
+	char *pairing_pin;  // PIN shown on an Apple device for initial (non-transient) pairing
+	char device_id[24];  // Our device ID
+
 	uint16_t control_port;
 	int control_fd;
 	struct spa_source *control_source;
 	struct pw_timer feedback_timer;
+	struct pw_timer handshake_timer;
 
 	uint16_t timing_port;
 	int timing_fd;
 	struct spa_source *timing_source;
 
+	uint16_t events_port;
+	uint16_t data_port;
 	uint16_t server_port;
 	int server_fd;
 	struct spa_source *server_source;
@@ -283,6 +393,7 @@ struct impl {
 	unsigned int ready:1;
 	unsigned int recording:1;
 	unsigned int volume_valid:1;
+	unsigned int destroying:1;
 
 	bool mute;
 	float volume;
@@ -307,6 +418,58 @@ static int aes_encrypt(struct impl *impl, uint8_t *data, int len)
 	EVP_EncryptInit(impl->ctx, EVP_aes_128_cbc(), impl->aes_key, impl->aes_iv);
 	EVP_EncryptUpdate(impl->ctx, data, &clen, data, i);
 	return i;
+}
+
+/* Encrypt RTP audio payload using ChaCha20-Poly1305 for AirPlay 2.
+ * The nonce is a 4-byte zero prefix + an 8-byte little-endian per-packet
+ * counter; that same 8-byte counter is transmitted as the packet's nonce
+ * suffix so the receiver can decrypt. A monotonic 64-bit counter is used
+ * (rather than the 16-bit RTP sequence number, which repeats every 65536
+ * packets) to guarantee the (key, nonce) pair is never reused.
+ * The AAD is bytes 4-11 of the RTP header (timestamp and SSRC, 8 bytes)
+ * The auth tag is appended to the ciphertext */
+static int rtp_ap2_encrypt(struct impl *impl, uint8_t *data, int len,
+			   const struct rtp_header *header, uint8_t *tag,
+			   uint64_t nonce_counter)
+{
+	EVP_CIPHER_CTX *ctx;
+	uint8_t nonce[AP_NONCE_LENGTH] = { 0 };
+	int outlen;
+
+	memcpy(nonce + 4, &nonce_counter, sizeof(nonce_counter));
+
+	ctx = EVP_CIPHER_CTX_new();
+	if (!ctx)
+		return -1;
+
+	if (EVP_EncryptInit_ex(ctx, EVP_chacha20_poly1305(), NULL,
+			       impl->shared_secret, nonce) != 1)
+		goto error;
+
+	if (EVP_CIPHER_CTX_set_padding(ctx, 0) != 1)
+		goto error;
+
+	/* AAD is timestamp and SSRC (bytes 4-11 of RTP header, 8 bytes) */
+	if (EVP_EncryptUpdate(ctx, NULL, &outlen, ((const uint8_t *)header) + 4, 8) != 1)
+		goto error;
+
+	/* Encrypt the payload in-place */
+	if (EVP_EncryptUpdate(ctx, data, &outlen, data, len) != 1)
+		goto error;
+
+	if (EVP_EncryptFinal_ex(ctx, NULL, &outlen) != 1)
+		goto error;
+
+	/* Get the auth tag */
+	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, AP_AUTHTAG_LENGTH, tag) != 1)
+		goto error;
+
+	EVP_CIPHER_CTX_free(ctx);
+	return 0;
+
+error:
+	EVP_CIPHER_CTX_free(ctx);
+	return -1;
 }
 
 static inline uint64_t timespec_to_ntp(struct timespec *ts)
@@ -469,14 +632,17 @@ static ssize_t send_packet(int fd, struct msghdr *msg)
 static void stream_send_packet(void *data, struct rtp_packet *packet)
 {
 	struct impl *impl = data;
-	const size_t max = 8 + impl->mtu;
+	const size_t max = 8 + impl->mtu + AP_AUTHTAG_LENGTH + 8; /* extra 8 for nonce */
 	uint32_t tcp_pkt[1], out[max], len, rtptime, hlen;
-	struct iovec out_vec[3];
+	struct iovec out_vec[5];
 	struct rtp_header *header;
 	struct msghdr msg;
 	uint8_t *dst, *payload;
 	size_t payload_size;
 	int res;
+	uint8_t auth_tag[AP_AUTHTAG_LENGTH];
+	uint8_t nonce_suffix[8] = { 0 };
+	uint64_t nonce_counter = 0;
 
 	if (!impl->recording)
 		return;
@@ -521,8 +687,16 @@ static void stream_send_packet(void *data, struct rtp_packet *packet)
 		memset(dst, 0, len);
 		break;
 	}
-	if (impl->encryption == CRYPTO_RSA)
+	if (impl->encryption == CRYPTO_RSA) {
 		aes_encrypt(impl, dst, len);
+	} else if (IS_AP2_ENCRYPTION(impl->encryption)) {
+		nonce_counter = impl->audio_nonce++;
+		if (rtp_ap2_encrypt(impl, dst, len, header, auth_tag, nonce_counter) < 0) {
+			pw_log_error("RTP encryption failed");
+			return;
+		}
+	}
+
 
 	msg.msg_name = NULL;
 	msg.msg_namelen = 0;
@@ -541,6 +715,14 @@ static void stream_send_packet(void *data, struct rtp_packet *packet)
 
 	out_vec[msg.msg_iovlen++] = (struct iovec) { header, hlen };
 	out_vec[msg.msg_iovlen++] = (struct iovec) { out, len };
+
+	/* Append auth tag and nonce suffix for AirPlay 2 encrypted packets.
+	 * The 8-byte nonce counter is transmitted so the receiver can decrypt. */
+	if (IS_AP2_ENCRYPTION(impl->encryption)) {
+		memcpy(nonce_suffix, &nonce_counter, sizeof(nonce_counter));
+		out_vec[msg.msg_iovlen++] = (struct iovec) { auth_tag, AP_AUTHTAG_LENGTH };
+		out_vec[msg.msg_iovlen++] = (struct iovec) { nonce_suffix, sizeof(nonce_suffix) };
+	}
 
 	pw_log_debug("raop sending %zu", out_vec[0].iov_len + out_vec[1].iov_len + out_vec[2].iov_len);
 
@@ -880,6 +1062,9 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 		return 0;
 	}
 
+	/* Handshake completed. */
+	pw_timer_queue_cancel(&impl->handshake_timer);
+
 	// feedback timer is only needed for auth_setup	encryption
 	if (impl->encryption == CRYPTO_FP_SAP25) {
 		pw_timer_queue_cancel(&impl->feedback_timer);
@@ -908,6 +1093,15 @@ static int rtsp_record_reply(void *data, int status, const struct spa_dict *head
 	snprintf(progress, sizeof(progress), "progress: %s/%s/%s\r\n", "0", "0", "0");
 	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", progress, rtsp_log_reply_status);
 }
+
+static int rtsp_ap2_setup_session_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content);
+static int rtsp_ap2_setup_stream_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content);
+
+static int rtsp_do_ap2_record(struct impl *impl);
+static int rtsp_do_ap2_setpeers(struct impl *impl);
+static int rtsp_do_ap2_setup_stream(struct impl *impl);
+static int rtsp_do_ap2_pair_setup3(struct impl *impl);
+static void derive_device_id(struct impl *impl);
 
 static int rtsp_do_record(struct impl *impl)
 {
@@ -956,8 +1150,12 @@ on_server_source_io(void *data, int fd, uint32_t mask)
 			goto error;
 
 		impl->ready = true;
-		if (rtp_stream_get_state(impl->stream, NULL) == PW_STREAM_STATE_STREAMING)
-			rtsp_do_record(impl);
+		if (rtp_stream_get_state(impl->stream, NULL) == PW_STREAM_STATE_STREAMING) {
+			if (IS_AP2_ENCRYPTION(impl->encryption))
+				rtsp_do_ap2_record(impl);
+			else
+				rtsp_do_record(impl);
+		}
 	}
 	return;
 error:
@@ -965,7 +1163,7 @@ error:
 	pw_impl_module_schedule_destroy(impl->module);
 }
 
-static int rtsp_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+static int rtsp_raop_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
 	const char *str, *state = NULL, *s;
@@ -1068,6 +1266,832 @@ static int rtsp_setup_reply(void *data, int status, const struct spa_dict *heade
 	return 0;
 }
 
+
+static void wplist_dict_add_uint(plist_t node, const char *key, uint64_t val)
+{
+	plist_t add = plist_new_uint(val);
+	plist_dict_set_item(node, key, add);
+}
+
+static void wplist_dict_add_string(plist_t node, const char *key, const char *val)
+{
+	plist_t add = plist_new_string(val);
+	plist_dict_set_item(node, key, add);
+}
+
+static void wplist_dict_add_bool(plist_t node, const char *key, bool val)
+{
+	plist_t add = plist_new_bool(val);
+	plist_dict_set_item(node, key, add);
+}
+
+static void wplist_dict_add_data(plist_t node, const char *key, uint8_t *data, size_t len)
+{
+	plist_t add = plist_new_data((const char *)data, len);
+	plist_dict_set_item(node, key, add);
+}
+
+static int
+wplist_to_bin(uint8_t **data, size_t *len, plist_t node)
+{
+	char *out = NULL;
+	uint32_t out_len = 0;
+
+	plist_to_bin(node, &out, &out_len);
+	if (!out)
+		return -1;
+
+	*data = (uint8_t *)out;
+	*len = out_len;
+
+	return 0;
+}
+
+static int
+wplist_from_bin(plist_t *node, const struct pw_array *buf)
+{
+  plist_t out = NULL;
+
+  plist_from_bin((char *)buf->data, (uint32_t)buf->size, &out);
+  if (!out)
+    return -1;
+
+  *node = out;
+
+  return 0;
+}
+
+static int rtsp_ap2_record_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	const char *str;
+	char progress[128];
+	struct spa_process_latency_info process_latency;
+
+	pw_log_info("AP2 record status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
+	}
+
+	if ((str = spa_dict_lookup(headers, "Audio-Latency")) != NULL) {
+		uint32_t l;
+		if (spa_atou32(str, &l, 0))
+			impl->latency = SPA_MAX(l, impl->latency);
+	}
+	spa_zero(process_latency);
+	process_latency.rate = impl->latency + msec_to_samples(impl, RAOP_LATENCY_MS);
+
+	rtp_stream_update_process_latency(impl->stream, &process_latency);
+	rtp_stream_set_first(impl->stream);
+
+	impl->sync = 0;
+	impl->recording = true;
+
+	/* Handshake completed. */
+	pw_timer_queue_cancel(&impl->handshake_timer);
+
+	/* AirPlay 2 receivers drop idle sessions; keep the (encrypted) control
+	 * channel alive with the periodic, self-rearming /feedback POST, the same
+	 * mechanism the SAP25 path uses. connection_cleanup cancels it on teardown. */
+	pw_timer_queue_cancel(&impl->feedback_timer);
+	pw_timer_queue_add(impl->timer_queue, &impl->feedback_timer,
+			NULL, 2 * SPA_NSEC_PER_SEC, rtsp_do_post_feedback, impl);
+
+	rtsp_send_volume(impl);
+
+	snprintf(progress, sizeof(progress), "progress: %s/%s/%s\r\n", "0", "0", "0");
+	return rtsp_send(impl, "SET_PARAMETER", "text/parameters", progress, rtsp_log_reply_status);
+}
+
+static int rtsp_do_ap2_record(struct impl *impl)
+{
+	int res;
+	uint16_t seq;
+	uint32_t rtptime;
+
+	if (!impl->ready || impl->recording)
+		return 0;
+
+	seq = rtp_stream_get_seq(impl->stream);
+	rtptime = rtp_stream_get_time(impl->stream, &impl->rate);
+
+	pw_properties_set(impl->headers, "Range", "npt=0-");
+	pw_properties_setf(impl->headers, "RTP-Info",
+			"seq=%u;rtptime=%u", seq, rtptime);
+
+	res = rtsp_send(impl, "RECORD", NULL, NULL, rtsp_ap2_record_reply);
+
+	pw_properties_set(impl->headers, "Range", NULL);
+	pw_properties_set(impl->headers, "RTP-Info", NULL);
+
+	return res;
+}
+
+static int rtsp_ap2_setpeers_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+
+	pw_log_info("AP2 setpeers status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_log_warn("SETPEERS failed with status %d, continuing anyway", status);
+		break;
+	}
+
+	return rtsp_do_ap2_setup_stream(impl);
+}
+
+static int rtsp_do_ap2_setpeers(struct impl *impl)
+{
+	plist_t root;
+	plist_t item;
+	uint8_t *plist_bin = NULL;
+	size_t plist_len = 0;
+	int ip_version;
+	char local_ip[INET6_ADDRSTRLEN];
+	const char *host;
+	int res;
+
+	pw_rtsp_client_get_local_ip(impl->rtsp, &ip_version, local_ip, sizeof(local_ip));
+	host = pw_properties_get(impl->props, "raop.ip");
+
+	root = plist_new_array();
+	item = plist_new_string(host);
+	plist_array_append_item(root, item);
+	item = plist_new_string(local_ip);
+	plist_array_append_item(root, item);
+
+	if (wplist_to_bin(&plist_bin, &plist_len, root) < 0) {
+		pw_log_error("Failed to serialize SETPEERS plist");
+		plist_free(root);
+		return -1;
+	}
+
+	res = pw_rtsp_client_url_send(impl->rtsp, "/peer-list-changed", "SETPEERS", &impl->headers->dict,
+				"application/x-apple-binary-plist", plist_bin, plist_len,
+				rtsp_ap2_setpeers_reply, impl);
+
+	plist_free(root);
+	free(plist_bin);
+
+	return res;
+}
+
+/* Read a TCP/UDP port from a plist dict, validating type and range. libplist
+ * leaves the output untouched when the node is not a PLIST_UINT, so reading
+ * without a type check would use a stale/uninitialised value chosen indirectly
+ * by the (untrusted) device. Returns true and stores the port on success. */
+static bool plist_dict_get_port(plist_t dict, const char *key, uint16_t *out)
+{
+	plist_t item = plist_dict_get_item(dict, key);
+	uint64_t v = 0;
+
+	if (item == NULL || plist_get_node_type(item) != PLIST_UINT)
+		return false;
+	plist_get_uint_val(item, &v);
+	if (v == 0 || v > 65535)
+		return false;
+	*out = (uint16_t)v;
+	return true;
+}
+
+static int rtsp_ap2_setup_stream_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	plist_t response;
+	plist_t streams;
+	plist_t stream;
+	int ret;
+
+	pw_log_info("AP2 setup stream status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
+	}
+
+	ret = wplist_from_bin(&response, content);
+	if (ret < 0) {
+		pw_log_error("Could not parse plist from stream SETUP response");
+		return -1;
+	}
+
+	streams = plist_dict_get_item(response, "streams");
+	if (!streams) {
+		pw_log_error("Missing streams in stream SETUP response");
+		plist_free(response);
+		return -1;
+	}
+
+	stream = plist_array_get_item(streams, 0);
+	if (!stream) {
+		pw_log_error("Missing stream item in response");
+		plist_free(response);
+		return -1;
+	}
+
+	if (!plist_dict_get_port(stream, "dataPort", &impl->data_port)) {
+		pw_log_error("Missing or invalid data port in stream SETUP response");
+		plist_free(response);
+		return -1;
+	}
+
+	/* controlPort is optional; leave impl->control_port unchanged if absent. */
+	plist_dict_get_port(stream, "controlPort", &impl->control_port);
+
+	pw_log_info("Negotiated UDP streaming: data_port=%u control_port=%u",
+			impl->data_port, impl->control_port);
+
+	if ((impl->server_fd = connect_socket(impl, SOCK_DGRAM, -1, impl->data_port)) < 0) {
+		pw_log_error("Could not connect to data port %u", impl->data_port);
+		plist_free(response);
+		return impl->server_fd;
+	}
+
+	if (impl->control_port != 0 && impl->control_fd >= 0) {
+		int fd = connect_socket(impl, SOCK_DGRAM, impl->control_fd, impl->control_port);
+		if (fd < 0) {
+			/* connect_socket closed the old fd on failure */
+			pw_log_warn("Could not connect to control port %u", impl->control_port);
+			impl->control_fd = -1;
+		} else {
+			impl->control_fd = fd;
+		}
+	}
+
+	if (impl->control_fd >= 0) {
+		impl->control_source = pw_loop_add_io(impl->loop, impl->control_fd,
+					SPA_IO_IN, false, on_control_source_io, impl);
+		if (impl->control_source == NULL)
+			pw_log_warn("Could not add control source: %m");
+	}
+
+	impl->ready = true;
+
+	plist_free(response);
+
+	if (rtp_stream_get_state(impl->stream, NULL) == PW_STREAM_STATE_STREAMING)
+		return rtsp_do_ap2_record(impl);
+
+	return 0;
+}
+
+static int rtsp_do_ap2_setup_stream(struct impl *impl)
+{
+	plist_t root;
+	plist_t streams;
+	plist_t stream;
+	uint8_t *plist_bin = NULL;
+	size_t plist_len = 0;
+	const char *url;
+	int res;
+
+	stream = plist_new_dict();
+	wplist_dict_add_uint(stream, "audioFormat", 0x40000);
+	wplist_dict_add_string(stream, "audioMode", "default");
+	wplist_dict_add_uint(stream, "controlPort", impl->control_port);
+	wplist_dict_add_uint(stream, "ct", 2);
+	wplist_dict_add_bool(stream, "isMedia", true);
+	wplist_dict_add_uint(stream, "latencyMax", 88200);
+	wplist_dict_add_uint(stream, "latencyMin", RAOP_LATENCY_MIN);
+	wplist_dict_add_data(stream, "shk", impl->shared_secret, AP_AUDIO_KEY_LEN);
+	wplist_dict_add_uint(stream, "spf", FRAMES_PER_UDP_PACKET);
+	wplist_dict_add_uint(stream, "sr", impl->rate);
+	wplist_dict_add_uint(stream, "type", 0x60);
+	wplist_dict_add_bool(stream, "supportsDynamicStreamID", false);
+	wplist_dict_add_uint(stream, "streamConnectionID", strtoull(impl->session_id, NULL, 10));
+
+	streams = plist_new_array();
+	plist_array_append_item(streams, stream);
+
+	root = plist_new_dict();
+	plist_dict_set_item(root, "streams", streams);
+
+	if (wplist_to_bin(&plist_bin, &plist_len, root) < 0) {
+		pw_log_error("Failed to serialize stream SETUP plist");
+		plist_free(root);
+		return -1;
+	}
+
+	url = pw_rtsp_client_get_url(impl->rtsp);
+
+	res = pw_rtsp_client_url_send(impl->rtsp, url, "SETUP", &impl->headers->dict,
+				"application/x-apple-binary-plist", plist_bin, plist_len,
+				rtsp_ap2_setup_stream_reply, impl);
+
+	plist_free(root);
+	free(plist_bin);
+
+	return res;
+}
+
+static int rtsp_ap2_setup_session_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	plist_t response;
+	uint16_t remote_timing_port = 0;
+	int ret;
+
+	pw_log_info("AP2 setup session status: %d", status);
+	switch (status) {
+	case 200:
+		break;
+	default:
+		pw_impl_module_schedule_destroy(impl->module);
+		return 0;
+	}
+
+	ret = wplist_from_bin(&response, content);
+	if (ret < 0) {
+		pw_log_error("Could not parse plist from session SETUP response");
+		return -1;
+	}
+
+	/* eventPort is the receiver's; store it (it stays 0 if absent/malformed).
+	 * timingPort is also the receiver's, but impl->timing_port already holds
+	 * OUR advertised local timing port (bound for the SETUP request) — do not
+	 * clobber it. Capture the receiver's value for the log only; nothing
+	 * downstream consumes it yet. */
+	plist_dict_get_port(response, "eventPort", &impl->events_port);
+	plist_dict_get_port(response, "timingPort", &remote_timing_port);
+
+	pw_log_info("Session SETUP response: eventPort=%u timingPort=%u",
+			impl->events_port, remote_timing_port);
+
+	plist_free(response);
+
+	return rtsp_do_ap2_setpeers(impl);
+}
+
+// Executes SHA512 RFC 5869 extract + expand, writing a derived key to okm
+static int
+hkdf_extract_expand(uint8_t *okm, size_t okm_len, const uint8_t *ikm, size_t ikm_len, const char *salt, const char *info)
+{
+	EVP_PKEY_CTX *pctx;
+
+	if (okm_len > SHA512_DIGEST_LENGTH)
+		return -1;
+	if (! (pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL)))
+		return -1;
+	if (EVP_PKEY_derive_init(pctx) <= 0)
+		goto error;
+	if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha512()) <= 0)
+		goto error;
+	if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, (const unsigned char *)salt, strlen(salt)) <= 0)
+		goto error;
+	if (EVP_PKEY_CTX_set1_hkdf_key(pctx, ikm, ikm_len) <= 0)
+		goto error;
+	if (EVP_PKEY_CTX_add1_hkdf_info(pctx, (const unsigned char *)info, strlen(info)) <= 0)
+		goto error;
+	if (EVP_PKEY_derive(pctx, okm, &okm_len) <= 0)
+		goto error;
+	EVP_PKEY_CTX_free(pctx);	
+	return 0;
+ error:
+	EVP_PKEY_CTX_free(pctx);
+	return -1;
+}
+
+static struct pw_rtsp_cipher_context *ap_cipher_context_new(const uint8_t *shared_secret, size_t shared_secret_len, const char *enc_salt, const char *enc_info, const char *dec_salt, const char *dec_info)
+{
+	struct pw_rtsp_cipher_context *cctx;
+	int ret;
+
+	cctx = calloc(1, sizeof(*cctx));
+	if (!cctx)
+		goto error;
+	ret = hkdf_extract_expand(cctx->encryption_key, sizeof(cctx->encryption_key), shared_secret, shared_secret_len, enc_salt, enc_info);
+	if (ret < 0)
+		goto error;
+	ret = hkdf_extract_expand(cctx->decryption_key, sizeof(cctx->decryption_key), shared_secret, shared_secret_len, dec_salt, dec_info);
+	if (ret < 0)
+		goto error;
+	return cctx;
+error:
+	free(cctx);
+	return NULL;
+}
+
+static ssize_t ap_encrypt(uint8_t **ciphertext, size_t *ciphertext_len,
+		const uint8_t *plaintext, size_t plaintext_len,
+		struct pw_rtsp_cipher_context *cctx);
+static ssize_t ap_decrypt(uint8_t **plaintext, size_t *plaintext_len,
+		const uint8_t *ciphertext, size_t ciphertext_len,
+		struct pw_rtsp_cipher_context *cctx);
+
+/* Derive the control-channel cipher from the shared secret and install it on
+ * the RTSP client. Replaces any existing context. This is the single place
+ * that enables channel encryption, so creating and installing the cipher can
+ * never get out of step. */
+static int install_control_cipher(struct impl *impl,
+		const char *enc_salt, const char *enc_info,
+		const char *dec_salt, const char *dec_info)
+{
+	struct pw_rtsp_cipher_context *cctx;
+
+	cctx = ap_cipher_context_new(impl->shared_secret, impl->shared_secret_len,
+			enc_salt, enc_info, dec_salt, dec_info);
+	if (cctx == NULL) {
+		pw_log_error("Failed to derive control-channel cipher");
+		return -EIO;
+	}
+
+	free(impl->cipher_ctx);
+	impl->cipher_ctx = cctx;
+	pw_rtsp_client_set_cipher_ctx(impl->rtsp, impl->cipher_ctx);
+	pw_rtsp_client_set_encryption(impl->rtsp, ap_encrypt);
+	pw_rtsp_client_set_decryption(impl->rtsp, ap_decrypt);
+	return 0;
+}
+
+/* AirPlay 2 control-channel framing is little-endian on the wire (block-length
+ * prefix and the 8-byte nonce counter), independent of host byte order. */
+static inline void le16_store(uint8_t p[2], uint16_t v)
+{
+	p[0] = (uint8_t)v;
+	p[1] = (uint8_t)(v >> 8);
+}
+static inline uint16_t le16_load(const uint8_t p[2])
+{
+	return (uint16_t)p[0] | ((uint16_t)p[1] << 8);
+}
+static inline void le64_store(uint8_t p[8], uint64_t v)
+{
+	int i;
+	for (i = 0; i < 8; i++)
+		p[i] = (uint8_t)(v >> (8 * i));
+}
+
+static int chacha20_poly1305_encrypt(uint8_t *cipher, const uint8_t *plain, size_t plain_len,
+					const uint8_t *key, size_t key_len, const void *ad, size_t ad_len,
+					uint8_t *tag, size_t tag_len, const uint8_t nonce[AP_NONCE_LENGTH]) {
+	EVP_CIPHER_CTX *ctx;
+	int len;
+
+	if (!(ctx = EVP_CIPHER_CTX_new()))
+		return -1;
+	if (EVP_EncryptInit_ex(ctx, EVP_chacha20_poly1305(), NULL, key, nonce) != 1)
+		goto error;
+	if (EVP_CIPHER_CTX_set_padding(ctx, 0) != 1) // Maybe not necessary
+		goto error;
+	if (ad_len > 0 && EVP_EncryptUpdate(ctx, NULL, &len, ad, ad_len) != 1)
+		goto error;
+	if (EVP_EncryptUpdate(ctx, cipher, &len, plain, plain_len) != 1)
+		goto error;
+	assert((size_t)len == plain_len);
+	if (EVP_EncryptFinal_ex(ctx, NULL, &len) != 1)
+		goto error;
+	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, tag_len, tag) != 1)
+		goto error;
+	EVP_CIPHER_CTX_free(ctx);
+	return 0;
+error:
+	EVP_CIPHER_CTX_free(ctx);
+	return -1;
+}
+
+static ssize_t ap_encrypt(uint8_t **ciphertext, size_t *ciphertext_len,
+						const uint8_t *plaintext, size_t plaintext_len,
+						struct pw_rtsp_cipher_context *cctx)
+{
+	uint8_t nonce[AP_NONCE_LENGTH] = { 0 };
+	uint8_t tag[AP_AUTHTAG_LENGTH];
+	uint8_t len_le[sizeof(uint16_t)];
+	const uint8_t *plain_block;
+	uint8_t *cipher_block;
+	uint16_t block_len;
+	int nblocks;
+	int ret;
+	int i;
+
+	if (plaintext_len == 0 || !plaintext)
+		return -1;
+
+	// Encryption is done in blocks, where each block consists of a short, the
+	// encrypted data and an auth tag. The short is the size of the encrypted
+	// data. The encrypted data in the block cannot exceed AP_ENCRYPTED_BLOCK_LENGTH_MAX == 1024.
+	nblocks = 1 + ((plaintext_len - 1) / AP_ENCRYPTED_BLOCK_LENGTH_MAX); // Ceiling of division
+
+	*ciphertext_len = nblocks * (sizeof(block_len) + AP_AUTHTAG_LENGTH) + plaintext_len;
+	if ((*ciphertext = malloc(*ciphertext_len)) == NULL)
+		return -1;
+
+	cctx->encryption_counter_prev = cctx->encryption_counter;
+
+	for (i = 0, plain_block = plaintext, cipher_block = *ciphertext; i < nblocks; i++) {
+		// If it is the last block we will encrypt only the remaining data
+		block_len = (i + 1 == nblocks) ? (plaintext + plaintext_len - plain_block) : AP_ENCRYPTED_BLOCK_LENGTH_MAX;
+
+		le64_store(nonce + 4, cctx->encryption_counter);
+		le16_store(len_le, block_len);
+
+		// Write the ciphered block: the little-endian length prefix is both
+		// the wire framing and the AEAD associated data.
+		memcpy(cipher_block, len_le, sizeof(len_le));
+		ret = chacha20_poly1305_encrypt(cipher_block + sizeof(block_len),
+				plain_block, block_len, cctx->encryption_key, sizeof(cctx->encryption_key),
+				len_le, sizeof(len_le), tag, sizeof(tag), nonce);
+		if (ret < 0) {
+	  		pw_log_error("Encryption with chacha poly1305 failed");
+	  		cctx->encryption_counter = cctx->encryption_counter_prev;
+	  		free(*ciphertext);
+	  		*ciphertext = NULL;
+	  		return -1;
+		}
+		memcpy(cipher_block + sizeof(block_len) + block_len, tag, AP_AUTHTAG_LENGTH);
+
+		plain_block += block_len;
+		cipher_block += block_len + sizeof(block_len) + AP_AUTHTAG_LENGTH;
+		cctx->encryption_counter++;
+	}
+
+	return plain_block - plaintext;
+}
+
+
+// Hex string to bytes conversion
+static void hexread(uint8_t *out, size_t out_len, const char *in)
+{
+	char hex[3] = { 0 };
+	size_t i;
+
+	for (i = 0; i < out_len && in[0] && in[1]; i++, in += 2) {
+		hex[0] = in[0];
+		hex[1] = in[1];
+		out[i] = strtol(hex, NULL, 16);
+	}
+}
+
+// Bytes to lowercase hex string. out must hold 2*in_len + 1 bytes.
+static void bytes_to_hex(char *out, const uint8_t *in, size_t in_len)
+{
+	static const char h[] = "0123456789abcdef";
+	size_t i;
+	for (i = 0; i < in_len; i++) {
+		out[i * 2]     = h[in[i] >> 4];
+		out[i * 2 + 1] = h[in[i] & 0x0f];
+	}
+	out[in_len * 2] = '\0';
+}
+
+// Generate X25519 key pair
+static int x25519_keypair(uint8_t *public_key, uint8_t *private_key)
+{
+	EVP_PKEY *pkey = NULL;
+	EVP_PKEY_CTX *pctx = NULL;
+	size_t key_len = AP_X25519_KEY_LENGTH;
+	int ret = -1;
+
+	pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_X25519, NULL);
+	if (!pctx)
+		goto error;
+
+	if (EVP_PKEY_keygen_init(pctx) <= 0)
+		goto error;
+
+	if (EVP_PKEY_keygen(pctx, &pkey) <= 0)
+		goto error;
+
+	if (EVP_PKEY_get_raw_public_key(pkey, public_key, &key_len) <= 0)
+		goto error;
+
+	key_len = AP_X25519_KEY_LENGTH;
+	if (EVP_PKEY_get_raw_private_key(pkey, private_key, &key_len) <= 0)
+		goto error;
+
+	ret = 0;
+error:
+	EVP_PKEY_free(pkey);
+	EVP_PKEY_CTX_free(pctx);
+	return ret;
+}
+
+// Generate an Ed25519 long-term key pair. private_key holds the 32-byte seed
+// followed by the 32-byte public key (the layout parse_auth_key/ed25519_sign use).
+static int ed25519_keypair(uint8_t *public_key, uint8_t *private_key)
+{
+	EVP_PKEY *pkey = NULL;
+	EVP_PKEY_CTX *pctx = NULL;
+	size_t len;
+	int ret = -1;
+
+	pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_ED25519, NULL);
+	if (!pctx)
+		goto error;
+	if (EVP_PKEY_keygen_init(pctx) <= 0)
+		goto error;
+	if (EVP_PKEY_keygen(pctx, &pkey) <= 0)
+		goto error;
+
+	len = AP_ED25519_PUBLIC_KEY_LENGTH;
+	if (EVP_PKEY_get_raw_public_key(pkey, public_key, &len) <= 0)
+		goto error;
+
+	len = AP_ED25519_SEED_LENGTH;
+	if (EVP_PKEY_get_raw_private_key(pkey, private_key, &len) <= 0)
+		goto error;
+	memcpy(private_key + AP_ED25519_SEED_LENGTH, public_key, AP_ED25519_PUBLIC_KEY_LENGTH);
+
+	ret = 0;
+error:
+	EVP_PKEY_free(pkey);
+	EVP_PKEY_CTX_free(pctx);
+	return ret;
+}
+
+// X25519 key exchange: derive shared secret
+static int x25519_shared_secret(uint8_t *shared_secret, const uint8_t *private_key, const uint8_t *peer_public_key)
+{
+	EVP_PKEY *pkey = NULL;
+	EVP_PKEY *peer_key = NULL;
+	EVP_PKEY_CTX *pctx = NULL;
+	size_t secret_len = AP_X25519_KEY_LENGTH;
+	int ret = -1;
+
+	pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_X25519, NULL, private_key, AP_X25519_KEY_LENGTH);
+	if (!pkey)
+		goto error;
+
+	peer_key = EVP_PKEY_new_raw_public_key(EVP_PKEY_X25519, NULL, peer_public_key, AP_X25519_KEY_LENGTH);
+	if (!peer_key)
+		goto error;
+
+	pctx = EVP_PKEY_CTX_new(pkey, NULL);
+	if (!pctx)
+		goto error;
+
+	if (EVP_PKEY_derive_init(pctx) <= 0)
+		goto error;
+
+	if (EVP_PKEY_derive_set_peer(pctx, peer_key) <= 0)
+		goto error;
+
+	if (EVP_PKEY_derive(pctx, shared_secret, &secret_len) <= 0)
+		goto error;
+
+	ret = 0;
+error:
+	EVP_PKEY_free(pkey);
+	EVP_PKEY_free(peer_key);
+	EVP_PKEY_CTX_free(pctx);
+	return ret;
+}
+
+// Ed25519 sign
+static int ed25519_sign(uint8_t *signature, const uint8_t *message, size_t message_len, const uint8_t *private_key)
+{
+	EVP_PKEY *pkey = NULL;
+	EVP_MD_CTX *mdctx = NULL;
+	size_t sig_len = AP_ED25519_SIGNATURE_LENGTH;
+	int ret = -1;
+
+	/* OpenSSL expects the 32-byte seed, not the 64-byte seed||pubkey blob. */
+	pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL, private_key, AP_ED25519_SEED_LENGTH);
+	if (!pkey)
+		goto error;
+
+	mdctx = EVP_MD_CTX_new();
+	if (!mdctx)
+		goto error;
+
+	if (EVP_DigestSignInit(mdctx, NULL, NULL, NULL, pkey) <= 0)
+		goto error;
+
+	if (EVP_DigestSign(mdctx, signature, &sig_len, message, message_len) <= 0)
+		goto error;
+
+	ret = 0;
+error:
+	EVP_PKEY_free(pkey);
+	EVP_MD_CTX_free(mdctx);
+	return ret;
+}
+
+// Ed25519 verify
+static int ed25519_verify(const uint8_t *signature, const uint8_t *message, size_t message_len, const uint8_t *public_key)
+{
+	EVP_PKEY *pkey = NULL;
+	EVP_MD_CTX *mdctx = NULL;
+	int ret = -1;
+
+	pkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, public_key, AP_ED25519_PUBLIC_KEY_LENGTH);
+	if (!pkey)
+		goto error;
+
+	mdctx = EVP_MD_CTX_new();
+	if (!mdctx)
+		goto error;
+
+	if (EVP_DigestVerifyInit(mdctx, NULL, NULL, NULL, pkey) <= 0)
+		goto error;
+
+	if (EVP_DigestVerify(mdctx, signature, AP_ED25519_SIGNATURE_LENGTH, message, message_len) != 1)
+		goto error;
+
+	ret = 0;
+error:
+	EVP_PKEY_free(pkey);
+	EVP_MD_CTX_free(mdctx);
+	return ret;
+}
+
+// HKDF extract + expand for pair-verify (using salt and info strings)
+static int chacha20_poly1305_decrypt(uint8_t *plain, const uint8_t *cipher, size_t cipher_len,
+					const uint8_t *key, size_t key_len, const void *ad, size_t ad_len,
+					uint8_t *tag, size_t tag_len, const uint8_t nonce[AP_NONCE_LENGTH])
+{
+	EVP_CIPHER_CTX *ctx;
+	int len;
+
+	if (! (ctx = EVP_CIPHER_CTX_new()))
+		return -1;
+	if (EVP_DecryptInit_ex(ctx, EVP_chacha20_poly1305(), NULL, key, nonce) != 1)
+		goto error;
+	if (EVP_CIPHER_CTX_set_padding(ctx, 0) != 1) // Maybe not necessary
+		goto error;
+	if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, tag_len, tag) != 1)
+		goto error;
+	if (ad_len > 0 && EVP_DecryptUpdate(ctx, NULL, &len, ad, ad_len) != 1)
+		goto error;
+	if (EVP_DecryptUpdate(ctx, plain, &len, cipher, cipher_len) != 1)
+		goto error;
+	if (EVP_DecryptFinal_ex(ctx, NULL, &len) != 1)
+		goto error;
+	EVP_CIPHER_CTX_free(ctx);
+	return 0;
+error:
+	EVP_CIPHER_CTX_free(ctx);
+	return -1;
+}
+
+static ssize_t ap_decrypt(uint8_t **plaintext, size_t *plaintext_len,
+						const uint8_t *ciphertext, size_t ciphertext_len,
+						struct pw_rtsp_cipher_context *cctx)
+{
+	uint8_t nonce[AP_NONCE_LENGTH] = { 0 };
+	uint8_t tag[AP_AUTHTAG_LENGTH];
+	uint8_t *plain_block;
+	const uint8_t *cipher_block;
+	uint16_t block_len;
+	int ret;
+
+	*plaintext = NULL;
+	*plaintext_len = 0;
+
+	// Not enough bytes for even a length prefix yet: ask the caller for more.
+	if (!ciphertext || ciphertext_len < sizeof(block_len))
+		return 0;
+
+	// This will allocate more than we need. Since we don't know the number of
+	// blocks in the ciphertext yet we can't calculate the exact required length.
+	if ((*plaintext = malloc(ciphertext_len)) == NULL)
+		return -1;
+
+	cctx->decryption_counter_prev = cctx->decryption_counter;
+
+	// Only enter the loop while a full length prefix is readable.
+	for (plain_block = *plaintext, cipher_block = ciphertext;
+	     (size_t)(ciphertext + ciphertext_len - cipher_block) >= sizeof(block_len); ) {
+		uint8_t len_le[sizeof(uint16_t)];
+
+		memcpy(len_le, cipher_block, sizeof(len_le));
+		block_len = le16_load(len_le);
+		if ((size_t)(ciphertext + ciphertext_len - cipher_block) <
+				(size_t)block_len + sizeof(block_len) + AP_AUTHTAG_LENGTH) {
+			// The remaining ciphertext doesn't contain an entire block, so stop
+			break;
+		}
+
+		memcpy(tag, cipher_block + sizeof(block_len) + block_len, sizeof(tag));
+		le64_store(nonce + 4, cctx->decryption_counter);
+
+		ret = chacha20_poly1305_decrypt(plain_block, cipher_block + sizeof(block_len), block_len, cctx->decryption_key, sizeof(cctx->decryption_key), len_le, sizeof(len_le), tag, sizeof(tag), nonce);
+		if (ret < 0) {
+			pw_log_error("Decryption with chacha poly1305 failed");
+			cctx->decryption_counter = cctx->decryption_counter_prev;
+			free(*plaintext);
+			*plaintext = NULL;
+			return -1;
+		}
+
+		plain_block += block_len;
+		cipher_block += block_len + sizeof(block_len) + AP_AUTHTAG_LENGTH;
+		cctx->decryption_counter++;
+	}
+
+	*plaintext_len = plain_block - *plaintext;
+
+	return cipher_block - ciphertext;
+}
+
 static int rtsp_do_setup(struct impl *impl)
 {
 	int res;
@@ -1092,28 +2116,116 @@ static int rtsp_do_setup(struct impl *impl)
 		if (impl->timing_source == NULL)
 			goto error;
 
-		pw_properties_setf(impl->headers, "Transport",
-				"RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;"
-				"control_port=%u;timing_port=%u",
-				impl->control_port, impl->timing_port);
+		switch (impl->encryption) {
+		case CRYPTO_PAIR_TRANSIENT:
+		case CRYPTO_PAIR_HOMEKIT:
+		case CRYPTO_PAIR_APPLE: {
+			/* AirPlay 2 Session SETUP
+			 * First SETUP request establishes the session with
+			 * deviceID, sessionUUID, timingPort, timingProtocol */
+			plist_t root_plist;
+			uint8_t *plist_bin = NULL;
+			size_t plist_len = 0;
+			char device_id[24];
+			int ip_version;
+			char local_ip[INET6_ADDRSTRLEN];
+
+			pw_rtsp_client_get_local_ip(impl->rtsp, &ip_version, local_ip, sizeof(local_ip));
+
+			/* Generate session UUID if not already set */
+			if (impl->session_uuid[0] == '\0') {
+				uint8_t uuid_bytes[16];
+				if (pw_getrandom(uuid_bytes, sizeof(uuid_bytes), 0) < 0) {
+					pw_log_error("Failed to generate session UUID");
+					goto error;
+				}
+				snprintf(impl->session_uuid, sizeof(impl->session_uuid),
+					"%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+					uuid_bytes[0], uuid_bytes[1], uuid_bytes[2], uuid_bytes[3],
+					uuid_bytes[4], uuid_bytes[5], uuid_bytes[6], uuid_bytes[7],
+					uuid_bytes[8], uuid_bytes[9], uuid_bytes[10], uuid_bytes[11],
+					uuid_bytes[12], uuid_bytes[13], uuid_bytes[14], uuid_bytes[15]);
+			}
+
+			/* Create device ID from local IP (AA:BB:CC:DD:EE:FF format) */
+			uint8_t mac_bytes[6];
+			if (pw_getrandom(mac_bytes, sizeof(mac_bytes), 0) < 0) {
+				pw_log_error("Failed to generate device ID");
+				goto error;
+			}
+			snprintf(device_id, sizeof(device_id), "%02X:%02X:%02X:%02X:%02X:%02X",
+				mac_bytes[0], mac_bytes[1], mac_bytes[2],
+				mac_bytes[3], mac_bytes[4], mac_bytes[5]);
+
+			root_plist = plist_new_dict();
+			wplist_dict_add_string(root_plist, "deviceID", device_id);
+			wplist_dict_add_string(root_plist, "sessionUUID", impl->session_uuid);
+			wplist_dict_add_uint(root_plist, "timingPort", impl->timing_port);
+			wplist_dict_add_string(root_plist, "timingProtocol", "NTP");
+
+			if (wplist_to_bin(&plist_bin, &plist_len, root_plist) < 0) {
+				pw_log_error("Failed to serialize session SETUP plist");
+				plist_free(root_plist);
+				goto error;
+			}
+
+			const char *url = pw_rtsp_client_get_url(impl->rtsp);
+
+			/* Enable the encrypted control channel if pairing has not
+			 * already installed it. */
+			if (!impl->cipher_ctx) {
+				if (install_control_cipher(impl, AP_CONTROL_SALT, AP_CONTROL_ENC_INFO,
+							AP_CONTROL_SALT, AP_CONTROL_DEC_INFO) < 0) {
+					plist_free(root_plist);
+					free(plist_bin);
+					goto error;
+				}
+			}
+
+			res = pw_rtsp_client_url_send(impl->rtsp, url, "SETUP", &impl->headers->dict,
+						"application/x-apple-binary-plist", plist_bin, plist_len,
+						rtsp_ap2_setup_session_reply, impl);
+
+			plist_free(root_plist);
+			free(plist_bin);
+
+			return res;
+		}
+		default:
+			pw_properties_setf(impl->headers, "Transport",
+					"RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;"
+					"control_port=%u;timing_port=%u",
+					impl->control_port, impl->timing_port);
+		}
+
 		break;
 
 	default:
 		return -ENOTSUP;
 	}
 
-	res = rtsp_send(impl, "SETUP", NULL, NULL, rtsp_setup_reply);
+	res = rtsp_send(impl, "SETUP", NULL, NULL, rtsp_raop_setup_reply);
 
 	pw_properties_set(impl->headers, "Transport", NULL);
 
 	return res;
 error:
-	if (impl->control_fd > 0)
+	/* Destroy the timing source (if already created) BEFORE closing its fd, so
+	 * the loop performs EPOLL_CTL_DEL while the fd is still valid and we do not
+	 * leak the source or leave it bound to a recycled fd. Mirrors
+	 * connection_cleanup's ordering. */
+	if (impl->timing_source != NULL) {
+		pw_loop_destroy_source(impl->loop, impl->timing_source);
+		impl->timing_source = NULL;
+	}
+	if (impl->control_fd >= 0) {
 		close(impl->control_fd);
-	impl->control_fd = -1;
-	if (impl->timing_fd > 0)
+		impl->control_fd = -1;
+	}
+	if (impl->timing_fd >= 0) {
 		close(impl->timing_fd);
-	impl->timing_fd = -1;
+		impl->timing_fd = -1;
+	}
 	return -EIO;
 }
 
@@ -1494,6 +2606,1077 @@ static int rtsp_do_raop_auth(struct impl *impl, const struct spa_dict *headers)
 	return res;
 }
 
+static tlv_values_t * tlv_message_process(const uint8_t *data, size_t data_len)
+{
+	tlv_values_t *response;
+	tlv_t *error;
+	int ret;
+
+	pw_log_debug("tlv: processing tlv message");
+
+	response = tlv_new();
+	if (!response) {
+		pw_log_error("tlv: Out of memory");
+		return NULL;
+	}
+
+	ret = tlv_parse(data, data_len, response);
+	if (ret < 0) {
+		pw_log_error("tlv: Could not parse TLV");
+		goto error;
+	}
+	
+  	for (tlv_t *t=response->head; t; t=t->next) {
+		pw_log_debug("tlv: parsed type %d value (%zu bytes)", t->type, t->size);
+	}
+
+	error = tlv_get_value(response, AP2_TLVType_Error);
+	if (error) {
+		/* A zero-length Error TLV parses with value == NULL; never index it. */
+		uint8_t code = (error->size >= 1) ? error->value[0] : 0;
+		if (code == AP2_TLVError_Authentication)
+			pw_log_error("tlv: Device returned an authentication failure");
+		else if (code == AP2_TLVError_Backoff)
+			pw_log_error("tlv: Device told us to back off pairing attempts");
+		else if (code == AP2_TLVError_MaxPeers)
+			pw_log_error("tlv: Max peers trying to connect to device");
+	  	else if (code == AP2_TLVError_MaxTries)
+			pw_log_error("tlv: Max pairing attempts reached");
+	  	else if (code == AP2_TLVError_Unavailable)
+			pw_log_error("tlv: Device is unavailable at this time");
+		else
+			pw_log_error("tlv: Device is busy/returned unknown error (%u)", code);
+
+		goto error;
+	}
+
+  return response;
+
+error:
+	tlv_free(response);
+	return NULL;
+}
+
+static int rtsp_ap2_pair_setup2_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	tlv_values_t *response;
+	tlv_t *proof;
+	const uint8_t *session_key;
+	int session_key_len;
+	uint32_t content_length;
+	const char *str;
+
+	pw_log_info("pair-setup (req 2) status: %d", status);
+
+	if (status != 200) {
+		pw_log_error("pair-setup (req 2): Server returned error %d", status);
+		return -1;
+	}
+
+	if ((str = spa_dict_lookup(headers, "Content-Length")) == NULL) {
+		pw_log_error("pair-setup (req 2) res: Missing Content-Length");
+		return -1;
+	}
+	
+	if (!spa_atou32(str, &content_length, 0)) {
+		pw_log_error("pair-setup (req 2) res: Could not read Content-Length");
+		return -1;
+	}
+	pw_log_debug("pair-setup (req 2) res: Content-Length: %s", str);
+
+	/* Bound the parse by the actually-buffered body: a peer-declared
+	 * Content-Length larger than what we received would read past content->data. */
+	response = tlv_message_process((const uint8_t *)content->data,
+			SPA_MIN((size_t) content_length, content->size));
+	if (!response) {
+		pw_log_error("pair-setup (req 2) res: Received an error");
+		return -1;
+	}
+
+	proof = tlv_get_value(response, AP2_TLVType_Proof);
+	if (!proof || proof->size != SHA512_DIGEST_LENGTH) {
+		pw_log_error("pair-setup (req 2) res: Missing or invalid proof");
+		goto error;
+	}
+
+	impl->M2_len = proof->size;
+  	impl->M2 = malloc(impl->M2_len);
+	if (impl->M2 == NULL) {
+		pw_log_error("pair-setup (req 2) res: out of memory");
+		goto error;
+	}
+  	memcpy(impl->M2, proof->value, impl->M2_len);
+
+	// Check M2
+	srp_user_verify_session(impl->srp_user, (const unsigned char *)impl->M2);
+	if (!srp_user_is_authenticated(impl->srp_user)) {
+		pw_log_error("pair-setup (req 2) res: Server authentication failed");
+		goto error;
+	}
+
+	session_key = srp_user_get_session_key(impl->srp_user, &session_key_len);
+	if (!session_key) {
+		pw_log_error("pair-setup (req 2) res: Could not compute session key");
+		goto error;
+	}
+
+	if (sizeof(impl->shared_secret) < (unsigned long int) session_key_len) {
+		pw_log_error("pair-setup (req 2) res: invalid session key");
+		goto error;
+	}
+
+	memcpy(impl->shared_secret, session_key, session_key_len);
+	impl->shared_secret_len = session_key_len;
+
+	tlv_free(response);
+
+	/* Full (HomeKit/Apple) pairing: continue with M5/M6 to exchange long-term
+	 * keys and obtain a persistent authorization key. Transient pairing stops
+	 * here and derives the ephemeral control cipher directly. */
+	if (impl->pairing_pin)
+		return rtsp_do_ap2_pair_setup3(impl);
+
+	// After successful transient pairing, derive and install the control-channel
+	// encryption keys (HKDF-SHA-512) so the SETUP request goes out encrypted.
+	if (impl->shared_secret_len > 0) {
+		if (install_control_cipher(impl, AP_CONTROL_SALT, AP_CONTROL_ENC_INFO,
+					AP_CONTROL_SALT, AP_CONTROL_DEC_INFO) < 0)
+			return -1;
+		pw_log_info("Derived encryption keys for both directions after pairing");
+	}
+
+	pw_log_info("received shared secret");
+
+	pw_properties_set(impl->headers, "X-Apple-HKP", NULL);
+
+	return rtsp_do_setup(impl);
+
+error:
+	tlv_free(response);
+	return -1;
+}
+
+/* Persist the freshly-minted authorization key: log it (so it can be added to
+ * raop.auth_key) and, if raop.auth-key-file is configured, write it there. */
+static void pairing_store_auth_key(struct impl *impl)
+{
+	char hex[2 * (AP_ED25519_PRIVATE_KEY_LENGTH + AP_ED25519_PUBLIC_KEY_LENGTH) + 1];
+	const char *path;
+
+	bytes_to_hex(hex, impl->client_private_key, AP_ED25519_PRIVATE_KEY_LENGTH);
+	bytes_to_hex(hex + 2 * AP_ED25519_PRIVATE_KEY_LENGTH,
+			impl->server_public_key, AP_ED25519_PUBLIC_KEY_LENGTH);
+
+	free(impl->auth_key);
+	impl->auth_key = strdup(hex);
+
+	pw_log_info("AirPlay pairing complete. Set raop.auth_key to this value "
+			"(and remove raop.pairing-pin) to connect from now on:\n  %s", hex);
+
+	if ((path = pw_properties_get(impl->props, "raop.auth-key-file")) != NULL) {
+		FILE *f = fopen(path, "we");
+		if (f == NULL) {
+			pw_log_warn("Could not write auth key to '%s': %m", path);
+		} else {
+			fprintf(f, "%s\n", hex);
+			fclose(f);
+			pw_log_info("Wrote authorization key to '%s'", path);
+		}
+	}
+}
+
+/* Pair-setup M6: decrypt the accessory's long-term public key, verify its
+ * signature, and store the resulting authorization key. */
+static int rtsp_ap2_pair_setup3_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	tlv_values_t *response, *inner = NULL;
+	tlv_t *err, *encrypted, *acc_id, *acc_pk, *acc_sig;
+	uint8_t session_key[32], sign_key[32];
+	uint8_t accessory_info[256];
+	uint8_t nonce[AP_NONCE_LENGTH] = { 0 };
+	uint8_t *decrypted = NULL;
+	size_t encrypted_len, accessory_info_len;
+	int ret;
+
+	if (status != 200) {
+		pw_log_error("pair-setup (req 3) status: %d", status);
+		return -1;
+	}
+
+	response = tlv_message_process((const uint8_t *)content->data, content->size);
+	if (!response) {
+		pw_log_error("pair-setup (req 3) res: TLV parse error");
+		return -1;
+	}
+
+	err = tlv_get_value(response, AP2_TLVType_Error);
+	if (err && err->size >= 1 && err->value[0] != 0) {
+		pw_log_error("pair-setup (req 3) res: accessory error %d (wrong PIN?)", err->value[0]);
+		goto error;
+	}
+
+	encrypted = tlv_get_value(response, AP2_TLVType_EncryptedData);
+	if (!encrypted || encrypted->size <= AP_AUTHTAG_LENGTH) {
+		pw_log_error("pair-setup (req 3) res: missing encrypted data");
+		goto error;
+	}
+
+	if (hkdf_extract_expand(session_key, sizeof(session_key), impl->shared_secret,
+			impl->shared_secret_len, AP_PAIR_SETUP_ENC_SALT, AP_PAIR_SETUP_ENC_INFO) < 0) {
+		pw_log_error("pair-setup (req 3) res: hkdf failed");
+		goto error;
+	}
+
+	encrypted_len = encrypted->size - AP_AUTHTAG_LENGTH;
+	decrypted = malloc(encrypted_len);
+	if (decrypted == NULL)
+		goto error;
+	memcpy(nonce + 4, "PS-Msg06", 8);
+	ret = chacha20_poly1305_decrypt(decrypted, encrypted->value, encrypted_len,
+			session_key, sizeof(session_key), NULL, 0,
+			encrypted->value + encrypted_len, AP_AUTHTAG_LENGTH, nonce);
+	if (ret < 0) {
+		pw_log_error("pair-setup (req 3) res: decryption failed");
+		goto error;
+	}
+
+	inner = tlv_message_process(decrypted, encrypted_len);
+	if (!inner) {
+		pw_log_error("pair-setup (req 3) res: inner TLV parse error");
+		goto error;
+	}
+
+	acc_id = tlv_get_value(inner, AP2_TLVType_Identifier);
+	acc_pk = tlv_get_value(inner, AP2_TLVType_PublicKey);
+	acc_sig = tlv_get_value(inner, AP2_TLVType_Signature);
+	if (!acc_id || !acc_pk || !acc_sig ||
+	    acc_pk->size != AP_ED25519_PUBLIC_KEY_LENGTH ||
+	    acc_sig->size != AP_ED25519_SIGNATURE_LENGTH) {
+		pw_log_error("pair-setup (req 3) res: missing/invalid accessory fields");
+		goto error;
+	}
+
+	/* Verify the accessory's signature over AccessoryX || pairingID || LTPK. */
+	if (hkdf_extract_expand(sign_key, sizeof(sign_key), impl->shared_secret,
+			impl->shared_secret_len, AP_PAIR_SETUP_ACCESSORY_SIGN_SALT,
+			AP_PAIR_SETUP_ACCESSORY_SIGN_INFO) < 0)
+		goto error;
+
+	accessory_info_len = sizeof(sign_key) + acc_id->size + acc_pk->size;
+	if (accessory_info_len > sizeof(accessory_info)) {
+		pw_log_error("pair-setup (req 3) res: accessory_info too small");
+		goto error;
+	}
+	memcpy(accessory_info, sign_key, sizeof(sign_key));
+	memcpy(accessory_info + sizeof(sign_key), acc_id->value, acc_id->size);
+	memcpy(accessory_info + sizeof(sign_key) + acc_id->size, acc_pk->value, acc_pk->size);
+
+	if (ed25519_verify(acc_sig->value, accessory_info, accessory_info_len, acc_pk->value) < 0) {
+		pw_log_error("pair-setup (req 3) res: accessory signature verification failed");
+		goto error;
+	}
+
+	memcpy(impl->server_public_key, acc_pk->value, AP_ED25519_PUBLIC_KEY_LENGTH);
+	impl->have_server_public_key = true;
+
+	pairing_store_auth_key(impl);
+
+	free(decrypted);
+	tlv_free(inner);
+	tlv_free(response);
+	pw_properties_set(impl->headers, "X-Apple-HKP", NULL);
+	/* Pairing is a one-time provisioning step; the caller reconnects with
+	 * raop.auth_key set (and raop.pairing-pin removed) to stream. */
+	return 0;
+
+error:
+	free(decrypted);
+	tlv_free(inner);
+	tlv_free(response);
+	return -1;
+}
+
+/* Pair-setup M5: send our long-term public key, identifier and a signature,
+ * encrypted under the SRP-derived session key. */
+static int rtsp_do_ap2_pair_setup3(struct impl *impl)
+{
+	tlv_values_t *request, *inner_tlv;
+	uint8_t *data, *inner_data, *encrypted_data;
+	size_t data_len = AP_REQUEST_BUFSIZE, inner_data_len, encrypted_data_len;
+	size_t device_info_len, id_len = strlen(impl->device_id);
+	uint8_t session_key[32], sign_key[32];
+	uint8_t device_info[256];
+	uint8_t signature[AP_ED25519_SIGNATURE_LENGTH];
+	uint8_t nonce[AP_NONCE_LENGTH] = { 0 };
+	uint8_t tag[AP_AUTHTAG_LENGTH];
+	uint8_t state = 0x05;
+	int ret;
+
+	/* Generate the controller long-term Ed25519 key pair (persisted below). */
+	if (ed25519_keypair(impl->client_public_key, impl->client_private_key) < 0) {
+		pw_log_error("pair-setup 3: failed to generate long-term key");
+		return -1;
+	}
+
+	/* Bind our pairing identifier to the just-minted identity so a later
+	 * pair-verify (which re-derives it via parse_auth_key) presents the same
+	 * Identifier the accessory is about to record. */
+	derive_device_id(impl);
+
+	/* SessionKey encrypts M5/M6; the controller sign key is folded into the
+	 * signed device info. */
+	if (hkdf_extract_expand(session_key, sizeof(session_key), impl->shared_secret,
+			impl->shared_secret_len, AP_PAIR_SETUP_ENC_SALT, AP_PAIR_SETUP_ENC_INFO) < 0 ||
+	    hkdf_extract_expand(sign_key, sizeof(sign_key), impl->shared_secret,
+			impl->shared_secret_len, AP_PAIR_SETUP_CONTROLLER_SIGN_SALT,
+			AP_PAIR_SETUP_CONTROLLER_SIGN_INFO) < 0) {
+		pw_log_error("pair-setup 3: hkdf failed");
+		return -1;
+	}
+
+	/* iOSDeviceInfo = iOSDeviceX || iOSDevicePairingID || iOSDeviceLTPK */
+	device_info_len = sizeof(sign_key) + id_len + AP_ED25519_PUBLIC_KEY_LENGTH;
+	if (device_info_len > sizeof(device_info)) {
+		pw_log_error("pair-setup 3: device_info buffer too small");
+		return -1;
+	}
+	memcpy(device_info, sign_key, sizeof(sign_key));
+	memcpy(device_info + sizeof(sign_key), impl->device_id, id_len);
+	memcpy(device_info + sizeof(sign_key) + id_len, impl->client_public_key,
+			AP_ED25519_PUBLIC_KEY_LENGTH);
+
+	if (ed25519_sign(signature, device_info, device_info_len, impl->client_private_key) < 0) {
+		pw_log_error("pair-setup 3: ed25519_sign failed");
+		return -1;
+	}
+
+	/* Inner sub-TLV: Identifier, PublicKey, Signature. */
+	inner_tlv = tlv_new();
+	inner_data_len = AP_REQUEST_BUFSIZE;
+	inner_data = malloc(inner_data_len);
+	if (inner_tlv == NULL || inner_data == NULL) {
+		pw_log_error("pair-setup 3: out of memory");
+		tlv_free(inner_tlv);
+		free(inner_data);
+		return -1;
+	}
+	tlv_add_value(inner_tlv, AP2_TLVType_Identifier, (const uint8_t *)impl->device_id, id_len);
+	tlv_add_value(inner_tlv, AP2_TLVType_PublicKey, impl->client_public_key, AP_ED25519_PUBLIC_KEY_LENGTH);
+	tlv_add_value(inner_tlv, AP2_TLVType_Signature, signature, sizeof(signature));
+
+	ret = tlv_format(inner_tlv, inner_data, &inner_data_len);
+	tlv_free(inner_tlv);
+	if (ret < 0) {
+		pw_log_error("pair-setup 3: inner tlv_format error");
+		free(inner_data);
+		return -1;
+	}
+
+	/* Encrypt the inner sub-TLV under the session key (nonce PS-Msg05). */
+	memcpy(nonce + 4, "PS-Msg05", 8);
+	encrypted_data_len = inner_data_len + sizeof(tag);
+	encrypted_data = malloc(encrypted_data_len);
+	if (encrypted_data == NULL) {
+		pw_log_error("pair-setup 3: out of memory");
+		free(inner_data);
+		return -1;
+	}
+	ret = chacha20_poly1305_encrypt(encrypted_data, inner_data, inner_data_len,
+			session_key, sizeof(session_key), NULL, 0, tag, sizeof(tag), nonce);
+	free(inner_data);
+	if (ret < 0) {
+		pw_log_error("pair-setup 3: encryption failed");
+		free(encrypted_data);
+		return -1;
+	}
+	memcpy(encrypted_data + inner_data_len, tag, sizeof(tag));
+
+	request = tlv_new();
+	data = malloc(data_len);
+	if (request == NULL || data == NULL) {
+		pw_log_error("pair-setup 3: out of memory");
+		tlv_free(request);
+		free(data);
+		free(encrypted_data);
+		return -1;
+	}
+	tlv_add_value(request, AP2_TLVType_State, &state, sizeof(state));
+	tlv_add_value(request, AP2_TLVType_EncryptedData, encrypted_data, encrypted_data_len);
+	free(encrypted_data);
+
+	ret = tlv_format(request, data, &data_len);
+	tlv_free(request);
+	if (ret < 0) {
+		pw_log_error("pair-setup 3: tlv_format error");
+		free(data);
+		return -1;
+	}
+
+	pw_properties_set(impl->headers, "X-Apple-HKP", "3");
+	ret = pw_rtsp_client_url_send(impl->rtsp, "/pair-setup", "POST", &impl->headers->dict,
+			"application/octet-stream", data, data_len, rtsp_ap2_pair_setup3_reply, impl);
+	free(data);
+	return ret;
+}
+
+static int rtsp_do_ap2_pair_setup2(struct impl *impl)
+{
+	tlv_values_t *request;
+	uint8_t *data;
+	size_t data_len = AP_REQUEST_BUFSIZE;
+	const char *auth_username = NULL;
+	int ret;
+	// TLV Pairing Message State
+	uint8_t state = 0x03;
+
+	data = malloc(data_len);
+	request = tlv_new();
+	if (data == NULL || request == NULL) {
+		pw_log_error("pair-setup 2: out of memory");
+		goto error;
+	}
+
+	// Calculate A
+	srp_user_start_authentication(impl->srp_user, &auth_username, &impl->pkA, &impl->pkA_len);
+
+	// Calculate M1 (client proof)
+	srp_user_process_challenge(impl->srp_user, impl->salt, impl->salt_len, impl->pkB, impl->pkB_len, &impl->M1, &impl->M1_len);
+
+	/* A degenerate server public key (B % N == 0) makes the SRP-6a safety
+	 * check fail and leaves no client proof. Abort rather than sending an
+	 * empty proof and continuing with an all-zero, attacker-known secret. */
+	if (impl->M1 == NULL || impl->M1_len == 0) {
+		pw_log_error("pair-setup 2: SRP produced no client proof; aborting");
+		goto error;
+	}
+
+	tlv_add_value(request, AP2_TLVType_State, &state, sizeof(state));
+	tlv_add_value(request, AP2_TLVType_PublicKey, impl->pkA, impl->pkA_len);
+	tlv_add_value(request, AP2_TLVType_Proof, impl->M1, impl->M1_len);
+
+	ret = tlv_format(request, data, &data_len);
+	if (ret < 0) {
+		pw_log_error("pair-setup 2: tlv_format returned an error");
+		goto error;
+	}
+
+  	for (tlv_t *t=request->head; t; t=t->next) {
+		pw_log_debug("pair-setup 2: sending TLV type %d (bytes: %zu)", t->type, t->size);
+	}
+
+	tlv_free(request);
+
+   	ret = pw_rtsp_client_url_send(impl->rtsp, "/pair-setup", "POST", &impl->headers->dict,
+				"application/octet-stream", data, data_len,
+				rtsp_ap2_pair_setup2_reply, impl);
+	free(data);
+	return ret;
+
+error:
+	tlv_free(request);
+	free(data);
+	return -1;
+}
+
+static int rtsp_ap2_pair_setup1_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	uint32_t content_length;
+	const char *len_str;
+	tlv_values_t *response;
+	tlv_t *pk;
+	tlv_t *salt;
+
+	pw_log_info("pair-setup (req 1) status: %d", status);
+
+	if (status != 200) {
+		pw_log_error("pair-setup (req 1): Server returned error %d", status);
+		return -1;
+	}
+
+	if ((len_str = spa_dict_lookup(headers, "Content-Length")) == NULL) {
+		pw_log_error("pair-setup (req 1) res: Missing Content-Length header");
+		return -1;
+	}
+	
+	if (!spa_atou32(len_str, &content_length, 0)) {
+		pw_log_error("pair-setup (req 1) res: Could not read Content-Length header");
+		return -1;
+	}
+	pw_log_debug("pair-setup (req 1) content len: %d", content_length);
+
+	/* Bound the parse by the actually-buffered body: a peer-declared
+	 * Content-Length larger than what we received would read past content->data. */
+	response = tlv_message_process((const uint8_t *)content->data,
+			SPA_MIN((size_t) content_length, content->size));
+	if (!response) {
+		pw_log_error("pair-setup (req 1) res: message process error");
+		return -1;
+	}
+
+	pk = tlv_get_value(response, AP2_TLVType_PublicKey);
+	if (!pk) {
+		pw_log_error("pair-setup (req 1) res: missing public key");
+		goto error;
+	}
+	if (pk->size > (long unsigned int) get_N_len(SRP_NG_3072)) {
+		pw_log_error("pair-setup (req 1) res: invalid public key");
+		goto error;
+	}
+
+	salt = tlv_get_value(response, AP2_TLVType_Salt);
+	if (!salt) {
+		pw_log_error("pair-setup (req 1) res: missing salt");
+		goto error;
+	}
+	if (salt->size != 16) {
+		pw_log_error("pair-setup (req 1) res: invalid salt");
+		goto error;
+	}
+
+	impl->pkB_len = pk->size;
+	impl->pkB = malloc(impl->pkB_len);
+	impl->salt_len = salt->size;
+	impl->salt = malloc(impl->salt_len);
+	if (impl->pkB == NULL || impl->salt == NULL) {
+		pw_log_error("pair-setup (req 1) res: out of memory");
+		goto error;
+	}
+	memcpy(impl->pkB, pk->value, impl->pkB_len);
+	memcpy(impl->salt, salt->value, impl->salt_len);
+
+	tlv_free(response);
+
+	return rtsp_do_ap2_pair_setup2(impl);
+
+error:
+	tlv_free(response);
+	return -1;
+}
+
+/* The HomeKit controller pairing identifier must be identical at pair-setup
+ * (when the accessory records our long-term public key under it) and at every
+ * later pair-verify. Derive it deterministically from our long-term Ed25519
+ * public key so it stays stable across module restarts without persisting a
+ * separate value alongside the auth key. */
+static void derive_device_id(struct impl *impl)
+{
+	snprintf(impl->device_id, sizeof(impl->device_id),
+		"%02X:%02X:%02X:%02X:%02X:%02X",
+		impl->client_public_key[0], impl->client_public_key[1],
+		impl->client_public_key[2], impl->client_public_key[3],
+		impl->client_public_key[4], impl->client_public_key[5]);
+}
+
+// Parse auth_key string from pair-setup: format is "<64 bytes client private key hex><32 bytes server public key hex>"
+static int parse_auth_key(struct impl *impl, const char *auth_key)
+{
+	size_t len;
+
+	if (!auth_key)
+		return -1;
+
+	len = strlen(auth_key);
+	// Auth key can be just the private key (128 hex chars) or private key + server public key (192 hex chars)
+	if (len == 2 * AP_ED25519_PRIVATE_KEY_LENGTH + 2 * AP_ED25519_PUBLIC_KEY_LENGTH) {
+		hexread(impl->client_private_key, sizeof(impl->client_private_key), auth_key);
+		hexread(impl->server_public_key, sizeof(impl->server_public_key),
+			auth_key + 2 * AP_ED25519_PRIVATE_KEY_LENGTH);
+		impl->have_server_public_key = true;
+	} else if (len == 2 * AP_ED25519_PRIVATE_KEY_LENGTH) {
+		hexread(impl->client_private_key, sizeof(impl->client_private_key), auth_key);
+		memset(impl->server_public_key, 0, sizeof(impl->server_public_key));
+		impl->have_server_public_key = false;
+	} else {
+		return -1;
+	}
+
+	// Extract public key from private key (Ed25519 private key contains the public key in the last 32 bytes)
+	memcpy(impl->client_public_key, impl->client_private_key + AP_ED25519_PUBLIC_KEY_LENGTH,
+	       AP_ED25519_PUBLIC_KEY_LENGTH);
+
+	/* Restore the same controller pairing identifier the accessory recorded at
+	 * pair-setup, so pair-verify presents a matching identity across restarts. */
+	derive_device_id(impl);
+
+	return 0;
+}
+
+static int rtsp_ap2_pair_verify2_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	tlv_values_t *response;
+	uint32_t content_length;
+	const char *str;
+
+	pw_log_info("pair-verify (req 2) status: %d", status);
+
+	if (status != 200) {
+		pw_log_error("pair-verify (req 2): Server returned error %d", status);
+		return -1;
+	}
+
+	if ((str = spa_dict_lookup(headers, "Content-Length")) == NULL) {
+		pw_log_error("pair-verify (req 2) res: Missing Content-Length");
+		return -1;
+	}
+
+	if (!spa_atou32(str, &content_length, 0)) {
+		pw_log_error("pair-verify (req 2) res: Could not read Content-Length");
+		return -1;
+	}
+
+	/* Bound the parse by the actually-buffered body: a peer-declared
+	 * Content-Length larger than what we received would read past content->data. */
+	response = tlv_message_process((const uint8_t *)content->data,
+			SPA_MIN((size_t) content_length, content->size));
+	if (!response) {
+		pw_log_error("pair-verify (req 2) res: Received an error");
+		return -1;
+	}
+
+	// The shared secret was already computed in pair-verify response 1.
+	// Now derive and install the cipher context for encrypted communication.
+	if (install_control_cipher(impl, AP_CONTROL_SALT, AP_CONTROL_ENC_INFO,
+				AP_CONTROL_SALT, AP_CONTROL_DEC_INFO) < 0) {
+		tlv_free(response);
+		return -1;
+	}
+
+	pw_log_info("pair-verify completed, cipher context established");
+
+	tlv_free(response);
+
+	pw_properties_set(impl->headers, "X-Apple-HKP", NULL);
+
+	return rtsp_do_setup(impl);
+}
+
+static int rtsp_do_ap2_pair_verify2(struct impl *impl)
+{
+	tlv_values_t *request;
+	uint8_t *data;
+	size_t data_len = AP_REQUEST_BUFSIZE;
+	uint8_t state = 0x03;  // State M3
+	uint8_t derived_key[32];
+	uint8_t nonce[AP_NONCE_LENGTH] = { 0 };
+	uint8_t tag[AP_AUTHTAG_LENGTH];
+	uint8_t device_info[256];
+	size_t device_info_len;
+	uint8_t signature[AP_ED25519_SIGNATURE_LENGTH];
+	uint8_t *encrypted_data = NULL;
+	size_t encrypted_data_len;
+	tlv_values_t *inner_tlv;
+	uint8_t *inner_data;
+	size_t inner_data_len;
+	int ret;
+
+	data = malloc(data_len);
+	request = tlv_new();
+	if (data == NULL || request == NULL) {
+		pw_log_error("pair-verify 2: out of memory");
+		goto error;
+	}
+
+	// Derive encryption key from shared secret
+	// Apple devices use different salt/info strings
+	const char *enc_salt = (impl->encryption == CRYPTO_PAIR_APPLE) ? 
+				 AP_PAIR_VERIFY_APPLE_SALT : AP_PAIR_VERIFY_ENC_SALT;
+	const char *enc_info = (impl->encryption == CRYPTO_PAIR_APPLE) ? 
+				 AP_PAIR_VERIFY_APPLE_INFO : AP_PAIR_VERIFY_ENC_INFO;
+	ret = hkdf_extract_expand(derived_key, sizeof(derived_key), 
+					 impl->shared_secret, impl->shared_secret_len,
+					 enc_salt, enc_info);
+	if (ret < 0) {
+		pw_log_error("pair-verify 2: hkdf error getting derived_key");
+		goto error;
+	}
+
+	// Create device info: client_eph_public_key || device_id || server_eph_public_key
+	device_info_len = sizeof(impl->client_eph_public_key) + strlen(impl->device_id) + sizeof(impl->server_eph_public_key);
+	if (device_info_len > sizeof(device_info)) {
+		pw_log_error("pair-verify 2: device_info buffer too small");
+		goto error;
+	}
+
+	memcpy(device_info, impl->client_eph_public_key, sizeof(impl->client_eph_public_key));
+	memcpy(device_info + sizeof(impl->client_eph_public_key), impl->device_id, strlen(impl->device_id));
+	memcpy(device_info + sizeof(impl->client_eph_public_key) + strlen(impl->device_id), 
+	       impl->server_eph_public_key, sizeof(impl->server_eph_public_key));
+
+	// Sign device info
+	ret = ed25519_sign(signature, device_info, device_info_len, impl->client_private_key);
+	if (ret < 0) {
+		pw_log_error("pair-verify 2: ed25519_sign failed");
+		goto error;
+	}
+
+	// Create inner TLV with identifier and signature
+	inner_tlv = tlv_new();
+	inner_data_len = AP_REQUEST_BUFSIZE;
+	inner_data = malloc(inner_data_len);
+	if (inner_tlv == NULL || inner_data == NULL) {
+		pw_log_error("pair-verify 2: out of memory");
+		tlv_free(inner_tlv);
+		free(inner_data);
+		goto error;
+	}
+	tlv_add_value(inner_tlv, AP2_TLVType_Identifier, (const uint8_t *)impl->device_id, strlen(impl->device_id));
+	tlv_add_value(inner_tlv, AP2_TLVType_Signature, signature, sizeof(signature));
+
+	ret = tlv_format(inner_tlv, inner_data, &inner_data_len);
+	tlv_free(inner_tlv);
+	if (ret < 0) {
+		pw_log_error("pair-verify 2: inner tlv_format returned an error");
+		free(inner_data);
+		goto error;
+	}
+
+	// Encrypt inner TLV
+	memcpy(nonce + 4, "PV-Msg03", 8);
+
+	encrypted_data_len = inner_data_len + sizeof(tag);
+	encrypted_data = malloc(encrypted_data_len);
+	if (encrypted_data == NULL) {
+		pw_log_error("pair-verify 2: out of memory");
+		free(inner_data);
+		goto error;
+	}
+
+	ret = chacha20_poly1305_encrypt(encrypted_data, inner_data, inner_data_len,
+					derived_key, sizeof(derived_key), NULL, 0, 
+					tag, sizeof(tag), nonce);
+	free(inner_data);
+	if (ret < 0) {
+		pw_log_error("pair-verify 2: chacha20 encryption failed");
+		goto error;
+	}
+
+	memcpy(encrypted_data + inner_data_len, tag, sizeof(tag));
+
+	// Build request TLV
+	tlv_add_value(request, AP2_TLVType_State, &state, sizeof(state));
+	tlv_add_value(request, AP2_TLVType_EncryptedData, encrypted_data, encrypted_data_len);
+
+	ret = tlv_format(request, data, &data_len);
+	if (ret < 0) {
+		pw_log_error("pair-verify 2: tlv_format returned an error");
+		goto error;
+	}
+
+	for (tlv_t *t = request->head; t; t = t->next) {
+		pw_log_debug("pair-verify 2: sending TLV type %d (bytes: %zu)", t->type, t->size);
+	}
+
+	tlv_free(request);
+	free(encrypted_data);
+
+	pw_properties_set(impl->headers, "X-Apple-HKP", "3");
+
+	ret = pw_rtsp_client_url_send(impl->rtsp, "/pair-verify", "POST", &impl->headers->dict,
+				"application/octet-stream", data, data_len,
+				rtsp_ap2_pair_verify2_reply, impl);
+	free(data);
+	return ret;
+
+error:
+	tlv_free(request);
+	free(encrypted_data);
+	free(data);
+	return -1;
+}
+
+static int rtsp_ap2_pair_verify1_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	tlv_values_t *response;
+	tlv_t *encrypted_data;
+	tlv_t *public_key;
+	uint32_t content_length;
+	const char *str;
+	uint8_t derived_key[32];
+	uint8_t nonce[AP_NONCE_LENGTH] = { 0 };
+	uint8_t tag[AP_AUTHTAG_LENGTH];
+	size_t encrypted_len;
+	uint8_t *decrypted_data = NULL;
+	tlv_values_t *inner_response;
+	tlv_t *device_id;
+	tlv_t *signature;
+	uint8_t device_info[256];
+	size_t device_info_len;
+	int ret;
+
+	pw_log_info("pair-verify (req 1) status: %d", status);
+
+	if (status != 200) {
+		pw_log_error("pair-verify (req 1): Server returned error %d - auth key may be invalid", status);
+		return -1;
+	}
+
+	if ((str = spa_dict_lookup(headers, "Content-Length")) == NULL) {
+		pw_log_error("pair-verify (req 1) res: Missing Content-Length");
+		return -1;
+	}
+
+	if (!spa_atou32(str, &content_length, 0)) {
+		pw_log_error("pair-verify (req 1) res: Could not read Content-Length");
+		return -1;
+	}
+
+	pw_log_debug("pair-verify (req 1) content len: %d", content_length);
+
+	/* Bound the parse by the actually-buffered body: a peer-declared
+	 * Content-Length larger than what we received would read past content->data. */
+	response = tlv_message_process((const uint8_t *)content->data,
+			SPA_MIN((size_t) content_length, content->size));
+	if (!response) {
+		pw_log_error("pair-verify (req 1) res: message process error");
+		return -1;
+	}
+
+	// Get server's ephemeral public key
+	public_key = tlv_get_value(response, AP2_TLVType_PublicKey);
+	if (!public_key || public_key->size != AP_X25519_KEY_LENGTH) {
+		pw_log_error("pair-verify (req 1) res: Missing or invalid public key");
+		goto error;
+	}
+
+	memcpy(impl->server_eph_public_key, public_key->value, sizeof(impl->server_eph_public_key));
+
+	// Compute shared secret
+	ret = x25519_shared_secret(impl->shared_secret, impl->client_eph_private_key, impl->server_eph_public_key);
+	if (ret < 0) {
+		pw_log_error("pair-verify (req 1) res: x25519 shared secret derivation failed");
+		goto error;
+	}
+	impl->shared_secret_len = AP_X25519_KEY_LENGTH;
+
+	// Derive decryption key
+	// Apple devices use different salt/info strings
+	const char *enc_salt = (impl->encryption == CRYPTO_PAIR_APPLE) ? 
+				 AP_PAIR_VERIFY_APPLE_SALT : AP_PAIR_VERIFY_ENC_SALT;
+	const char *enc_info = (impl->encryption == CRYPTO_PAIR_APPLE) ? 
+				 AP_PAIR_VERIFY_APPLE_INFO : AP_PAIR_VERIFY_ENC_INFO;
+	ret = hkdf_extract_expand(derived_key, sizeof(derived_key),
+					 impl->shared_secret, impl->shared_secret_len,
+					 enc_salt, enc_info);
+	if (ret < 0) {
+		pw_log_error("pair-verify (req 1) res: hkdf error");
+		goto error;
+	}
+
+	// Get encrypted data
+	encrypted_data = tlv_get_value(response, AP2_TLVType_EncryptedData);
+	if (!encrypted_data || encrypted_data->size < AP_AUTHTAG_LENGTH) {
+		pw_log_error("pair-verify (req 1) res: Missing or invalid encrypted data");
+		goto error;
+	}
+
+	encrypted_len = encrypted_data->size - AP_AUTHTAG_LENGTH;
+	memcpy(tag, encrypted_data->value + encrypted_len, AP_AUTHTAG_LENGTH);
+	memcpy(nonce + 4, "PV-Msg02", 8);
+
+	decrypted_data = malloc(encrypted_len);
+	if (decrypted_data == NULL) {
+		pw_log_error("pair-verify (req 1) res: out of memory");
+		goto error;
+	}
+	ret = chacha20_poly1305_decrypt(decrypted_data, encrypted_data->value, encrypted_len,
+					derived_key, sizeof(derived_key), NULL, 0,
+					tag, sizeof(tag), nonce);
+	if (ret < 0) {
+		pw_log_error("pair-verify (req 1) res: Decryption failed");
+		goto error;
+	}
+
+	// Parse inner TLV
+	inner_response = tlv_message_process(decrypted_data, encrypted_len);
+	if (!inner_response) {
+		pw_log_error("pair-verify (req 1) res: inner TLV parse error");
+		goto error;
+	}
+
+	device_id = tlv_get_value(inner_response, AP2_TLVType_Identifier);
+	signature = tlv_get_value(inner_response, AP2_TLVType_Signature);
+	if (!device_id || !signature || signature->size != AP_ED25519_SIGNATURE_LENGTH) {
+		pw_log_error("pair-verify (req 1) res: Missing identifier or signature");
+		tlv_free(inner_response);
+		goto error;
+	}
+
+	// Verify server signature (only if we have server's public key from pair-setup)
+	if (impl->have_server_public_key) {
+		// Create device info: server_eph_public_key || device_id || client_eph_public_key
+		device_info_len = sizeof(impl->server_eph_public_key) + device_id->size + sizeof(impl->client_eph_public_key);
+		if (device_info_len > sizeof(device_info)) {
+			pw_log_error("pair-verify (req 1) res: device_info buffer too small");
+			tlv_free(inner_response);
+			goto error;
+		}
+
+		memcpy(device_info, impl->server_eph_public_key, sizeof(impl->server_eph_public_key));
+		memcpy(device_info + sizeof(impl->server_eph_public_key), device_id->value, device_id->size);
+		memcpy(device_info + sizeof(impl->server_eph_public_key) + device_id->size, 
+		       impl->client_eph_public_key, sizeof(impl->client_eph_public_key));
+
+		ret = ed25519_verify(signature->value, device_info, device_info_len, impl->server_public_key);
+		if (ret < 0) {
+			pw_log_error("pair-verify (req 1) res: Invalid server signature");
+			tlv_free(inner_response);
+			goto error;
+		}
+		pw_log_info("pair-verify (req 1): Server signature verified");
+	} else {
+		/* Should be unreachable: rtsp_do_ap2_pair_verify1 refuses to start
+		 * without the accessory public key. Fail closed regardless. */
+		pw_log_error("pair-verify (req 1): no server public key to verify signature; aborting");
+		tlv_free(inner_response);
+		goto error;
+	}
+
+	tlv_free(inner_response);
+	free(decrypted_data);
+	tlv_free(response);
+
+	return rtsp_do_ap2_pair_verify2(impl);
+
+error:
+	free(decrypted_data);
+	tlv_free(response);
+	return -1;
+}
+
+static int rtsp_do_ap2_pair_verify1(struct impl *impl)
+{
+	tlv_values_t *request;
+	uint8_t *data;
+	size_t data_len = AP_REQUEST_BUFSIZE;
+	uint8_t state = 0x01;  // State M1
+	int ret;
+
+	// Parse the stored auth key
+	ret = parse_auth_key(impl, impl->auth_key);
+	if (ret < 0) {
+		pw_log_error("pair-verify 1: Invalid auth key format");
+		return -1;
+	}
+
+	/* Fail closed: without the accessory's long-term public key we cannot
+	 * verify its signature in M2, which would leave the X25519 exchange
+	 * unauthenticated and open to an active MITM. Refuse to send our
+	 * ephemeral key with a key-less (private-key-only) auth blob. */
+	if (!impl->have_server_public_key) {
+		pw_log_error("pair-verify 1: stored auth key has no accessory public key; "
+				"cannot authenticate the device. Re-pair to obtain a full key.");
+		return -1;
+	}
+
+	// Generate ephemeral X25519 key pair
+	ret = x25519_keypair(impl->client_eph_public_key, impl->client_eph_private_key);
+	if (ret < 0) {
+		pw_log_error("pair-verify 1: x25519 keygen failed");
+		return -1;
+	}
+
+	data = malloc(data_len);
+	request = tlv_new();
+	if (data == NULL || request == NULL) {
+		pw_log_error("pair-verify 1: out of memory");
+		goto error;
+	}
+
+	tlv_add_value(request, AP2_TLVType_State, &state, sizeof(state));
+	tlv_add_value(request, AP2_TLVType_PublicKey, impl->client_eph_public_key, sizeof(impl->client_eph_public_key));
+
+	ret = tlv_format(request, data, &data_len);
+	if (ret < 0) {
+		pw_log_error("pair-verify 1: tlv_format returned an error");
+		goto error;
+	}
+
+	for (tlv_t *t = request->head; t; t = t->next) {
+		pw_log_debug("pair-verify 1: sending TLV type %d value (%zu bytes)", t->type, t->size);
+	}
+
+	tlv_free(request);
+
+	pw_properties_set(impl->headers, "X-Apple-HKP", "3");
+
+	ret = pw_rtsp_client_url_send(impl->rtsp, "/pair-verify", "POST", &impl->headers->dict,
+				"application/octet-stream", data, data_len,
+				rtsp_ap2_pair_verify1_reply, impl);
+	free(data);
+	return ret;
+
+error:
+	tlv_free(request);
+	free(data);
+	return -1;
+}
+
+static int rtsp_do_ap2_pair_setup1(struct impl *impl)
+{
+	tlv_values_t *request;
+	uint8_t *data;
+	size_t data_len;
+	// TLV Pairing Method: Pair Setup
+	uint8_t method = 0x00;
+	// TLV Pairing Flags: Transient
+	uint8_t flags = 0x10;
+	// TLV Pairing Message State
+	uint8_t state = 0x01;
+	/* Transient pairing uses the fixed PIN 3939 and ephemeral keys. Full
+	 * (HomeKit/Apple) pairing uses the PIN shown on the Apple device and
+	 * produces a persistent authorization key. */
+	const char *pin = impl->pairing_pin ? impl->pairing_pin : "3939";
+	int ret;
+
+	data_len = AP_REQUEST_BUFSIZE;
+	data = malloc(data_len);
+	request = tlv_new();
+	if (data == NULL || request == NULL) {
+		pw_log_error("pair-setup 1: out of memory");
+		goto error;
+	}
+
+  	impl->srp_user = srp_user_new(SRP_SHA512, SRP_NG_3072, AP_SRP_USER_NAME, (unsigned char *)pin, strlen(pin), 0, 0);
+  	if (!impl->srp_user) {
+		pw_log_error("pair-setup 1: SRP user creation failed");
+		goto error;
+	}
+
+   	tlv_add_value(request, AP2_TLVType_State, &state, sizeof(state));
+  	tlv_add_value(request, AP2_TLVType_Method, &method, sizeof(method));
+	if (!impl->pairing_pin)
+		tlv_add_value(request, AP2_TLVType_Flags, &flags, sizeof(flags));
+
+  	ret = tlv_format(request, data, &data_len);
+  	if (ret < 0) {
+		pw_log_error("pair-setup 1: tlv_format returned an error");
+		goto error;
+	}
+
+  	for (tlv_t *t=request->head; t; t=t->next) {
+		pw_log_debug("pair-setup 1: sending TLV type %d value (%zu bytes)", t->type, t->size);
+	}
+
+  	tlv_free(request);
+
+	pw_properties_set(impl->headers, "X-Apple-HKP", impl->pairing_pin ? "3" : "4");
+
+	ret = pw_rtsp_client_url_send(impl->rtsp, "/pair-setup", "POST", &impl->headers->dict,
+				"application/octet-stream", (unsigned char *)data, data_len,
+				rtsp_ap2_pair_setup1_reply, impl);
+	free(data);
+	return ret;
+error:
+	tlv_free(request);
+	free(data);
+	return -1;
+}
+
 static int rtsp_raop_options_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
@@ -1518,37 +3701,191 @@ static int rtsp_raop_options_reply(void *data, int status, const struct spa_dict
 	return res;
 }
 
+static void rtsp_do_raop_options(void *data)
+{
+	struct impl *impl = data;
+	uint8_t rac[16];
+	char sac[16*4];
+
+	if (pw_getrandom(rac, sizeof(rac), 0) < 0) {
+		pw_log_error("error generating random data: %m");
+		return;
+	}
+
+	pw_base64_encode(rac, sizeof(rac), sac, '\0');
+	pw_properties_set(impl->headers, "Apple-Challenge", sac);
+
+	pw_rtsp_client_send(impl->rtsp, "OPTIONS", &impl->headers->dict,
+		NULL, NULL, rtsp_raop_options_reply, impl);
+
+	return;
+}
+
+// Status flags from device info (from openairplay spec)
+#define AIRPLAY_FLAG_PIN_REQUIRED                   (1 << 3)
+#define AIRPLAY_FLAG_PASSWORD_REQUIRED              (1 << 7)
+#define AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED      (1 << 9)
+#define AIRPLAY_FLAG_SETUP_HK_ACCESS_CTRL           (1 << 10)
+
+static int rtsp_get_info_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+	int res;
+
+	pw_log_info("info status: %d", status);
+	plist_t info;
+	res = wplist_from_bin(&info, content);
+	if (res < 0)
+		return res; 
+
+	plist_t features_plist = plist_dict_get_item(info, "features");
+	plist_t status_flags_plist = plist_dict_get_item(info, "statusFlags");
+	if (!features_plist || !status_flags_plist) {
+		pw_log_error("GET /info: missing features or statusFlags");
+		plist_free(info);
+		return -1;
+	}
+
+	/* plist_get_uint_val leaves the value untouched for a non-integer node,
+	 * so start from 0 rather than reading uninitialised memory. */
+	uint64_t features = 0, status_flags = 0;
+	plist_get_uint_val(features_plist, &features);
+	plist_get_uint_val(status_flags_plist, &status_flags);
+	pw_log_info("features value: 0x%" PRIx64, features);
+	pw_log_info("statusFlags value: 0x%" PRIx64 " (PIN:%d, Password:%d, OneTimePairing:%d)",
+		    status_flags,
+		    (int)!!(status_flags & AIRPLAY_FLAG_PIN_REQUIRED),
+		    (int)!!(status_flags & AIRPLAY_FLAG_PASSWORD_REQUIRED),
+		    (int)!!(status_flags & AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED));
+
+	plist_free(info);
+
+	/* Initial pairing: when a PIN is configured, run the full pair-setup to
+	 * mint and store a persistent authorization key (HomeKit/Apple devices),
+	 * regardless of the selected pair mode. */
+	if (impl->pairing_pin) {
+		pw_log_info("Starting AirPlay pairing with configured PIN");
+		return rtsp_do_ap2_pair_setup1(impl);
+	}
+
+	// Determine the appropriate pairing mode based on configuration and device
+	// status. Propagate a failed kickoff so dispatch_handler surfaces it as a
+	// terminal error and the sink is torn down rather than left wedged.
+	switch (impl->encryption) {
+	case CRYPTO_PAIR_HOMEKIT:
+		// HomeKit pairing for 3rd party devices with persistent keys
+		if (!impl->auth_key) {
+			pw_log_error("pair_homekit requested but no auth_key provided");
+			return -1;
+		}
+		pw_log_info("Using pair-verify with HomeKit parameters (3rd party device)");
+		return rtsp_do_ap2_pair_verify1(impl);
+	case CRYPTO_PAIR_APPLE:
+		// Apple pairing for Apple devices (Apple TV, HomePod)
+		if (!impl->auth_key) {
+			pw_log_error("pair_apple requested but no auth_key provided");
+			return -1;
+		}
+		pw_log_info("Using pair-verify with Apple parameters (Apple device)");
+		return rtsp_do_ap2_pair_verify1(impl);
+	case CRYPTO_PAIR_TRANSIENT:
+		// Transient pairing for 3rd party devices (no persistent keys)
+		if (status_flags & AIRPLAY_FLAG_ONE_TIME_PAIRING_REQUIRED) {
+			pw_log_warn("Device requires persistent pairing but transient was requested");
+			if (impl->auth_key) {
+				pw_log_info("Falling back to pair-verify with stored auth key");
+				impl->encryption = CRYPTO_PAIR_HOMEKIT;
+				return rtsp_do_ap2_pair_verify1(impl);
+			}
+			pw_log_error("Device requires pairing but no auth_key provided. Please pair first.");
+			return -1;
+		}
+		if (status_flags & AIRPLAY_FLAG_PIN_REQUIRED) {
+			pw_log_error("Device requires PIN authentication - transient pairing not supported");
+			return -1;
+		}
+		pw_log_info("Using transient pairing (3rd party device)");
+		return rtsp_do_ap2_pair_setup1(impl);
+	default:
+		rtsp_do_raop_options(impl);
+		return 0;
+	}
+}
+
 static void rtsp_connected(void *data)
 {
 	struct impl *impl = data;
 	uint32_t sci[2];
-	int res;
 
 	pw_log_info("connected");
 
 	impl->connected = true;
 
-	if ((res = pw_getrandom(sci, sizeof(sci), 0)) < 0) {
-		pw_log_error("error generating random data: %s", spa_strerror(res));
+	if (pw_getrandom(sci, sizeof(sci), 0) < 0) {
+		pw_log_error("error generating random data: %m");
 		return;
 	}
 
-	pw_properties_setf(impl->headers, "Client-Instance",
+	if (IS_AP2_ENCRYPTION(impl->encryption)) {
+		pw_properties_setf(impl->headers, "DACP-ID",
 			"%08X%08X", sci[0], sci[1]);
+		pw_properties_set(impl->headers, "User-Agent", AP_USER_AGENT);
 
-	pw_properties_setf(impl->headers, "DACP-ID",
+		/* AirPlay 2: GET /info first to get device capabilities, then pair-setup or pair-verify */
+		pw_rtsp_client_url_send(impl->rtsp, "/info", "GET", &impl->headers->dict,
+			NULL, NULL, 0,
+			rtsp_get_info_reply, impl);
+	} else {
+		/* Legacy RAOP: Send OPTIONS with Apple-Challenge */
+		pw_properties_setf(impl->headers, "Client-Instance",
 			"%08X%08X", sci[0], sci[1]);
+		pw_properties_setf(impl->headers, "DACP-ID",
+			"%08X%08X", sci[0], sci[1]);
+		pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_NAME "/" PACKAGE_VERSION);
+		rtsp_do_raop_options(impl);
+	}
 
-	pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_NAME "/" PACKAGE_VERSION);
+	return;
+}
 
-	pw_rtsp_client_send(impl->rtsp, "OPTIONS", &impl->headers->dict,
-			NULL, NULL, rtsp_raop_options_reply, impl);
+/* Tear the module down at most once. Fatal connection/handshake errors can
+ * arrive via several paths (socket error, reply-handler failure, disconnect);
+ * without a guard they would each schedule a separate destroy. */
+static void schedule_destroy_once(struct impl *impl)
+{
+	if (impl->destroying)
+		return;
+	impl->destroying = true;
+	pw_impl_module_schedule_destroy(impl->module);
 }
 
 static void connection_cleanup(struct impl *impl)
 {
 	impl->ready = false;
 	impl->auth_setup_auth_retry = false;
+	/* Stop the encode/send path: without this, stream_send_packet keeps
+	 * encrypting and writing to the now-closed server_fd after a drop. */
+	impl->recording = false;
+
+	/* Per-session SRP pair-setup state is re-created on the next attempt;
+	 * release it here so a reconnect (or repeated pair-setup) does not leak. */
+	if (impl->srp_user != NULL) {
+		srp_user_free(impl->srp_user);
+		impl->srp_user = NULL;
+	}
+	free(impl->pkB);
+	impl->pkB = NULL;
+	if (impl->salt != NULL) {
+		explicit_bzero(impl->salt, impl->salt_len);
+		free(impl->salt);
+		impl->salt = NULL;
+	}
+	if (impl->M2 != NULL) {
+		explicit_bzero(impl->M2, impl->M2_len);
+		free(impl->M2);
+		impl->M2 = NULL;
+	}
+
 	if (impl->server_source != NULL) {
 		pw_loop_destroy_source(impl->loop, impl->server_source);
 		impl->server_source = NULL;
@@ -1574,6 +3911,7 @@ static void connection_cleanup(struct impl *impl)
 		impl->timing_fd = -1;
 	}
 	pw_timer_queue_cancel(&impl->feedback_timer);
+	pw_timer_queue_cancel(&impl->handshake_timer);
 
 	rtsp_clear_auth(impl);
 }
@@ -1588,7 +3926,13 @@ static void rtsp_disconnected(void *data)
 
 static void rtsp_error(void *data, int res)
 {
-	pw_log_error("error %d", res);
+	struct impl *impl = data;
+	pw_log_error("error %d (%s)", res, spa_strerror(res));
+	/* A socket-level error or a failed reply handler is terminal: tear the
+	 * sink down so it does not linger connected-but-silent. For auto-created
+	 * sinks module-raop-discover will respawn a fresh one while the device is
+	 * still advertised. */
+	schedule_destroy_once(impl);
 }
 
 static void rtsp_message(void *data, int status,
@@ -1624,6 +3968,27 @@ static void stream_report_error(void *data, const char *error)
 	}
 }
 
+/* Bound the whole connect + handshake window. AirPlay 2 adds ~10 sequential
+ * round-trips; a device that accepts the TCP connection and then stalls (or
+ * under-delivers a Content-Length body) would otherwise wedge the sink forever.
+ * Cancelled once RECORD succeeds and in connection_cleanup. */
+#define AP_HANDSHAKE_TIMEOUT_SEC 15
+
+static void rtsp_handshake_timeout(void *data)
+{
+	struct impl *impl = data;
+	pw_log_error("timed out waiting for the device to complete the RTSP handshake");
+	schedule_destroy_once(impl);
+}
+
+static void arm_handshake_timeout(struct impl *impl)
+{
+	pw_timer_queue_cancel(&impl->handshake_timer);
+	pw_timer_queue_add(impl->timer_queue, &impl->handshake_timer, NULL,
+			AP_HANDSHAKE_TIMEOUT_SEC * SPA_NSEC_PER_SEC,
+			rtsp_handshake_timeout, impl);
+}
+
 static int rtsp_do_connect(struct impl *impl)
 {
 	const char *hostname, *port;
@@ -1631,10 +3996,21 @@ static int rtsp_do_connect(struct impl *impl)
 	int res;
 
 	if (impl->connected) {
-		if (!impl->ready)
+		if (!impl->ready) {
+			/* Re-establish the session on the existing connection. AirPlay 2
+			 * restarts from GET /info (pairing is still valid); legacy RAOP
+			 * re-announces. */
+			arm_handshake_timeout(impl);
+			if (IS_AP2_ENCRYPTION(impl->encryption))
+				return pw_rtsp_client_url_send(impl->rtsp, "/info", "GET",
+						&impl->headers->dict, NULL, NULL, 0,
+						rtsp_get_info_reply, impl);
 			return rtsp_do_raop_announce(impl);
+		}
 		return 0;
 	}
+
+	arm_handshake_timeout(impl);
 
 	hostname = pw_properties_get(impl->props, "raop.ip");
 	port = pw_properties_get(impl->props, "raop.port");
@@ -1810,6 +4186,11 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
+	/* Cancel any pending timers first: their pw_timer structs are embedded in
+	 * impl, so letting one fire after the free would be a use-after-free. */
+	pw_timer_queue_cancel(&impl->feedback_timer);
+	pw_timer_queue_cancel(&impl->handshake_timer);
+
 	if (impl->stream)
 		rtp_stream_destroy(impl->stream);
 	if (impl->core && impl->do_disconnect)
@@ -1818,8 +4199,28 @@ static void impl_destroy(struct impl *impl)
 	if (impl->rtsp)
 		pw_rtsp_client_destroy(impl->rtsp);
 
+	/* The control cipher is owned here; the RTSP client only borrowed it.
+	 * It holds the live ChaCha20-Poly1305 control-channel keys: wipe first. */
+	if (impl->cipher_ctx) {
+		explicit_bzero(impl->cipher_ctx, sizeof(*impl->cipher_ctx));
+		free(impl->cipher_ctx);
+	}
+
 	if (impl->ctx)
 		EVP_CIPHER_CTX_free(impl->ctx);
+
+	if (impl->srp_user)
+		srp_user_free(impl->srp_user);
+
+	free(impl->pkB);
+	if (impl->M2 != NULL) {
+		explicit_bzero(impl->M2, impl->M2_len);
+		free(impl->M2);
+	}
+	if (impl->salt != NULL) {
+		explicit_bzero(impl->salt, impl->salt_len);
+		free(impl->salt);
+	}
 
 	pw_properties_free(impl->headers);
 	pw_properties_free(impl->stream_props);
@@ -1828,6 +4229,20 @@ static void impl_destroy(struct impl *impl)
 		explicit_bzero(impl->password, strlen(impl->password));
 		free(impl->password);
 	}
+	if (impl->auth_key) {
+		/* The reusable long-term Ed25519 controller credential. */
+		explicit_bzero(impl->auth_key, strlen(impl->auth_key));
+		free(impl->auth_key);
+	}
+	if (impl->pairing_pin) {
+		explicit_bzero(impl->pairing_pin, strlen(impl->pairing_pin));
+		free(impl->pairing_pin);
+	}
+	/* Wipe the long-term and session secrets still living in impl. */
+	explicit_bzero(impl->shared_secret, sizeof(impl->shared_secret));
+	explicit_bzero(impl->private_key, sizeof(impl->private_key));
+	explicit_bzero(impl->client_private_key, sizeof(impl->client_private_key));
+	explicit_bzero(impl->client_eph_private_key, sizeof(impl->client_eph_private_key));
 	free(impl);
 }
 
@@ -1877,6 +4292,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		pw_log_error( "can't create cipher context: %m");
 		goto error;
 	}
+
+	impl->srp_user = NULL;
+
 	if (args == NULL)
 		args = "";
 
@@ -1932,6 +4350,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		impl->encryption = CRYPTO_AUTH_SETUP;
 	else if (spa_streq(str, "fp_sap25"))
 		impl->encryption = CRYPTO_FP_SAP25;
+	else if (spa_streq(str, "pair_setup") || spa_streq(str, "pair_transient"))
+		impl->encryption = CRYPTO_PAIR_TRANSIENT;
+	else if (spa_streq(str, "pair_homekit"))
+		impl->encryption = CRYPTO_PAIR_HOMEKIT;
+	else if (spa_streq(str, "pair_apple"))
+		impl->encryption = CRYPTO_PAIR_APPLE;
 	else {
 		pw_log_error( "can't handle encryption type %s", str);
 		res = -EINVAL;
@@ -1953,6 +4377,46 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->password = str ? strdup(str) : NULL;
 
 	impl->disable_volume = pw_properties_get_bool(props, "raop.disable-volume", false);
+
+	str = pw_properties_get(props, "raop.auth_key");
+	impl->auth_key = str ? strdup(str) : NULL;
+
+	/* If no explicit key was given but raop.auth-key-file exists and is
+	 * readable, load the key that a previous pair-setup wrote there. This lets
+	 * a once-paired device keep working across restarts without hand-copying
+	 * the key into stream.rules. */
+	if (impl->auth_key == NULL &&
+	    (str = pw_properties_get(props, "raop.auth-key-file")) != NULL) {
+		FILE *f = fopen(str, "re");
+		if (f != NULL) {
+			char keybuf[2 * (AP_ED25519_PRIVATE_KEY_LENGTH + AP_ED25519_PUBLIC_KEY_LENGTH) + 2] = { 0 };
+			if (fgets(keybuf, sizeof(keybuf), f) != NULL) {
+				keybuf[strcspn(keybuf, "\r\n")] = '\0';
+				if (keybuf[0] != '\0') {
+					impl->auth_key = strdup(keybuf);
+					pw_log_info("Loaded authorization key from '%s'", str);
+				}
+			}
+			explicit_bzero(keybuf, sizeof(keybuf));
+			fclose(f);
+		}
+	}
+
+	str = pw_properties_get(props, "raop.pairing-pin");
+	impl->pairing_pin = str ? strdup(str) : NULL;
+
+	/* Fallback controller pairing identifier. For persistent (HomeKit/Apple)
+	 * pairing this is replaced by derive_device_id() once the long-term key is
+	 * minted (pair-setup) or restored (parse_auth_key), so it stays stable
+	 * across restarts; transient pairing does not use an Identifier. */
+	{
+		uint8_t mac_bytes[6];
+		if (pw_getrandom(mac_bytes, sizeof(mac_bytes), 0) >= 0) {
+			snprintf(impl->device_id, sizeof(impl->device_id), "%02X:%02X:%02X:%02X:%02X:%02X",
+				mac_bytes[0], mac_bytes[1], mac_bytes[2],
+				mac_bytes[3], mac_bytes[4], mac_bytes[5]);
+		}
+	}
 
 	if ((name = pw_properties_get(props, "raop.name")) == NULL)
 		name = "RAOP";

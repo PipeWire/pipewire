@@ -98,11 +98,18 @@
  *                    control. Default is "false".
  * - `raop.auth_key`: Stored authorization key from pair-setup (for pair_homekit/pair_apple).
  *                    Format: 128 hex chars (Ed25519 private key) + 64 hex chars (server public key).
- * - `raop.pairing-pin`: PIN shown on an Apple device (Apple TV/HomePod) to perform the
- *                    one-time pairing that produces `raop.auth_key`. When set, the module
- *                    runs pair-setup, logs the resulting key, and stops (it does not stream).
- *                    Set `raop.auth_key` to that value and remove `raop.pairing-pin` to
- *                    connect from then on.
+ * - `raop.pairing-pin`: PIN for the one-time pairing that produces `raop.auth_key`.
+ *                    For Apple devices (Apple TV/HomePod) this is the code shown on the
+ *                    device. For receivers that display their code on screen only when
+ *                    asked (LG webOS TVs and similar), set it to the literal "WAIT": the
+ *                    module runs POST /pair-pin-start so the code appears, then reads the
+ *                    code from `raop.pairing-pin-file` and completes pair-setup on the same
+ *                    connection. When set, the module runs pair-setup, logs the resulting
+ *                    key, and stops (it does not stream). Set `raop.auth_key` to that value
+ *                    and remove `raop.pairing-pin` to connect from then on.
+ * - `raop.pairing-pin-file`: File the module polls for the on-screen PIN when
+ *                    `raop.pairing-pin=WAIT` (default `/tmp/pipewire-raop-pin`). Write the
+ *                    digits shown on the receiver to this file within ~28s.
  * - `raop.auth-key-file`: Optional path to also write the authorization key to after pairing.
  * - `stream.props = {}`: properties to be passed to the sink stream
  *
@@ -311,6 +318,16 @@ struct impl {
 	struct spa_hook core_proxy_listener;
 	struct spa_hook core_listener;
 
+	/* Watch the "default" metadata for a runtime pairing PIN (see the
+	 * on-screen-PIN pairing block); a UI, session manager, or `pw-metadata`
+	 * supplies it by setting the "raop.pairing-pin" key. */
+	struct pw_registry *registry;
+	struct spa_hook registry_listener;
+	struct pw_metadata *metadata;
+	struct spa_hook metadata_listener;
+	uint32_t metadata_id;
+	bool pin_waiting;
+
 	struct pw_properties *stream_props;
 	struct rtp_stream *stream;
 
@@ -361,7 +378,9 @@ struct impl {
 	uint8_t client_eph_private_key[AP_X25519_KEY_LENGTH];
 	uint8_t server_eph_public_key[AP_X25519_KEY_LENGTH];
 	char *auth_key;  // Stored authorization key from pair-setup
-	char *pairing_pin;  // PIN shown on an Apple device for initial (non-transient) pairing
+	char *pairing_pin;  // PIN for initial (non-transient) pairing; the literal "WAIT" means run /pair-pin-start and read the on-screen code from pairing_pin_file
+	char *pairing_pin_file;  // File polled for the on-screen PIN when pairing_pin == "WAIT"
+	int pin_wait_ticks;  // remaining 1s poll attempts while waiting for the on-screen PIN
 	char device_id[24];  // Our device ID
 
 	uint16_t control_port;
@@ -369,6 +388,7 @@ struct impl {
 	struct spa_source *control_source;
 	struct pw_timer feedback_timer;
 	struct pw_timer handshake_timer;
+	struct pw_timer pin_timer;
 
 	uint16_t timing_port;
 	int timing_fd;
@@ -3677,6 +3697,160 @@ error:
 	return -1;
 }
 
+/* On-screen PIN pairing for receivers that display their code on their own
+ * screen (LG webOS TVs and similar) rather than expecting a fixed/known PIN.
+ * POST /pair-pin-start makes the code appear; pair-setup then runs with the code
+ * the user reads off the screen. The code is bound to this RTSP connection and
+ * lives ~30s, so it must be supplied and pair-setup M1 sent on the same
+ * connection with no GET /info keepalive in between (that resets the receiver's
+ * pairing context). A daemon cannot prompt interactively, so the code is fed in
+ * two ways: the idiomatic one is the "default" metadata "raop.pairing-pin" key
+ * (set by a UI, a session manager, or `pw-metadata <id> raop.pairing-pin 1234`);
+ * as a fallback it is polled from the raop.pairing-pin-file. */
+#define AP_PIN_WAIT_TICKS 28
+
+/* A PIN arrived (from metadata or the file): stop waiting and resume pair-setup
+ * on this same connection with the supplied code. */
+static void ap2_pairing_pin_received(struct impl *impl, const char *pin, const char *src)
+{
+	if (!impl->pin_waiting)
+		return;
+	impl->pin_waiting = false;
+	pw_timer_queue_cancel(&impl->pin_timer);
+	pw_log_info("Received on-screen PIN via %s; continuing pair-setup", src);
+	free(impl->pairing_pin);
+	impl->pairing_pin = strdup(pin);
+	if (impl->pairing_pin == NULL || rtsp_do_ap2_pair_setup1(impl) < 0)
+		pw_impl_module_schedule_destroy(impl->module);
+}
+
+static void rtsp_ap2_pin_poll(void *data)
+{
+	struct impl *impl = data;
+	char buf[64];
+	FILE *f;
+
+	if (!impl->pin_waiting)
+		return;
+
+	f = impl->pairing_pin_file ? fopen(impl->pairing_pin_file, "re") : NULL;
+	if (f != NULL) {
+		char *pin = NULL;
+		if (fgets(buf, sizeof(buf), f) != NULL) {
+			buf[strcspn(buf, "\r\n")] = '\0';
+			if (buf[0] != '\0')
+				pin = buf;
+		}
+		fclose(f);
+		if (pin != NULL) {
+			ap2_pairing_pin_received(impl, pin, impl->pairing_pin_file);
+			return;
+		}
+	}
+
+	if (--impl->pin_wait_ticks <= 0) {
+		impl->pin_waiting = false;
+		pw_log_error("Timed out waiting for the on-screen PIN (set the \"raop.pairing-pin\" "
+				"metadata key or write it to '%s')",
+				impl->pairing_pin_file ? impl->pairing_pin_file : "(unset)");
+		pw_impl_module_schedule_destroy(impl->module);
+		return;
+	}
+
+	pw_timer_queue_add(impl->timer_queue, &impl->pin_timer, NULL,
+			SPA_NSEC_PER_SEC, rtsp_ap2_pin_poll, impl);
+}
+
+static int metadata_property(void *data, uint32_t subject, const char *key,
+		const char *type, const char *value)
+{
+	struct impl *impl = data;
+
+	if (impl->pin_waiting && value != NULL && spa_streq(key, "raop.pairing-pin"))
+		ap2_pairing_pin_received(impl, value, "metadata");
+	return 0;
+}
+
+static const struct pw_metadata_events metadata_events = {
+	PW_VERSION_METADATA_EVENTS,
+	.property = metadata_property,
+};
+
+static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
+		const char *type, uint32_t version, const struct spa_dict *props)
+{
+	struct impl *impl = data;
+
+	if (impl->metadata != NULL || !spa_streq(type, PW_TYPE_INTERFACE_Metadata))
+		return;
+	if (props == NULL || !spa_streq(spa_dict_lookup(props, "metadata.name"), "default"))
+		return;
+
+	impl->metadata = pw_registry_bind(impl->registry, id, type, PW_VERSION_METADATA, 0);
+	if (impl->metadata != NULL) {
+		pw_metadata_add_listener(impl->metadata, &impl->metadata_listener,
+				&metadata_events, impl);
+		impl->metadata_id = id;
+	}
+}
+
+static void registry_event_global_remove(void *data, uint32_t id)
+{
+	struct impl *impl = data;
+
+	if (impl->metadata != NULL && id == impl->metadata_id) {
+		spa_hook_remove(&impl->metadata_listener);
+		pw_proxy_destroy((struct pw_proxy *)impl->metadata);
+		impl->metadata = NULL;
+	}
+}
+
+static const struct pw_registry_events registry_events = {
+	PW_VERSION_REGISTRY_EVENTS,
+	.global = registry_event_global,
+	.global_remove = registry_event_global_remove,
+};
+
+static int rtsp_ap2_pair_pin_start_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
+{
+	struct impl *impl = data;
+
+	pw_log_info("pair-pin-start status: %d", status);
+	if (status != 200) {
+		pw_log_error("pair-pin-start failed with status %d", status);
+		return -EIO;
+	}
+
+	pw_log_info("A pairing code should now be shown on the receiver's screen. "
+			"Supply it within %d seconds via the \"raop.pairing-pin\" metadata key "
+			"(e.g. `pw-metadata 0 raop.pairing-pin <code>`) or by writing it to '%s'.",
+			AP_PIN_WAIT_TICKS,
+			impl->pairing_pin_file ? impl->pairing_pin_file : "(raop.pairing-pin-file unset)");
+
+	impl->pin_waiting = true;
+	impl->pin_wait_ticks = AP_PIN_WAIT_TICKS;
+	pw_timer_queue_add(impl->timer_queue, &impl->pin_timer, NULL,
+			SPA_NSEC_PER_SEC, rtsp_ap2_pin_poll, impl);
+	return 0;
+}
+
+static int rtsp_do_ap2_pair_pin_start(struct impl *impl)
+{
+	/* Watch the "default" metadata for the PIN the receiver is about to show;
+	 * this is what lets a UI or `pw-metadata` feed the code at runtime. */
+	if (impl->registry == NULL) {
+		impl->registry = pw_core_get_registry(impl->core, PW_VERSION_REGISTRY, 0);
+		if (impl->registry != NULL)
+			pw_registry_add_listener(impl->registry, &impl->registry_listener,
+					&registry_events, impl);
+	}
+	/* Persistent (HomeKit) pairing selector, as sent before pair-setup. */
+	pw_properties_set(impl->headers, "X-Apple-HKP", "3");
+	return pw_rtsp_client_url_send(impl->rtsp, "/pair-pin-start", "POST",
+			&impl->headers->dict, NULL, NULL, 0,
+			rtsp_ap2_pair_pin_start_reply, impl);
+}
+
 static int rtsp_raop_options_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
@@ -3764,6 +3938,10 @@ static int rtsp_get_info_reply(void *data, int status, const struct spa_dict *he
 	 * mint and store a persistent authorization key (HomeKit/Apple devices),
 	 * regardless of the selected pair mode. */
 	if (impl->pairing_pin) {
+		if (spa_streq(impl->pairing_pin, "WAIT")) {
+			pw_log_info("Starting AirPlay pairing: requesting the on-screen PIN via /pair-pin-start");
+			return rtsp_do_ap2_pair_pin_start(impl);
+		}
 		pw_log_info("Starting AirPlay pairing with configured PIN");
 		return rtsp_do_ap2_pair_setup1(impl);
 	}
@@ -3912,6 +4090,9 @@ static void connection_cleanup(struct impl *impl)
 	}
 	pw_timer_queue_cancel(&impl->feedback_timer);
 	pw_timer_queue_cancel(&impl->handshake_timer);
+	/* Also stop the AP2 PIN poll: a disconnect mid-pairing would otherwise
+	 * leave it firing rtsp_ap2_pin_poll() against a torn-down connection. */
+	pw_timer_queue_cancel(&impl->pin_timer);
 
 	rtsp_clear_auth(impl);
 }
@@ -4175,6 +4356,14 @@ static const struct pw_core_events core_events = {
 static void core_destroy(void *d)
 {
 	struct impl *impl = d;
+	if (impl->metadata) {
+		spa_hook_remove(&impl->metadata_listener);
+		impl->metadata = NULL;
+	}
+	if (impl->registry) {
+		spa_hook_remove(&impl->registry_listener);
+		impl->registry = NULL;
+	}
 	spa_hook_remove(&impl->core_listener);
 	impl->core = NULL;
 	pw_impl_module_schedule_destroy(impl->module);
@@ -4190,6 +4379,20 @@ static void impl_destroy(struct impl *impl)
 	 * impl, so letting one fire after the free would be a use-after-free. */
 	pw_timer_queue_cancel(&impl->feedback_timer);
 	pw_timer_queue_cancel(&impl->handshake_timer);
+	pw_timer_queue_cancel(&impl->pin_timer);
+
+	/* Metadata/registry proxies are children of impl->core, so drop them
+	 * before disconnecting it. */
+	if (impl->metadata) {
+		spa_hook_remove(&impl->metadata_listener);
+		pw_proxy_destroy((struct pw_proxy *)impl->metadata);
+		impl->metadata = NULL;
+	}
+	if (impl->registry) {
+		spa_hook_remove(&impl->registry_listener);
+		pw_proxy_destroy((struct pw_proxy *)impl->registry);
+		impl->registry = NULL;
+	}
 
 	if (impl->stream)
 		rtp_stream_destroy(impl->stream);
@@ -4238,6 +4441,7 @@ static void impl_destroy(struct impl *impl)
 		explicit_bzero(impl->pairing_pin, strlen(impl->pairing_pin));
 		free(impl->pairing_pin);
 	}
+	free(impl->pairing_pin_file);
 	/* Wipe the long-term and session secrets still living in impl. */
 	explicit_bzero(impl->shared_secret, sizeof(impl->shared_secret));
 	explicit_bzero(impl->private_key, sizeof(impl->private_key));
@@ -4404,6 +4608,13 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 
 	str = pw_properties_get(props, "raop.pairing-pin");
 	impl->pairing_pin = str ? strdup(str) : NULL;
+
+	str = pw_properties_get(props, "raop.pairing-pin-file");
+	impl->pairing_pin_file = str ? strdup(str) : NULL;
+	/* "WAIT" (on-screen code) needs a file to read the code from; default it. */
+	if (impl->pairing_pin != NULL && spa_streq(impl->pairing_pin, "WAIT") &&
+	    impl->pairing_pin_file == NULL)
+		impl->pairing_pin_file = strdup("/tmp/pipewire-raop-pin");
 
 	/* Fallback controller pairing identifier. For persistent (HomeKit/Apple)
 	 * pairing this is replaced by derive_device_id() once the long-term key is

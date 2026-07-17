@@ -684,7 +684,7 @@ static int handle_server_time(struct client *client, struct spa_json *payload)
 	spa_regress_update(&client->regress_time, (t2+t3)/2, (t1+t4)/2);
 
 	if (client->timeout_count < 4)
-		timeout = 200 * SPA_MSEC_PER_SEC;
+		timeout = 200 * SPA_NSEC_PER_MSEC;
 	else if (client->timeout_count < 10)
 		timeout = SPA_NSEC_PER_SEC;
 	else if (client->timeout_count < 20)

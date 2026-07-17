@@ -383,8 +383,8 @@ static int encoded_playback_fill(struct data *d, void *dest, uint32_t maxsize, u
 		 * interested in. This is relevant when playing data that contains
 		 * several multiplexed streams. */
 		while (true) {
-			if ((ret = av_read_frame(d->encoded.format_context, packet) < 0))
-				break;
+			if ((ret = av_read_frame(d->encoded.format_context, packet)) < 0)
+				return dest_ptr - (uint8_t *)dest;
 
 			if (packet->stream_index == d->encoded.stream_index)
 				break;

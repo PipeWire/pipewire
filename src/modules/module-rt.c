@@ -28,6 +28,7 @@
 
 #include "config.h"
 
+#include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -187,6 +188,17 @@ static const struct spa_dict_item module_props[] = {
 #define XDG_PORTAL_OBJECT_PATH "/org/freedesktop/portal/desktop"
 #define XDG_PORTAL_INTERFACE "org.freedesktop.portal.Realtime"
 
+enum {
+	PROP_max_rtprio,
+	PROP_min_nice_level,
+	PROP_rttime_max,
+	PROP_LAST
+};
+
+enum {
+	INVALID_PROP_VALUE = LLONG_MIN,
+};
+
 struct thread {
 	struct impl *impl;
 	struct spa_list link;
@@ -194,7 +206,17 @@ struct thread {
 	pid_t tid;
 	void *(*start)(void*);
 	void *arg;
+
+	DBusPendingCall *make_rt_call;
+	int rt_prio;
 };
+
+static void thread_destroy(struct thread *thr)
+{
+	spa_list_remove(&thr->link);
+	cancel_and_unref(&thr->make_rt_call);
+	free(thr);
+}
 #endif /* HAVE_DBUS */
 
 struct impl {
@@ -225,6 +247,14 @@ struct impl {
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
 	struct spa_list threads_list;
+
+	DBusPendingCall *make_hp_call;
+
+	struct {
+		DBusPendingCall *call;
+		long long result;
+	} queries[PROP_LAST];
+	bool initialized;
 #endif
 };
 
@@ -272,30 +302,12 @@ static int translate_error(const char *name)
 	return -EIO;
 }
 
-static long long rtkit_get_int_property(struct impl *impl, const char *propname,
-					long long *propval)
+static int rtkit_extract_int_property(DBusMessage *r, long long *propval)
 {
-	spa_autoptr(DBusMessage) m = NULL, r = NULL;
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
 	DBusMessageIter iter, subiter;
 	dbus_int64_t i64;
 	dbus_int32_t i32;
-
-	if (!(m = dbus_message_new_method_call(impl->service_name,
-					       impl->object_path,
-					       "org.freedesktop.DBus.Properties", "Get"))) {
-		return -ENOMEM;
-	}
-
-	if (!dbus_message_append_args(m,
-				      DBUS_TYPE_STRING, &impl->interface,
-				      DBUS_TYPE_STRING, &propname, DBUS_TYPE_INVALID)) {
-		return -ENOMEM;
-	}
-
-	spa_auto(DBusError) error = DBUS_ERROR_INIT;
-
-	if (!(r = dbus_connection_send_with_reply_and_block(impl->rtkit_bus, m, -1, &error)))
-		return translate_error(error.name);
 
 	if (dbus_set_error_from_message(&error, r))
 		return translate_error(error.name);
@@ -326,15 +338,55 @@ static long long rtkit_get_int_property(struct impl *impl, const char *propname,
 	return 0;
 }
 
-static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
+static int rtkit_get_property(struct impl *impl, const char *propname,
+			      DBusPendingCall **pending, DBusPendingCallNotifyFunction callback)
 {
 	spa_autoptr(DBusMessage) m = NULL;
+
+	if (!(m = dbus_message_new_method_call(impl->service_name,
+					       impl->object_path,
+					       "org.freedesktop.DBus.Properties", "Get"))) {
+		return -ENOMEM;
+	}
+
+	if (!dbus_message_append_args(m,
+				      DBUS_TYPE_STRING, &impl->interface,
+				      DBUS_TYPE_STRING, &propname, DBUS_TYPE_INVALID)) {
+		return -ENOMEM;
+	}
+
+	*pending = send_with_reply(impl->rtkit_bus, m, callback, impl);
+	if (!*pending)
+		return -EIO;
+
+	return 0;
+}
+
+static void on_rtkit_make_realtime_reply(DBusPendingCall *pending, void *data)
+{
+	struct thread *thr = data;
+
+	spa_assert(thr->make_rt_call == pending);
+	spa_autoptr(DBusMessage) reply = steal_reply_and_unref(&thr->make_rt_call);
+	if (!reply)
+		return;
+
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
+	if (dbus_set_error_from_message(&error, reply)) {
+		pw_log_warn("failed to make thread %d realtime: %s", thr->tid, error.message);
+		return;
+	}
+
+	pw_log_info("made thread %d realtime with priority %d", thr->tid, thr->rt_prio);
+}
+
+static int pw_rtkit_make_realtime(struct thread *thr)
+{
+	spa_autoptr(DBusMessage) m = NULL;
+	struct impl *impl = thr->impl;
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_uint32_t u32;
-
-	if (thread == 0)
-		thread = _gettid();
 
 	if (!(m = dbus_message_new_method_call(impl->service_name,
 					       impl->object_path, impl->interface,
@@ -343,8 +395,8 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 	}
 
 	pid = (dbus_uint64_t) getpid();
-	u64 = (dbus_uint64_t) thread;
-	u32 = (dbus_uint32_t) priority;
+	u64 = (dbus_uint64_t) thr->tid;
+	u32 = (dbus_uint32_t) thr->rt_prio;
 
 	if (!dbus_message_append_args(m,
 				      DBUS_TYPE_UINT64, &pid,
@@ -353,21 +405,40 @@ static int pw_rtkit_make_realtime(struct impl *impl, pid_t thread, int priority)
 		return -ENOMEM;
 	}
 
-	if (!dbus_connection_send(impl->rtkit_bus, m, NULL))
+	DBusPendingCall *call = send_with_reply(impl->rtkit_bus, m, on_rtkit_make_realtime_reply, thr);
+	if (!call)
 		return -EIO;
+
+	cancel_and_unref(&thr->make_rt_call);
+	thr->make_rt_call = call;
 
 	return 0;
 }
 
-static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice_level)
+static void on_rtkit_make_high_prio_reply(DBusPendingCall *pending, void *data)
+{
+	struct impl *impl = data;
+
+	spa_assert(impl->make_hp_call == pending);
+	spa_autoptr(DBusMessage) reply = steal_reply_and_unref(&impl->make_hp_call);
+	if (!reply)
+		return;
+
+	spa_auto(DBusError) error = DBUS_ERROR_INIT;
+	if (dbus_set_error_from_message(&error, reply)) {
+		pw_log_warn("failed to make main thread %d high priority: %s", impl->main_tid, error.message);
+		return;
+	}
+
+	pw_log_info("made thread %d high priority with nice level %d", impl->main_tid, impl->nice_level);
+}
+
+static int pw_rtkit_make_high_priority(struct impl *impl)
 {
 	spa_autoptr(DBusMessage) m = NULL;
 	dbus_uint64_t pid;
 	dbus_uint64_t u64;
 	dbus_int32_t s32;
-
-	if (thread == 0)
-		thread = _gettid();
 
 	if (!(m = dbus_message_new_method_call(impl->service_name,
 					       impl->object_path, impl->interface,
@@ -376,8 +447,8 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 	}
 
 	pid = (dbus_uint64_t) getpid();
-	u64 = (dbus_uint64_t) thread;
-	s32 = (dbus_int32_t) nice_level;
+	u64 = (dbus_uint64_t) impl->main_tid;
+	s32 = (dbus_int32_t) impl->nice_level;
 
 	if (!dbus_message_append_args(m,
 				      DBUS_TYPE_UINT64, &pid,
@@ -386,8 +457,12 @@ static int pw_rtkit_make_high_priority(struct impl *impl, pid_t thread, int nice
 		return -ENOMEM;
 	}
 
-	if (!dbus_connection_send(impl->rtkit_bus, m, NULL))
+	DBusPendingCall *call = send_with_reply(impl->rtkit_bus, m, on_rtkit_make_high_prio_reply, impl);
+	if (!call)
 		return -EIO;
+
+	cancel_and_unref(&impl->make_hp_call);
+	impl->make_hp_call = call;
 
 	return 0;
 }
@@ -407,6 +482,15 @@ static void module_destroy(void *data)
 
 	pthread_cond_destroy(&impl->cond);
 	pthread_mutex_destroy(&impl->lock);
+
+	cancel_and_unref(&impl->make_hp_call);
+
+	SPA_FOR_EACH_ELEMENT_VAR(impl->queries, c)
+		cancel_and_unref(&c->call);
+
+	struct thread *thr;
+	spa_list_consume(thr, &impl->threads_list, link)
+		thread_destroy(thr);
 #endif
 
 	free(impl);
@@ -514,18 +598,6 @@ static bool check_realtime_privileges(struct impl *impl)
 	else
 		pw_log_info("can't set rt prio to %d (try increasing rlimits)", priority);
 	return ret;
-}
-
-static void log_set_nice_level(int res, int nice_level, bool warn)
-{
-	if (res < 0) {
-		if (warn)
-			pw_log_warn("could not set nice-level to %d: %s",
-					nice_level, spa_strerror(res));
-	} else {
-		pw_log_info("main thread nice level set to %d",
-				nice_level);
-	}
 }
 
 static int set_rlimit(struct rlimit *rlim)
@@ -644,6 +716,7 @@ static struct spa_thread *impl_create(void *object, const struct spa_dict *props
 	this->impl = impl;
 	this->start = start_routine;
 	this->arg = arg;
+	this->rt_prio = -1;
 
 	/* This thread list is only used for the RTKit implementation */
 	pthread_mutex_lock(&impl->lock);
@@ -675,10 +748,8 @@ static int impl_join(void *object, struct spa_thread *thread, void **retval)
 	res = pw_thread_utils_join(thread, retval);
 
 	pthread_mutex_lock(&impl->lock);
-	if ((thr = find_thread_by_pt(impl, pt)) != NULL) {
-		spa_list_remove(&thr->link);
-		free(thr);
-	}
+	if ((thr = find_thread_by_pt(impl, pt)) != NULL)
+		thread_destroy(thr);
 	pthread_mutex_unlock(&impl->lock);
 
 	return res;
@@ -708,35 +779,48 @@ static int impl_get_rt_range(void *object, const struct spa_dict *props,
 	return res;
 }
 
+static int make_realtime(struct thread *thr)
+{
+	spa_assert(thr->impl->initialized);
+
+	int err, min, max;
+
+	pw_log_debug("making thread %d realtime with priority %d", thr->tid, thr->rt_prio);
+
+	get_rtkit_priority_range(thr->impl, &min, &max);
+
+	if (thr->rt_prio < min || thr->rt_prio > max) {
+		pw_log_info("clamping requested priority %d for thread %d "
+				"between %d and %d", thr->rt_prio, thr->tid, min, max);
+		thr->rt_prio = SPA_CLAMP(thr->rt_prio, min, max);
+	}
+
+	if ((err = pw_rtkit_make_realtime(thr)) < 0) {
+		pw_log_warn("could not make thread %d realtime using RTKit: %s", thr->tid, spa_strerror(err));
+		return err;
+	}
+
+	return 0;
+}
+
 struct rt_params {
-	pid_t tid;
 	int priority;
 };
 
 static int do_make_realtime(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
-	struct impl *impl = user_data;
+	struct thread *thr = user_data;
 	const struct rt_params *params = data;
-	int err, min, max, priority = params->priority;
-	pid_t pid = params->tid;
 
-	pw_log_debug("rtkit realtime");
+	thr->rt_prio = params->priority;
 
-	get_rtkit_priority_range(impl, &min, &max);
+	if (thr->impl->initialized)
+		return make_realtime(thr);
 
-	if (priority < min || priority > max) {
-		pw_log_info("clamping requested priority %d for thread %d "
-				"between %d  and %d", priority, pid, min, max);
-		priority = SPA_CLAMP(priority, min, max);
-	}
+	pw_log_debug("making thread %d realtime with priority %d is waiting for rtkit initialization",
+			thr->tid, thr->rt_prio);
 
-	if ((err = pw_rtkit_make_realtime(impl, pid, priority)) < 0) {
-		pw_log_warn("could not make thread %d realtime using RTKit: %s", pid, spa_strerror(err));
-		return err;
-	}
-
-	pw_log_info("acquired realtime priority %d for thread %d using RTKit", priority, pid);
 	return 0;
 }
 
@@ -763,10 +847,8 @@ static int impl_acquire_rt(void *object, struct spa_thread *thread, int priority
 		pthread_mutex_lock(&impl->lock);
 		if ((thr = find_thread_by_pt(impl, pt)) != NULL) {
 			params.priority = priority;
-			params.tid = thr->tid;
-
 			res = pw_loop_invoke(impl->loop, do_make_realtime, 0,
-						&params, sizeof(params), false, impl);
+						&params, sizeof(params), false, thr);
 		}
 		else {
 			res = -ESRCH;
@@ -882,41 +964,46 @@ static int rtkit_get_bus(struct impl *impl, struct spa_dbus *dbus, bool rtportal
 	return -EIO;
 }
 
-static int rtkit_init(struct impl *impl)
+static void rtkit_finish_init(struct impl *impl)
 {
-	long long retval;
+	SPA_FOR_EACH_ELEMENT_VAR(impl->queries, c) {
+		if (c->call)
+			return;
+	}
 
-	pw_log_debug("enter rtkit setup");
+	impl->initialized = true;
 
-	/* get some properties */
-	if (rtkit_get_int_property(impl, "MaxRealtimePriority", &retval) < 0) {
-		retval = 1;
-		pw_log_warn("RTKit does not give us MaxRealtimePriority, using %lld", retval);
+#define SELECT(prop, def) \
+	impl->queries[PROP_ ## prop].result != INVALID_PROP_VALUE \
+			? (__typeof__(def)) impl->queries[PROP_ ## prop].result \
+			: (def)
+
+	impl->max_rtprio = SELECT(max_rtprio, 1);
+	const int min_nice_level = SELECT(min_nice_level, 0);
+	const rlim_t rttime_max = SELECT(rttime_max, impl->rl.rlim_cur);
+#undef SELECT
+
+	pw_log_info("rtkit initialized");
+	pw_log_debug("max_rtprio:%d min_nice_level:%d rttime_max:%ju",
+		     impl->max_rtprio, min_nice_level, (uintmax_t) rttime_max);
+
+	struct thread *thr;
+	spa_list_for_each(thr, &impl->threads_list, link) {
+		if (thr->rt_prio >= 0)
+			make_realtime(thr);
 	}
-	impl->max_rtprio = retval;
-	if (rtkit_get_int_property(impl, "MinNiceLevel", &retval) < 0) {
-		retval = 0;
-		pw_log_warn("RTKit does not give us MinNiceLevel, using %lld", retval);
-	}
-	const int min_nice_level = retval;
-	if (rtkit_get_int_property(impl, "RTTimeUSecMax", &retval) < 0) {
-		retval = impl->rl.rlim_cur;
-		pw_log_warn("RTKit does not give us RTTimeUSecMax, using %lld", retval);
-	}
-	const rlim_t rttime_max = retval;
 
 	/* Retry set_nice with rtkit */
 	if (IS_VALID_NICE_LEVEL(impl->nice_level)) {
-		int nice_level = impl->nice_level;
-
-		if (nice_level < min_nice_level) {
+		if (impl->nice_level < min_nice_level) {
 			pw_log_info("clamped nice level %d to %d",
-					nice_level, min_nice_level);
-			nice_level = min_nice_level;
+					impl->nice_level, min_nice_level);
+			impl->nice_level = min_nice_level;
 		}
 
-		log_set_nice_level(pw_rtkit_make_high_priority(impl, impl->main_tid, nice_level),
-					nice_level, true);
+		int res = pw_rtkit_make_high_priority(impl);
+		if (res < 0)
+			pw_log_warn("could not set nice-level to %d: %s", impl->nice_level, spa_strerror(res));
 	}
 
 	/* Set rlimit with rtkit limits */
@@ -928,6 +1015,43 @@ static int rtkit_init(struct impl *impl)
 	impl->rl.rlim_max = SPA_MIN(impl->rl.rlim_max, rttime_max);
 
 	set_rlimit(&impl->rl);
+}
+
+static const char * const rtkit_properties[] = {
+	[PROP_max_rtprio] = "MaxRealtimePriority",
+	[PROP_min_nice_level] = "MinNiceLevel",
+	[PROP_rttime_max] = "RTTimeUSecMax",
+};
+
+static void on_query_reply(DBusPendingCall *pending, void *data)
+{
+	struct impl *impl = data;
+
+	SPA_STATIC_ASSERT(SPA_N_ELEMENTS(rtkit_properties) == SPA_N_ELEMENTS(impl->queries));
+
+	for (size_t i = 0; SPA_N_ELEMENTS(impl->queries); i++) {
+		if (impl->queries[i].call != pending)
+			continue;
+
+		spa_autoptr(DBusMessage) reply = steal_reply_and_unref(&impl->queries[i].call);
+		if (reply && rtkit_extract_int_property(reply, &impl->queries[i].result) == 0)
+			pw_log_debug("rtkit returned %s %lld", rtkit_properties[i], impl->queries[i].result);
+
+		rtkit_finish_init(impl);
+		return;
+	}
+
+	spa_assert_not_reached();
+}
+
+static int rtkit_init(struct impl *impl)
+{
+	pw_log_debug("starting rtkit setup with %s", impl->service_name);
+
+	for (size_t i = 0; i < SPA_N_ELEMENTS(impl->queries); i++) {
+		impl->queries[i].result = INVALID_PROP_VALUE;
+		rtkit_get_property(impl, rtkit_properties[i], &impl->queries[i].call, on_query_reply);
+	}
 
 	return 0;
 }
@@ -1059,9 +1183,16 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 				res = -errno;
 		}
 
-		log_set_nice_level(res, impl->nice_level, !use_rtkit);
-		if (res)
+		if (res < 0) {
+			if (!use_rtkit)
+				pw_log_warn("could not set nice-level to %d: %s",
+						impl->nice_level, spa_strerror(res));
+
 			use_rtkit = !!dbus;
+		} else {
+			pw_log_info("made thread %d high priority with nice level %d",
+					impl->main_tid, impl->nice_level);
+		}
 	}
 	if (!use_rtkit)
 		set_rlimit(&impl->rl);

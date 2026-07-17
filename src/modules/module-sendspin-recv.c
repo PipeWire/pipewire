@@ -453,8 +453,6 @@ static int send_client_hello(struct client *client)
 		return res;
 
 	return pw_websocket_connection_send_text(client->conn, mem, size);
-
-	return res;
 }
 
 static int send_client_state(struct client *client)
@@ -480,7 +478,6 @@ static int send_client_state(struct client *client)
 		return res;
 
 	return pw_websocket_connection_send_text(client->conn, mem, size);
-	return res;
 }
 
 static uint64_t get_time_us(struct client *client)
@@ -496,7 +493,7 @@ static int send_client_time(struct client *client)
 	struct spa_json_builder b;
 	int res;
 	uint64_t now;
-	char *mem;
+	spa_autofree char *mem = NULL;
 	size_t size;
 
 	now = get_time_us(client);
@@ -513,7 +510,6 @@ static int send_client_time(struct client *client)
 		return res;
 
 	return pw_websocket_connection_send_text(client->conn, mem, size);
-	return res;
 }
 
 static void do_client_timer(void *data)

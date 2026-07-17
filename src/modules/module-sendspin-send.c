@@ -426,7 +426,7 @@ static int send_server_hello(struct client *c)
 	struct spa_json_builder b;
 	int res;
 	size_t size;
-	char *mem;
+	spa_autofree char *mem = NULL;
 
 	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
 		return res;
@@ -449,8 +449,6 @@ static int send_server_hello(struct client *c)
 		return res;
 
 	return pw_websocket_connection_send_text(c->conn, mem, size);
-
-	return res;
 }
 
 static int send_server_state(struct client *c)
@@ -458,7 +456,7 @@ static int send_server_state(struct client *c)
 	struct spa_json_builder b;
 	int res;
 	size_t size;
-	char *mem;
+	spa_autofree char *mem = NULL;
 
 	if (!SPA_FLAG_IS_SET(c->supported_roles, ROLE_METADATA))
 		return 0;
@@ -477,7 +475,6 @@ static int send_server_state(struct client *c)
 		return res;
 
 	return pw_websocket_connection_send_text(c->conn, mem, size);
-	return res;
 }
 
 static int send_server_time(struct client *c, uint64_t t1, uint64_t t2)
@@ -486,7 +483,7 @@ static int send_server_time(struct client *c, uint64_t t1, uint64_t t2)
 	int res;
 	uint64_t t3;
 	size_t size;
-	char *mem;
+	spa_autofree char *mem = NULL;
 
 	t3 = get_time_us(c);
 
@@ -504,7 +501,6 @@ static int send_server_time(struct client *c, uint64_t t1, uint64_t t2)
 		return res;
 
 	return pw_websocket_connection_send_text(c->conn, mem, size);
-	return res;
 }
 
 #if 0
@@ -512,7 +508,7 @@ static int send_server_command(struct client *c, int command, int value)
 {
 	struct spa_json_builder b;
 	size_t size;
-	char *mem;
+	spa_autofree char *mem = NULL;
 	int res;
 
 	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
@@ -535,7 +531,6 @@ static int send_server_command(struct client *c, int command, int value)
 		return res;
 
 	return pw_websocket_connection_send_text(c->conn, mem, size);
-	return res;
 }
 #endif
 
@@ -545,7 +540,7 @@ static int send_stream_start(struct client *c)
 	int res, channels, rate, depth = 0;
 	const char *codec;
 	size_t size;
-	char *mem;
+	spa_autofree char *mem = NULL;
 
 	switch (c->info.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
@@ -595,7 +590,6 @@ static int send_stream_start(struct client *c)
 		return res;
 
 	return pw_websocket_connection_send_text(c->conn, mem, size);
-	return res;
 }
 
 #if 0
@@ -604,7 +598,7 @@ static int send_stream_end(struct client *c)
 	struct spa_json_builder b;
 	int res;
 	size_t size;
-	char *mem;
+	spa_autofree char *mem = NULL;
 
 	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
 		return res;
@@ -621,7 +615,6 @@ static int send_stream_end(struct client *c)
 		return res;
 
 	return pw_websocket_connection_send_text(c->conn, mem, size);
-	return res;
 }
 #endif
 

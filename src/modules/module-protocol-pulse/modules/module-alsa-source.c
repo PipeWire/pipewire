@@ -193,11 +193,11 @@ static int module_alsa_source_prepare(struct module * const module)
 		pw_properties_set(props, "source_name", NULL);
 	}
 	else if ((str = pw_properties_get(props, "name")) != NULL) {
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "alsa_output.%s", str);
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "alsa_input.%s", str);
 		pw_properties_set(props, "name", NULL);
 	}
 	else {
-		pw_properties_setf(props, PW_KEY_NODE_NAME, "alsa_output.%s", dev_id);
+		pw_properties_setf(props, PW_KEY_NODE_NAME, "alsa_input.%s", dev_id);
 	}
 
 	if ((str = pw_properties_get(props, "source_properties")) != NULL) {

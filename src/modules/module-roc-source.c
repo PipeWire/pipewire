@@ -24,6 +24,7 @@
 #include <pipewire/impl.h>
 
 #include "module-roc/common.h"
+#include "network-utils.h"
 
 /** \page page_module_roc_source ROC source
  *
@@ -544,23 +545,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	if ((str = pw_properties_get(props, "local.source.port")) != NULL) {
-		data->local_source_port = pw_properties_parse_int(str);
-	} else {
-		data->local_source_port = PW_ROC_DEFAULT_SOURCE_PORT;
-	}
+	str = pw_properties_get(props, "local.source.port");
+	data->local_source_port = pw_net_parse_port(str, PW_ROC_DEFAULT_SOURCE_PORT);
 
-	if ((str = pw_properties_get(props, "local.repair.port")) != NULL) {
-		data->local_repair_port = pw_properties_parse_int(str);
-	} else {
-		data->local_repair_port = PW_ROC_DEFAULT_REPAIR_PORT;
-	}
+	str = pw_properties_get(props, "local.repair.port");
+	data->local_repair_port = pw_net_parse_port(str, PW_ROC_DEFAULT_REPAIR_PORT);
 
-	if ((str = pw_properties_get(props, "local.control.port")) != NULL) {
-		data->local_control_port = pw_properties_parse_int(str);
-	} else {
-		data->local_control_port = PW_ROC_DEFAULT_CONTROL_PORT;
-	}
+	str = pw_properties_get(props, "local.control.port");
+	data->local_control_port = pw_net_parse_port(str, PW_ROC_DEFAULT_CONTROL_PORT);
 
 	if ((str = pw_properties_get(props, "sess.latency.msec")) != NULL) {
 		data->sess_latency_msec = pw_properties_parse_int(str);

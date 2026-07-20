@@ -1023,10 +1023,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
-	impl->src_port = pw_properties_get_uint32(props, "source.port", 0);
-	if (impl->src_port == 0) {
+	str = pw_properties_get(props, "source.port");
+	if ((impl->src_port = pw_net_parse_port(str, 0)) == 0) {
 		res = -EINVAL;
-		pw_log_error("invalid source.port");
+		pw_log_error("invalid source.port '%s'", str);
 		goto out;
 	}
 	if ((str = pw_properties_get(props, "source.ip")) == NULL)

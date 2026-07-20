@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 
 #include <spa/utils/string.h>
+#include <spa/utils/json-core.h>
 
 #ifdef __FreeBSD__
 #define ifr_ifindex ifr_index
@@ -52,9 +53,19 @@ static inline int pw_net_parse_address(const char *address, uint16_t port,
 static inline uint16_t pw_net_parse_port(const char *str, uint16_t def)
 {
 	uint32_t val;
-	if (spa_atou32(str, &val, 0) && val <= 65535u)
+	if (str != NULL && spa_atou32(str, &val, 0) && val <= UINT16_MAX)
 		return val;
 	return def;
+}
+
+static inline int pw_net_parse_port_json(const char *str, int len, uint16_t *port)
+{
+	int value;
+	if (spa_json_parse_int(str, len, &value) <= 0 ||
+	    value <= 0 || value > UINT16_MAX)
+		return -EINVAL;
+	*port = value;
+	return 0;
 }
 
 static inline int pw_net_parse_address_port(const char *address,

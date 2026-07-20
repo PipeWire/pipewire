@@ -1641,7 +1641,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
-	port = pw_properties_get_uint32(props, "control.port", DEFAULT_CONTROL_PORT);
+	str = pw_properties_get(props, "control.port");
+	port = pw_net_parse_port(str, DEFAULT_CONTROL_PORT);
 	if ((str = pw_properties_get(props, "control.ip")) == NULL)
 		str = DEFAULT_CONTROL_IP;
 

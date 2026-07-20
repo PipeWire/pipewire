@@ -715,8 +715,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	str = pw_properties_get(props, "local.ifname");
 	impl->ifname = str ? strdup(str) : NULL;
 
-	impl->src_port = pw_properties_get_uint32(props, "source.port", DEFAULT_SOURCE_PORT);
-	if (impl->src_port == 0) {
+	if ((str = pw_properties_get(props, "source.port")) == NULL)
+		str = SPA_STRINGIFY(DEFAULT_SOURCE_PORT);
+	if ((impl->src_port = pw_net_parse_port(str, 0)) == 0) {
 		pw_log_error("invalid source.port");
 		goto out;
 	}

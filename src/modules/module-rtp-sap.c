@@ -1151,7 +1151,7 @@ static struct session *session_new_announce(struct impl *impl, struct node *node
 
 	if ((str = pw_properties_get(props, "rtp.destination.port")) == NULL)
 		goto error_free;
-	if (!spa_atou32(str, &port, 0))
+	if ((port = pw_net_parse_port(str, 0)) == 0)
 		goto error_free;
 	sdp->dst_port = port;
 

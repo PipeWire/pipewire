@@ -481,7 +481,7 @@ error:
 
 static int setup_rtp_target_from_props(struct rtp_target *target, struct pw_properties *props, bool *target_was_setup)
 {
-	const char *destination_ip;
+	const char *destination_ip, *str;
 	uint16_t destination_port;
 	const char *ifname;
 	const char *source_ip;
@@ -496,7 +496,10 @@ static int setup_rtp_target_from_props(struct rtp_target *target, struct pw_prop
 	if (destination_ip == NULL)
 		return 0;
 
-	destination_port = pw_properties_get_uint32(props, "destination.port", 0);
+	str = pw_properties_get(props, "destination.port");
+	if ((destination_port = pw_net_parse_port(str, 0)) == 0)
+		return 0;
+
 	ifname = pw_properties_get(props, "local.ifname");
 	source_ip = pw_properties_get(props, "source.ip");
 	ttl = pw_properties_get_uint32(props, "net.ttl", DEFAULT_TTL);
@@ -865,7 +868,7 @@ static void on_add_receiver(struct impl *impl, struct spa_json *command_json_ite
 	int len;
 	char ifname[64];
 	char destination_ip[64];
-	int destination_port = 0;
+	uint16_t destination_port = 0;
 	char source_ip[64];
 	int ttl = DEFAULT_TTL;
 	int dscp = DEFAULT_DSCP;
@@ -881,7 +884,7 @@ static void on_add_receiver(struct impl *impl, struct spa_json *command_json_ite
 		} else if (spa_streq(key, "destination.ip")) {
 			spa_json_parse_stringn(value, len, destination_ip, sizeof(destination_ip));
 		} else if (spa_streq(key, "destination.port")) {
-			spa_json_parse_int(value, len, &destination_port);
+			pw_net_parse_port_json(value, len, &destination_port);
 		} else if (spa_streq(key, "source.ip")) {
 			spa_json_parse_stringn(value, len, source_ip, sizeof(source_ip));
 		} else if (spa_streq(key, "net.ttl")) {
@@ -895,6 +898,10 @@ static void on_add_receiver(struct impl *impl, struct spa_json *command_json_ite
 
 	if (destination_ip[0] == '\0') {
 		pw_log_error("Cannot add receiver without a destination.ip value");
+		return;
+	}
+	if (destination_port == 0) {
+		pw_log_error("Cannot add receiver without a destination.port value");
 		return;
 	}
 
@@ -946,7 +953,7 @@ static void on_remove_receiver(struct impl *impl, struct spa_json *command_json_
 	const char *value;
 	int len;
 	char destination_ip[64];
-	int destination_port = 0;
+	uint16_t destination_port = 0;
 
 	destination_ip[0] = '\0';
 
@@ -954,12 +961,16 @@ static void on_remove_receiver(struct impl *impl, struct spa_json *command_json_
 		if (spa_streq(key, "destination.ip")) {
 			spa_json_parse_stringn(value, len, destination_ip, sizeof(destination_ip));
 		} else if (spa_streq(key, "destination.port")) {
-			spa_json_parse_int(value, len, &destination_port);
+			pw_net_parse_port_json(value, len, &destination_port);
 		}
 	}
 
 	if (destination_ip[0] == '\0') {
 		pw_log_error("Cannot remove receiver without a destination.ip value");
+		return;
+	}
+	if (destination_port == 0) {
+		pw_log_error("Cannot remove receiver without a destination.port value");
 		return;
 	}
 

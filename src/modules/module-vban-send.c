@@ -433,7 +433,12 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	impl->dst_port = pw_properties_get_uint32(props, "destination.port", DEFAULT_PORT);
+	if ((str = pw_properties_get(props, "destination.port")) == NULL)
+		str = SPA_STRINGIFY(DEFAULT_PORT);
+	if ((impl->dst_port = pw_net_parse_port(str, 0)) == 0) {
+		pw_log_error("invalid destination.port");
+		goto out;
+	}
 	if ((str = pw_properties_get(props, "destination.ip")) == NULL)
 		str = DEFAULT_DESTINATION_IP;
 	if ((res = pw_net_parse_address(str, impl->dst_port, &impl->dst_addr, &impl->dst_len)) < 0) {

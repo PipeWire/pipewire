@@ -24,6 +24,7 @@
 #include <pipewire/impl.h>
 
 #include "module-roc/common.h"
+#include "network-utils.h"
 
 /** \page page_module_roc_sink ROC sink
  *
@@ -469,23 +470,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	if ((str = pw_properties_get(props, "remote.source.port")) != NULL) {
-		data->remote_source_port = pw_properties_parse_int(str);
-	} else {
-		data->remote_source_port = PW_ROC_DEFAULT_SOURCE_PORT;
-	}
+	str = pw_properties_get(props, "remote.source.port");
+	data->remote_source_port = pw_net_parse_port(str, PW_ROC_DEFAULT_SOURCE_PORT);
 
-	if ((str = pw_properties_get(props, "remote.repair.port")) != NULL) {
-		data->remote_repair_port = pw_properties_parse_int(str);
-	} else {
-		data->remote_repair_port = PW_ROC_DEFAULT_REPAIR_PORT;
-	}
+	str = pw_properties_get(props, "remote.repair.port");
+	data->remote_repair_port = pw_net_parse_port(str, PW_ROC_DEFAULT_REPAIR_PORT);
 
-	if ((str = pw_properties_get(props, "remote.control.port")) != NULL) {
-		data->remote_control_port = pw_properties_parse_int(str);
-	} else {
-		data->remote_control_port = PW_ROC_DEFAULT_CONTROL_PORT;
-	}
+	str = pw_properties_get(props, "remote.control.port");
+	data->remote_control_port = pw_net_parse_port(str, PW_ROC_DEFAULT_CONTROL_PORT);
 
 	if ((str = pw_properties_get(props, "fec.code")) != NULL) {
 		if (pw_roc_parse_fec_encoding(&data->fec_code, str)) {

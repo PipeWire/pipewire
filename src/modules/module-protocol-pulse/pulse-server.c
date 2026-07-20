@@ -1357,9 +1357,20 @@ do_process_done(struct spa_loop *loop,
 		avail = spa_ringbuffer_get_read_index(&stream->ring, &index);
 
 		if (!spa_list_is_empty(&client->out_messages)) {
-			pw_log_debug("%p: [%s] pending read:%u avail:%d",
-					stream, client->name, index, avail);
-			return 0;
+			/* Try to flush the pending messages first. A control
+			 * message queued for a sibling stream in this same
+			 * cycle (a playback stream's REQUEST) would otherwise
+			 * make us skip this cycle, and when one is queued
+			 * every cycle it starves this capture stream
+			 * persistently while the connection itself keeps
+			 * flowing. Only skip when the messages really cannot
+			 * be flushed (socket backed up). */
+			if (client_flush_messages(client) < 0 ||
+			    !spa_list_is_empty(&client->out_messages)) {
+				pw_log_debug("%p: [%s] pending read:%u avail:%d",
+						stream, client->name, index, avail);
+				return 0;
+			}
 		}
 
 		if (avail <= 0) {

@@ -223,7 +223,8 @@ static int client_try_flush_messages(struct client *client)
 {
 	pw_log_trace("client %p: flushing", client);
 
-	spa_assert(!client->disconnect);
+	if (client->disconnect)
+		return -ENOTCONN;
 
 	while (!spa_list_is_empty(&client->out_messages)) {
 		struct message *m = spa_list_first(&client->out_messages, struct message, link);

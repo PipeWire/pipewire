@@ -1090,7 +1090,7 @@ static inline void swap_bytes(uint8_t *data, size_t size)
 		SPA_SWAP(data[i], data[j]);
 }
 
-static int rsa_encrypt(uint8_t *data, int len, uint8_t *enc)
+static int rsa_encrypt(uint8_t *data, int len, uint8_t *enc, size_t enc_max)
 {
 	uint8_t modulus[256];
 	uint8_t exponent[8];
@@ -1113,7 +1113,7 @@ static int rsa_encrypt(uint8_t *data, int len, uint8_t *enc)
 	EVP_PKEY_CTX *ctx = NULL;
 	OSSL_PARAM params[5];
 	int err = 0;
-	size_t size;
+	size_t size = enc_max;
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 	swap_bytes(modulus, msize);
@@ -1235,7 +1235,7 @@ static int rtsp_do_announce(struct impl *impl)
 		pw_base64_encode(rac, sizeof(rac), sac, '\0');
 		pw_properties_set(impl->headers, "Apple-Challenge", sac);
 
-		rsa_len = rsa_encrypt(impl->aes_key, 16, rsakey);
+		rsa_len = rsa_encrypt(impl->aes_key, 16, rsakey, sizeof(rsakey));
 		if (rsa_len < 0)
 			return -rsa_len;
 

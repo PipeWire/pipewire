@@ -1151,6 +1151,7 @@ static void on_timer_event(void *data)
 		}
 		send_follower_available(impl);
 	}
+	update_timer(impl, FOLLOWER_INIT_TIMEOUT);
 }
 
 static void core_error(void *data, uint32_t id, int seq, int res, const char *message)

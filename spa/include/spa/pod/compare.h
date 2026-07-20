@@ -51,7 +51,7 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 	case SPA_TYPE_Double:
 		return SPA_CMP(*(double *)r1, *(double *)r2);
 	case SPA_TYPE_String:
-		return strcmp((char *)r1, (char *)r2);
+		return strncmp((char *)r1, (char *)r2, size);
 	case SPA_TYPE_Bytes:
 		return memcmp((char *)r1, (char *)r2, size);
 	case SPA_TYPE_Rectangle:

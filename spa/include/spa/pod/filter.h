@@ -146,8 +146,13 @@ spa_pod_filter_prop(struct spa_pod_builder *b,
 	struct spa_pod_frame f;
 
 	v1 = spa_pod_get_values(&p1->value, &nalt1, &p1c);
-	alt1 = SPA_POD_BODY(v1);
 	v2 = spa_pod_get_values(&p2->value, &nalt2, &p2c);
+
+	/* empty/invalid choices */
+	if (nalt1 < 1 || nalt2 < 1)
+		return -EINVAL;
+
+	alt1 = SPA_POD_BODY(v1);
 	alt2 = SPA_POD_BODY(v2);
 
 	type = v1->type;

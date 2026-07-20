@@ -99,6 +99,9 @@ SPA_API_POD_COMPARE int spa_pod_compare(const struct spa_pod *pod1,
 	if (SPA_POD_TYPE(pod1) != SPA_POD_TYPE(pod2))
 		return -EINVAL;
 
+	if (n_vals1 < 1)
+		return -EINVAL; /* empty choice */
+
 	switch (SPA_POD_TYPE(pod1)) {
 	case SPA_TYPE_Struct:
 	{

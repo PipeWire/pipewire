@@ -128,10 +128,8 @@
  *                 ]
  *                 actions = {
  *                     create-stream = {
- *                         stream.props = {
- *                             #target.object = ""
- *                             #media.class = "Audio/Sink"
- *                         }
+ *                         #target.object = ""
+ *                         #media.class = "Audio/Sink"
  *                     }
  *                 }
  *             }

@@ -24,6 +24,7 @@
 #include <spa/utils/json.h>
 #include <spa/utils/json-builder.h>
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/tag-utils.h>
 #include <spa/control/control.h>
 #include <spa/debug/types.h>
 #include <spa/debug/mem.h>
@@ -247,7 +248,7 @@ struct impl {
 
 static int send_group_update(struct client *c, bool playing);
 static int send_stream_start(struct client *c);
-static int send_server_state(struct client *c);
+static int send_server_state(struct client *c, const struct spa_pod *tag);
 
 static void on_stream_destroy(void *d)
 {
@@ -349,7 +350,7 @@ on_stream_param_changed(void *d, uint32_t id, const struct spa_pod *param)
 			pw_log_error("can't send stream/start: %s", spa_strerror(res));
 		break;
 	case SPA_PARAM_Tag:
-		send_server_state(c);
+		send_server_state(c, param);
 		break;
 	}
 }
@@ -455,24 +456,46 @@ static int send_server_hello(struct client *c)
 	return pw_websocket_connection_send_text(c->conn, mem, size);
 }
 
-static int send_server_state(struct client *c)
+static int send_server_state(struct client *c, const struct spa_pod *tag)
 {
 	struct spa_json_builder b;
 	int res;
 	size_t size;
 	spa_autofree char *mem = NULL;
 
-	if (!SPA_FLAG_IS_SET(c->supported_roles, ROLE_METADATA))
-		return 0;
-
 	if ((res = spa_json_builder_memstream(&b, &mem, &size, 0)) < 0)
 		return res;
 	spa_json_builder_array_push(&b,  "{");
 	spa_json_builder_object_string(&b, "type", "server/state");
 	spa_json_builder_object_push(&b,   "payload", "{");
-	spa_json_builder_object_push(&b,     "metadata", "{");
-	spa_json_builder_object_uint(&b,       "timestamp", get_time_us(c));
-	spa_json_builder_pop(&b,             "}");
+	if (SPA_FLAG_IS_SET(c->supported_roles, ROLE_METADATA)) {
+		struct spa_tag_info info;
+		struct spa_dict dict;
+		struct spa_dict_item items[32];
+		void *state = NULL;
+
+		dict.n_items = 0;
+		if (spa_tag_parse(tag, &info, &state) > 0) {
+			dict.n_items = SPA_N_ELEMENTS(items);
+			if (spa_tag_info_parse(&info, &dict, items) < 0)
+				dict.n_items = 0;
+		}
+		spa_json_builder_object_push(&b,     "metadata", "{");
+		spa_json_builder_object_uint(&b,       "timestamp", get_time_us(c));
+		spa_json_builder_object_string(&b,     "title", spa_dict_lookup(&dict, "media.title"));
+		spa_json_builder_object_string(&b,     "artist", spa_dict_lookup(&dict, "media.artist"));
+		spa_json_builder_object_string(&b,     "album", spa_dict_lookup(&dict, "media.album"));
+		spa_json_builder_object_string(&b,     "year", spa_dict_lookup(&dict, "media.date"));
+		spa_json_builder_pop(&b,             "}");
+	}
+	if (SPA_FLAG_IS_SET(c->supported_roles, ROLE_CONTROLLER)) {
+		spa_json_builder_object_push(&b,     "controller", "{");
+		spa_json_builder_object_push(&b,       "supported_commands", "[");
+		spa_json_builder_array_string(&b,        "play");
+		spa_json_builder_array_string(&b,        "pause");
+		spa_json_builder_pop(&b,               "]");
+		spa_json_builder_pop(&b,             "}");
+	}
 	spa_json_builder_pop(&b,           "}");
 	spa_json_builder_pop(&b,         "}");
 	if ((res = spa_json_builder_close(&b)) < 0)

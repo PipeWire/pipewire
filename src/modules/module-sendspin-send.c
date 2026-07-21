@@ -334,15 +334,19 @@ static void
 on_stream_param_changed(void *d, uint32_t id, const struct spa_pod *param)
 {
 	struct client *c = d;
+	int res;
 
 	if (param == NULL)
 		return;
 
 	switch (id) {
 	case SPA_PARAM_Format:
-		if (spa_format_audio_parse(param, &c->info) < 0)
+		if ((res = spa_format_audio_parse(param, &c->info)) < 0) {
+			pw_log_error("can't parse audio format: %s", spa_strerror(res));
 			return;
-		send_stream_start(c);
+		}
+		if ((res = send_stream_start(c)) < 0)
+			pw_log_error("can't send stream/start: %s", spa_strerror(res));
 		break;
 	case SPA_PARAM_Tag:
 		send_server_state(c);
@@ -965,7 +969,7 @@ static int do_parse_text(struct client *c, const char *content, int size)
         const char *v;
 	int res, l;
 
-	pw_log_info("received text %.*s", size, content);
+	pw_log_debug("received text %.*s", size, content);
 
 	if (spa_json_begin_object(&it[0], content, size) <= 0)
 		return -EINVAL;
@@ -1004,10 +1008,14 @@ static int do_parse_text(struct client *c, const char *content, int size)
 static void on_connection_message(void *data, int opcode, void *payload, size_t size)
 {
 	struct client *c = data;
+	int res;
 	if (opcode == PW_WEBSOCKET_OPCODE_TEXT) {
-		do_parse_text(c, payload, size);
+		res = do_parse_text(c, payload, size);
 	} else {
-		pw_log_warn("%02x unknown %08x", opcode, (int)size);
+		res = -ENOTSUP;
+	}
+	if (res < 0) {
+		pw_log_error("opcode %02x parse error: %s", opcode, spa_strerror(res));
 	}
 }
 

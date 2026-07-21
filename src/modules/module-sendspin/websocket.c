@@ -328,7 +328,7 @@ static int receive_websocket(struct pw_websocket_connection *conn,
 
 		switch (conn->status) {
 		case PW_WEBSOCKET_OPCODE_PING:
-			pw_log_info("received ping");
+			pw_log_debug("received ping");
 			pw_websocket_connection_send(conn, PW_WEBSOCKET_OPCODE_PONG, iov, 1);
 			break;
 		case PW_WEBSOCKET_OPCODE_CLOSE:
@@ -400,7 +400,7 @@ static int connection_upgraded_send(struct pw_websocket_connection *conn)
 	fclose(f);
 
 	msg->len = len - offsetof(struct message, data);
-	pw_log_info("send upgrade %s", msg->data);
+	pw_log_debug("send upgrade %s", msg->data);
 	return queue_message(conn, msg);
 }
 
@@ -538,7 +538,7 @@ static int receive_http_reply(struct pw_websocket_connection *conn,
 
 		seq = conn->recv_seq++;
 
-		pw_log_info("received reply to request with seq:%" PRIu32, seq);
+		pw_log_debug("received reply to request with seq:%" PRIu32, seq);
 
 		if ((msg = find_pending(conn, seq)) != NULL) {
 			res = msg->reply(msg->user_data, conn->status);
@@ -607,7 +607,7 @@ static int handle_connect(struct pw_websocket_connection *conn, int fd)
 	msg->user_data = conn;
 	msg->seq = conn->send_seq++;
 
-	pw_log_info("%s", msg->data);
+	pw_log_debug("%s", msg->data);
 
 	receiver_expect(conn, 1, receive_http_reply);
 
@@ -1076,6 +1076,6 @@ int pw_websocket_connection_send_text(struct pw_websocket_connection *conn,
 		const char *payload, size_t payload_len)
 {
 	struct iovec iov[1] = {{ (void*)payload, payload_len }};
-	pw_log_info("send text %.*s", (int)payload_len, payload);
+	pw_log_debug("send text %.*s", (int)payload_len, payload);
 	return pw_websocket_connection_send(conn, PW_WEBSOCKET_OPCODE_TEXT, iov, 1);
 }

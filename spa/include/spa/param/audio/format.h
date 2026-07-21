@@ -52,7 +52,7 @@ struct spa_audio_info {
 		struct spa_audio_info_alac alac;
 		struct spa_audio_info_flac flac;
 		struct spa_audio_info_ape ape;
-		struct spa_audio_info_ape opus;
+		struct spa_audio_info_opus opus;
 		struct spa_audio_info_ac3 ac3;
 		struct spa_audio_info_eac3 eac3;
 		struct spa_audio_info_truehd truehd;

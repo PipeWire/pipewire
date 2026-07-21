@@ -197,6 +197,8 @@ struct client {
 	int buffer_capacity;
 #define ROLE_PLAYER	(1<<0)
 #define ROLE_METADATA	(1<<1)
+#define ROLE_CONTROLLER	(1<<2)
+#define ROLE_ARTWORK	(1<<3)
 	uint32_t supported_roles;
 #define COMMAND_VOLUME	(1<<0)
 #define COMMAND_MUTE	(1<<1)
@@ -442,6 +444,8 @@ static int send_server_hello(struct client *c)
 	spa_json_builder_object_push(&b,      "active_roles", "[");
 	if (c->supported_roles & ROLE_PLAYER)
 		spa_json_builder_array_string(&b, "player@v1");
+	if (c->supported_roles & ROLE_CONTROLLER)
+		spa_json_builder_array_string(&b, "controller@v1");
 	if (c->supported_roles & ROLE_METADATA)
 		spa_json_builder_array_string(&b, "metadata@v1");
 	spa_json_builder_pop(&b,              "]");
@@ -858,6 +862,10 @@ static int handle_client_hello(struct client *c, struct spa_json *payload)
 					c->supported_roles |= ROLE_PLAYER;
 				else if (spa_streq(t, "metadata@v1"))
 					c->supported_roles |= ROLE_METADATA;
+				else if (spa_streq(t, "controller@v1"))
+					c->supported_roles |= ROLE_CONTROLLER;
+				else if (spa_streq(t, "artwork@v1"))
+					c->supported_roles |= ROLE_ARTWORK;
 			}
 		}
 		else if (spa_streq(key, "player_support") ||

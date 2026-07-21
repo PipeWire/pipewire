@@ -700,6 +700,29 @@ static int handle_server_command(struct client *client, struct spa_json *payload
 	return 0;
 }
 
+static const struct spa_audio_layout_info layouts[] = {
+	{ SPA_AUDIO_LAYOUT_Mono },
+	{ SPA_AUDIO_LAYOUT_Stereo },
+	{ SPA_AUDIO_LAYOUT_2_1 },
+	{ SPA_AUDIO_LAYOUT_3_1 },
+	{ SPA_AUDIO_LAYOUT_5_0 },
+	{ SPA_AUDIO_LAYOUT_5_1 },
+	{ SPA_AUDIO_LAYOUT_7_0 },
+	{ SPA_AUDIO_LAYOUT_7_1 },
+};
+static void default_layout(uint32_t channels, uint32_t *position)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(layouts, l) {
+		if (l->n_channels == channels) {
+			for (uint32_t i = 0; i < l->n_channels; i++)
+				position[i] = l->position[i];
+			return;
+		}
+	}
+	for (uint32_t i = 0; i < channels; i++)
+		position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+}
+
 /* {"codec":"pcm","sample_rate":44100,"channels":2,"bit_depth":16} */
 static int parse_player(struct client *client, struct spa_json *player)
 {
@@ -729,7 +752,7 @@ static int parse_player(struct client *client, struct spa_json *player)
 		else if (spa_streq(key, "codec_header")) {
 		}
 	}
-	if (sample_rate == 0 || channels == 0)
+	if (sample_rate <= 0 || channels <= 0 || channels > (int)SPA_AUDIO_MAX_CHANNELS)
 		return -EINVAL;
 
 	if (spa_streq(codec, "pcm")) {
@@ -745,9 +768,14 @@ static int parse_player(struct client *client, struct spa_json *player)
 			client->info.info.raw.format = SPA_AUDIO_FORMAT_S24_LE;
 			client->stride = 3 * channels;
 			break;
+		case 32:
+			client->info.info.raw.format = SPA_AUDIO_FORMAT_S32_LE;
+			client->stride = 4 * channels;
+			break;
 		default:
 			return -EINVAL;
 		}
+		default_layout(channels, client->info.info.raw.position);
 	}
 	else
 		return -EINVAL;

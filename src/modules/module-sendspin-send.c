@@ -554,6 +554,9 @@ static int send_stream_start(struct client *c)
 		case SPA_AUDIO_FORMAT_S24_LE:
 			depth = 24;
 			break;
+		case SPA_AUDIO_FORMAT_S32_LE:
+			depth = 32;
+			break;
 		default:
 			return -ENOTSUP;
 		}
@@ -644,6 +647,29 @@ static int send_group_update(struct client *c, bool playing)
 	return pw_websocket_connection_send_text(c->conn, mem, size);
 }
 
+static const struct spa_audio_layout_info layouts[] = {
+	{ SPA_AUDIO_LAYOUT_Mono },
+	{ SPA_AUDIO_LAYOUT_Stereo },
+	{ SPA_AUDIO_LAYOUT_2_1 },
+	{ SPA_AUDIO_LAYOUT_3_1 },
+	{ SPA_AUDIO_LAYOUT_5_0 },
+	{ SPA_AUDIO_LAYOUT_5_1 },
+	{ SPA_AUDIO_LAYOUT_7_0 },
+	{ SPA_AUDIO_LAYOUT_7_1 },
+};
+static void default_layout(uint32_t channels, uint32_t *position)
+{
+	SPA_FOR_EACH_ELEMENT_VAR(layouts, l) {
+		if (l->n_channels == channels) {
+			for (uint32_t i = 0; i < l->n_channels; i++)
+				position[i] = l->position[i];
+			return;
+		}
+	}
+	for (uint32_t i = 0; i < channels; i++)
+		position[i] = SPA_AUDIO_CHANNEL_AUX0 + i;
+}
+
 /* {"codec":"pcm","sample_rate":44100,"channels":2,"bit_depth":16} */
 static int parse_codec(struct client *c, struct spa_json *object, struct spa_audio_info *info)
 {
@@ -673,7 +699,7 @@ static int parse_codec(struct client *c, struct spa_json *object, struct spa_aud
 		else if (spa_streq(key, "codec_header")) {
 		}
 	}
-	if (sample_rate == 0 || channels == 0)
+	if (sample_rate <= 0 || channels <= 0 || channels > (int)SPA_AUDIO_MAX_CHANNELS)
 		return -EINVAL;
 
 	if (spa_streq(codec, "pcm")) {
@@ -687,22 +713,28 @@ static int parse_codec(struct client *c, struct spa_json *object, struct spa_aud
 		case 24:
 			info->info.raw.format = SPA_AUDIO_FORMAT_S24_LE;
 			break;
+		case 32:
+			info->info.raw.format = SPA_AUDIO_FORMAT_S32_LE;
+			break;
 		default:
-			return -EINVAL;
+			return -ENOTSUP;
 		}
+		default_layout(channels, info->info.raw.position);
 	}
 	else if (spa_streq(codec, "opus")) {
 		info->media_subtype = SPA_MEDIA_SUBTYPE_opus;
 		info->info.opus.rate = sample_rate;
 		info->info.opus.channels = channels;
+		return -ENOTSUP;
 	}
 	else if (spa_streq(codec, "flac")) {
 		info->media_subtype = SPA_MEDIA_SUBTYPE_flac;
 		info->info.flac.rate = sample_rate;
 		info->info.flac.channels = channels;
+		return -ENOTSUP;
 	}
 	else
-		return -EINVAL;
+		return -ENOTSUP;
 
 	return 0;
 }
@@ -728,10 +760,13 @@ static int parse_player_v1_support(struct client *c, struct spa_json *payload)
 					return -EPROTO;
 
 				spa_json_enter(&it[0], &it[1]);
-				if ((res = parse_codec(c, &it[1], &info)) < 0)
+				res = parse_codec(c, &it[1], &info);
+				if (res < 0) {
+					if (res == -ENOTSUP)
+						continue;
 					return res;
-
-				if (count == 0 && info.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+				}
+				if (count == 0) {
 					c->info = info;
 					count++;
 				}

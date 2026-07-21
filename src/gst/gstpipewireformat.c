@@ -646,42 +646,101 @@ handle_video_fields (ConvertData *d)
   }
 }
 
-static void
-set_default_channels (struct spa_pod_builder *b, uint32_t channels)
+static uint32_t
+gst_channel_to_spa (GstAudioChannelPosition pos)
 {
-  uint32_t position[8] = {0};
-  gboolean ok = TRUE;
-
-  switch (channels) {
-  case 8:
-    position[6] = SPA_AUDIO_CHANNEL_SL;
-    position[7] = SPA_AUDIO_CHANNEL_SR;
-    SPA_FALLTHROUGH
-  case 6:
-    position[5] = SPA_AUDIO_CHANNEL_LFE;
-    SPA_FALLTHROUGH
-  case 5:
-    position[4] = SPA_AUDIO_CHANNEL_FC;
-    SPA_FALLTHROUGH
-  case 4:
-    position[2] = SPA_AUDIO_CHANNEL_RL;
-    position[3] = SPA_AUDIO_CHANNEL_RR;
-    SPA_FALLTHROUGH
-  case 2:
-    position[0] = SPA_AUDIO_CHANNEL_FL;
-    position[1] = SPA_AUDIO_CHANNEL_FR;
-    break;
-  case 1:
-    position[0] = SPA_AUDIO_CHANNEL_MONO;
-    break;
-  default:
-    ok = FALSE;
-    break;
+  switch (pos) {
+    case GST_AUDIO_CHANNEL_POSITION_NONE:
+      return SPA_AUDIO_CHANNEL_NA;
+    case GST_AUDIO_CHANNEL_POSITION_MONO:
+      return SPA_AUDIO_CHANNEL_MONO;
+    case GST_AUDIO_CHANNEL_POSITION_FRONT_LEFT:
+      return SPA_AUDIO_CHANNEL_FL;
+    case GST_AUDIO_CHANNEL_POSITION_FRONT_RIGHT:
+      return SPA_AUDIO_CHANNEL_FR;
+    case GST_AUDIO_CHANNEL_POSITION_FRONT_CENTER:
+      return SPA_AUDIO_CHANNEL_FC;
+    case GST_AUDIO_CHANNEL_POSITION_LFE1:
+      return SPA_AUDIO_CHANNEL_LFE;
+    case GST_AUDIO_CHANNEL_POSITION_REAR_LEFT:
+      return SPA_AUDIO_CHANNEL_RL;
+    case GST_AUDIO_CHANNEL_POSITION_REAR_RIGHT:
+      return SPA_AUDIO_CHANNEL_RR;
+    case GST_AUDIO_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER:
+      return SPA_AUDIO_CHANNEL_FLC;
+    case GST_AUDIO_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER:
+      return SPA_AUDIO_CHANNEL_FRC;
+    case GST_AUDIO_CHANNEL_POSITION_REAR_CENTER:
+      return SPA_AUDIO_CHANNEL_RC;
+    case GST_AUDIO_CHANNEL_POSITION_LFE2:
+      return SPA_AUDIO_CHANNEL_LFE2;
+    case GST_AUDIO_CHANNEL_POSITION_SIDE_LEFT:
+      return SPA_AUDIO_CHANNEL_SL;
+    case GST_AUDIO_CHANNEL_POSITION_SIDE_RIGHT:
+      return SPA_AUDIO_CHANNEL_SR;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_FRONT_LEFT:
+      return SPA_AUDIO_CHANNEL_TFL;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_FRONT_RIGHT:
+      return SPA_AUDIO_CHANNEL_TFR;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_FRONT_CENTER:
+      return SPA_AUDIO_CHANNEL_TFC;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_CENTER:
+      return SPA_AUDIO_CHANNEL_TC;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_REAR_LEFT:
+      return SPA_AUDIO_CHANNEL_TRL;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_REAR_RIGHT:
+      return SPA_AUDIO_CHANNEL_TRR;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_SIDE_LEFT:
+      return SPA_AUDIO_CHANNEL_TSL;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_SIDE_RIGHT:
+      return SPA_AUDIO_CHANNEL_TSR;
+    case GST_AUDIO_CHANNEL_POSITION_TOP_REAR_CENTER:
+      return SPA_AUDIO_CHANNEL_TRC;
+    case GST_AUDIO_CHANNEL_POSITION_BOTTOM_FRONT_CENTER:
+      return SPA_AUDIO_CHANNEL_BC;
+    case GST_AUDIO_CHANNEL_POSITION_BOTTOM_FRONT_LEFT:
+      return SPA_AUDIO_CHANNEL_BLC;
+    case GST_AUDIO_CHANNEL_POSITION_BOTTOM_FRONT_RIGHT:
+      return SPA_AUDIO_CHANNEL_BRC;
+    case GST_AUDIO_CHANNEL_POSITION_WIDE_LEFT:
+      return SPA_AUDIO_CHANNEL_FLW;
+    case GST_AUDIO_CHANNEL_POSITION_WIDE_RIGHT:
+      return SPA_AUDIO_CHANNEL_FRW;
+    default:
+      /*
+       * SURROUND_LEFT, SURROUND_RIGHT, TOP_SURROUND_LEFT, TOP_SURROUND_RIGHT,
+       * INVALID have no SPA equivalent.
+       */
+      return SPA_AUDIO_CHANNEL_UNKNOWN;
   }
+}
 
-  if (ok)
-    spa_pod_builder_add (b, SPA_FORMAT_AUDIO_position,
-        SPA_POD_Array(sizeof(uint32_t), SPA_TYPE_Id, channels, position), 0);
+static void
+set_audio_channels (struct spa_pod_builder *b, ConvertData * d,
+    uint32_t channels)
+{
+  GstAudioChannelPosition gst_positions[64];
+  uint32_t spa_positions[64];
+  guint64 channel_mask;
+  const GValue *value;
+  gint i;
+
+  value = gst_structure_get_value (d->cs, "channel-mask");
+  if (value)
+    channel_mask = gst_value_get_bitmask (value);
+  else
+    channel_mask = gst_audio_channel_get_fallback_mask (channels);
+
+  if (!gst_audio_channel_positions_from_mask (channels, channel_mask,
+          gst_positions))
+    return;
+
+  for (i = 0; i < (gint) channels; i++)
+    spa_positions[i] = gst_channel_to_spa (gst_positions[i]);
+
+  spa_pod_builder_add (b, SPA_FORMAT_AUDIO_position,
+      SPA_POD_Array (sizeof (uint32_t), SPA_TYPE_Id, channels, spa_positions),
+      0);
 }
 
 static void
@@ -797,7 +856,7 @@ handle_audio_fields (ConvertData *d)
       choice = (struct spa_pod_choice *)spa_pod_builder_pop(&b.b, &f);
       if (i == 1) {
         choice->body.type = SPA_CHOICE_None;
-        set_default_channels (&b.b, v);
+        set_audio_channels (&b.b, d, v);
       }
     }
   }

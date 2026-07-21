@@ -131,19 +131,21 @@ struct nj2_packet_header {
 
 #define PACKET_AVAILABLE_SIZE(mtu) (mtu - UDP_HEADER_SIZE - sizeof(struct nj2_packet_header))
 
-static inline void nj2_dump_packet_header(struct nj2_packet_header *header)
+static inline void nj2_dump_packet_header(const char *prefix, struct nj2_packet_header *header)
 {
-	pw_log_info("Type:         %.*s", (int)sizeof(header->type), header->type);
-	pw_log_info("Data Type:    %c", ntohl(header->data_type));
-	pw_log_info("Data Stream:  %c", ntohl(header->data_stream));
-	pw_log_info("ID:           %u", ntohl(header->id));
-	pw_log_info("Num Packets:  %u", ntohl(header->num_packets));
-	pw_log_info("Packet Size:  %u", ntohl(header->packet_size));
-	pw_log_info("Active Ports: %u", ntohl(header->active_ports));
-	pw_log_info("Cycle:        %u", ntohl(header->cycle));
-	pw_log_info("Sub Cycle:    %u", ntohl(header->sub_cycle));
-	pw_log_info("Frames        %d", ntohl(header->frames));
-	pw_log_info("Is Last:      %u", ntohl(header->is_last));
+#ifdef N2J_PACKET_DEBUG
+	pw_log_info("%s Type:         %.*s", prefix, (int)sizeof(header->type), header->type);
+	pw_log_info("%s Data Type:    %c", prefix, ntohl(header->data_type));
+	pw_log_info("%s Data Stream:  %c", prefix, ntohl(header->data_stream));
+	pw_log_info("%s ID:           %u", prefix, ntohl(header->id));
+	pw_log_info("%s Num Packets:  %u", prefix, ntohl(header->num_packets));
+	pw_log_info("%s Packet Size:  %u", prefix, ntohl(header->packet_size));
+	pw_log_info("%s Active Ports: %u", prefix, ntohl(header->active_ports));
+	pw_log_info("%s Cycle:        %u", prefix, ntohl(header->cycle));
+	pw_log_info("%s Sub Cycle:    %u", prefix, ntohl(header->sub_cycle));
+	pw_log_info("%s Frames        %d", prefix, ntohl(header->frames));
+	pw_log_info("%s Is Last:      %u", prefix, ntohl(header->is_last));
+#endif
 }
 
 #define MIDI_INLINE_MAX 4

@@ -434,6 +434,8 @@ static int netjack2_send_sync(struct netjack2_peer *peer, uint32_t nframes)
 	header.frames = htonl(nframes);
 	header.is_last = htonl(is_last);
 
+	nj2_dump_packet_header(">>>", &header);
+
 	memcpy(buffer, &header, sizeof(header));
 	p = SPA_PTROFF(buffer, sizeof(header), int32_t);
 	for (i = 0; i < active_ports; i++)
@@ -499,7 +501,7 @@ static int netjack2_send_midi(struct netjack2_peer *peer, uint32_t nframes,
 			SPA_PTROFF(midi_data, i * max_size, void),
 			copy_size);
 		send(peer->fd, buffer, packet_size, 0);
-		//nj2_dump_packet_header(&header);
+		nj2_dump_packet_header(">>>", &header);
 	}
 	return 0;
 }
@@ -561,7 +563,7 @@ static int netjack2_send_float(struct netjack2_peer *peer, uint32_t nframes,
 		header.packet_size = htonl(packet_size);
 		memcpy(buffer, &header, sizeof(header));
 		send(peer->fd, buffer, packet_size, 0);
-		//nj2_dump_packet_header(&header);
+		nj2_dump_packet_header(">>>", &header);
 	}
 	return 0;
 }
@@ -635,7 +637,7 @@ static int netjack2_send_opus(struct netjack2_peer *peer, uint32_t nframes,
 					data_size);
 		}
 		send(peer->fd, buffer, packet_size, 0);
-		//nj2_dump_packet_header(&header);
+		nj2_dump_packet_header(">>>", &header);
 	}
 	return 0;
 #else
@@ -703,7 +705,7 @@ static int netjack2_send_int(struct netjack2_peer *peer, uint32_t nframes,
 					data_size);
 		}
 		send(peer->fd, buffer, packet_size, 0);
-		//nj2_dump_packet_header(&header);
+		nj2_dump_packet_header(">>>", &header);
 	}
 	return 0;
 }
@@ -741,7 +743,7 @@ static inline int32_t netjack2_driver_sync_wait(struct netjack2_peer *peer)
 			goto receive_error;
 
 		if (len >= (ssize_t)sizeof(sync)) {
-			//nj2_dump_packet_header(&sync);
+			nj2_dump_packet_header("<<<", &sync);
 
 			if (strncmp(sync.type, "header", sizeof(sync.type)) == 0 &&
 			    ntohl(sync.data_type) == 's' &&
@@ -779,7 +781,7 @@ static inline int32_t netjack2_manager_sync_wait(struct netjack2_peer *peer)
 			goto receive_error;
 
 		if (len >= (ssize_t)sizeof(sync)) {
-			//nj2_dump_packet_header(sync);
+			nj2_dump_packet_header("<<<", &sync);
 
 			if (strncmp(sync.type, "header", sizeof(sync.type)) == 0 &&
 			    ntohl(sync.data_type) == 's' &&
@@ -1111,7 +1113,7 @@ static int netjack2_recv_data(struct netjack2_peer *peer,
 		if (len < (ssize_t)sizeof(header))
 			goto receive_error;
 
-		//nj2_dump_packet_header(&header);
+		nj2_dump_packet_header("<<<", &header);
 
 		if (ntohl(header.data_stream) != peer->other_stream ||
 		    ntohl(header.id) != peer->params.id) {

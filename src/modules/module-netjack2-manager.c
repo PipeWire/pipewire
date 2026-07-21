@@ -34,8 +34,9 @@
 #include <pipewire/impl.h>
 #include <pipewire/i18n.h>
 
-#include "module-netjack2/packets.h"
+#undef N2J_PACKET_DEBUG
 
+#include "module-netjack2/packets.h"
 #include "module-netjack2/peer.c"
 #include "network-utils.h"
 

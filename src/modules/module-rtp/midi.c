@@ -309,12 +309,18 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	return 0;
 }
 
-static int rtp_midi_receive(struct impl *impl, uint8_t *buffer, ssize_t len,
-			ssize_t hlen, uint64_t current_time)
+static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
+		uint64_t current_time)
 {
 	struct rtp_header *hdr;
 	uint16_t seq;
 	uint32_t timestamp;
+	uint8_t *buffer;
+	ssize_t len, hlen;
+
+	buffer = p->data;
+	len = p->size;
+	hlen = p->hlen;
 
 	hdr = (struct rtp_header*)buffer;
 

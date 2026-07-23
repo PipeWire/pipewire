@@ -66,7 +66,9 @@ void rtp_stream_destroy(struct rtp_stream *s);
 
 int rtp_stream_update_properties(struct rtp_stream *s, const struct spa_dict *dict);
 
-int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
+struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s);
+
+int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 				uint64_t current_time);
 
 int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num);

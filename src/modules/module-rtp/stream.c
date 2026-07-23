@@ -131,6 +131,11 @@ struct impl {
 	uint32_t buffer_mask;
 	uint32_t buffer_size2;
 	uint32_t buffer_mask2;
+
+	uint32_t n_packets;
+	struct spa_list free;
+	struct spa_list queued;
+
 	uint64_t last_recv_timestamp;
 
 	struct spa_io_rate_match *io_rate_match;
@@ -170,8 +175,7 @@ struct impl {
 	 * access below for the reason why. */
 	uint8_t timer_running;
 
-	int (*receive_rtp)(struct impl *impl, uint8_t *buffer, ssize_t len,
-			ssize_t hlen, uint64_t current_time);
+	int (*receive_rtp)(struct impl *impl, struct rtp_packet *p, uint64_t current_time);
 	/* Used for resetting the ring buffer before the stream starts, to prevent
 	 * reading from uninitialized memory. This can otherwise happen in direct
 	 * timestamp mode when the read index is set to an uninitialized location.
@@ -653,7 +657,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	char tmp[64];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	uint32_t n_params, min_samples, max_samples;
+	uint32_t i, n_params, min_samples, max_samples;
 	float min_ptime, max_ptime;
 	const struct spa_pod *params[3];
 	enum pw_stream_flags flags;
@@ -680,6 +684,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		pw_log_error("can't create timer");
 		goto out;
 	}
+	spa_list_init(&impl->free);
+	spa_list_init(&impl->queued);
 
 	impl->reset_ringbuffer = default_reset_ringbuffer;
 
@@ -935,6 +941,23 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 				impl->target_buffer / 2, impl->rate);
 	}
 
+	/* make packets */
+	impl->n_packets = (impl->buffer_size + impl->mtu-1) / impl->mtu;
+	for (i = 0; i < impl->n_packets; i++) {
+		struct rtp_packet *p;
+
+		p = calloc(1, sizeof(*p) + impl->mtu);
+		if (p == NULL) {
+			res = -errno;
+			pw_log_error("can't create packet: %m");
+			goto out;
+		}
+		p->data = SPA_PTROFF(p, sizeof(*p), void);
+		p->maxsize = impl->mtu;
+		p->size = 0;
+		spa_list_append(&impl->free, &p->link);
+	}
+
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
 	pw_properties_setf(props, "rtp.media", "%s", impl->rtp_format_info->media_type);
 	pw_properties_setf(props, "rtp.mime", "%s", impl->rtp_format_info->mime);
@@ -1086,13 +1109,37 @@ int rtp_stream_update_properties(struct rtp_stream *s, const struct spa_dict *di
 	return pw_stream_update_properties(impl->stream, dict);
 }
 
-int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
+struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s)
+{
+	struct impl *impl = (struct impl*)s;
+	struct rtp_packet *p;
+
+	if (spa_list_is_empty(&impl->free)) {
+		if (spa_list_is_empty(&impl->queued)) {
+			errno = EPIPE;
+			return NULL;
+		}
+		p = spa_list_first(&impl->queued, struct rtp_packet, link);
+		spa_list_remove(&p->link);
+		spa_list_append(&impl->free, &p->link);
+	}
+	p = spa_list_first(&impl->free, struct rtp_packet, link);
+	p->size = 0;
+	return p;
+}
+
+int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 				uint64_t current_time)
 {
 	struct impl *impl = (struct impl*)s;
 	struct rtp_header *hdr;
+	uint8_t *buffer;
+	size_t len;
 	ssize_t hlen;
 	uint32_t packet_ssrc;
+
+	buffer = p->data;
+	len = p->size;
 
 	SPA_STATIC_ASSERT(sizeof(struct rtp_header) == 12);
 	if (len < 12)
@@ -1118,7 +1165,12 @@ int rtp_stream_receive_packet(struct rtp_stream *s, uint8_t *buffer, size_t len,
 	impl->ssrc = packet_ssrc;
 	impl->have_ssrc = !impl->ignore_ssrc;
 
-	return impl->receive_rtp(impl, buffer, len, hlen, current_time);
+	spa_list_remove(&p->link);
+	spa_list_append(&impl->queued, &p->link);
+
+	p->hlen = hlen;
+
+	return impl->receive_rtp(impl, p, current_time);
 
 short_packet:
 	pw_log_warn("short packet received");

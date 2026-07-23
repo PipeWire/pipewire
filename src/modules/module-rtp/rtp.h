@@ -132,6 +132,16 @@ static inline int16_t calculate_seqnum_delta(uint16_t seqnum_a, uint16_t seqnum_
 #endif
 }
 
+struct rtp_packet {
+	struct spa_list link;
+
+	void *data;
+	size_t maxsize;
+	size_t size;
+
+	size_t hlen;
+};
+
 #ifdef __cplusplus
 }
 #endif

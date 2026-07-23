@@ -1071,8 +1071,20 @@ on_data_io(void *data, int fd, uint32_t mask)
 
 			if (sess->data_ready && sess->receiving) {
 				uint64_t current_time = rtp_stream_get_nsec(sess->recv);
-				rtp_stream_receive_packet(sess->recv, buffer, len,
-							current_time);
+				struct rtp_packet *p;
+
+				if ((p = rtp_stream_get_free_packet(sess->recv)) == NULL)
+					goto out_of_packets;
+
+				if (len > (ssize_t)p->maxsize) {
+					errno = ENOSPC;
+					goto receive_error;
+				}
+
+				memcpy(p->data, buffer, len);
+				p->size = len;
+
+				rtp_stream_receive_packet(sess->recv, p, current_time);
 			}
 		}
 	}
@@ -1087,6 +1099,9 @@ short_packet:
 	return;
 unknown_ssrc:
 	pw_log_debug("unknown SSRC %08x", ssrc);
+	return;
+out_of_packets:
+	pw_log_debug("out of packets");
 	return;
 }
 

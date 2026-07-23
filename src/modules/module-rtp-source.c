@@ -31,6 +31,7 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 
+#include <module-rtp/rtp.h>
 #include <module-rtp/stream.h>
 #include "network-utils.h"
 
@@ -254,8 +255,7 @@ struct impl {
 	bool is_multicast;
 	bool filter_by_address;
 
-	uint8_t *buffer;
-	size_t buffer_size;
+	uint32_t mtu;
 
 #define STATE_IDLE	0
 #define STATE_PROBE	1
@@ -314,7 +314,12 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	current_time = get_time_ns(impl);
 
 	if (mask & SPA_IO_IN) {
-		if ((len = recvfrom(fd, impl->buffer, impl->buffer_size,
+		struct rtp_packet *p;
+
+		if ((p = rtp_stream_get_free_packet(impl->stream)) == NULL)
+			goto out_of_packets;
+
+		if ((len = recvfrom(fd, p->data, p->maxsize,
 #ifdef __linux__
 				    /* Use this Linux specific feature to get the actual size of the
 				     * packet, even if it was truncated due to it being larger than
@@ -327,7 +332,7 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 				    (struct sockaddr *)(&recvaddr), &recvaddr_len)) < 0)
 			goto receive_error;
 
-		if (SPA_UNLIKELY((size_t)len > impl->buffer_size))
+		if (SPA_UNLIKELY((size_t)len > p->maxsize))
 			goto packet_larger_than_mtu;
 
 		/* Filter the packets to exclude those with source addresses
@@ -360,8 +365,9 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			goto short_packet;
 
 		if (SPA_LIKELY(impl->stream)) {
-			if (rtp_stream_receive_packet(impl->stream, impl->buffer, len,
-							current_time) < 0)
+			p->size = len;
+
+			if (rtp_stream_receive_packet(impl->stream, p, current_time) < 0)
 				goto receive_error;
 		}
 
@@ -380,6 +386,10 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 	}
 	return;
 
+out_of_packets:
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
+		pw_log_warn("(%d suppressed) recv() out of packets: %m", suppressed);
+	return;
 receive_error:
 	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
 		pw_log_warn("(%d suppressed) recv() error: %m", suppressed);
@@ -392,8 +402,8 @@ short_packet:
 packet_larger_than_mtu:
 	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
 		pw_log_warn("(%d suppressed) packet received that is larger than "
-				"the configured MTU (%zu bytes)",
-				suppressed, impl->buffer_size);
+				"the configured MTU (%u bytes)",
+				suppressed, impl->mtu);
 	return;
 }
 
@@ -901,7 +911,6 @@ static void impl_destroy(struct impl *impl)
 	pw_properties_free(impl->stream_props);
 	pw_properties_free(impl->props);
 
-	free(impl->buffer);
 	free(impl->ifname);
 	free(impl);
 }
@@ -1112,13 +1121,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		goto out;
 	}
 
-	impl->buffer_size = rtp_stream_get_mtu(impl->stream);
-	impl->buffer = calloc(1, impl->buffer_size);
-	if (impl->buffer == NULL) {
-		res = -errno;
-		pw_log_error("can't create packet buffer of size %zd: %m", impl->buffer_size);
-		goto out;
-	}
+	impl->mtu = rtp_stream_get_mtu(impl->stream);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);
 

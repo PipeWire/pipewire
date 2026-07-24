@@ -134,7 +134,6 @@ struct impl {
 	uint32_t n_packets;
 	struct spa_list free;
 	struct spa_list queued;
-	uint32_t queued_read;
 
 	uint64_t last_recv_timestamp;
 
@@ -1190,7 +1189,6 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 		 * in the ringbuffer. */
 		impl->ring.readindex = timestamp;
 		impl->ring.writeindex = timestamp + impl->target_buffer;
-		impl->queued_read = timestamp;
 
 		spa_dll_init(&impl->dll);
 		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
@@ -1210,6 +1208,9 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	}
 	spa_list_remove(&p->link);
 	spa_list_append(&q->link, &p->link);
+
+	if (p == spa_list_last(&impl->queued, struct rtp_packet, link))
+		impl->ring.writeindex = p->timestamp + impl->target_buffer;
 
 	if (impl->receive_rtp)
 		res = impl->receive_rtp(impl, p, current_time);

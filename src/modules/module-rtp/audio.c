@@ -12,16 +12,6 @@ set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
 	iov[1].iov_base = buffer;
 }
 
-static void ringbuffer_clear(struct spa_ringbuffer *rbuf SPA_UNUSED,
-			 void *buffer, uint32_t size,
-			 uint32_t offset, uint32_t len)
-{
-	struct iovec iov[2];
-	set_iovec(rbuf, buffer, size, offset, iov, len);
-	memset(iov[0].iov_base, 0, iov[0].iov_len);
-	memset(iov[1].iov_base, 0, iov[1].iov_len);
-}
-
 static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 {
 #if 0
@@ -29,6 +19,47 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 #else
 	return (uint64_t)((double)val / denom * num);
 #endif
+}
+
+/* read wanted samples from the packet buffer at timestamp. Fill the gaps with
+ * 0 bytes */
+static void packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
+		uint32_t wanted, uint32_t stride)
+{
+	struct rtp_packet *p;
+
+	spa_list_for_each(p, &impl->queued, link) {
+		uint32_t samples, skip, ts;
+		if (wanted == 0)
+			break;
+
+		ts = p->timestamp + impl->target_buffer;
+		samples = (p->size - p->hlen) / stride;
+		if (ts + samples < timestamp)
+			continue;
+
+		if (timestamp < ts) {
+			skip = ts - timestamp;
+			skip = SPA_MIN(skip, wanted);
+			memset(dst, 0, skip * stride);
+			dst = SPA_PTROFF(dst, skip * stride, void);
+			wanted -= skip;
+			timestamp += skip;
+			skip = 0;
+		} else {
+			skip = timestamp - ts;
+			samples -= skip;
+		}
+		samples = SPA_MIN(samples, wanted);
+		if (samples > 0) {
+			memcpy(dst, SPA_PTROFF(p->data, p->hlen + skip*stride, void), samples * stride);
+			dst = SPA_PTROFF(dst, samples * stride, void);
+			wanted -= samples;
+			timestamp += samples;
+		}
+	}
+	if (wanted > 0)
+		memset(dst, 0, wanted * stride);
 }
 
 static void rtp_audio_process_playback(void *data)
@@ -172,25 +203,8 @@ static void rtp_audio_process_playback(void *data)
 			}
 		}
 
-		if (num_samples_to_read > 0) {
-			spa_ringbuffer_read_data(&impl->ring,
-					impl->buffer,
-					impl->actual_max_buffer_size,
-					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
-					d[0].data, num_samples_to_read * stride);
-
-			/* Clear the bytes that were just retrieved. Since the fill level
-			 * is not tracked in this buffer mode, it is possible that as soon
-			 * as actual playback ends, the RTP source node re-reads old data.
-			 * Make sure it reads silence when no actual new data is present
-			 * and the RTP source node still runs. Do this by filling the
-			 * region of the retrieved data with null bytes. */
-			ringbuffer_clear(&impl->ring,
-					impl->buffer,
-					impl->actual_max_buffer_size,
-					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
-					num_samples_to_read * stride);
-		}
+		if (num_samples_to_read > 0)
+			packet_buffer_read(impl, timestamp, d[0].data, num_samples_to_read, stride);
 
 		if (num_samples_to_read < wanted) {
 			/* If fewer samples were available than what was wanted,
@@ -286,35 +300,12 @@ static void rtp_audio_process_playback(void *data)
 
 			corr = spa_dll_update(&impl->dll, error);
 
-			pw_log_trace("avail:%u target:%u error:%f corr:%f", avail,
+			pw_log_info("avail:%u target:%u error:%f corr:%f", avail,
 					target_buffer, error, corr);
 
 			pw_stream_set_rate(impl->stream, 1.0 / corr);
 
-			spa_ringbuffer_read_data(&impl->ring,
-					impl->buffer,
-					impl->actual_max_buffer_size,
-					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
-					d[0].data, wanted * stride);
-
-			/* Clear the bytes that were just retrieved. Unlike in the
-			 * direct timestamp mode, here, bytes are always read out
-			 * of the ring buffer in sequence - the read pointer does
-			 * not "jump around" (which can happen in direct timestamp
-			 * mode if the last iteration has been a while ago and the
-			 * driver clock time advanced significantly, or if the driver
-			 * time experienced a discontinuity). However, should there
-			 * be packet loss, it could lead to segments in the ring
-			 * buffer that should have been written to but weren't written
-			 * to. These segments would then contain old stale data. By
-			 * clearing data out of the ring buffer after reading it, it
-			 * is ensured that no stale data can exist - in the packet loss
-			 * case, the outcome would be a gap made of nullsamples instead. */
-			ringbuffer_clear(&impl->ring,
-					impl->buffer,
-					impl->actual_max_buffer_size,
-					((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
-					wanted * stride);
+			packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
 
 			timestamp += wanted;
 			spa_ringbuffer_read_update(&impl->ring, timestamp);
@@ -328,106 +319,6 @@ static void rtp_audio_process_playback(void *data)
 	buf->size = wanted;
 
 	pw_stream_queue_buffer(impl->stream, buf);
-}
-
-static int rtp_audio_receive(struct impl *impl, struct rtp_packet *p,
-				uint64_t current_time)
-{
-	ssize_t plen;
-	uint32_t timestamp, samples, write, expected_write;
-	uint32_t stride = impl->stride;
-	int32_t filled;
-	uint8_t *buffer;
-	ssize_t hlen, len;
-
-	buffer = p->data;
-	len = p->size;
-	hlen = p->hlen;
-
-	timestamp = p->timestamp;
-
-	plen = len - hlen;
-	samples = plen / stride;
-
-	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_write);
-
-	/* we always write to timestamp + delay */
-	write = timestamp + impl->target_buffer;
-
-	if (expected_write != write) {
-		pw_log_debug("unexpected write (%u != %u)",
-				write, expected_write);
-	}
-
-	/* Write overrun only makes sense in constant latency mode. See the
-	 * RTP source module documentation and the rtp_audio_process_playback()
-	 * code for an explanation why. */
-	if (!impl->direct_timestamp && (filled + samples > impl->buffer_size / stride)) {
-		pw_log_debug("receiver write overrun %u + %u > %u", filled, samples,
-				impl->buffer_size / stride);
-		impl->have_sync = false;
-	} else {
-		pw_log_trace("got samples:%u", samples);
-		spa_ringbuffer_write_data(&impl->ring,
-				impl->buffer,
-				impl->actual_max_buffer_size,
-				((uint64_t)write * stride) % impl->actual_max_buffer_size,
-				&buffer[hlen], (samples * stride));
-
-		/* Only update the write index if data was actually _appended_.
-		 * If packets arrived out of order, then it may be that parts
-		 * of the ring buffer further ahead were written to first, and
-		 * now, unwritten parts preceding those other parts were now
-		 * written to. For example, if previously, 10 samples were
-		 * written to index 100, even though 10 samples were expected
-		 * to be written at index 90, then there is a "hole" at index
-		 * 90. If now, the packet that contains data for index 90
-		 * arrived, then this data will be _inserted_ at index 90,
-		 * and not _appended_. In this example, `expected_write` would
-		 * be 100 (since `expected_write` is the current write index),
-		 * `write` would be 90, `samples` would be 10. In this case,
-		 * the (expected_write < (write + samples)) inequality does
-		 * not hold, so data is being _inserted_. By contrast, during
-		 * normal operation, `write` and `expected_write` are equal,
-		 * so the aforementioned inequality _does_ hold, meaning that
-		 * data is being appended.
-		 *
-		 * The code below handles this, and also handles a 32-bit
-		 * integer overflow corner case where the comparison has
-		 * to be done differently to account for the wrap-around.
-		 *
-		 * (Note that this write index update is only important if
-		 * the constant latency mode is active, or if no spa_io_position
-		 * was not provided yet. See the rtp_audio_process_playback()
-		 * code for more about this.) */
-
-		/* Compute new_write, handling potential 32-bit overflow.
-		 * In unsigned arithmetic, if write + samples exceeds UINT32_MAX,
-		 * it wraps around to a smaller value. We detect this by checking
-		 * if new_write < write (which can only happen on overflow). */
-		const uint32_t new_write = write + samples;
-		const bool wrapped_around = new_write < write;
-
-		/* Determine if new_write is ahead of expected_write.
-		 * We're appending (ahead) if:
-		 *
-		 * 1. Normal case: new_write > expected_write (forward progress)
-		 * 2. Wrap-around case: new_write wrapped around (wrapped_around == true),
-		 *    meaning we've cycled through the 32-bit index space and are
-		 *    continuing from the beginning. In this case, we're always ahead.
-		 *
-		 * We're NOT appending (inserting/behind) if:
-		 * - new_write <= expected_write AND no wrap-around occurred
-		 *   (we're filling a gap or writing behind the current position) */
-		const bool is_appending = wrapped_around || (new_write > expected_write);
-
-		if (is_appending) {
-			write = new_write;
-			spa_ringbuffer_write_update(&impl->ring, write);
-		}
-	}
-
-	return 0;
 }
 
 static void set_timer(struct impl *impl, uint64_t time, uint64_t itime)
@@ -942,7 +833,6 @@ static int rtp_audio_init(struct impl *impl, struct pw_core *core, enum spa_dire
 	else
 		impl->stream_events.process = rtp_audio_process_playback;
 
-	impl->receive_rtp = rtp_audio_receive;
 	impl->stop_timer = rtp_audio_stop_timer;
 	impl->flush_timeout = rtp_audio_flush_timeout;
 	impl->resend_packets = rtp_audio_resend_packets;

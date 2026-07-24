@@ -7,6 +7,59 @@
 #include <opus/opus.h>
 #include <opus/opus_multistream.h>
 
+/* read wanted samples from the packet buffer at timestamp. Fill the gaps with
+ * 0 bytes */
+static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
+		uint32_t wanted, uint32_t stride)
+{
+	struct rtp_packet *p;
+	OpusMSDecoder *dec = impl->stream_data;
+
+	spa_list_for_each(p, &impl->queued, link) {
+		uint32_t samples, skip, ts;
+		if (wanted == 0)
+			break;
+
+		if (p->decoded == NULL) {
+			int res;
+			res = opus_multistream_decode_float(dec,
+				SPA_PTROFF(p->data, p->hlen, void), p->size - p->hlen,
+				(float*)p->tmp, p->tmp_size, 0);
+			if (res < 0)
+				continue;
+			p->decoded = p->tmp;
+			p->samples = res;
+		}
+
+		ts = p->timestamp + impl->target_buffer;
+		samples = p->samples;
+		if (ts + samples < timestamp)
+			continue;
+
+		if (timestamp < ts) {
+			skip = ts - timestamp;
+			skip = SPA_MIN(skip, wanted);
+			memset(dst, 0, skip * stride);
+			dst = SPA_PTROFF(dst, skip * stride, void);
+			wanted -= skip;
+			timestamp += skip;
+			skip = 0;
+		} else {
+			skip = timestamp - ts;
+			samples -= skip;
+		}
+		samples = SPA_MIN(samples, wanted);
+		if (samples > 0) {
+			memcpy(dst, SPA_PTROFF(p->decoded, skip*stride, void), samples * stride);
+			dst = SPA_PTROFF(dst, samples * stride, void);
+			wanted -= samples;
+			timestamp += samples;
+		}
+	}
+	if (wanted > 0)
+		memset(dst, 0, wanted * stride);
+}
+
 /* TODO: Direct timestamp mode here may require a rework. See audio.c for a reference.
  * Also check out the usage of actual_max_buffer_size in audio.c. */
 
@@ -81,11 +134,8 @@ static void rtp_opus_process_playback(void *data)
 
 			pw_stream_set_rate(impl->stream, 1.0 / corr);
 		}
-		spa_ringbuffer_read_data(&impl->ring,
-				impl->buffer,
-				impl->buffer_size2,
-				(timestamp * stride) & impl->buffer_mask2,
-				d[0].data, wanted * stride);
+
+		opus_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
 
 		timestamp += wanted;
 		spa_ringbuffer_read_update(&impl->ring, timestamp);
@@ -97,59 +147,6 @@ static void rtp_opus_process_playback(void *data)
 	buf->size = wanted;
 
 	pw_stream_queue_buffer(impl->stream, buf);
-}
-
-static int rtp_opus_receive(struct impl *impl, struct rtp_packet *p, uint64_t current_time)
-{
-	ssize_t plen;
-	uint32_t timestamp, samples, write, expected_write;
-	uint32_t stride = impl->stride;
-	OpusMSDecoder *dec = impl->stream_data;
-	int32_t filled;
-	int res;
-	uint8_t *buffer;
-	ssize_t len, hlen;
-
-	buffer = p->data;
-	len = p->size;
-	hlen = p->hlen;
-
-	timestamp = p->timestamp;
-	plen = len - hlen;
-
-	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_write);
-
-	/* we always write to timestamp + delay */
-	write = timestamp + impl->target_buffer;
-	if (expected_write != write) {
-		pw_log_debug("unexpected write (%u != %u)",
-				write, expected_write);
-	}
-
-	if (filled + 2880 > (int32_t)(impl->buffer_size2 / stride)) {
-		pw_log_debug("capture overrun %u + %d > %u", filled, 2880,
-				impl->buffer_size2 / stride);
-		impl->have_sync = false;
-	} else {
-		uint32_t index = (write * stride) & impl->buffer_mask2, end;
-
-		res = opus_multistream_decode_float(dec,
-				&buffer[hlen], plen,
-				(float*)&impl->buffer[index], 2880,
-				0);
-
-		end = index + (res * stride);
-		/* fold to the lower part of the ringbuffer when overflow */
-		if (end > impl->buffer_size2)
-			memmove(impl->buffer, &impl->buffer[impl->buffer_size2], end - impl->buffer_size2);
-
-		pw_log_info("receiving %zd len:%d timestamp:%d %u", plen, res, timestamp, index);
-		samples = res;
-
-		write += samples;
-		spa_ringbuffer_write_update(&impl->ring, write);
-	}
-	return 0;
 }
 
 static void rtp_opus_flush_packets(struct impl *impl)
@@ -298,7 +295,6 @@ static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
 		mapping[i] = i;
 
 	impl->deinit = rtp_opus_deinit;
-	impl->receive_rtp = rtp_opus_receive;
 	if (direction == SPA_DIRECTION_INPUT) {
 		impl->stream_events.process = rtp_opus_process_capture;
 

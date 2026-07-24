@@ -23,7 +23,7 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 
 /* read wanted samples from the packet buffer at timestamp. Fill the gaps with
  * 0 bytes */
-static void packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
+static void audio_packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
 		uint32_t wanted, uint32_t stride)
 {
 	struct rtp_packet *p;
@@ -33,8 +33,13 @@ static void packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
 		if (wanted == 0)
 			break;
 
+		if (p->decoded == NULL) {
+			p->decoded = SPA_PTROFF(p->data, p->hlen, void);
+			p->samples = (p->size - p->hlen) / stride;
+		}
+
+		samples = p->samples;
 		ts = p->timestamp + impl->target_buffer;
-		samples = (p->size - p->hlen) / stride;
 		if (ts + samples < timestamp)
 			continue;
 
@@ -52,7 +57,7 @@ static void packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
 		}
 		samples = SPA_MIN(samples, wanted);
 		if (samples > 0) {
-			memcpy(dst, SPA_PTROFF(p->data, p->hlen + skip*stride, void), samples * stride);
+			memcpy(dst, SPA_PTROFF(p->decoded, skip*stride, void), samples * stride);
 			dst = SPA_PTROFF(dst, samples * stride, void);
 			wanted -= samples;
 			timestamp += samples;
@@ -204,7 +209,7 @@ static void rtp_audio_process_playback(void *data)
 		}
 
 		if (num_samples_to_read > 0)
-			packet_buffer_read(impl, timestamp, d[0].data, num_samples_to_read, stride);
+			audio_packet_buffer_read(impl, timestamp, d[0].data, num_samples_to_read, stride);
 
 		if (num_samples_to_read < wanted) {
 			/* If fewer samples were available than what was wanted,
@@ -305,7 +310,7 @@ static void rtp_audio_process_playback(void *data)
 
 			pw_stream_set_rate(impl->stream, 1.0 / corr);
 
-			packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
+			audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
 
 			timestamp += wanted;
 			spa_ringbuffer_read_update(&impl->ring, timestamp);

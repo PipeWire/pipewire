@@ -945,7 +945,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	for (i = 0; i < impl->n_packets; i++) {
 		struct rtp_packet *p;
 
-		p = calloc(1, sizeof(*p) + impl->mtu);
+		p = calloc(1, sizeof(*p) + impl->mtu + 2880);
 		if (p == NULL) {
 			res = -errno;
 			pw_log_error("can't create packet: %m");
@@ -954,6 +954,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		p->data = SPA_PTROFF(p, sizeof(*p), void);
 		p->maxsize = impl->mtu;
 		p->size = 0;
+		p->tmp_size = 2880;
+		p->tmp = SPA_PTROFF(p->data, p->tmp_size, void);
 		spa_list_append(&impl->free, &p->link);
 	}
 	pw_log_info("%u", impl->n_packets);
@@ -1125,6 +1127,7 @@ struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s)
 	}
 	p = spa_list_first(&impl->free, struct rtp_packet, link);
 	p->size = 0;
+	p->decoded = NULL;
 	return p;
 }
 

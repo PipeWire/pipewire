@@ -143,6 +143,12 @@ struct rtp_packet {
 	uint16_t seq;
 	uint32_t timestamp;
 	size_t hlen;
+
+	void *decoded;
+	uint32_t samples;
+
+	void *tmp;
+	size_t tmp_size;
 };
 
 #ifdef __cplusplus

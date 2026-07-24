@@ -454,7 +454,8 @@ static struct spa_pod *build_route(struct spa_pod_builder *b, uint32_t id,
 	spa_pod_builder_prop(b, SPA_PARAM_ROUTE_profiles, 0);
 	spa_pod_builder_push_array(b, &f[1]);
 	for (i = 0; i < p->n_profiles; i++)
-		spa_pod_builder_int(b, p->profiles[i]->index);
+		if (!SPA_FLAG_IS_SET(p->profiles[i]->flags, ACP_PROFILE_HIDDEN))
+			spa_pod_builder_int(b, p->profiles[i]->index);
 	spa_pod_builder_pop(b, &f[1]);
 	if (dev != NULL) {
 		uint32_t channels = dev->format.channels;

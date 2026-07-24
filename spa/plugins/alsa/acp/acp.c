@@ -566,6 +566,11 @@ static void add_profiles(pa_card *impl)
 		cp->description = ap->description;
 		cp->priority = ap->priority ? ap->priority : 1;
 
+		if (!ap->supported) {
+			cp->available = ACP_AVAILABLE_NO;
+			cp->flags |= ACP_PROFILE_HIDDEN;
+		}
+
 		pa_dynarray_init(&ap->out.devices, NULL);
 
 		if (ap->output_mappings) {
@@ -803,17 +808,130 @@ struct temp_port_avail {
 	pa_available_t avail;
 };
 
+static void update_profile_availabilities(pa_card *impl)
+{
+	pa_alsa_profile *profile;
+	void *state;
+	bool any_input_port_available;
+	enum acp_available active_available = ACP_AVAILABLE_UNKNOWN;
+	const char *hidden_profiles;
+
+	/* Unhide profiles that became supported after re-probing, but not profiles
+	 * hidden by the user via api.acp.hidden-profiles */
+	hidden_profiles = pa_proplist_gets(impl->proplist, "api.acp.hidden-profiles");
+	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
+		if (profile->supported &&
+				(profile->profile.flags & ACP_PROFILE_HIDDEN) &&
+				!contains_string(hidden_profiles, profile->profile.name))
+			profile->profile.flags &= ~ACP_PROFILE_HIDDEN;
+	}
+
+	/* Update profile availabilities. Ideally we would mark all profiles
+	 * unavailable that contain unavailable devices. We can't currently do that
+	 * in all cases, because if there are multiple sinks in a profile, and the
+	 * profile contains a mix of available and unavailable ports, we don't know
+	 * how the ports are distributed between the different sinks. It's possible
+	 * that some sinks contain only unavailable ports, in which case we should
+	 * mark the profile as unavailable, but it's also possible that all sinks
+	 * contain at least one available port, in which case we should mark the
+	 * profile as available. Until the data structures are improved so that we
+	 * can distinguish between these two cases, we mark the problematic cases
+	 * as available (well, "unknown" to be precise, but there's little
+	 * practical difference).
+	 *
+	 * When all output ports are unavailable, we know that all sinks are
+	 * unavailable, and therefore the profile is marked unavailable as well.
+	 * The same applies to input ports as well, of course.
+	 *
+	 * If there are no output ports at all, but the profile contains at least
+	 * one sink, then the output is considered to be available. */
+	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
+		active_available = impl->card.profiles[impl->card.active_profile_index]->available;
+
+	/* First round - detect, if we have any input port available. */
+	any_input_port_available = false;
+	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
+		pa_device_port *port;
+		void *state2;
+
+		if (profile->profile.flags & ACP_PROFILE_OFF)
+			continue;
+
+		PA_HASHMAP_FOREACH(port, impl->ports, state2) {
+			if (!pa_hashmap_get(port->profiles, profile->profile.name))
+				continue;
+
+			if (port->port.direction == ACP_DIRECTION_CAPTURE &&
+			    port->port.available != ACP_AVAILABLE_NO) {
+				any_input_port_available = true;
+				goto input_port_found;
+			}
+		}
+	}
+input_port_found:
+
+	/* Second round */
+	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
+		pa_device_port *port;
+		void *state2;
+		bool has_input_port = false;
+		bool has_output_port = false;
+		bool found_available_input_port = false;
+		bool found_available_output_port = false;
+		enum acp_available available = ACP_AVAILABLE_UNKNOWN;
+
+		if (profile->profile.flags & ACP_PROFILE_OFF)
+			continue;
+
+		PA_HASHMAP_FOREACH(port, impl->ports, state2) {
+			if (!pa_hashmap_get(port->profiles, profile->profile.name))
+				continue;
+
+			if (port->port.direction == ACP_DIRECTION_CAPTURE) {
+				has_input_port = true;
+				if (port->port.available != ACP_AVAILABLE_NO)
+					found_available_input_port = true;
+			} else {
+				has_output_port = true;
+				if (port->port.available != ACP_AVAILABLE_NO)
+					found_available_output_port = true;
+			}
+		}
+
+		if ((has_input_port && !found_available_input_port) ||
+		    (has_output_port && !found_available_output_port))
+			available = ACP_AVAILABLE_NO;
+
+		if (has_input_port && !has_output_port && found_available_input_port)
+			available = ACP_AVAILABLE_YES;
+		if (has_output_port && (!has_input_port || !any_input_port_available) && found_available_output_port)
+			available = ACP_AVAILABLE_YES;
+		if (has_output_port && has_input_port && found_available_output_port && found_available_input_port)
+			available = ACP_AVAILABLE_YES;
+
+		/* If hardware re-probe found this profile unsupported, force unavailable */
+		if (!(profile->profile.flags & ACP_PROFILE_PRO) && !profile->supported)
+			available = ACP_AVAILABLE_NO;
+
+		if (profile->profile.index == impl->card.active_profile_index)
+			active_available = available;
+		else
+			profile_set_available(impl, profile->profile.index, available, false);
+	}
+
+	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
+		profile_set_available(impl, impl->card.active_profile_index, active_available, true);
+}
+
 static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 {
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
 	snd_hctl_elem_t **_elem = snd_mixer_elem_get_private(melem), *elem;
 	snd_ctl_elem_value_t *elem_value;
-	bool plugged_in, any_input_port_available;
+	bool plugged_in;
 	void *state;
 	pa_alsa_jack *jack;
 	struct temp_port_avail *tp, *tports;
-	pa_alsa_profile *profile;
-	enum acp_available active_available = ACP_AVAILABLE_UNKNOWN;
 	size_t size;
 
 	pa_assert(_elem);
@@ -899,102 +1017,7 @@ static int report_jack_state(snd_mixer_elem_t *melem, unsigned int mask)
 #endif
 	}
 
-	/* Update profile availabilities. Ideally we would mark all profiles
-	 * unavailable that contain unavailable devices. We can't currently do that
-	 * in all cases, because if there are multiple sinks in a profile, and the
-	 * profile contains a mix of available and unavailable ports, we don't know
-	 * how the ports are distributed between the different sinks. It's possible
-	 * that some sinks contain only unavailable ports, in which case we should
-	 * mark the profile as unavailable, but it's also possible that all sinks
-	 * contain at least one available port, in which case we should mark the
-	 * profile as available. Until the data structures are improved so that we
-	 * can distinguish between these two cases, we mark the problematic cases
-	 * as available (well, "unknown" to be precise, but there's little
-	 * practical difference).
-	 *
-	 * When all output ports are unavailable, we know that all sinks are
-	 * unavailable, and therefore the profile is marked unavailable as well.
-	 * The same applies to input ports as well, of course.
-	 *
-	 * If there are no output ports at all, but the profile contains at least
-	 * one sink, then the output is considered to be available. */
-	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
-		active_available = impl->card.profiles[impl->card.active_profile_index]->available;
-
-	/* First round - detect, if we have any input port available.
-	   If the hardware can report the state for all I/O jacks, only speakers
-	   may be plugged in. */
-	any_input_port_available = false;
-	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
-		pa_device_port *port;
-		void *state2;
-
-		if (profile->profile.flags & ACP_PROFILE_OFF)
-			continue;
-
-		PA_HASHMAP_FOREACH(port, impl->ports, state2) {
-			if (!pa_hashmap_get(port->profiles, profile->profile.name))
-				continue;
-
-			if (port->port.direction == ACP_DIRECTION_CAPTURE &&
-			    port->port.available != ACP_AVAILABLE_NO) {
-				any_input_port_available = true;
-				goto input_port_found;
-			}
-		}
-	}
-input_port_found:
-
-	/* Second round */
-	PA_HASHMAP_FOREACH(profile, impl->profiles, state) {
-		pa_device_port *port;
-		void *state2;
-		bool has_input_port = false;
-		bool has_output_port = false;
-		bool found_available_input_port = false;
-		bool found_available_output_port = false;
-		enum acp_available available = ACP_AVAILABLE_UNKNOWN;
-
-		if (profile->profile.flags & ACP_PROFILE_OFF)
-			continue;
-
-		PA_HASHMAP_FOREACH(port, impl->ports, state2) {
-			if (!pa_hashmap_get(port->profiles, profile->profile.name))
-				continue;
-
-			if (port->port.direction == ACP_DIRECTION_CAPTURE) {
-				has_input_port = true;
-				if (port->port.available != ACP_AVAILABLE_NO)
-					found_available_input_port = true;
-			} else {
-				has_output_port = true;
-				if (port->port.available != ACP_AVAILABLE_NO)
-					found_available_output_port = true;
-			}
-		}
-
-		if ((has_input_port && !found_available_input_port) ||
-		    (has_output_port && !found_available_output_port))
-			available = ACP_AVAILABLE_NO;
-
-		if (has_input_port && !has_output_port && found_available_input_port)
-			available = ACP_AVAILABLE_YES;
-		if (has_output_port && (!has_input_port || !any_input_port_available) && found_available_output_port)
-			available = ACP_AVAILABLE_YES;
-		if (has_output_port && has_input_port && found_available_output_port && found_available_input_port)
-			available = ACP_AVAILABLE_YES;
-
-		/* We want to update the active profile's status last, so logic that
-		 * may change the active profile based on profile availability status
-		 * has an updated view of all profiles' availabilities. */
-		if (profile->profile.index == impl->card.active_profile_index)
-			active_available = available;
-		else
-			profile_set_available(impl, profile->profile.index, available, false);
-	}
-
-	if (impl->card.active_profile_index != ACP_INVALID_INDEX)
-		profile_set_available(impl, impl->card.active_profile_index, active_available, true);
+	update_profile_availabilities(impl);
 
 	return 0;
 }
@@ -1255,6 +1278,12 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 
 	if (changed && mask != 0 && impl->events && impl->events->props_changed)
 		impl->events->props_changed(impl->user_data);
+
+	if (changed && mask != 0) {
+		pa_alsa_profile_set_recheck_hdmi_eld(impl->profile_set, impl->card.index);
+		update_profile_availabilities(impl);
+	}
+
 	return 0;
 }
 
@@ -2233,6 +2262,7 @@ int acp_card_handle_events(struct acp_card *card)
 			return n;
 		count += n;
 	}
+
 	return count;
 }
 

@@ -20,6 +20,7 @@
 
 #include "config.h"
 
+#include <dirent.h>
 #include <sys/types.h>
 #include <alsa/asoundlib.h>
 #include <math.h>
@@ -5267,8 +5268,6 @@ void pa_alsa_profile_set_probe(
     /* Clean up */
     profile_finalize_probing(last, NULL);
 
-    pa_alsa_profile_set_drop_unsupported(ps);
-
     paths_drop_unused(ps->input_paths, used_paths);
     paths_drop_unused(ps->output_paths, used_paths);
     pa_hashmap_free(broken_inputs);
@@ -5279,6 +5278,113 @@ void pa_alsa_profile_set_probe(
     profile_set_set_availability_groups(ps);
 
     ps->probed = true;
+}
+
+static int get_hdmi_eld_lpcm_channels(uint32_t card_index)
+{
+    char dir_path[256];
+    DIR *dir;
+    struct dirent *de;
+
+    snprintf(dir_path, sizeof(dir_path), "/proc/asound/card%u", card_index);
+
+    if ((dir = opendir(dir_path)) == NULL)
+        return -1;
+
+    while ((de = readdir(dir)) != NULL) {
+        int card, eld_idx;
+        char path[512];
+        FILE *f;
+        char line[256];
+        int monitor_present = 0, eld_valid = 0;
+        int lpcm_channels = 0;
+        bool next_channels_is_lpcm = false;
+
+        if (sscanf(de->d_name, "eld#%d.%d", &card, &eld_idx) != 2)
+            continue;
+
+        snprintf(path, sizeof(path), "%s/%s", dir_path, de->d_name);
+        if ((f = fopen(path, "r")) == NULL)
+            continue;
+
+        while (fgets(line, sizeof(line), f)) {
+            int val;
+
+            if (sscanf(line, "monitor_present %d", &val) == 1)
+                monitor_present = val;
+            else if (sscanf(line, "eld_valid %d", &val) == 1)
+                eld_valid = val;
+            else if (strstr(line, "_coding_type"))
+                next_channels_is_lpcm = strstr(line, "LPCM") != NULL;
+            else if (next_channels_is_lpcm &&
+                     sscanf(line, "sad%*u_channels %d", &val) == 1) {
+                lpcm_channels = val;
+		break;
+            }
+        }
+
+        fclose(f);
+
+        if (monitor_present && eld_valid) {
+            closedir(dir);
+            return lpcm_channels;
+        }
+    }
+
+    closedir(dir);
+    return -1;
+}
+
+void pa_alsa_profile_set_recheck_hdmi_eld(
+        pa_alsa_profile_set *ps,
+        uint32_t card_index) {
+
+    pa_alsa_profile *p;
+    void *state;
+
+    pa_assert(ps);
+
+    pa_log_debug("Refreshing HDMI profile-set support on card %u", card_index);
+
+    /* For each profile containing output HDMI mappings, use the ELD channel
+     * count to determine if the profile is supported by the connected sink.
+     * Other profiles are left untouched. */
+    PA_HASHMAP_FOREACH(p, ps->profiles, state) {
+        uint32_t idx;
+        pa_alsa_mapping *m;
+        bool supports_hdmi_output_mapping = false;
+
+        if (p->profile.flags & (ACP_PROFILE_OFF | ACP_PROFILE_PRO))
+            continue;
+
+	/* Skip profiles with input mappings as HDMI ELD is only for playback */
+	if (p->input_mappings)
+	    continue;
+
+        if (p->output_mappings) {
+            PA_IDXSET_FOREACH(m, p->output_mappings, idx) {
+                int lpcm_channels;
+
+		/* Only handle HDMI mappings */
+                if (strcmp (m->device_strings[0], "hdmi:%f") != 0)
+                    continue;
+
+                lpcm_channels = get_hdmi_eld_lpcm_channels(card_index);
+                if (lpcm_channels < (int)m->channel_map.channels) {
+                    p->supported = false;
+                    pa_log_debug("HDMI profile %s disabled (ELD channels did not match)", p->name);
+                    break;
+                }
+
+                supports_hdmi_output_mapping = true;
+            }
+        }
+
+        if (supports_hdmi_output_mapping) {
+            p->supported = true;
+            pa_log_debug("HDMI profile %s enabled (ELD channels matched)", p->name);
+        }
+    }
 }
 
 void pa_alsa_profile_set_dump(pa_alsa_profile_set *ps) {

@@ -101,9 +101,7 @@ static void rtp_opus_process_playback(void *data)
 
 static int rtp_opus_receive(struct impl *impl, struct rtp_packet *p, uint64_t current_time)
 {
-	struct rtp_header *hdr;
 	ssize_t plen;
-	uint16_t seq;
 	uint32_t timestamp, samples, write, expected_write;
 	uint32_t stride = impl->stride;
 	OpusMSDecoder *dec = impl->stream_data;
@@ -116,44 +114,14 @@ static int rtp_opus_receive(struct impl *impl, struct rtp_packet *p, uint64_t cu
 	len = p->size;
 	hlen = p->hlen;
 
-	hdr = (struct rtp_header*)buffer;
-
-	seq = ntohs(hdr->sequence_number);
-	if (impl->have_seq && impl->seq != seq) {
-		pw_log_info("unexpected seq (%d != %d) SSRC:%u",
-				seq, impl->seq, impl->ssrc);
-		impl->have_sync = false;
-	}
-	impl->seq = seq + 1;
-	impl->have_seq = true;
-
-	timestamp = ntohl(hdr->timestamp) - impl->ts_offset;
-
-	impl->receiving = true;
-
+	timestamp = p->timestamp;
 	plen = len - hlen;
 
 	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_write);
 
 	/* we always write to timestamp + delay */
 	write = timestamp + impl->target_buffer;
-
-	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u target:%u direct:%u",
-				timestamp, seq, impl->ts_offset, impl->ssrc,
-				impl->target_buffer, impl->direct_timestamp);
-
-		/* we read from timestamp, keeping target_buffer of data
-		 * in the ringbuffer. */
-		impl->ring.readindex = timestamp;
-		impl->ring.writeindex = write;
-		filled = impl->target_buffer;
-
-		spa_dll_init(&impl->dll);
-		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
-		memset(impl->buffer, 0, impl->buffer_size);
-		impl->have_sync = true;
-	} else if (expected_write != write) {
+	if (expected_write != write) {
 		pw_log_debug("unexpected write (%u != %u)",
 				write, expected_write);
 	}

@@ -116,7 +116,6 @@ struct impl {
 	unsigned fixed_ssrc:1;
 	unsigned have_ssrc:1;
 	unsigned ignore_ssrc:1;
-	unsigned have_seq:1;
 	unsigned marker_on_first:1;
 	uint32_t ts_offset;
 	uint32_t psamples;
@@ -135,6 +134,7 @@ struct impl {
 	uint32_t n_packets;
 	struct spa_list free;
 	struct spa_list queued;
+	uint32_t queued_read;
 
 	uint64_t last_recv_timestamp;
 
@@ -942,7 +942,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	}
 
 	/* make packets */
-	impl->n_packets = (impl->buffer_size + impl->mtu-1) / impl->mtu;
+	impl->n_packets = (2*impl->target_buffer*impl->stride + impl->mtu-1) / impl->mtu;
 	for (i = 0; i < impl->n_packets; i++) {
 		struct rtp_packet *p;
 
@@ -957,6 +957,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		p->size = 0;
 		spa_list_append(&impl->free, &p->link);
 	}
+	pw_log_info("%u", impl->n_packets);
 
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
 	pw_properties_setf(props, "rtp.media", "%s", impl->rtp_format_info->media_type);
@@ -1137,6 +1138,10 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	size_t len;
 	ssize_t hlen;
 	uint32_t packet_ssrc;
+	uint16_t seq;
+	uint32_t timestamp;
+	int res = 0;
+	struct rtp_packet *q, *tq;
 
 	buffer = p->data;
 	len = p->size;
@@ -1165,12 +1170,51 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	impl->ssrc = packet_ssrc;
 	impl->have_ssrc = !impl->ignore_ssrc;
 
-	spa_list_remove(&p->link);
-	spa_list_append(&impl->queued, &p->link);
+	seq = ntohs(hdr->sequence_number);
+	timestamp = ntohl(hdr->timestamp) - impl->ts_offset;
+
+	impl->receiving = true;
+	impl->last_recv_timestamp = current_time;
 
 	p->hlen = hlen;
+	p->seq = seq;
+	p->timestamp = timestamp;
+	p->nsec = current_time;
 
-	return impl->receive_rtp(impl, p, current_time);
+	if (!impl->have_sync) {
+		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u target:%u direct:%u",
+				timestamp, seq, impl->ts_offset, impl->ssrc,
+				impl->target_buffer, impl->direct_timestamp);
+
+		/* we read from timestamp, keeping target_buffer of data
+		 * in the ringbuffer. */
+		impl->ring.readindex = timestamp;
+		impl->ring.writeindex = timestamp + impl->target_buffer;
+		impl->queued_read = timestamp;
+
+		spa_dll_init(&impl->dll);
+		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
+
+		memset(impl->buffer, 0, impl->buffer_size);
+		spa_list_consume(q, &impl->queued, link) {
+			spa_list_remove(&q->link);
+			spa_list_append(&impl->free, &q->link);
+		}
+		impl->have_sync = true;
+	}
+	spa_list_for_each_safe_reverse(q, tq, &impl->queued, link) {
+		if (calculate_seqnum_delta(q->seq, p->seq) < 0)
+			break;
+		if (q->seq == p->seq)
+			goto duplicate_seq;
+	}
+	spa_list_remove(&p->link);
+	spa_list_append(&q->link, &p->link);
+
+	if (impl->receive_rtp)
+		res = impl->receive_rtp(impl, p, current_time);
+
+	return res;
 
 short_packet:
 	pw_log_warn("short packet received");
@@ -1190,6 +1234,10 @@ unexpected_ssrc:
 			packet_ssrc);
 	}
 	return -EINVAL;
+duplicate_seq:
+	pw_log_warn("duplicate seq %u found", p->seq);
+	return -EINVAL;
+
 }
 int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
 {

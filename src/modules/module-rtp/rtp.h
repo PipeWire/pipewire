@@ -139,6 +139,9 @@ struct rtp_packet {
 	size_t maxsize;
 	size_t size;
 
+	uint64_t nsec;
+	uint16_t seq;
+	uint32_t timestamp;
 	size_t hlen;
 };
 

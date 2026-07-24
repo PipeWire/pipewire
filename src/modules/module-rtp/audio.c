@@ -333,9 +333,7 @@ static void rtp_audio_process_playback(void *data)
 static int rtp_audio_receive(struct impl *impl, struct rtp_packet *p,
 				uint64_t current_time)
 {
-	struct rtp_header *hdr;
 	ssize_t plen;
-	uint16_t seq;
 	uint32_t timestamp, samples, write, expected_write;
 	uint32_t stride = impl->stride;
 	int32_t filled;
@@ -346,24 +344,7 @@ static int rtp_audio_receive(struct impl *impl, struct rtp_packet *p,
 	len = p->size;
 	hlen = p->hlen;
 
-	hdr = (struct rtp_header*)buffer;
-
-	seq = ntohs(hdr->sequence_number);
-	if (impl->have_seq && impl->seq != seq) {
-		pw_log_info("unexpected seq (%d != %d) SSRC:%u",
-				seq, impl->seq, impl->ssrc);
-		/* No need to resynchronize here. If packets arrive out of
-		 * order, then they are still written in order into the ring
-		 * buffer, since they are written according to where the
-		 * RTP timestamp points to. */
-	}
-	impl->seq = seq + 1;
-	impl->have_seq = true;
-
-	timestamp = ntohl(hdr->timestamp) - impl->ts_offset;
-
-	impl->receiving = true;
-	impl->last_recv_timestamp = current_time;
+	timestamp = p->timestamp;
 
 	plen = len - hlen;
 	samples = plen / stride;
@@ -373,22 +354,7 @@ static int rtp_audio_receive(struct impl *impl, struct rtp_packet *p,
 	/* we always write to timestamp + delay */
 	write = timestamp + impl->target_buffer;
 
-	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u target:%u direct:%u",
-				timestamp, seq, impl->ts_offset, impl->ssrc,
-				impl->target_buffer, impl->direct_timestamp);
-
-		/* we read from timestamp, keeping target_buffer of data
-		 * in the ringbuffer. */
-		impl->ring.readindex = timestamp;
-		impl->ring.writeindex = write;
-		filled = impl->target_buffer;
-
-		spa_dll_init(&impl->dll);
-		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
-		memset(impl->buffer, 0, impl->buffer_size);
-		impl->have_sync = true;
-	} else if (expected_write != write) {
+	if (expected_write != write) {
 		pw_log_debug("unexpected write (%u != %u)",
 				write, expected_write);
 	}

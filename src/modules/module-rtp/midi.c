@@ -171,8 +171,8 @@ static double get_time(struct impl *impl)
 	return t;
 }
 
-static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t timestamp,
-		uint16_t seq, uint32_t payload_offset, uint32_t plen)
+static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
+		uint64_t current_time)
 {
 	uint32_t write;
 	struct rtp_midi_header hdr;
@@ -180,10 +180,19 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	struct spa_pod_builder b;
 	struct spa_pod_frame f[1];
 	void *ptr;
-	uint32_t offs = payload_offset, len, end;
+	uint32_t offs = p->hlen, len, end;
 	bool first = true;
+	uint8_t *packet;
+	uint32_t timestamp;
+	uint16_t seq;
+	uint32_t plen;
 
-	if (plen <= payload_offset)
+	packet = p->data;
+	timestamp = p->timestamp;
+	seq = p->seq;
+	plen = p->size;
+
+	if (plen <= p->hlen)
 		return -EINVAL;
 	if (impl->direct_timestamp) {
 		/* in direct timestamp we attach the RTP timestamp directly on the
@@ -307,37 +316,6 @@ static int rtp_midi_receive_midi(struct impl *impl, uint8_t *packet, uint32_t ti
 	spa_ringbuffer_write_update(&impl->ring, write);
 
 	return 0;
-}
-
-static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
-		uint64_t current_time)
-{
-	struct rtp_header *hdr;
-	uint16_t seq;
-	uint32_t timestamp;
-	uint8_t *buffer;
-	ssize_t len, hlen;
-
-	buffer = p->data;
-	len = p->size;
-	hlen = p->hlen;
-
-	hdr = (struct rtp_header*)buffer;
-
-	seq = ntohs(hdr->sequence_number);
-	if (impl->have_seq && impl->seq != seq) {
-		pw_log_info("unexpected seq (%d != %d) SSRC:%u",
-				seq, impl->seq, impl->ssrc);
-		impl->have_sync = false;
-	}
-	impl->seq = seq + 1;
-	impl->have_seq = true;
-
-	timestamp = ntohl(hdr->timestamp) - impl->ts_offset;
-
-	impl->receiving = true;
-
-	return rtp_midi_receive_midi(impl, buffer, timestamp, seq, hlen, len);
 }
 
 static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t delta, const uint8_t *ev, uint32_t size)

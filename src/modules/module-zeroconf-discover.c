@@ -41,6 +41,10 @@
  *    false by default.
  * - `pulse.latency`: the latency to end-to-end latency in milliseconds to
  *                    maintain (Default 200ms).
+ * - `reconnect.interval.ms`: when the remote connection is broken, retry to
+ *                  connect with this interval in milliseconds. A value of 0
+ *                  disables recovery and will result in a module unload.
+ *                  (Default 0)
  *
  * ## Example configuration
  *
@@ -60,7 +64,8 @@
 PW_LOG_TOPIC_STATIC(mod_topic, "mod." NAME);
 #define PW_LOG_TOPIC_DEFAULT mod_topic
 
-#define MODULE_USAGE	"( pulse.latency=<latency in msec, default 200> ) "
+#define MODULE_USAGE	"( pulse.latency=<latency in msec, default 200> ) "	\
+			"( reconnect.interval.ms=<reconnect interval in msec, default 0> ) "
 
 static const struct spa_dict_item module_props[] = {
 	{ PW_KEY_MODULE_AUTHOR, "Wim Taymans <wim.taymans@gmail.com>" },
@@ -223,6 +228,21 @@ static void pw_properties_from_zeroconf(const char *key, const char *value,
 	}
 }
 
+static void copy_tunnel_props(const struct pw_properties *src, struct pw_properties *dst)
+{
+	static const char *keys[] = {
+		"pulse.latency",
+		"reconnect.interval.ms",
+	};
+	uint32_t i;
+	const char *str;
+
+	for (i = 0; i < SPA_N_ELEMENTS(keys); i++) {
+		if ((str = pw_properties_get(src, keys[i])) != NULL)
+			pw_properties_set(dst, keys[i], str);
+	}
+}
+
 static void submodule_destroy(void *data)
 {
 	struct tunnel *t = data;
@@ -239,7 +259,7 @@ static const struct pw_impl_module_events submodule_events = {
 static void on_zeroconf_added(void *data, const void *user_data, const struct spa_dict *info)
 {
 	struct impl *impl = data;
-	const char *name, *type, *mode, *device, *host_name, *desc, *fqdn, *user, *str;
+	const char *name, *type, *mode, *device, *host_name, *desc, *fqdn, *user;
 	struct tunnel *t;
 	struct tunnel_info tinfo;
 	const struct spa_dict_item *it;
@@ -325,8 +345,7 @@ static void on_zeroconf_added(void *data, const void *user_data, const struct sp
 				_("%s on %s"), desc, fqdn);
 	}
 
-	if ((str = pw_properties_get(impl->properties, "pulse.latency")) != NULL)
-		pw_properties_set(props, "pulse.latency", str);
+	copy_tunnel_props(impl->properties, props);
 
 	if (spa_json_builder_memstream(&b, &args, &size, 0) < 0) {
 		pw_log_error("Can't open memstream: %m");

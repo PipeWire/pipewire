@@ -28,6 +28,7 @@
 
 static const struct module_args valid_args[] = {
 	{ "latency_msec", "fixed latency", 0, MODULE_TYPE_MSEC, NULL },
+	{ "reconnect_interval_ms", "interval to try reconnects, 0 or omitted if disabled", 0, MODULE_TYPE_MSEC, NULL },
 	{ NULL, }
 };
 
@@ -44,6 +45,7 @@ struct module_zeroconf_discover_data {
 	struct pw_impl_module *mod;
 
 	uint32_t latency_msec;
+	uint32_t reconnect_interval_ms;
 };
 
 static void module_destroy(void *data)
@@ -73,6 +75,9 @@ static int module_zeroconf_discover_load(struct module *module)
 	spa_json_builder_array_push(&b, "{");
 	if (data->latency_msec > 0)
 		spa_json_builder_object_uint(&b, "pulse.latency", data->latency_msec);
+	if (data->reconnect_interval_ms > 0)
+		spa_json_builder_object_uint(&b, "reconnect.interval.ms",
+				data->reconnect_interval_ms);
 	spa_json_builder_pop(&b,        "}");
 	if ((res = spa_json_builder_close(&b)) < 0)
 		return res;
@@ -119,6 +124,8 @@ static int module_zeroconf_discover_prepare(struct module * const module)
 	data->module = module;
 
 	pw_properties_fetch_uint32(props, "latency_msec", &data->latency_msec);
+	pw_properties_fetch_uint32(props, "reconnect_interval_ms",
+			&data->reconnect_interval_ms);
 
 	return 0;
 }

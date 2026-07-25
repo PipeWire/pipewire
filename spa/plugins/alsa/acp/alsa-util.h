@@ -27,6 +27,16 @@
 
 #include "compat.h"
 
+typedef struct pa_hdmi_eld pa_hdmi_eld;
+struct pa_hdmi_eld {
+    char monitor_name[17];
+    uint8_t speakers;
+    uint64_t iec958_codecs;
+    uint8_t lpcm_channels;
+};
+
+int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld);
+
 #include "alsa-mixer.h"
 
 enum {
@@ -171,15 +181,5 @@ snd_mixer_t *pa_alsa_open_mixer_for_pcm(pa_hashmap *mixers, snd_pcm_t *pcm, bool
 void pa_alsa_mixer_set_fdlist(pa_hashmap *mixers, snd_mixer_t *mixer, pa_mainloop_api *ml);
 #endif
 void pa_alsa_mixer_free(pa_alsa_mixer *mixer);
-
-typedef struct pa_hdmi_eld pa_hdmi_eld;
-struct pa_hdmi_eld {
-    char monitor_name[17];
-    uint8_t speakers;
-    uint64_t iec958_codecs;
-    uint8_t lpcm_channels;
-};
-
-int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld);
 
 #endif

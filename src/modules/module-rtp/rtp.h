@@ -145,7 +145,7 @@ struct rtp_packet {
 	size_t hlen;
 
 	void *decoded;
-	uint32_t samples;
+	uint32_t decoded_len;
 
 	void *tmp;
 	size_t tmp_size;

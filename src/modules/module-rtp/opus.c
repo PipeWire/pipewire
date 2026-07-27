@@ -28,11 +28,11 @@ static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void 
 			if (res < 0)
 				continue;
 			p->decoded = p->tmp;
-			p->samples = res;
+			p->decoded_len = res;
 		}
 
 		ts = p->timestamp + impl->target_buffer;
-		samples = p->samples;
+		samples = p->decoded_len;
 		if (ts + samples < timestamp)
 			continue;
 

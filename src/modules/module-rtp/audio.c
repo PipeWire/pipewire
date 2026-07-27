@@ -35,10 +35,10 @@ static void audio_packet_buffer_read(struct impl *impl, uint32_t timestamp, void
 
 		if (p->decoded == NULL) {
 			p->decoded = SPA_PTROFF(p->data, p->hlen, void);
-			p->samples = (p->size - p->hlen) / stride;
+			p->decoded_len = (p->size - p->hlen) / stride;
 		}
 
-		samples = p->samples;
+		samples = p->decoded_len;
 		ts = p->timestamp + impl->target_buffer;
 		if (ts + samples < timestamp)
 			continue;

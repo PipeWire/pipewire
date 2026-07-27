@@ -656,7 +656,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	char tmp[64];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
-	uint32_t i, n_params, min_samples, max_samples;
+	uint32_t i, n_params, min_samples, max_samples, min_packets = 1;
 	float min_ptime, max_ptime;
 	const struct spa_pod *params[3];
 	enum pw_stream_flags flags;
@@ -746,6 +746,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->rate = pw_properties_get_uint32(props, "midi.rate", 10000);
 		if (impl->rate == 0)
 			impl->rate = 10000;
+		min_packets = 32;
 		break;
 	case SPA_MEDIA_SUBTYPE_opus:
 		impl->stream_info.media_type = SPA_MEDIA_TYPE_audio;
@@ -942,6 +943,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	/* make packets */
 	impl->n_packets = (2*impl->target_buffer*impl->stride + impl->mtu-1) / impl->mtu;
+	impl->n_packets = SPA_MAX(impl->n_packets, min_packets);
 	for (i = 0; i < impl->n_packets; i++) {
 		struct rtp_packet *p;
 
@@ -958,7 +960,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		p->tmp = SPA_PTROFF(p->data, p->tmp_size, void);
 		spa_list_append(&impl->free, &p->link);
 	}
-	pw_log_info("%u", impl->n_packets);
 
 	pw_properties_setf(props, "net.mtu", "%u", impl->mtu);
 	pw_properties_setf(props, "rtp.media", "%s", impl->rtp_format_info->media_type);
@@ -1211,6 +1212,8 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	}
 	spa_list_remove(&p->link);
 	spa_list_append(&q->link, &p->link);
+
+	pw_log_trace_fp("got packet %u %u", p->seq, p->timestamp);
 
 	if (p == spa_list_last(&impl->queued, struct rtp_packet, link))
 		impl->ring.writeindex = p->timestamp + impl->target_buffer;

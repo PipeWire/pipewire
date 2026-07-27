@@ -1112,7 +1112,7 @@ int rtp_stream_update_properties(struct rtp_stream *s, const struct spa_dict *di
 	return pw_stream_update_properties(impl->stream, dict);
 }
 
-struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s)
+struct rtp_packet *rtp_stream_peek_pending_packet(struct rtp_stream *s)
 {
 	struct impl *impl = (struct impl*)s;
 	struct rtp_packet *p;
@@ -1127,9 +1127,32 @@ struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s)
 		spa_list_append(&impl->free, &p->link);
 	}
 	p = spa_list_first(&impl->free, struct rtp_packet, link);
-	p->size = 0;
-	p->decoded = NULL;
 	return p;
+}
+
+
+struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s)
+{
+	struct rtp_packet *p = rtp_stream_peek_pending_packet(s);
+	if (p) {
+		p->size = 0;
+		p->decoded = NULL;
+	}
+	return p;
+}
+
+void rtp_stream_clear_pending_packet(struct rtp_stream *s)
+{
+	rtp_stream_get_free_packet(s);
+}
+void rtp_stream_clear_queued_packets(struct rtp_stream *s)
+{
+	struct impl *impl = (struct impl*)s;
+	struct rtp_packet *q;
+	spa_list_consume(q, &impl->queued, link) {
+		spa_list_remove(&q->link);
+		spa_list_append(&impl->free, &q->link);
+	}
 }
 
 int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
@@ -1198,10 +1221,7 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
 
 		memset(impl->buffer, 0, impl->buffer_size);
-		spa_list_consume(q, &impl->queued, link) {
-			spa_list_remove(&q->link);
-			spa_list_append(&impl->free, &q->link);
-		}
+		rtp_stream_clear_queued_packets(s);
 		impl->have_sync = true;
 	}
 	spa_list_for_each_safe_reverse(q, tq, &impl->queued, link) {

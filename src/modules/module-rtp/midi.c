@@ -229,18 +229,16 @@ static void rtp_midi_process_playback(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static double get_time(struct impl *impl)
+static double get_time(struct impl *impl, uint64_t current_time)
 {
-	uint64_t now;
 	struct spa_io_position *pos;
 	double t;
 
-	now = pw_stream_get_nsec(impl->stream);
 	if ((pos = impl->io_position) != NULL) {
 		t = pos->clock.position / (double) pos->clock.rate.denom;
-		t += (now - pos->clock.nsec) / (double)SPA_NSEC_PER_SEC;
+		t += (current_time - pos->clock.nsec) / (double)SPA_NSEC_PER_SEC;
 	} else {
-		t = now;
+		t = current_time;
 	}
 	return t;
 }
@@ -261,7 +259,7 @@ static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
 		/* in non-direct timestamp mode, we relate the graph clock against
 		 * the RTP timestamps */
 		double ts = p->timestamp / (float) impl->rate;
-		double t = get_time(impl);
+		double t = get_time(impl, current_time);
 		double elapsed, estimated, diff;
 
 		/* the elapsed time between RTP timestamps */

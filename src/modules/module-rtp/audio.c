@@ -496,11 +496,13 @@ static void rtp_audio_process_capture(void *data)
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t offs, size, actual_timestamp, expected_timestamp, stride;
-	int32_t filled, wanted;
-	uint32_t pending, num_queued;
+	int32_t filled;
+	uint32_t wanted;
 	struct spa_io_position *pos;
 	uint64_t next_nsec, quantum;
 	struct pw_time pwt;
+	void *src, *dst;
+	struct rtp_packet *p, *t;
 
 	if (impl->separate_sender) {
 		/* apply the DLL rate */
@@ -532,7 +534,7 @@ static void rtp_audio_process_capture(void *data)
 		if (impl->separate_sender) {
 			/* the sender process() function uses this for managing the DLL */
 			impl->sink_nsec = pos->clock.nsec;
-			impl->sink_next_nsec = pos->clock.next_nsec;
+			impl->sink_next_nsec = next_nsec;
 			impl->sink_resamp_delay = impl->io_rate_match->delay;
 			impl->sink_quantum = (uint64_t)(pos->clock.duration * SPA_NSEC_PER_SEC / rate);
 		}
@@ -543,7 +545,7 @@ static void rtp_audio_process_capture(void *data)
 		/* If we got a request for less than quantum worth of samples, it indicates that there
 		 * is a gap created by the resampler. We have to skip it to avoid timestamp discontinuity. */
 		if (pwt.buffered > 0) {
-			int32_t ideal_quantum = (int32_t)scale_u64(pos->clock.duration, impl->rate, rate);
+			uint32_t ideal_quantum = scale_u64(pos->clock.duration, impl->rate, rate);
 			if (wanted < ideal_quantum) {
 				int32_t num_samples_to_skip = ideal_quantum - wanted;
 				pw_log_info("wanted: %" PRId32 " < ideal quantum: %" PRId32 " - skipping %"
@@ -573,11 +575,11 @@ static void rtp_audio_process_capture(void *data)
 			 * "Driver architecture and workflow" for an explanation why not. */
 			pw_log_warn("timestamp: expected %u != actual %u", expected_timestamp, actual_timestamp);
 			impl->have_sync = false;
-		} else if (filled + wanted > (int32_t)SPA_MIN(impl->target_buffer * 8, impl->buffer_size / stride)) {
-			pw_log_warn("sender write overrun %u + %u > %u/%u", filled, wanted,
-					impl->target_buffer * 8, impl->buffer_size / stride);
-			impl->have_sync = false;
-			filled = 0;
+		} else if (filled + wanted > SPA_MIN(impl->target_buffer * 8, impl->buffer_size / stride)) {
+//			pw_log_warn("sender write overrun %u + %u > %u/%u", filled, wanted,
+//					impl->target_buffer * 8, impl->buffer_size / stride);
+//			impl->have_sync = false;
+//			filled = 0;
 		}
 	}
 
@@ -591,6 +593,7 @@ static void rtp_audio_process_capture(void *data)
 				actual_timestamp, impl->seq, impl->ts_offset, impl->ts_align, impl->ssrc);
 		spa_ringbuffer_read_update(&impl->ring, actual_timestamp);
 		spa_ringbuffer_write_update(&impl->ring, actual_timestamp);
+		rtp_stream_clear_pending_packet((struct rtp_stream*)impl);
 		memset(impl->buffer, 0, impl->buffer_size);
 		impl->have_sync = true;
 		expected_timestamp = actual_timestamp;
@@ -603,38 +606,69 @@ static void rtp_audio_process_capture(void *data)
 		}
 	}
 
-	pw_log_trace("writing %u samples at %u", wanted, expected_timestamp);
+	src = SPA_PTROFF(d[0].data, offs, void);
+	while (wanted > 0) {
+		p = rtp_stream_peek_pending_packet((struct rtp_stream*)impl);
 
-	spa_ringbuffer_write_data(&impl->ring,
-			impl->buffer,
-			impl->actual_max_buffer_size,
-			((uint64_t)expected_timestamp * stride) % impl->actual_max_buffer_size,
-			SPA_PTROFF(d[0].data, offs, void), wanted * stride);
-	expected_timestamp += wanted;
+		if (p->size < sizeof(struct rtp_header)) {
+			struct rtp_header *header;
+			uint32_t rtp_timestamp;
+
+			header = p->data;
+			header->v = 2;
+			header->pt = impl->payload;
+			header->ssrc = htonl(impl->ssrc);
+			if (impl->marker_on_first && impl->first)
+				header->m = 1;
+			else
+				header->m = 0;
+			header->sequence_number = htons(impl->seq);
+
+			rtp_timestamp = impl->ts_offset + impl->ts_align + expected_timestamp;
+			header->timestamp = htonl(rtp_timestamp);
+
+			p->size = sizeof(struct rtp_header);
+		}
+		uint32_t prepared = (p->size - sizeof(struct rtp_header)) / stride;
+		uint32_t to_send = SPA_MIN(impl->psamples - prepared, wanted);
+
+		dst = SPA_PTROFF(p->data, p->size, void);
+
+		spa_memcpy(dst, src, to_send * stride);
+
+		p->size += to_send * stride;
+		prepared += to_send;
+		wanted -= to_send;
+
+		src = SPA_PTROFF(src, to_send * stride, void);
+
+		if (prepared >= impl->psamples) {
+			spa_list_remove(&p->link);
+			spa_list_append(&impl->queued, &p->link);
+
+			impl->seq++;
+
+			rtp_stream_clear_pending_packet((struct rtp_stream*)impl);
+		}
+		impl->first = false;
+		expected_timestamp += to_send;
+	}
 	spa_ringbuffer_write_update(&impl->ring, expected_timestamp);
-
 	pw_stream_queue_buffer(impl->stream, buf);
 
-	if (impl->separate_sender) {
+	if (impl->separate_sender)
 		/* sending will happen in a separate process() */
 		return;
-	}
 
-	pending = filled / impl->psamples;
-	num_queued = (filled + wanted) / impl->psamples;
+	spa_list_for_each_safe(p, t, &impl->queued, link) {
+		struct iovec iov[1];
+		iov[0].iov_base = p->data;
+		iov[0].iov_len = p->size;
 
-	if (num_queued > 0) {
-		/* flush all previous packets plus new one right away */
-		rtp_audio_flush_packets(impl, pending + 1, 0);
-		num_queued -= SPA_MIN(num_queued, pending + 1);
+		rtp_stream_call_send_packet(impl, iov, 1);
 
-		if (num_queued > 0) {
-			/* schedule timer for remaining */
-			int64_t interval = quantum / (num_queued + 1);
-			uint64_t time = next_nsec - num_queued * interval;
-			pw_log_trace("%u %u %"PRIu64" %"PRIu64, pending, num_queued, time, interval);
-			set_timer(impl, time, interval);
-		}
+		spa_list_remove(&p->link);
+		spa_list_append(&impl->free, &p->link);
 	}
 }
 

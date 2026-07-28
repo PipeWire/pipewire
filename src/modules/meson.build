@@ -646,6 +646,19 @@ if build_module_raop
     install_rpath: modules_install_dir,
     dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
   )
+  if get_option('tests').allowed()
+    test('pw-test-raop-rtsp-client',
+      executable('pw-test-raop-rtsp-client',
+        [ 'module-raop/test-rtsp-client.c',
+          'module-raop/rtsp-client.c' ],
+        include_directories : [configinc],
+        dependencies : [spa_dep, spa_support_dep, pipewire_dep],
+      ),
+      env : [
+        'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
+      ],
+    )
+  endif
 endif
 summary({'raop-sink (requires OpenSSL)': build_module_raop}, bool_yn: true, section: 'Optional Modules')
 

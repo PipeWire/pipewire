@@ -277,8 +277,8 @@ static void dispatch_handler(struct pw_rtsp_client *client)
 
 	msg = find_pending(client, cseq);
 	if (msg) {
-		res = msg->reply(msg->user_data, client->status, &client->headers->dict, &client->content);
 		spa_list_remove(&msg->link);
+		res = msg->reply(msg->user_data, client->status, &client->headers->dict, &client->content);
 		free(msg);
 
 		if (res < 0)

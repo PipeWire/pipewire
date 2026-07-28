@@ -361,6 +361,7 @@ static void *add_interface(struct support *support,
 	struct spa_handle *handle;
 	void *iface = NULL;
 	int res = -ENOENT;
+	struct handle *h;
 
 	handle = load_spa_handle(support->support_lib,
 			factory_name, info,
@@ -375,6 +376,9 @@ static void *add_interface(struct support *support,
 	if (res < 0 || iface == NULL) {
 		pw_log_error("can't get %s interface %d: %s", type, res,
 				spa_strerror(res));
+		h = find_handle(handle);
+		if (h)
+			unref_handle(h);
 		return NULL;
 	}
 

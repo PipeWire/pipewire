@@ -266,6 +266,7 @@ struct impl {
 	unsigned int connected:1;
 	unsigned int ready:1;
 	unsigned int recording:1;
+	unsigned int volume_valid:1;
 
 	bool mute;
 	float volume;
@@ -786,7 +787,7 @@ static int rtsp_log_reply_status(void *data, int status, const struct spa_dict *
 
 static int rtsp_send_volume(struct impl *impl)
 {
-	if (!impl->recording)
+	if (!impl->recording || !impl->volume_valid)
 		return 0;
 
 	char header[128], volstr[64];
@@ -1610,6 +1611,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				volume /= n_vols;
 				volume = SPA_CLAMPF(cbrtf(volume) * 30 - 30, VOLUME_MIN, VOLUME_MAX);
 				impl->volume = volume;
+				impl->volume_valid = true;
 
 				rtsp_send_volume(impl);
 				spa_pod_builder_prop(&b, SPA_PROP_softVolumes, 0);

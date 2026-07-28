@@ -3930,7 +3930,11 @@ int spa_alsa_start(struct state *state)
 	else if (!state->opened)
 		return -EIO;
 
-	spa_alsa_prepare(state);
+	if ((err = spa_alsa_prepare(state)) < 0) {
+		spa_log_error(state->log, "%s: prepare failed: %s",
+				state->name, spa_strerror(err));
+		return err;
+	}
 
 	if (!state->disable_tsched) {
 		/* Timer-based scheduling */

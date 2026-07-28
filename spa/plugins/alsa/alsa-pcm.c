@@ -2889,7 +2889,14 @@ recover:
 			check_position_config(follower, false);
 		}
 	}
-	do_prepare(driver);
+	if (do_prepare(driver) < 0) {
+		/* Driver is the clock source; starting it unprepared
+		 * breaks the entire pipeline. do_drop errors are
+		 * ignored (prepare can reset the hardware). Follower
+		 * errors are non-fatal by design. */
+		update_sources(state, true);
+		return -EIO;
+	}
 	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {
 		if (follower != driver && follower->linked)
 			do_prepare(follower);

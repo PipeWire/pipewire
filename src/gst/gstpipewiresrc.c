@@ -1630,7 +1630,8 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
           old = pwsrc->last_buffer;
           pwsrc->last_buffer = gst_buffer_copy (buf);
-          gst_buffer_unref (old);
+          if (old != NULL)
+            gst_buffer_unref (old);
           gst_buffer_add_parent_buffer_meta (pwsrc->last_buffer, buf);
 
           clock = gst_element_get_clock (GST_ELEMENT_CAST (pwsrc));

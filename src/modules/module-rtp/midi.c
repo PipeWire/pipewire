@@ -75,8 +75,6 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 	struct rtp_packet *p, *t;
 	struct spa_pod_frame f[1];
 
-	/* each packet is written as a sequence of events. The offset is
-	 * the RTP timestamp */
 	spa_pod_builder_push_sequence(b, &f[0], 0);
 
 	spa_list_for_each_safe(p, t, &impl->queued, link) {
@@ -334,7 +332,22 @@ static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t delta, const u
 	return (int)(count + total);
 }
 
-static void rtp_midi_flush_packets(struct impl *impl,
+static void queue_packet(struct impl *impl, struct iovec *iov, int n_iov)
+{
+	struct rtp_packet *p;
+	int i;
+
+	p = rtp_stream_get_free_packet((struct rtp_stream*)impl);
+	for (i = 0; i < n_iov; i ++) {
+		memcpy(SPA_PTROFF(p->data, p->size, void), iov[i].iov_base, iov[i].iov_len);
+		p->size += iov[i].iov_len;
+	}
+	spa_list_remove(&p->link);
+	spa_list_append(&impl->queued, &p->link);
+	impl->num_queued++;
+}
+
+static void rtp_midi_queue_packets(struct impl *impl,
 		struct spa_pod_parser *parser, uint32_t timestamp, uint32_t rate)
 {
 	struct spa_pod_control c;
@@ -343,6 +356,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 	struct rtp_midi_header midi_header;
 	struct iovec iov[3];
 	uint32_t len, prev_offset, base, max_size;
+	uint8_t buffer[impl->payload_size];
 
 	spa_zero(header);
 	header.v = 2;
@@ -355,7 +369,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 	iov[0].iov_len = sizeof(header);
 	iov[1].iov_base = &midi_header;
 	iov[1].iov_len = sizeof(midi_header);
-	iov[2].iov_base = impl->buffer;
+	iov[2].iov_base = buffer;
 	iov[2].iov_len = 0;
 
 	prev_offset = len = base = 0;
@@ -390,12 +404,13 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			pw_log_trace_fp("sending %d timestamp:%d %u %u",
 					len, timestamp + base,
 					offset, impl->psamples);
-			rtp_stream_call_send_packet(impl, iov, 3);
+
+			queue_packet(impl, iov, 3);
 
 			impl->seq++;
 			len = 0;
 		}
-		if ((unsigned int)size > impl->buffer_size || len > impl->buffer_size - size) {
+		if ((unsigned int)size > sizeof(buffer) || len > sizeof(buffer) - size) {
 			pw_log_error("Buffer overflow prevented!");
 			return; // FIXME: what to do instead?
 		}
@@ -405,13 +420,13 @@ static void rtp_midi_flush_packets(struct impl *impl,
 			header.sequence_number = htons(impl->seq);
 			header.timestamp = htonl(impl->ts_offset + timestamp + base);
 
-			memcpy(&impl->buffer[len], data, size);
+			memcpy(&buffer[len], data, size);
 			len += size;
 		} else {
 			int res;
 			delta = offset - prev_offset;
 			prev_offset = offset;
-			res = write_event(&impl->buffer[len], impl->buffer_size - len, delta, data, size);
+			res = write_event(&buffer[len], sizeof(buffer) - len, delta, data, size);
 			if (res < 0) {
 				pw_log_warn("write_event error: %d", res);
 				return;
@@ -434,7 +449,7 @@ static void rtp_midi_flush_packets(struct impl *impl,
 		iov[2].iov_len = len;
 
 		pw_log_trace_fp("sending %d timestamp:%d", len, base);
-		rtp_stream_call_send_packet(impl, iov, 3);
+		queue_packet(impl, iov, 3);
 		impl->seq++;
 	}
 }
@@ -449,6 +464,7 @@ static void rtp_midi_process_capture(void *data)
 	struct spa_pod_frame frame;
 	struct spa_pod_sequence seq;
 	const void *seq_body;
+	struct rtp_packet *p, *t;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_info("Out of stream buffers: %m");
@@ -476,8 +492,18 @@ static void rtp_midi_process_capture(void *data)
 		impl->have_sync = true;
 	}
 
-	rtp_midi_flush_packets(impl, &parser, timestamp, rate);
+	rtp_midi_queue_packets(impl, &parser, timestamp, rate);
 
+	spa_list_for_each_safe(p, t, &impl->queued, link) {
+		struct iovec iov[1];
+		iov[0].iov_base = p->data;
+		iov[0].iov_len = p->size;
+
+		rtp_stream_call_send_packet(impl, iov, 1);
+
+		spa_list_remove(&p->link);
+		spa_list_append(&impl->free, &p->link);
+	}
 done:
 	pw_stream_queue_buffer(impl->stream, buf);
 }

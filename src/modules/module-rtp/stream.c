@@ -10,7 +10,6 @@
 #include <spa/utils/atomic.h>
 #include <spa/utils/result.h>
 #include <spa/utils/json.h>
-#include <spa/utils/ringbuffer.h>
 #include <spa/utils/dll.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw-json.h>
@@ -124,16 +123,13 @@ struct impl {
 	uint32_t payload_size;
 	uint32_t ts_align;
 
-	struct spa_ringbuffer ring;
-	uint8_t *buffer;
-	uint32_t buffer_size;
-	uint32_t buffer_mask;
-	uint32_t buffer_size2;
-	uint32_t buffer_mask2;
-
 	uint32_t n_packets;
 	struct spa_list free;
 	struct spa_list queued;
+	uint32_t num_queued;
+	uint32_t expected_timestamp;
+	uint32_t head_timestamp;
+	uint32_t tail_timestamp;
 
 	uint64_t last_recv_timestamp;
 
@@ -175,13 +171,6 @@ struct impl {
 	uint8_t timer_running;
 
 	int (*receive_rtp)(struct impl *impl, struct rtp_packet *p, uint64_t current_time);
-	/* Used for resetting the ring buffer before the stream starts, to prevent
-	 * reading from uninitialized memory. This can otherwise happen in direct
-	 * timestamp mode when the read index is set to an uninitialized location.
-	 * This is a function pointer to allow customizations in case resetting
-	 * requires filling the ring buffer with something other than nullbytes
-	 * (this can happen with DSD for example). */
-	void (*reset_ringbuffer)(struct impl *impl);
 	/* Called by stream_start() to stop any running timer before continuing to
 	 * start the stream. This is necessary, because by that point, any remaining
 	 * buffered data is stale, and the timer would keep sending it out. */
@@ -210,8 +199,6 @@ struct impl {
 	/* And some bookkeping for the sender processing */
 	uint64_t rtp_base_ts;
 	uint32_t rtp_last_ts;
-
-	uint64_t last_ts_seq;
 
 	/* The process latency, set by on_stream_param_changed(). */
 	struct spa_process_latency_info process_latency;
@@ -410,7 +397,7 @@ static int stream_start(struct impl *impl)
 		pw_log_error("error while closing leftover connection: %s", spa_strerror(res));
 	}
 
-	impl->reset_ringbuffer(impl);
+	rtp_stream_clear_queued_packets((struct rtp_stream*)impl);
 
 	res = 0;
 	rtp_stream_emit_open_connection(impl, &res);
@@ -485,10 +472,9 @@ static int stream_stop(struct impl *impl)
 	 * meaning that the timer was no longer running, and the connection
 	 * could be closed. */
 	if (!timer_running) {
-		/* Clear the ringbuffer to prevent old invalid packets from being
+		/* Clear the packet gbuffer to prevent old invalid packets from being
 		 * sent when processing resumes via rtp_audio_flush_packets() */
-		if (impl->reset_ringbuffer)
-			impl->reset_ringbuffer(impl);
+		rtp_stream_clear_queued_packets((struct rtp_stream*)impl);
 		set_internal_stream_state(impl, RTP_STREAM_INTERNAL_STATE_STOPPED);
 		pw_log_info("stream stopped");
 	}
@@ -642,11 +628,6 @@ static void on_flush_timeout(void *d, uint64_t expirations)
 	impl->flush_timeout(d, expirations);
 }
 
-static void default_reset_ringbuffer(struct impl *impl)
-{
-	spa_memzero(impl->buffer, impl->buffer_size);
-}
-
 struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		enum spa_direction direction, struct pw_properties *props,
 		const struct rtp_stream_events *events, void *data)
@@ -685,8 +666,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	}
 	spa_list_init(&impl->free);
 	spa_list_init(&impl->queued);
-
-	impl->reset_ringbuffer = default_reset_ringbuffer;
 
 	if ((str = pw_properties_get(props, "sess.media")) == NULL)
 		str = "audio";
@@ -762,60 +741,12 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->rtp_format_info = &rtp_opus_format_info;
 		impl->stride = impl->rtp_format_info->size * impl->stream_info.info.raw.channels;
 		impl->rate = impl->stream_info.info.raw.rate;
+		min_packets = 128;
 		break;
 	default:
 		spa_assert_not_reached();
 		break;
 	}
-
-	/* Limit the actual maximum buffer size to the maximum integer multiple
-	 * amount of impl->stride that fits within BUFFER_SIZE. This is important
-	 * to prevent corner cases where the read pointer wrapped around at the
-	 * same time when the IO clock experiences a discontinuity.
-	 *
-	 * If the BUFFER_SIZE constant is not an integer multiple of impl->stride,
-	 * pointer wrap-arounds will result in positions that exhibit a nonzero
-	 * impl->stride division rest. Also, the write and read pointers are normally
-	 * increased monotonically and contiguously. But, if a discontinuity is
-	 * detected, these pointers may be resynchronized. Importantly, sometimes
-	 * only one of them may be resynchronized, while the other retains its existing
-	 * synchronization. (For example, the read and write side may use different
-	 * discontinuity thresholds.)
-	 *
-	 * What then can happen is that the resynchronized pointer exhibits a _different_
-	 * impl->stride division than the other pointer. Once the resynchronization takes
-	 * place, that pointer is again monotonically increased from then on, so those
-	 * division rests will stay different. This then means that the read and write
-	 * operations will not be aligned properly. For example, a write operation might
-	 * write to position 20 in the ring buffer, but the read operation might read
-	 * from position 22, and doing so with a stride value of 6. The end result is
-	 * invalid data.
-	 *
-	 * One way to visualize this is to think of the ring buffer as a grid. The grid
-	 * cell size equals impl->stride. If BUFFER_SIZE is not an integer multiple of
-	 * impl->stride, it means that the very last grid cell will have a size that is
-	 * smaller than impl->stride. The unaligned read/write operations mean that the
-	 * operations will not be done at the same grid cell boundaries, so for example
-	 * the read operation might think that a cell starts at byte 2, while the write
-	 * operation might think that the same cell starts at byte 4.
-	 *
-	 * By limiting the actual maximum buffer size to the maximum integer multiple
-	 * amount of impl->stride that fits within BUFFER_SIZE, this is avoided, since
-	 * then, all grid cells are guaranteed to have the size impl->stride, so the
-	 * aforementioned division rest will always be zero.
-	 */
-	impl->buffer_size = pw_properties_get_uint32(props, "sess.buffer-size", BUFFER_SIZE1);
-	// find closest larger number rounded to power of two
-	impl->buffer_size = SPA_ROUND_UP_POW2_32(impl->buffer_size);
-	impl->buffer_mask = impl->buffer_size - 1;
-	impl->buffer_size2 = impl->buffer_size / 2;
-	impl->buffer_mask2 = impl->buffer_size2 - 1;
-
-	impl->buffer = calloc(1, impl->buffer_size);
-
-	impl->actual_max_buffer_size = SPA_ROUND_DOWN(impl->buffer_size, impl->stride);
-	pw_log_debug("possible / actual max buffer size: %" PRIu32 " / %" PRIu32,
-			(uint32_t)impl->buffer_size, impl->actual_max_buffer_size);
 
 	pw_properties_setf(props, "rtp.mime", "%s", impl->rtp_format_info->mime);
 
@@ -936,7 +867,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	} else {
 		/* For receive, and with split sending, we break up the latency
 		 * as half being in stream latency, and the rest in our own
-		 * ringbuffer latency */
+		 * packet buffer latency */
 		pw_properties_setf(props, PW_KEY_NODE_LATENCY, "%d/%d",
 				impl->target_buffer / 2, impl->rate);
 	}
@@ -947,7 +878,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	for (i = 0; i < impl->n_packets; i++) {
 		struct rtp_packet *p;
 
-		p = calloc(1, sizeof(*p) + impl->mtu + 2880);
+		p = calloc(1, sizeof(*p) + impl->mtu + 2880 * 4);
 		if (p == NULL) {
 			res = -errno;
 			pw_log_error("can't create packet: %m");
@@ -956,8 +887,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		p->data = SPA_PTROFF(p, sizeof(*p), void);
 		p->maxsize = impl->mtu;
 		p->size = 0;
-		p->tmp_size = 2880;
-		p->tmp = SPA_PTROFF(p->data, p->tmp_size, void);
+		p->tmp_size = 2880 * 4;
+		p->tmp = SPA_PTROFF(p->data, p->maxsize, void);
 		spa_list_append(&impl->free, &p->link);
 	}
 
@@ -1099,9 +1030,6 @@ void rtp_stream_destroy(struct rtp_stream *s)
 	if (impl->data_loop)
 		pw_context_release_loop(impl->context, impl->data_loop);
 
-	if (impl->buffer)
-		free(impl->buffer);
-
 	spa_hook_list_clean(&impl->listener_list);
 	free(impl);
 }
@@ -1123,8 +1051,17 @@ struct rtp_packet *rtp_stream_peek_pending_packet(struct rtp_stream *s)
 			return NULL;
 		}
 		p = spa_list_first(&impl->queued, struct rtp_packet, link);
+		impl->num_queued--;
 		spa_list_remove(&p->link);
 		spa_list_append(&impl->free, &p->link);
+
+		if (impl->num_queued > 0) {
+			struct rtp_packet *q;
+			q = spa_list_first(&impl->queued, struct rtp_packet, link);
+			impl->head_timestamp = q->timestamp;
+		} else {
+			impl->head_timestamp = impl->tail_timestamp = 0;
+		}
 	}
 	p = spa_list_first(&impl->free, struct rtp_packet, link);
 	return p;
@@ -1153,6 +1090,9 @@ void rtp_stream_clear_queued_packets(struct rtp_stream *s)
 		spa_list_remove(&q->link);
 		spa_list_append(&impl->free, &q->link);
 	}
+	impl->num_queued = 0;
+	impl->head_timestamp = 0;
+	impl->tail_timestamp = 0;
 }
 
 int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
@@ -1212,16 +1152,11 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 				timestamp, seq, impl->ts_offset, impl->ssrc,
 				impl->target_buffer, impl->direct_timestamp);
 
-		/* we read from timestamp, keeping target_buffer of data
-		 * in the ringbuffer. */
-		impl->ring.readindex = timestamp;
-		impl->ring.writeindex = timestamp + impl->target_buffer;
-
 		spa_dll_init(&impl->dll);
 		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
 
-		memset(impl->buffer, 0, impl->buffer_size);
 		rtp_stream_clear_queued_packets(s);
+		impl->expected_timestamp = timestamp;
 		impl->have_sync = true;
 	}
 	spa_list_for_each_safe_reverse(q, tq, &impl->queued, link) {
@@ -1232,11 +1167,14 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	}
 	spa_list_remove(&p->link);
 	spa_list_append(&q->link, &p->link);
+	impl->num_queued++;
+
+	if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
+		impl->head_timestamp = p->timestamp;
+	if (p == spa_list_last(&impl->queued, struct rtp_packet, link))
+		impl->tail_timestamp = p->timestamp;
 
 	pw_log_trace_fp("got packet %u %u", p->seq, p->timestamp);
-
-	if (p == spa_list_last(&impl->queued, struct rtp_packet, link))
-		impl->ring.writeindex = p->timestamp + impl->target_buffer;
 
 	if (impl->receive_rtp)
 		res = impl->receive_rtp(impl, p, current_time);

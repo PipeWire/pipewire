@@ -2,16 +2,6 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
-static inline void
-set_iovec(struct spa_ringbuffer *rbuf, void *buffer, uint32_t size,
-		uint32_t offset, struct iovec *iov, uint32_t len)
-{
-	iov[0].iov_len = SPA_MIN(len, size - offset);
-	iov[0].iov_base = SPA_PTROFF(buffer, offset, void);
-	iov[1].iov_len = len - iov[0].iov_len;
-	iov[1].iov_base = buffer;
-}
-
 static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 {
 #if 0
@@ -76,11 +66,13 @@ static void rtp_audio_process_playback(void *data)
 	uint32_t wanted, timestamp, target_buffer, stride, maxsize;
 	uint32_t device_delay;
 	int32_t avail, flags = 0;
+	struct spa_io_position *pos = impl->io_position;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_info("Out of stream buffers: %m");
 		return;
 	}
+
 	d = buf->buffer->datas;
 
 	stride = impl->stride;
@@ -96,73 +88,17 @@ static void rtp_audio_process_playback(void *data)
 	 * delay values to 0 (see docs), so do that here. */
 	device_delay = SPA_MAX(pwt.delay, 0LL);
 
-	/* IMPORTANT: In the explanations below, sometimes, "reading/writing from/to the
-	 * ring buffer at a position X" is mentioned. To be exact, that buffer is actually
-	 * impl->buffer. And since X can be a timestamp whose value is far higher than the
-	 * buffer size (and the fact that impl->buffer is a _ring_ buffer), reads and writes
-	 * actually first do a modulo operation to the position to implement a ring buffer
-	 * index wrap-around. (Wrap-around when reading / writing the data bytes is
-	 * handled by the spa_ringbuffer code; this is about the wrap around of the
-	 * read or write index itself.) */
-
 	if (impl->direct_timestamp) {
-		uint32_t num_samples_to_read;
-		uint32_t read_index;
-
-		/* In direct timestamp mode, the focus lies on synchronized playback, not
-		 * on a constant latency. The ring buffer fill level is not of interest
-		 * here. The code in rtp_audio_receive() writes to the ring buffer at
-		 * position (RTP timestamp + target_buffer), just like in the constant
-		 * latency mode. Crucially however, in direct timestamp mode, it is assumed
-		 * that the RTP timestamps are based on the same synchronized clock that
-		 * runs the graph driver here, so the clock position is using the same
-		 * time base as these timestamps.
-		 *
-		 * If the transport delay from the sender to this receiver were zero, then
-		 * the data with the given RTP timestamp could in theory be played right
-		 * away, since that timestamp would equal the clock position (or, in other
-		 * words, it would be the present time). Since the transport takes some
-		 * time, writing the data at the position (RTP timestamp + target_buffer)
-		 * shifts the timestamp into the future sufficiently enough that no data
-		 * is lost. (target_buffer corresponds to the `sess.latency.msec` RTP
-		 * source module option, and that option has to be chosen by the user
-		 * to be of a sensible size - high enough to at least match the maximum
-		 * transport delay, but not too high to not risk too much latency
-		 * Also, `sess.latency.msec` must be the same value across all RTP
-		 * source nodes that shall play in sync.)
-		 *
-		 * When the code here reads from the position defined by the current
-		 * clock position, it is then guaranteed that the data is accessed in
-		 * sync with other RTP source nodes which also run in the direct
-		 * timestamp mode, since all of them shift the timestamp by the same
-		 * `sess.latency.msec` into the future.
-		 *
-		 * Since in this mode, a constant latency is not important, tracking
-		 * the fill level to keep it steady makes no sense. Consequently,
-		 * no DLL is needed. Also, matching the pace of the synchronized clock
-		 * is done by having the graph driver be synchronized to that clock,
-		 * which will in turn cause any output sinks to adjust their DLLs
-		 * (or similar control loop mechanisms) to match the pace of their
-		 * data consumption with the pace of the driver.
-		 *
-		 * The fill level is still important though to correctly handle corner
-		 * cases where the ring buffer is (almost) empty. If fewer samples
-		 * are available than what the read operation wants, the deficit
-		 * has to be compensated with nullbytes. To that end, the "avail"
-		 * quantity tracks how many samples are actually available. */
-
-		if (impl->io_position) {
-			uint32_t clock_rate = impl->io_position->clock.rate.denom;
+		if (pos) {
+			uint32_t clock_rate = pos->clock.rate.denom;
 
 			/* Translate the clock position to an RTP timestamp and
 			 * shift it to compensate for device delay and ASRC delay.
 			 * The device delay is scaled along with the clock position,
 			 * since both are expressed in clock sample units, while
 			 * pwt.buffered is expressed in stream time. */
-			timestamp = scale_u64(impl->io_position->clock.position + device_delay,
+			timestamp = scale_u64(pos->clock.position + device_delay,
 					      impl->rate, clock_rate) + pwt.buffered;
-			spa_ringbuffer_read_update(&impl->ring, timestamp);
-			avail = spa_ringbuffer_get_read_index(&impl->ring, &read_index);
 		} else {
 			/* In the unlikely case that no spa_io_position pointer
 			 * was passed yet by PipeWire to this node, resort to a
@@ -170,74 +106,23 @@ static void rtp_audio_process_playback(void *data)
 			 * This most likely is not in sync with other nodes,
 			 * but _something_ is needed as read index until the
 			 * spa_io_position is available. */
-			avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
-			read_index = timestamp;
+			timestamp = impl->expected_timestamp;
 		}
 
-		/* If avail is 0, it means that the ring buffer is empty. <0 means
-		 * that there is an underrun, typically because the PTP time now
-		 * is ahead of the RTP data (this can happen when the PTP master
-		 * changes for example). And in cases where only a little bit of
-		 * data is left, it is important to not try to use more than what
-		 * is actually available.
-		 * Overruns would happen if the write pointer is further ahead than
-		 * what the ringbuffer size actually allows. This too can happen
-		 * if the PTP time jumps. No actual buffer overflow would happen
-		 * then, since the write operations always apply modulo to the
-		 * timestamps to wrap around the ringbuffer borders.
-		 */
-		bool has_underrun = (avail < 0);
-		bool has_overrun = !has_underrun && ((uint32_t)avail) > impl->actual_max_buffer_size;
-		num_samples_to_read = has_underrun ? 0 : SPA_MIN((uint32_t)avail, wanted);
+		/* read samples from the received packets. Missing packets are filled
+		 * with silence */
+		audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
 
-		/* Do some additional logging in the under/overrun cases. */
-		if (SPA_UNLIKELY(pw_log_topic_enabled(SPA_LOG_LEVEL_TRACE, PW_LOG_TOPIC_DEFAULT)))
-		{
-			uint32_t write_index;
-			int32_t filled = spa_ringbuffer_get_write_index(&impl->ring, &write_index);
-
-			if (has_underrun) {
-				pw_log_trace("Direct timestamp mode: Read index underrun: write_index: %"
-					     PRIu32 ", read_index: %" PRIu32 ", wanted: %u - filled: %" PRIi32,
-					     write_index, read_index, wanted, filled);
-			} else if (has_overrun) {
-				pw_log_trace("Direct timestamp mode: Read index overrun: write_index: %"
-					     PRIu32 ", read_index: %" PRIu32 ", wanted: %u - filled: %" PRIi32
-					     ", buffer size: %u", write_index, read_index, wanted, filled,
-					     impl->actual_max_buffer_size);
-			}
-		}
-
-		if (num_samples_to_read > 0)
-			audio_packet_buffer_read(impl, timestamp, d[0].data, num_samples_to_read, stride);
-
-		if (num_samples_to_read < wanted) {
-			/* If fewer samples were available than what was wanted,
-			 * fill the remaining space in the destination memory
-			 * with nullsamples. */
-			void *bytes_to_clear = SPA_PTROFF(d[0].data, num_samples_to_read * stride, void);
-			size_t num_bytes_to_clear = (wanted - num_samples_to_read) * stride;
-			spa_memzero(bytes_to_clear, num_bytes_to_clear);
-		}
-
-		if (!impl->io_position) {
-			/* In the unlikely case that no spa_io_position pointer
-			 * was passed yet by PipeWire to this node, monotonically
-			 * increment the read index like this to not consume from
-			 * the same position in the ring buffer over and over again. */
-			timestamp += wanted;
-			spa_ringbuffer_read_update(&impl->ring, timestamp);
-		}
+		impl->expected_timestamp = timestamp + wanted;
 	} else {
 		/* In the constant latency mode, it is assumed that the ring buffer
 		 * fill level matches impl->target_buffer. If not, check for over- and
 		 * underruns. Adjust the DLL as needed. If the over/underruns are too
 		 * severe, resynchronize. */
+		timestamp = impl->expected_timestamp;
 
-		avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
-
-		if (impl->io_position) {
-			uint32_t clock_rate = impl->io_position->clock.rate.denom;
+		if (pos) {
+			uint32_t clock_rate = pos->clock.rate.denom;
 			/* Device delay is reported in clock rate units. If this does not
 			 * match the RTP rate, the device delay must be transformed first. */
 			device_delay = scale_u64(device_delay, impl->rate, clock_rate);
@@ -254,67 +139,35 @@ static void rtp_audio_process_playback(void *data)
 			target_buffer = impl->target_buffer - device_delay;
 		}
 
-		if (avail < (int32_t)wanted) {
-			enum spa_log_level level;
-			memset(d[0].data, 0, wanted * stride);
-			flags |= SPA_CHUNK_FLAG_EMPTY;
+		/* when the speed of the sender clock and our clock are
+		 * not in sync, try to adjust our playback rate to keep
+		 * the requested target_buffer bytes in the ringbuffer */
+		double in_flight = 0, error, corr;
 
-			if (impl->have_sync) {
-				impl->have_sync = false;
-				level = SPA_LOG_LEVEL_INFO;
-			} else {
-				level = SPA_LOG_LEVEL_DEBUG;
-			}
-			pw_log(level, "receiver read underrun %d/%u < %u",
-						avail, target_buffer, wanted);
-		} else {
-			double error, corr;
-			if (impl->first) {
-				if ((uint32_t)avail > target_buffer) {
-					uint32_t skip = avail - target_buffer;
-					pw_log_debug("first: avail:%d skip:%u target:%u",
-								avail, skip, target_buffer);
-					timestamp += skip;
-					avail = target_buffer;
-				}
-				impl->first = false;
-			} else if (avail > (int32_t)SPA_MIN(target_buffer * 8, impl->buffer_size / stride)) {
-				pw_log_warn("receiver read overrun %u > %u", avail, target_buffer * 8);
-				timestamp += avail - target_buffer;
-				avail = target_buffer;
-			}
-
-			/* when the speed of the sender clock and our clock are
-			 * not in sync, try to adjust our playback rate to keep
-			 * the requested target_buffer bytes in the ringbuffer */
-			double in_flight = 0;
-			struct spa_io_position *pos = impl->io_position;
-
-			if (SPA_LIKELY(pos && impl->last_recv_timestamp)) {
-				/* Account for samples that might be in flight but not yet received, and possibly
-				 * samples that were received _after_ the process() tick and therefore should not
-				 * yet be accounted for */
-				int64_t in_flight_ns = pos->clock.nsec - impl->last_recv_timestamp;
-				/* Use the best relative rate we know */
-				double relative_rate = impl->io_rate_match ? impl->io_rate_match->rate : pos->clock.rate_diff;
-				in_flight = (double)(in_flight_ns * impl->rate) * relative_rate / SPA_NSEC_PER_SEC;
-			}
-
-			error = (double)target_buffer - (double)avail - in_flight;
-			error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
-
-			corr = spa_dll_update(&impl->dll, error);
-
-			pw_log_info("avail:%u target:%u error:%f corr:%f", avail,
-					target_buffer, error, corr);
-
-			pw_stream_set_rate(impl->stream, 1.0 / corr);
-
-			audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
-
-			timestamp += wanted;
-			spa_ringbuffer_read_update(&impl->ring, timestamp);
+		if (SPA_LIKELY(pos && impl->last_recv_timestamp)) {
+			/* Account for samples that might be in flight but not yet received, and possibly
+			 * samples that were received _after_ the process() tick and therefore should not
+			 * yet be accounted for */
+			int64_t in_flight_ns = pos->clock.nsec - impl->last_recv_timestamp;
+			/* Use the best relative rate we know */
+			double relative_rate = impl->io_rate_match ? impl->io_rate_match->rate : pos->clock.rate_diff;
+			in_flight = (double)(in_flight_ns * impl->rate) * relative_rate / SPA_NSEC_PER_SEC;
 		}
+		avail = (int32_t)(timestamp - impl->tail_timestamp);
+
+		error = (double)target_buffer - (double)avail - in_flight;
+		error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
+
+		corr = spa_dll_update(&impl->dll, error);
+
+		pw_log_info("avail:%u target:%u error:%f corr:%f", avail,
+				target_buffer, error, corr);
+
+		pw_stream_set_rate(impl->stream, 1.0 / corr);
+
+		audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
+
+		impl->expected_timestamp = timestamp + wanted;
 	}
 
 	d[0].chunk->offset = 0;
@@ -338,88 +191,34 @@ static void set_timer(struct impl *impl, uint64_t time, uint64_t itime)
 	set_timer_running(impl, time != 0 && itime != 0);
 }
 
-static void rtp_audio_send_packets(struct impl *impl, uint32_t timestamp, uint32_t tosend,
-		uint16_t seq, uint16_t num, uint64_t set_timestamp, bool first)
-{
-	struct iovec iov[3];
-	struct rtp_header header;
-	uint32_t stride;
-
-	stride = impl->stride;
-
-	spa_zero(header);
-	header.v = 2;
-	header.pt = impl->payload;
-	header.ssrc = htonl(impl->ssrc);
-
-	iov[0].iov_base = &header;
-	iov[0].iov_len = sizeof(header);
-
-	while (num > 0) {
-		uint32_t rtp_timestamp;
-
-		if (impl->marker_on_first && first)
-			header.m = 1;
-		else
-			header.m = 0;
-
-		rtp_timestamp = impl->ts_offset + impl->ts_align + (set_timestamp ? set_timestamp : timestamp);
-
-		header.sequence_number = htons(seq);
-		header.timestamp = htonl(rtp_timestamp);
-
-		set_iovec(&impl->ring,
-			impl->buffer, impl->actual_max_buffer_size,
-			((uint64_t)timestamp * stride) % impl->actual_max_buffer_size,
-			&iov[1], tosend * stride);
-
-		pw_log_trace_fp("sending %d packet:%d ts_offset:%d timestamp:%u (%f s)",
-				tosend, num, impl->ts_offset, timestamp,
-				(double)timestamp * impl->io_position->clock.rate.num /
-				impl->io_position->clock.rate.denom);
-
-		rtp_stream_call_send_packet(impl, iov, 3);
-
-		seq++;
-		first = false;
-		timestamp += tosend;
-		num--;
-	}
-}
-
 static int rtp_audio_resend_packets(struct impl *impl, uint16_t seq, uint16_t num)
 {
-	uint32_t tosend, last_seq, last_ts, timestamp;
-	int32_t diff;
-	uint64_t ts_seq;
+	struct rtp_packet *p;
 
-	tosend = impl->psamples;
+	pw_log_info("resend %d/%d", seq, num);
 
-	ts_seq = SPA_ATOMIC_LOAD(impl->last_ts_seq);
-	last_seq = ts_seq >> 32;
-	last_ts = ts_seq & 0xffffffff;
+	spa_list_for_each(p, &impl->queued, link) {
+		struct iovec iov[1];
 
-	diff = (int32_t)(last_seq - seq);
-	if (diff < 0)
-		return -EIO;
+		if (num == 0 || p->seq > seq)
+			break;
+		if (p->seq < seq)
+			continue;
 
-	timestamp = last_ts - (diff * tosend);
-
-	pw_log_info("resend %d -> %d %d %d", seq, timestamp, last_ts - timestamp, impl->actual_max_buffer_size);
-
-	rtp_audio_send_packets(impl, timestamp, tosend, seq, num, 0, false);
+		iov[0].iov_base = p->data;
+		iov[0].iov_len = p->size;
+		rtp_stream_call_send_packet(impl, iov, 1);
+		seq++;
+		num--;
+	}
 	return 0;
 }
 
 static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uint64_t set_timestamp)
 {
-	int32_t avail, tosend;
-	uint32_t timestamp;
 	bool insufficient_data;
 
-	avail = spa_ringbuffer_get_read_index(&impl->ring, &timestamp);
-	tosend = impl->psamples;
-	insufficient_data = (avail < tosend);
+	insufficient_data = impl->num_queued == 0;
 	if (insufficient_data) {
 		/* There is insufficient data for even a single full packet.
 		 * Handle this depending on the current state. */
@@ -433,23 +232,34 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 			/* There is not enough data for a full packet, but the
 			 * stream is no longer in the started state, so the
 			 * remaining data needs to be flushed out now. */
-			tosend = avail;
-			num_packets = 1;
+			/* FIXME, collect partial packet if any, finish and
+			 * flush */
+			num_packets = 0;
 		}
 	} else {
-		/* There is sufficient data for one or more full packets. */
-		num_packets = SPA_MIN(num_packets, (uint32_t)(avail / tosend));
+		num_packets = SPA_MIN(num_packets, impl->num_queued);
 	}
+	num_packets = SPA_MIN(num_packets, impl->num_queued);
+	while (num_packets > 0) {
+		struct rtp_packet *p;
+		struct iovec iov[1];
 
-	rtp_audio_send_packets(impl, timestamp, tosend, impl->seq,
-			num_packets, set_timestamp, impl->first);
+		p = spa_list_first(&impl->queued, struct rtp_packet, link);
 
-	impl->first = false;
-	impl->seq += num_packets;
-	avail -= tosend * num_packets;
-	timestamp += tosend * num_packets;
-	spa_ringbuffer_read_update(&impl->ring, timestamp);
-	SPA_ATOMIC_STORE(impl->last_ts_seq, ((uint64_t)impl->seq << 32) | timestamp);
+		if (set_timestamp) {
+			struct rtp_header *header = p->data;
+			uint32_t rtp_timestamp = impl->ts_offset + impl->ts_align + set_timestamp;
+			header->timestamp = htonl(rtp_timestamp);
+		}
+		spa_list_remove(&p->link);
+		impl->num_queued--;
+		spa_list_append(&impl->free, &p->link);
+
+		iov[0].iov_base = p->data;
+		iov[0].iov_len = p->size;
+		rtp_stream_call_send_packet(impl, iov, 1);
+		num_packets--;
+	}
 
 done:
 	if (is_timer_running(impl)) {
@@ -465,7 +275,7 @@ done:
 			if (insufficient_data) {
 				set_timer(impl, 0, 0);
 			}
-		} else if (avail <= 0) {
+		} else if (impl->num_queued == 0) {
 			/* All packets were sent, and the stream is in the stopping
 			 * state. This means that stream_stop() was called while this
 			 * timer was still sending out remaining packets, and thus,
@@ -487,6 +297,7 @@ static void rtp_audio_flush_timeout(struct impl *impl, uint64_t expirations)
 {
 	if (expirations > 1)
 		pw_log_trace("missing timeout %"PRIu64, expirations);
+
 	rtp_audio_flush_packets(impl, expirations, 0);
 }
 
@@ -496,7 +307,6 @@ static void rtp_audio_process_capture(void *data)
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t offs, size, actual_timestamp, expected_timestamp, stride;
-	int32_t filled;
 	uint32_t wanted;
 	struct spa_io_position *pos;
 	uint64_t next_nsec, quantum;
@@ -522,7 +332,7 @@ static void rtp_audio_process_capture(void *data)
 
 	pw_stream_get_time_n(impl->stream, &pwt, sizeof(pwt));
 
-	filled = spa_ringbuffer_get_write_index(&impl->ring, &expected_timestamp);
+	expected_timestamp = impl->expected_timestamp;
 
 	pos = impl->io_position;
 	if (SPA_LIKELY(pos)) {
@@ -575,11 +385,6 @@ static void rtp_audio_process_capture(void *data)
 			 * "Driver architecture and workflow" for an explanation why not. */
 			pw_log_warn("timestamp: expected %u != actual %u", expected_timestamp, actual_timestamp);
 			impl->have_sync = false;
-		} else if (filled + wanted > SPA_MIN(impl->target_buffer * 8, impl->buffer_size / stride)) {
-//			pw_log_warn("sender write overrun %u + %u > %u/%u", filled, wanted,
-//					impl->target_buffer * 8, impl->buffer_size / stride);
-//			impl->have_sync = false;
-//			filled = 0;
 		}
 	}
 
@@ -588,16 +393,12 @@ static void rtp_audio_process_capture(void *data)
 
 	if (!impl->have_sync) {
 		if (!impl->direct_timestamp)
-			impl->ts_align = actual_timestamp - impl->ring.readindex;
+			impl->ts_align = actual_timestamp - impl->expected_timestamp;
 		pw_log_info("(re)sync to timestamp:%u seq:%u ts_offset:%u ts_align:%u SSRC:%u",
 				actual_timestamp, impl->seq, impl->ts_offset, impl->ts_align, impl->ssrc);
-		spa_ringbuffer_read_update(&impl->ring, actual_timestamp);
-		spa_ringbuffer_write_update(&impl->ring, actual_timestamp);
 		rtp_stream_clear_pending_packet((struct rtp_stream*)impl);
-		memset(impl->buffer, 0, impl->buffer_size);
 		impl->have_sync = true;
-		expected_timestamp = actual_timestamp;
-		filled = 0;
+		impl->expected_timestamp = expected_timestamp = actual_timestamp;
 
 		if (impl->separate_sender) {
 			/* the sender should know that the sync state has changed, and that it should
@@ -612,7 +413,6 @@ static void rtp_audio_process_capture(void *data)
 
 		if (p->size < sizeof(struct rtp_header)) {
 			struct rtp_header *header;
-			uint32_t rtp_timestamp;
 
 			header = p->data;
 			header->v = 2;
@@ -624,8 +424,8 @@ static void rtp_audio_process_capture(void *data)
 				header->m = 0;
 			header->sequence_number = htons(impl->seq);
 
-			rtp_timestamp = impl->ts_offset + impl->ts_align + expected_timestamp;
-			header->timestamp = htonl(rtp_timestamp);
+			p->timestamp = impl->ts_offset + impl->ts_align + expected_timestamp;
+			header->timestamp = htonl(p->timestamp);
 
 			p->size = sizeof(struct rtp_header);
 		}
@@ -646,6 +446,11 @@ static void rtp_audio_process_capture(void *data)
 			spa_list_remove(&p->link);
 			spa_list_append(&impl->queued, &p->link);
 
+			if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
+				impl->head_timestamp = p->timestamp;
+			impl->tail_timestamp = p->timestamp;
+			impl->num_queued++;
+
 			impl->seq++;
 
 			rtp_stream_clear_pending_packet((struct rtp_stream*)impl);
@@ -653,7 +458,7 @@ static void rtp_audio_process_capture(void *data)
 		impl->first = false;
 		expected_timestamp += to_send;
 	}
-	spa_ringbuffer_write_update(&impl->ring, expected_timestamp);
+	impl->expected_timestamp = expected_timestamp;
 	pw_stream_queue_buffer(impl->stream, buf);
 
 	if (impl->separate_sender)
@@ -683,7 +488,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 {
 	struct impl *impl = d;
 	uint64_t nsec, next_nsec, quantum, quantum_nsec;
-	uint32_t ptp_timestamp, rtp_timestamp, read_idx;
+	uint32_t ptp_timestamp, rtp_timestamp, read_timestamp;
 	uint32_t rate;
 	uint32_t filled;
 	double error, in_flight, delay;
@@ -691,8 +496,9 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 	nsec = position->clock.nsec;
 	next_nsec = position->clock.next_nsec;
 
-	/* the ringbuffer indices are in sink timetamp domain */
-	filled = spa_ringbuffer_get_read_index(&impl->ring, &read_idx);
+	/* the packet buffer timestamps are in sink timetamp domain */
+	filled = (int32_t)(impl->tail_timestamp - impl->head_timestamp);
+	read_timestamp = impl->expected_timestamp;
 
 	if (SPA_LIKELY(position)) {
 		rate = position->clock.rate.denom;
@@ -701,7 +507,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 		/* PTP time tells us what time it is */
 		ptp_timestamp = position->clock.position * impl->rate / rate;
 		/* RTP time is based on when we sent the first packet after the last sync */
-		rtp_timestamp = impl->rtp_base_ts + read_idx;
+		rtp_timestamp = impl->rtp_base_ts + read_timestamp;
 	} else {
 		pw_log_warn("No clock information, skipping");
 		return;
@@ -737,8 +543,8 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 		if (impl->refilling && (double)impl->target_buffer - delay <= 0) {
 			impl->refilling = false;
 			/* Store the offset for the PTP time at which we start sending */
-			impl->rtp_base_ts = ptp_timestamp - read_idx;
-			rtp_timestamp = impl->rtp_base_ts + read_idx; /* = ptp_timestamp */
+			impl->rtp_base_ts = ptp_timestamp - read_timestamp;
+			rtp_timestamp = impl->rtp_base_ts + read_timestamp; /* = ptp_timestamp */
 			pw_log_debug("start sending. sink quantum:%"PRIu64", ptp quantum:%"PRIu64"", impl->sink_quantum, quantum_nsec);
 		}
 
@@ -756,7 +562,7 @@ static void ptp_sender_process(void *d, struct spa_io_position *position)
 			pw_log_debug("filled:%u in_flight:%g delay:%g target:%u error:%f corr:%f",
 					filled, in_flight, delay, impl->target_buffer, error, impl->ptp_corr);
 
-			if (filled >= impl->psamples) {
+			if (impl->num_queued > 0) {
 				rtp_audio_flush_packets(impl, 1, rtp_timestamp);
 				impl->rtp_last_ts = rtp_timestamp;
 			}

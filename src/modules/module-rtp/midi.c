@@ -74,6 +74,8 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 {
 	struct rtp_packet *p, *t;
 	struct spa_pod_frame f[1];
+	uint32_t ts_begin = SPA_SCALE32(timestamp, impl->rate, rate);
+	uint32_t ts_end = SPA_SCALE32(timestamp + duration, impl->rate, rate);
 
 	spa_pod_builder_push_sequence(b, &f[0], 0);
 
@@ -84,6 +86,11 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 		uint8_t *packet;
 		bool first = true;
 		struct rtp_midi_header hdr;
+
+		if (!spa_list_is_end(t, &impl->queued, link) &&
+		    ((uint64_t)t->timestamp + impl->target_buffer) <= ts_begin)
+			/* the next packet is too old, we can skip this one */
+			continue;
 
 		if (p->decoded == NULL) {
 			offs = p->hlen;
@@ -116,18 +123,17 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 		}
 
 		/* bring packet time to graph time */
-		base = p->timestamp + impl->target_buffer;
-		ts = base * rate / impl->rate;
-		if (ts < timestamp) {
-			/* too old packet, remove from queued */
-			if (ts < timestamp + 64 * duration) {
-				spa_list_remove(&p->link);
-				spa_list_append(&impl->free, &p->link);
-			}
+		base = (uint64_t)p->timestamp + impl->target_buffer;
+		if (base >= ts_end)
+			break;
+
+#if 0
+		if (base + 8 * impl->target_buffer < ts_begin) {
+			spa_list_remove(&p->link);
+			spa_list_append(&impl->free, &p->link);
 			continue;
 		}
-		if (ts >= timestamp + duration)
-			break;
+#endif
 
 		memcpy(&hdr, p->data, 1);
 		packet = p->decoded;
@@ -151,7 +157,7 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 				offs += size;
 			}
 			//base += (uint32_t)(delta * impl->corr);
-			base += (uint32_t)(delta);
+			base += delta;
 
 			size = get_midi_size(&packet[offs], end - offs);
 			if (size <= 0 || (unsigned int)size > end - offs) {
@@ -160,15 +166,18 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 				spa_debug_mem(0, p->data, p->size);
 				break;
 			}
-			ts = base * rate / impl->rate;
-			if (ts >= timestamp) {
-				if (ts >= timestamp + duration)
+			if (base >= ts_begin) {
+				if (base >= ts_end)
 					break;
+
 				if ((packet[offs] == 0xf0 || packet[offs] == 0xf7) &&
 				    packet[offs + size-1] == 0xf0)
 					tail_trim++;
 
-				spa_pod_builder_control(b, ts - timestamp, SPA_CONTROL_Midi);
+				ts = SPA_SCALE32(base - ts_begin, impl->rate, rate);
+				ts = SPA_CLAMP(ts, 0u, duration);
+
+				spa_pod_builder_control(b, ts, SPA_CONTROL_Midi);
 				spa_pod_builder_bytes(b, &packet[offs], size - tail_trim);
 			}
 			offs += size;

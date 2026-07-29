@@ -164,7 +164,8 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 			if (ts >= timestamp) {
 				if (ts >= timestamp + duration)
 					break;
-				if (packet[offs + size-1] == 0xf0)
+				if ((packet[offs] == 0xf0 || packet[offs] == 0xf7) &&
+				    packet[offs + size-1] == 0xf0)
 					tail_trim++;
 
 				spa_pod_builder_control(b, ts - timestamp, SPA_CONTROL_Midi);
@@ -303,7 +304,7 @@ static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t delta, const u
 	uint32_t total;
 
 	total = size;
-	if (ev[0] == 0xf0 && ev[size-1] != 0xf7)
+	if ((ev[0] == 0xf0 || ev[0] == 0xf7) && ev[size-1] != 0xf7)
 		total++;
 
 	if (buffer_size <= total)

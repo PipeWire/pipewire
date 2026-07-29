@@ -379,6 +379,7 @@ static int add_pro_profile(pa_card *impl, uint32_t index)
 	ap->profile.description = ap->description = pa_xstrdup(_("Pro Audio"));
 	ap->profile.available = ACP_AVAILABLE_YES;
 	ap->profile.flags = ACP_PROFILE_PRO;
+	ap->supported = true;
 	ap->output_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
 	ap->input_mappings = pa_idxset_new(pa_idxset_trivial_hash_func, pa_idxset_trivial_compare_func);
 	pa_hashmap_put(ps->profiles, ap->name, ap);
@@ -553,6 +554,7 @@ static void add_profiles(pa_card *impl)
 	ap->profile.description = ap->description = pa_xstrdup(_("Off"));
 	ap->profile.available = ACP_AVAILABLE_YES;
 	ap->profile.flags = ACP_PROFILE_OFF;
+	ap->supported = true;
 	pa_hashmap_put(impl->profiles, ap->name, ap);
 
 	if (!impl->disable_pro_audio)

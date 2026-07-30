@@ -140,8 +140,8 @@ struct impl {
 	uint32_t target_buffer;
 	double max_error;
 
-	float last_timestamp;
-	float last_time;
+	double last_timestamp;
+	double last_time;
 
 	unsigned direct_timestamp:1;
 	unsigned always_process:1;

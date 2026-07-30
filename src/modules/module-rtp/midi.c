@@ -135,6 +135,7 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 		}
 #endif
 
+
 		memcpy(&hdr, p->data, 1);
 		packet = p->decoded;
 		end = p->decoded_len;
@@ -168,7 +169,7 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 			}
 			if (base >= ts_begin) {
 				if (base >= ts_end)
-					break;
+					goto done;
 
 				if ((packet[offs] == 0xf0 || packet[offs] == 0xf7) &&
 				    packet[offs + size-1] == 0xf0)
@@ -183,7 +184,12 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 			offs += size;
 			first = false;
 		}
+		if (offs >= end) {
+			spa_list_remove(&p->link);
+			spa_list_append(&impl->free, &p->link);
+		}
 	}
+done:
 	if (spa_pod_builder_pop(b, &f[0]) == NULL)
 		pw_log_warn("overflow");
 }
@@ -266,7 +272,7 @@ static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
 	} else {
 		/* in non-direct timestamp mode, we relate the graph clock against
 		 * the RTP timestamps */
-		double ts = p->timestamp / (float) impl->rate;
+		double ts = (double)p->timestamp / (double)impl->rate;
 		double t = get_time(impl, current_time);
 		double elapsed, estimated, diff;
 
@@ -294,13 +300,14 @@ static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
 			/* our current time is now the estimated time */
 			t = estimated;
 		}
+
+		impl->last_timestamp = (double)ts;
+		impl->last_time = (double)t;
+
+		pw_log_trace_fp("%u %f %f %f %f %f %f %u", p->seq, t, ts, elapsed,
+				estimated, diff, impl->corr, p->timestamp);
+
 		p->timestamp = (uint32_t)(t * impl->rate);
-
-		impl->last_timestamp = (float)ts;
-		impl->last_time = (float)t;
-
-		pw_log_trace_fp("%f %f %f %f %u", t, estimated, diff, impl->corr, p->timestamp);
-
 	}
 	return 0;
 }

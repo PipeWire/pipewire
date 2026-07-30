@@ -327,12 +327,15 @@ static int impl_node_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_pod_dynamic_builder b;
 	struct spa_result_node_params result;
+	struct spa_param_info *pi;
 	uint32_t count = 0;
 
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
 	spa_return_val_if_fail(num != 0, -EINVAL);
 
-	if (!pw_param_info_find(impl->this.node->info.params, impl->this.node->info.n_params, id))
+	pi = pw_param_info_find(impl->this.node->info.params,
+			impl->this.node->info.n_params, id);
+	if (pi == NULL || !SPA_FLAG_IS_SET(pi->flags, SPA_PARAM_INFO_READ))
 		return -ENOENT;
 
 	result.id = id;
@@ -597,6 +600,7 @@ node_port_enum_params(struct impl *impl, int seq,
 	uint8_t buffer[1024];
 	struct spa_pod_dynamic_builder b;
 	struct spa_result_node_params result;
+	struct spa_param_info *pi;
 	uint32_t count = 0;
 
 	spa_return_val_if_fail(impl != NULL, -EINVAL);
@@ -608,7 +612,8 @@ node_port_enum_params(struct impl *impl, int seq,
 	pw_log_debug("%p: seq:%d port %d.%d id:%u start:%u num:%u n_params:%d",
 			impl, seq, direction, port_id, id, start, num, port->params.n_params);
 
-	if (!pw_param_info_find(port->port->info.params, port->port->info.n_params, id))
+	pi = pw_param_info_find(port->port->info.params, port->port->info.n_params, id);
+	if (pi == NULL || !SPA_FLAG_IS_SET(pi->flags, SPA_PARAM_INFO_READ))
 		return -ENOENT;
 
 	result.id = id;

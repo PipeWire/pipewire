@@ -1815,8 +1815,14 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 				this->props.device, reqbuf.count, n_buffers);
 		return -ENOMEM;
 	}
+	if (reqbuf.count > n_buffers) {
+		/* The driver is allowed to hand out more buffers than asked for, but we
+		 * only have n_buffers of them to attach the extra ones to. */
+		spa_log_warn(this->log, "'%s' provided %d buffers, using %d",
+				this->props.device, reqbuf.count, n_buffers);
+	}
 
-	for (i = 0; i < reqbuf.count; i++) {
+	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 
 		b = &port->buffers[i];
@@ -1889,7 +1895,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 
 		spa_v4l2_buffer_recycle(this, i);
 	}
-	port->n_buffers = reqbuf.count;
+	port->n_buffers = n_buffers;
 
 	return 0;
 }

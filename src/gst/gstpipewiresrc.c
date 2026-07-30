@@ -599,6 +599,8 @@ buffer_recycle (GstMiniObject *obj)
   gst_mini_object_ref (obj);
 
   data->queued = TRUE;
+  if (src->n_outstanding > 0)
+    src->n_outstanding--;
 
   if ((res = pw_stream_queue_buffer (src->stream->pwstream, data->b)) < 0)
     GST_WARNING_OBJECT (src, "can't queue recycled buffer %p, %s", obj, spa_strerror(res));
@@ -626,6 +628,10 @@ on_add_buffer (void *_data, struct pw_buffer *b)
   GST_MINI_OBJECT_CAST (data->buf)->dispose = buffer_recycle;
 
   pwsrc->n_buffers++;
+  if (pwsrc->n_buffers == 1) {
+    pwsrc->n_outstanding = 0;
+    pwsrc->warned_starving = FALSE;
+  }
 }
 
 static void
@@ -726,6 +732,23 @@ static const char *spa_transform_value_to_gst_image_orientation(uint32_t transfo
   return transform_map[transform_value];
 }
 
+/* Memory that can be read with a plain mmap can be copied; a DMA-BUF without
+ * SPA_DATA_FLAG_MAPPABLE cannot, and there is nothing better to do for such a
+ * buffer than to keep sharing it. */
+static gboolean
+buffer_is_copyable (struct pw_buffer *b)
+{
+  uint32_t i;
+
+  for (i = 0; i < b->buffer->n_datas; i++) {
+    struct spa_data *d = &b->buffer->datas[i];
+
+    if (d->type == SPA_DATA_DmaBuf && !(d->flags & SPA_DATA_FLAG_MAPPABLE))
+      return FALSE;
+  }
+  return TRUE;
+}
+
 static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 {
   struct pw_buffer *b;
@@ -736,6 +759,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   enum spa_meta_videotransform_value transform_value;
   struct spa_meta_cursor *cursor;
   struct pw_time time;
+  gboolean use_pool;
   guint i;
 
   b = pw_stream_dequeue_buffer (pwsrc->stream->pwstream);
@@ -752,6 +776,30 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   if (!data->queued) {
     GST_ERROR_OBJECT (pwsrc, "buffer %p was not recycled", data->buf);
     return NULL;
+  }
+
+  use_pool = pwsrc->use_bufferpool != USE_BUFFERPOOL_NO;
+
+  /* Downstream can hold every buffer of the pool, leaving the producer with
+   * nothing to fill; the stream then stops instead of degrading. Handing over
+   * the last free buffer is what decides that, and it is also the last moment a
+   * buffer can still be made to come back, so copy it instead of sharing it and
+   * the pool buffer is returned straight away.
+   *
+   * This is not free while it applies: downstream receives system memory where
+   * it would otherwise get the DMA-BUF. A pool of one is left out, because
+   * there every buffer is the last one -- which is what use-bufferpool=false
+   * already provides explicitly. */
+  if (use_pool && pwsrc->use_bufferpool == USE_BUFFERPOOL_AUTO &&
+      pwsrc->n_buffers > 1 &&
+      pwsrc->n_outstanding + 1 >= pwsrc->n_buffers &&
+      buffer_is_copyable (b)) {
+    use_pool = FALSE;
+    if (!pwsrc->warned_starving) {
+      pwsrc->warned_starving = TRUE;
+      GST_INFO_OBJECT (pwsrc, "downstream holds %d of %d buffers, copying to "
+          "keep the stream going", pwsrc->n_outstanding, pwsrc->n_buffers);
+    }
   }
 
   pw_stream_get_time_n(pwsrc->stream->pwstream, &time, sizeof(time));
@@ -778,6 +826,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   buf = gst_buffer_new ();
 
   data->queued = FALSE;
+  pwsrc->n_outstanding++;
   GST_BUFFER_PTS (buf) = GST_CLOCK_TIME_NONE;
   GST_BUFFER_DTS (buf) = GST_CLOCK_TIME_NONE;
 
@@ -896,7 +945,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     GstMemory *pmem = gst_buffer_peek_memory (data->buf, i);
     if (pmem) {
       GstMemory *mem;
-      if (pwsrc->use_bufferpool != USE_BUFFERPOOL_NO)
+      if (use_pool)
         mem = gst_memory_share (pmem, d->chunk->offset, d->chunk->size);
       else
         mem = gst_memory_copy (pmem, d->chunk->offset, d->chunk->size);
@@ -907,7 +956,7 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
       GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_CORRUPTED);
     }
   }
-  if (pwsrc->use_bufferpool != USE_BUFFERPOOL_NO) {
+  if (use_pool) {
     /* the meta keeps a reference, so this is not the last one and the recycle
      * happens later, from whichever thread drops it */
     gst_buffer_add_parent_buffer_meta (buf, data->buf);

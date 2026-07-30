@@ -191,6 +191,8 @@ ATTRS{idVendor}=="1395", ATTRS{idProduct}=="008a", ENV{ACP_PROFILE_SET}="usb-gam
 ATTRS{idVendor}=="3329", ATTRS{idProduct}=="4b19", ENV{ACP_PROFILE_SET}="audeze-maxwell.conf"
 # Audeze Maxwell XBOX Dongle
 ATTRS{idVendor}=="3329", ATTRS{idProduct}=="4b18", ENV{ACP_PROFILE_SET}="audeze-maxwell.conf"
+# Audeze Maxwell PLAYSTATION Headset, connected over USB rather than through the dongle
+ATTRS{idVendor}=="3329", ATTRS{idProduct}=="4b1a", ENV{ACP_PROFILE_SET}="audeze-maxwell.conf"
 # Audeze Maxwell XBOX Headset, connected over USB rather than through the dongle
 ATTRS{idVendor}=="3329", ATTRS{idProduct}=="4b1e", ENV{ACP_PROFILE_SET}="audeze-maxwell.conf"
 

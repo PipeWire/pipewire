@@ -159,11 +159,8 @@ param_filter(struct pw_buffers *this,
 		if (in_res < 1) {
 			/* in_res == -ENOENT  : unknown parameter, assume NULL and we will
 			 *                      exit the loop below.
-			 * in_res == 0        : no data, assume NULL when first item
-			 * in_res < 0         : some error, exit now
+			 * in_res < 1         : some error or no data, exit now
 			 */
-			if (in_res == 0 && iidx == 0)
-				in_res = -ENOENT;
 			if (in_res == -ENOENT)
 				iparam = NULL;
 			else

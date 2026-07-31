@@ -1400,13 +1400,14 @@ static inline void debug_xrun_target(struct pw_impl_node *driver,
 		str_status(status), suppressed);
 }
 
-static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec, uint32_t old_status)
+static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec, uint32_t old_status,
+		bool force_info)
 {
-	int suppressed;
+	int suppressed = 0;
 	enum spa_log_level level = SPA_LOG_LEVEL_DEBUG;
 	struct pw_node_target *t;
 
-	if ((suppressed = spa_ratelimit_test(&driver->rt.rate_limit, nsec)) >= 0)
+	if (force_info || (suppressed = spa_ratelimit_test(&driver->rt.rate_limit, nsec)) >= 0)
 		level = SPA_LOG_LEVEL_INFO;
 
 	pw_log(level, "(%s-%u) graph xrun %s (%d suppressed)",
@@ -1430,6 +1431,22 @@ static inline void debug_xrun_graph(struct pw_impl_node *driver, uint64_t nsec, 
 					a->finish_time - a->awake_time,
 					str_status(status));
 
+		} else if ((status == PW_NODE_ACTIVATION_NOT_TRIGGERED && state->pending > 0) ||
+			   status == PW_NODE_ACTIVATION_INACTIVE) {
+			/* NOT_TRIGGERED with pending left means the node was never
+			 * signaled this cycle: one of its required contributors
+			 * went away without delivering its trigger (e.g. an
+			 * INACTIVE node that was deactivated by its owner but
+			 * whose required contribution was not yet removed).
+			 * Print INACTIVE targets too so culprit and victim show
+			 * up in the same dump. */
+			pw_log(level, "(%s-%u) xrun stuck state:%p pending:%d/%d s:%"PRIu64
+					" prev_s:%"PRIu64" status:%s",
+					t->name, t->id, state,
+					state->pending, state->required,
+					a->signal_time,
+					a->prev_signal_time,
+					str_status(status));
 		}
 	}
 }
@@ -2132,7 +2149,7 @@ static int node_ready(void *data, int status)
 			 * emitted */
 			if (old_status != PW_NODE_ACTIVATION_TRIGGERED) {
 				/* otherwise, something was wrong and we debug */
-				debug_xrun_graph(node, nsec, old_status);
+				debug_xrun_graph(node, nsec, old_status, false);
 				pw_impl_node_rt_emit_incomplete(driver);
 			}
 			SPA_FLAG_SET(cl->flags, SPA_IO_CLOCK_FLAG_XRUN_RECOVER);
@@ -2280,6 +2297,13 @@ static int node_xrun(void *data, uint64_t trigger, uint64_t delay, struct spa_po
 				rate.num, rate.denom, a->xrun_count,
 				trigger, delay, a->max_delay,
 				suppressed);
+		/* device xrun on a driver: dump the graph state so we can
+		 * see WHICH target kept the cycle from completing (stuck
+		 * pending counters are invisible in the accounting paths:
+		 * a NOT_TRIGGERED target is not counted as a follower xrun,
+		 * yet it is exactly what starves the device) */
+		if (this->driving)
+			debug_xrun_graph(this, nsec, SPA_ATOMIC_LOAD(a->status), true);
 	}
 
 	pw_impl_node_rt_emit_xrun(this);

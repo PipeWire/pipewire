@@ -1188,29 +1188,17 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 
 	p->hlen = hlen;
 	p->seq = seq;
-	p->timestamp = timestamp;
+	p->timestamp = timestamp + impl->target_buffer;
 	p->nsec = current_time;
 
-	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u target:%u direct:%u",
-				timestamp, seq, impl->ts_offset, impl->ssrc,
-				impl->target_buffer, impl->direct_timestamp);
-
-		spa_dll_init(&impl->dll);
-		spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
-
-		rtp_stream_clear_queued_packets(s);
-		impl->expected_timestamp = timestamp;
-		impl->have_sync = true;
-	}
 	spa_list_for_each_safe_reverse(q, tq, &impl->queued, link) {
-		if (calculate_seqnum_delta(q->seq, p->seq) < 0)
+		if (rtp_seqnum_delta(q->seq, p->seq) < 0)
 			break;
 		if (q->seq == p->seq)
 			goto duplicate_seq;
 	}
 	spa_list_remove(&p->link);
-	spa_list_append(&q->link, &p->link);
+	spa_list_prepend(&q->link, &p->link);
 	impl->num_queued++;
 
 	if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
@@ -1218,7 +1206,7 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	if (p == spa_list_last(&impl->queued, struct rtp_packet, link))
 		impl->tail_timestamp = p->timestamp;
 
-	pw_log_trace_fp("got packet %u %u", p->seq, p->timestamp);
+	pw_log_trace_fp("got packet %u %08x", p->seq, p->timestamp);
 
 	if (impl->receive_rtp)
 		res = impl->receive_rtp(impl, p, current_time);

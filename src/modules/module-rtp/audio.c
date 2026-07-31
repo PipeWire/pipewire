@@ -13,13 +13,15 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 
 /* read wanted samples from the packet buffer at timestamp. Fill the gaps with
  * 0 bytes */
-static void audio_packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
-		uint32_t wanted, uint32_t stride)
+static void audio_packet_buffer_read(struct impl *impl, uint32_t timestamp,
+		void *dst, uint32_t wanted, uint32_t stride)
 {
 	struct rtp_packet *p;
 
 	spa_list_for_each(p, &impl->queued, link) {
-		uint32_t samples, skip, ts;
+		uint32_t samples, skip, ts, ts_end;
+		int32_t ts_delta;
+
 		if (wanted == 0)
 			break;
 
@@ -29,12 +31,14 @@ static void audio_packet_buffer_read(struct impl *impl, uint32_t timestamp, void
 		}
 
 		samples = p->decoded_len;
-		ts = p->timestamp + impl->target_buffer;
-		if (ts + samples < timestamp)
+		ts = p->timestamp;
+		ts_end = p->timestamp + samples;
+		if (rtp_timestamp_delta(ts_end, timestamp) < 0)
 			continue;
 
-		if (timestamp < ts) {
-			skip = ts - timestamp;
+		ts_delta = rtp_timestamp_delta(timestamp, ts);
+		if (ts_delta < 0) {
+			skip = -ts_delta;
 			skip = SPA_MIN(skip, wanted);
 			memset(dst, 0, skip * stride);
 			dst = SPA_PTROFF(dst, skip * stride, void);
@@ -42,7 +46,7 @@ static void audio_packet_buffer_read(struct impl *impl, uint32_t timestamp, void
 			timestamp += skip;
 			skip = 0;
 		} else {
-			skip = timestamp - ts;
+			skip = ts_delta;
 			samples -= skip;
 		}
 		samples = SPA_MIN(samples, wanted);
@@ -108,12 +112,6 @@ static void rtp_audio_process_playback(void *data)
 			 * spa_io_position is available. */
 			timestamp = impl->expected_timestamp;
 		}
-
-		/* read samples from the received packets. Missing packets are filled
-		 * with silence */
-		audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
-
-		impl->expected_timestamp = timestamp + wanted;
 	} else {
 		/* In the constant latency mode, it is assumed that the ring buffer
 		 * fill level matches impl->target_buffer. If not, check for over- and
@@ -153,22 +151,37 @@ static void rtp_audio_process_playback(void *data)
 			double relative_rate = impl->io_rate_match ? impl->io_rate_match->rate : pos->clock.rate_diff;
 			in_flight = (double)(in_flight_ns * impl->rate) * relative_rate / SPA_NSEC_PER_SEC;
 		}
-		avail = (int32_t)(timestamp - impl->tail_timestamp);
 
-		error = (double)target_buffer - (double)avail - in_flight;
-		error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
+		if (!impl->have_sync) {
+			spa_dll_init(&impl->dll);
+			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
 
+			avail = (int32_t)(target_buffer - in_flight);
+			timestamp = (int32_t)(impl->tail_timestamp - avail);
+			impl->expected_timestamp = timestamp;
+			impl->have_sync = impl->num_queued != 0;
+			error = 0.0;
+
+			pw_log_info("sync:%d %08x %08x target:%u synced:%u", avail,
+				impl->tail_timestamp, timestamp, target_buffer, impl->have_sync);
+		} else {
+			avail = (int32_t)(impl->tail_timestamp - timestamp);
+			error = (double)target_buffer - (double)avail - in_flight;
+			error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
+		}
 		corr = spa_dll_update(&impl->dll, error);
 
-		pw_log_info("avail:%u target:%u error:%f corr:%f", avail,
-				target_buffer, error, corr);
+		pw_log_trace_fp("avail:%d %08x %08x target:%u error:%f corr:%f", avail,
+				impl->tail_timestamp, timestamp, target_buffer, error, corr);
 
 		pw_stream_set_rate(impl->stream, 1.0 / corr);
 
-		audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
-
-		impl->expected_timestamp = timestamp + wanted;
 	}
+	/* read samples from the received packets. Missing packets are filled
+	 * with silence */
+	audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
+
+	impl->expected_timestamp = timestamp + wanted;
 
 	d[0].chunk->offset = 0;
 	d[0].chunk->size = wanted * stride;

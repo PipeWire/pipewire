@@ -16,7 +16,8 @@ static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void 
 	OpusMSDecoder *dec = impl->stream_data;
 
 	spa_list_for_each(p, &impl->queued, link) {
-		uint32_t samples, skip, ts;
+		uint32_t samples, skip, ts, ts_end;
+		int32_t ts_delta;
 		if (wanted == 0)
 			break;
 
@@ -33,17 +34,20 @@ static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void 
 			p->decoded_len = res;
 		}
 
-		ts = p->timestamp + impl->target_buffer;
 		samples = p->decoded_len;
-		if (ts + samples <= timestamp)
+		ts = p->timestamp;
+		ts_end = ts + samples;
+		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
 			continue;
 
-		if (timestamp < ts) {
+		ts_delta = rtp_timestamp_delta(timestamp, ts);
+		if (ts_delta < 0) {
 			/* there is no packet that contains the requested
 			 * timestamp, we underrun */
-			skip = ts - timestamp;
+			skip = -ts_delta;
 			skip = SPA_MIN(skip, wanted);
-			pw_log_warn("underrun %d %u %u, packet buffer too small", skip, ts, timestamp);
+			if (impl->have_sync)
+				pw_log_warn("underrun %d %u %u, packet buffer too small", skip, ts, timestamp);
 			memset(dst, 0, skip * stride);
 			dst = SPA_PTROFF(dst, skip * stride, void);
 			wanted -= skip;
@@ -52,7 +56,7 @@ static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void 
 		} else {
 			/* packet contains requested timestamp, skip samples
 			 * before timestamp */
-			skip = timestamp - ts;
+			skip = ts_delta;
 			samples -= skip;
 		}
 		samples = SPA_MIN(samples, wanted);
@@ -67,7 +71,8 @@ static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void 
 		/* we ran out of packets and we could not fill the complete
 		 * buffer -> underrun */
 		memset(dst, 0, wanted * stride);
-		pw_log_warn("underrun");
+		if (impl->have_sync)
+			pw_log_warn("underrun");
 	}
 }
 
@@ -102,21 +107,31 @@ static void rtp_opus_process_playback(void *data)
 		timestamp = impl->expected_timestamp;
 	}
 
-	avail = (int32_t)(impl->tail_timestamp - timestamp);
-	target_buffer = impl->target_buffer;
-
 	if (!impl->direct_timestamp) {
 		double error, corr;
 
-		/* when not using direct timestamp and clocks are not
-		 * in sync, try to adjust our playback rate to keep the
-		 * requested target_buffer bytes in the ringbuffer */
-		error = (double)target_buffer - (double)avail;
-		error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
+		target_buffer = impl->target_buffer;
 
+		if (!impl->have_sync) {
+			spa_dll_init(&impl->dll);
+			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 128, impl->rate);
+
+			avail = (int32_t)(target_buffer);
+			timestamp = (int32_t)(impl->tail_timestamp - avail);
+			impl->expected_timestamp = timestamp;
+			impl->have_sync = impl->num_queued != 0;
+			error = 0.0;
+
+			pw_log_info("sync:%d %08x %08x target:%u synced:%u", avail,
+				impl->tail_timestamp, timestamp, target_buffer, impl->have_sync);
+		} else {
+			avail = (int32_t)(impl->tail_timestamp - timestamp);
+			error = (double)target_buffer - (double)avail;
+			error = SPA_CLAMPD(error, -impl->max_error, impl->max_error);
+		}
 		corr = spa_dll_update(&impl->dll, error);
 
-		pw_log_trace("avail:%u target:%u error:%f corr:%f", avail,
+		pw_log_trace_fp("avail:%u target:%u error:%f corr:%f", avail,
 				target_buffer, error, corr);
 
 		pw_stream_set_rate(impl->stream, 1.0 / corr);

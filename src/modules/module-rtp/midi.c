@@ -88,7 +88,7 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 		struct rtp_midi_header hdr;
 
 		if (!spa_list_is_end(t, &impl->queued, link) &&
-		    ((uint64_t)t->timestamp + impl->target_buffer) <= ts_begin)
+		    ((uint64_t)t->timestamp <= ts_begin))
 			/* the next packet is too old, we can skip this one */
 			continue;
 
@@ -123,7 +123,7 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 		}
 
 		/* bring packet time to graph time */
-		base = (uint64_t)p->timestamp + impl->target_buffer;
+		base = (uint64_t)p->timestamp;
 		if (base >= ts_end)
 			break;
 
@@ -294,7 +294,7 @@ static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
 		pw_log_trace_fp("%u %f %f %f %f %f %f %u", p->seq, t, ts, elapsed,
 				estimated, diff, impl->corr, p->timestamp);
 
-		p->timestamp = (uint32_t)(t * impl->rate);
+		p->timestamp = (uint32_t)(t * impl->rate) + impl->target_buffer;
 	}
 	return 0;
 }

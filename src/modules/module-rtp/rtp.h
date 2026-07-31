@@ -88,7 +88,7 @@ struct rtp_midi_journal {
 	uint16_t checkpoint_seqnum;
 } __attribute__ ((packed));
 
-static inline int16_t calculate_seqnum_delta(uint16_t seqnum_a, uint16_t seqnum_b)
+static inline int16_t rtp_seqnum_delta(uint16_t seqnum_a, uint16_t seqnum_b)
 {
 	/* In RTP, sequence numbers are 16-bit unsigned integers. These
 	 * can realistically reach the limit of that data type's range.
@@ -125,11 +125,16 @@ static inline int16_t calculate_seqnum_delta(uint16_t seqnum_a, uint16_t seqnum_
 	 * this covers all real world use cases well. */
 
 #ifdef SPA_MACHINE_USES_TWOS_COMPLEMENT
-	return (int16_t)(seqnum_b - seqnum_a);
+	return (int16_t)(seqnum_a - seqnum_b);
 #else
-	uint16_t udelta = seqnum_b - seqnum_a;
+	uint16_t udelta = seqnum_a - seqnum_b;
 	return (udelta < 32768) ? ((int32_t)udelta) : ((int32_t)udelta - 65536);
 #endif
+}
+
+static inline int32_t rtp_timestamp_delta(uint32_t ts_a, uint32_t ts_b)
+{
+	return (int32_t)(ts_a - ts_b);
 }
 
 struct rtp_packet {

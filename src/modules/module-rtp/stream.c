@@ -140,8 +140,7 @@ struct rtp_stream {
 	uint32_t target_buffer;
 	double max_error;
 
-	double last_timestamp;
-	double last_time;
+	uint32_t delay;
 
 	unsigned direct_timestamp:1;
 	unsigned always_process:1;
@@ -170,7 +169,6 @@ struct rtp_stream {
 	 * access below for the reason why. */
 	uint8_t timer_running;
 
-	int (*receive_rtp)(struct rtp_stream *impl, struct rtp_packet *p, uint64_t current_time);
 	/* Called by stream_start() to stop any running timer before continuing to
 	 * start the stream. This is necessary, because by that point, any remaining
 	 * buffered data is stale, and the timer would keep sending it out. */
@@ -1198,9 +1196,6 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 		s->tail_timestamp = p->timestamp;
 
 	pw_log_trace_fp("got packet %u %08x", p->seq, p->timestamp);
-
-	if (s->receive_rtp)
-		res = s->receive_rtp(s, p, current_time);
 
 	return res;
 

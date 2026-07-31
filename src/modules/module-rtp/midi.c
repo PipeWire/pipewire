@@ -70,7 +70,7 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 
 /* read events beteen begin and end timestamp. */
 static void midi_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp, uint32_t duration,
-		uint32_t rate, struct spa_pod_builder *b)
+		uint32_t rate, uint64_t nsec, struct spa_pod_builder *b)
 {
 	struct rtp_packet *p, *t;
 	struct spa_pod_frame f[1];
@@ -87,15 +87,33 @@ static void midi_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 		bool first = true;
 		struct rtp_midi_header hdr;
 
-		if (!spa_list_is_end(t, &impl->queued, link) &&
-		    ((uint64_t)t->timestamp <= ts_begin))
-			/* the next packet is too old, we can skip this one */
-			continue;
-
 		if (p->decoded == NULL) {
+			uint32_t t, d;
+
 			offs = p->hlen;
 			packet = p->data;
 			plen = p->size;
+
+			if (!impl->direct_timestamp) {
+				/* calculate the stream position when the packet was captured */
+				t = SPA_SCALE32(timestamp, impl->rate, rate) -
+					(nsec - p->nsec) * impl->rate / SPA_NSEC_PER_SEC;
+				/* make diff with rtp timestamp */
+				d = p->timestamp - t;
+
+				/* smooth outh the delay */
+				if (impl->delay == 0)
+					impl->delay = d;
+				else
+					impl->delay = (31 * (uint64_t)impl->delay + d) / 32;
+
+				pw_log_trace_fp("%u %u %u %u %u %u", p->seq, t, d,
+						impl->delay, p->timestamp, p->timestamp - impl->delay);
+
+				/* our new timestamp is mapped to stream time with the extra
+				 * delay added */
+				p->timestamp = p->timestamp - impl->delay + impl->target_buffer;
+			}
 
 			SPA_STATIC_ASSERT(sizeof hdr == 2);
 			memcpy(&hdr, &packet[offs++], 1);
@@ -192,6 +210,7 @@ static void rtp_midi_process_playback(void *data)
 	struct spa_data *d;
 	uint32_t timestamp, duration, maxsize, rate;
 	struct spa_pod_builder b;
+	uint64_t nsec;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_info("Out of stream buffers: %m");
@@ -207,16 +226,18 @@ static void rtp_midi_process_playback(void *data)
 		duration = impl->io_position->clock.duration;
 		timestamp = impl->io_position->clock.position;
 		rate = impl->io_position->clock.rate.denom;
+		nsec = impl->io_position->clock.nsec;
 	} else {
 		duration = 8192;
 		timestamp = 0;
 		rate = impl->rate;
+		nsec = 0;
 	}
 
 	/* we copy events into the buffer based on the rtp timestamp + delay. */
 	spa_pod_builder_init(&b, d[0].data, maxsize);
 
-	midi_packet_buffer_read(impl, timestamp, duration, rate, &b);
+	midi_packet_buffer_read(impl, timestamp, duration, rate, nsec, &b);
 
 	if (b.state.offset > maxsize) {
 		pw_log_warn("overflow buffer %u %u", b.state.offset, maxsize);
@@ -228,75 +249,6 @@ static void rtp_midi_process_playback(void *data)
 	d[0].chunk->flags = 0;
 
 	pw_stream_queue_buffer(impl->stream, buf);
-}
-
-static double get_time(struct rtp_stream *impl, uint64_t current_time)
-{
-	struct spa_io_position *pos;
-	double t;
-
-	if ((pos = impl->io_position) != NULL) {
-		t = pos->clock.position / (double) pos->clock.rate.denom;
-		t += (current_time - pos->clock.nsec) / (double)SPA_NSEC_PER_SEC;
-	} else {
-		t = current_time;
-	}
-	return t;
-}
-
-static int rtp_midi_receive(struct rtp_stream *impl, struct rtp_packet *p,
-		uint64_t current_time)
-{
-	if (impl->direct_timestamp) {
-		/* in direct timestamp we attach the RTP timestamp directly on the
-		 * midi events and render them in the corresponding cycle */
-		if (!impl->have_sync) {
-			pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
-				p->timestamp, p->seq, impl->ts_offset, impl->ssrc,
-				impl->direct_timestamp);
-			impl->have_sync = true;
-		}
-	} else {
-		/* in non-direct timestamp mode, we relate the graph clock against
-		 * the RTP timestamps */
-		double ts = (double)p->timestamp / (double)impl->rate;
-		double t = get_time(impl, current_time);
-		double elapsed, estimated, diff;
-
-		/* the elapsed time between RTP timestamps */
-		elapsed = ts - impl->last_timestamp;
-		/* for that elapsed time, our clock should have advanced
-		 * by this amount since the last estimation */
-		estimated = impl->last_time + elapsed * impl->corr;
-		/* calculate the diff between estimated and current clock time in
-		 * samples */
-		diff = (estimated - t) * impl->rate;
-
-		/* no sync or we drifted too far, resync */
-		if (!impl->have_sync || fabs(diff) > impl->target_buffer) {
-			impl->corr = 1.0;
-			spa_dll_set_bw(&impl->dll, SPA_DLL_BW_MIN, 256, impl->rate);
-
-			pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u direct:%d",
-				p->timestamp, p->seq, impl->ts_offset, impl->ssrc,
-				impl->direct_timestamp);
-			impl->have_sync = true;
-		} else {
-			/* update our new rate correction */
-			impl->corr = spa_dll_update(&impl->dll, diff);
-			/* our current time is now the estimated time */
-			t = estimated;
-		}
-
-		impl->last_timestamp = (double)ts;
-		impl->last_time = (double)t;
-
-		pw_log_trace_fp("%u %f %f %f %f %f %f %u", p->seq, t, ts, elapsed,
-				estimated, diff, impl->corr, p->timestamp);
-
-		p->timestamp = (uint32_t)(t * impl->rate) + impl->target_buffer;
-	}
-	return 0;
 }
 
 static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t delta, const uint8_t *ev, uint32_t size)
@@ -495,6 +447,5 @@ static int rtp_midi_init(struct rtp_stream *impl, enum spa_direction direction)
 		impl->stream_events.process = rtp_midi_process_capture;
 	else
 		impl->stream_events.process = rtp_midi_process_playback;
-	impl->receive_rtp = rtp_midi_receive;
 	return 0;
 }

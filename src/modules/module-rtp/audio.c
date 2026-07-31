@@ -191,29 +191,6 @@ static void set_timer(struct impl *impl, uint64_t time, uint64_t itime)
 	set_timer_running(impl, time != 0 && itime != 0);
 }
 
-static int rtp_audio_resend_packets(struct impl *impl, uint16_t seq, uint16_t num)
-{
-	struct rtp_packet *p;
-
-	pw_log_info("resend %d/%d", seq, num);
-
-	spa_list_for_each(p, &impl->queued, link) {
-		struct iovec iov[1];
-
-		if (num == 0 || p->seq > seq)
-			break;
-		if (p->seq < seq)
-			continue;
-
-		iov[0].iov_base = p->data;
-		iov[0].iov_len = p->size;
-		rtp_stream_call_send_packet(impl, iov, 1);
-		seq++;
-		num--;
-	}
-	return 0;
-}
-
 static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uint64_t set_timestamp)
 {
 	bool insufficient_data;
@@ -242,7 +219,6 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 	num_packets = SPA_MIN(num_packets, impl->num_queued);
 	while (num_packets > 0) {
 		struct rtp_packet *p;
-		struct iovec iov[1];
 
 		p = spa_list_first(&impl->queued, struct rtp_packet, link);
 
@@ -251,13 +227,9 @@ static void rtp_audio_flush_packets(struct impl *impl, uint32_t num_packets, uin
 			uint32_t rtp_timestamp = impl->ts_offset + impl->ts_align + set_timestamp;
 			header->timestamp = htonl(rtp_timestamp);
 		}
-		spa_list_remove(&p->link);
-		impl->num_queued--;
-		spa_list_append(&impl->free, &p->link);
 
-		iov[0].iov_base = p->data;
-		iov[0].iov_len = p->size;
-		rtp_stream_call_send_packet(impl, iov, 1);
+		rtp_stream_send_packet((struct rtp_stream*)impl, p);
+
 		num_packets--;
 	}
 
@@ -443,13 +415,7 @@ static void rtp_audio_process_capture(void *data)
 		src = SPA_PTROFF(src, to_send * stride, void);
 
 		if (prepared >= impl->psamples) {
-			spa_list_remove(&p->link);
-			spa_list_append(&impl->queued, &p->link);
-
-			if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
-				impl->head_timestamp = p->timestamp;
-			impl->tail_timestamp = p->timestamp;
-			impl->num_queued++;
+			rtp_stream_queue_packet((struct rtp_stream*)impl, p);
 
 			impl->seq++;
 
@@ -465,16 +431,8 @@ static void rtp_audio_process_capture(void *data)
 		/* sending will happen in a separate process() */
 		return;
 
-	spa_list_for_each_safe(p, t, &impl->queued, link) {
-		struct iovec iov[1];
-		iov[0].iov_base = p->data;
-		iov[0].iov_len = p->size;
-
-		rtp_stream_call_send_packet(impl, iov, 1);
-
-		spa_list_remove(&p->link);
-		spa_list_append(&impl->free, &p->link);
-	}
+	spa_list_for_each_safe(p, t, &impl->queued, link)
+		rtp_stream_send_packet((struct rtp_stream*)impl, p);
 }
 
 static void ptp_sender_destroy(void *d)
@@ -680,7 +638,6 @@ static int rtp_audio_init(struct impl *impl, struct pw_core *core, enum spa_dire
 
 	impl->stop_timer = rtp_audio_stop_timer;
 	impl->flush_timeout = rtp_audio_flush_timeout;
-	impl->resend_packets = rtp_audio_resend_packets;
 
 	setup_ptp_sender(impl, core, direction, ptp_driver);
 

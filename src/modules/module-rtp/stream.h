@@ -71,9 +71,15 @@ struct rtp_packet *rtp_stream_peek_pending_packet(struct rtp_stream *s);
 void rtp_stream_clear_pending_packet(struct rtp_stream *s);
 void rtp_stream_clear_queued_packets(struct rtp_stream *s);
 
+
 int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 				uint64_t current_time);
 
+void rtp_stream_queue_packet(struct rtp_stream *s, struct rtp_packet *p);
+void rtp_stream_dequeue_packet(struct rtp_stream *s, struct rtp_packet *p);
+void rtp_stream_queue_iov(struct rtp_stream *s, struct iovec *iov, int n_iov);
+
+void rtp_stream_send_packet(struct rtp_stream *s, struct rtp_packet *p);
 int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num);
 
 uint64_t rtp_stream_get_nsec(struct rtp_stream *s);

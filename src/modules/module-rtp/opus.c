@@ -215,20 +215,14 @@ static void rtp_opus_process_capture(void *data)
 
 		if (prepared >= impl->psamples) {
 			OpusMSEncoder *enc = impl->stream_data;
+
 			int res = opus_multistream_encode_float(enc,
 					(const float*)p->decoded, p->decoded_len / stride,
 					SPA_PTROFF(p->data, p->size, uint8_t), p->maxsize - p->size);
-
 			if (res > 0) {
 				p->size += res;
 
-				spa_list_remove(&p->link);
-				spa_list_append(&impl->queued, &p->link);
-
-				if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
-					impl->head_timestamp = p->timestamp;
-				impl->tail_timestamp = p->timestamp;
-				impl->num_queued++;
+				rtp_stream_queue_packet((struct rtp_stream*)impl, p);
 
 				impl->seq++;
 			} else {
@@ -243,16 +237,8 @@ static void rtp_opus_process_capture(void *data)
 
 	pw_stream_queue_buffer(impl->stream, buf);
 
-	spa_list_for_each_safe(p, t, &impl->queued, link) {
-		struct iovec iov[1];
-		iov[0].iov_base = p->data;
-		iov[0].iov_len = p->size;
-
-		rtp_stream_call_send_packet(impl, iov, 1);
-
-		spa_list_remove(&p->link);
-		spa_list_append(&impl->free, &p->link);
-	}
+	spa_list_for_each_safe(p, t, &impl->queued, link)
+		rtp_stream_send_packet((struct rtp_stream*)impl, p);
 }
 
 static void rtp_opus_deinit(struct impl *impl, enum spa_direction direction)

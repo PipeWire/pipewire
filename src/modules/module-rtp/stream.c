@@ -177,7 +177,6 @@ struct impl {
 	void (*stop_timer)(struct impl *impl);
 	void (*flush_timeout)(struct impl *impl, uint64_t expirations);
 	void (*deinit)(struct impl *impl, enum spa_direction direction);
-	int (*resend_packets)(struct impl *impl, uint16_t seq, uint16_t num);
 
 	/*
 	 * pw_filter where the filter would be driven at the PTP clock
@@ -1067,6 +1066,37 @@ struct rtp_packet *rtp_stream_peek_pending_packet(struct rtp_stream *s)
 	return p;
 }
 
+void rtp_stream_queue_packet(struct rtp_stream *s, struct rtp_packet *p)
+{
+	struct impl *impl = (struct impl*)s;
+	spa_list_remove(&p->link);
+	spa_list_append(&impl->queued, &p->link);
+	impl->num_queued++;
+	if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
+		impl->head_timestamp = p->timestamp;
+	impl->tail_timestamp = p->timestamp;
+}
+
+void rtp_stream_dequeue_packet(struct rtp_stream *s, struct rtp_packet *p)
+{
+	struct impl *impl = (struct impl*)s;
+	spa_list_remove(&p->link);
+	impl->num_queued--;
+	spa_list_append(&impl->free, &p->link);
+}
+
+void rtp_stream_queue_iov(struct rtp_stream *s, struct iovec *iov, int n_iov)
+{
+	struct rtp_packet *p;
+	int i;
+
+	p = rtp_stream_get_free_packet(s);
+	for (i = 0; i < n_iov; i ++) {
+		memcpy(SPA_PTROFF(p->data, p->size, void), iov[i].iov_base, iov[i].iov_len);
+		p->size += iov[i].iov_len;
+	}
+	rtp_stream_queue_packet(s, p);
+}
 
 struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s)
 {
@@ -1082,6 +1112,7 @@ void rtp_stream_clear_pending_packet(struct rtp_stream *s)
 {
 	rtp_stream_get_free_packet(s);
 }
+
 void rtp_stream_clear_queued_packets(struct rtp_stream *s)
 {
 	struct impl *impl = (struct impl*)s;
@@ -1093,6 +1124,19 @@ void rtp_stream_clear_queued_packets(struct rtp_stream *s)
 	impl->num_queued = 0;
 	impl->head_timestamp = 0;
 	impl->tail_timestamp = 0;
+}
+
+void rtp_stream_send_packet(struct rtp_stream *s, struct rtp_packet *p)
+{
+	struct impl *impl = (struct impl*)s;
+	struct iovec iov[1];
+
+	iov[0].iov_base = p->data;
+	iov[0].iov_len = p->size;
+
+	rtp_stream_call_send_packet(impl, iov, 1);
+
+	rtp_stream_dequeue_packet(s, p);
 }
 
 int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
@@ -1207,10 +1251,25 @@ duplicate_seq:
 int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
 {
 	struct impl *impl = (struct impl*)s;
-	if (impl->resend_packets)
-		return impl->resend_packets(impl, seq, num);
-	else
-		return -ENOTSUP;
+	struct rtp_packet *p;
+
+	pw_log_info("resend %d/%d", seq, num);
+
+	spa_list_for_each(p, &impl->queued, link) {
+		struct iovec iov[1];
+
+		if (num == 0 || p->seq > seq)
+			break;
+		if (p->seq < seq)
+			continue;
+
+		iov[0].iov_base = p->data;
+		iov[0].iov_len = p->size;
+		rtp_stream_call_send_packet(impl, iov, 1);
+		seq++;
+		num--;
+	}
+	return 0;
 }
 
 uint64_t rtp_stream_get_nsec(struct rtp_stream *s)

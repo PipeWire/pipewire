@@ -127,15 +127,6 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 		if (base >= ts_end)
 			break;
 
-#if 0
-		if (base + 8 * impl->target_buffer < ts_begin) {
-			spa_list_remove(&p->link);
-			spa_list_append(&impl->free, &p->link);
-			continue;
-		}
-#endif
-
-
 		memcpy(&hdr, p->data, 1);
 		packet = p->decoded;
 		end = p->decoded_len;
@@ -183,10 +174,6 @@ static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint3
 			}
 			offs += size;
 			first = false;
-		}
-		if (offs >= end) {
-			spa_list_remove(&p->link);
-			spa_list_append(&impl->free, &p->link);
 		}
 	}
 done:
@@ -349,21 +336,6 @@ static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t delta, const u
 	return (int)(count + total);
 }
 
-static void queue_packet(struct impl *impl, struct iovec *iov, int n_iov)
-{
-	struct rtp_packet *p;
-	int i;
-
-	p = rtp_stream_get_free_packet((struct rtp_stream*)impl);
-	for (i = 0; i < n_iov; i ++) {
-		memcpy(SPA_PTROFF(p->data, p->size, void), iov[i].iov_base, iov[i].iov_len);
-		p->size += iov[i].iov_len;
-	}
-	spa_list_remove(&p->link);
-	spa_list_append(&impl->queued, &p->link);
-	impl->num_queued++;
-}
-
 static void rtp_midi_queue_packets(struct impl *impl,
 		struct spa_pod_parser *parser, uint32_t timestamp, uint32_t rate)
 {
@@ -422,7 +394,7 @@ static void rtp_midi_queue_packets(struct impl *impl,
 					len, timestamp + base,
 					offset, impl->psamples);
 
-			queue_packet(impl, iov, 3);
+			rtp_stream_queue_iov((struct rtp_stream*)impl, iov, 3);
 
 			impl->seq++;
 			len = 0;
@@ -466,7 +438,7 @@ static void rtp_midi_queue_packets(struct impl *impl,
 		iov[2].iov_len = len;
 
 		pw_log_trace_fp("sending %d timestamp:%d", len, base);
-		queue_packet(impl, iov, 3);
+		rtp_stream_queue_iov((struct rtp_stream*)impl, iov, 3);
 		impl->seq++;
 	}
 }
@@ -511,16 +483,8 @@ static void rtp_midi_process_capture(void *data)
 
 	rtp_midi_queue_packets(impl, &parser, timestamp, rate);
 
-	spa_list_for_each_safe(p, t, &impl->queued, link) {
-		struct iovec iov[1];
-		iov[0].iov_base = p->data;
-		iov[0].iov_len = p->size;
-
-		rtp_stream_call_send_packet(impl, iov, 1);
-
-		spa_list_remove(&p->link);
-		spa_list_append(&impl->free, &p->link);
-	}
+	spa_list_for_each_safe(p, t, &impl->queued, link)
+		rtp_stream_send_packet((struct rtp_stream*)impl, p);
 done:
 	pw_stream_queue_buffer(impl->stream, buf);
 }

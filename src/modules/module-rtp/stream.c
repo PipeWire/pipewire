@@ -75,7 +75,7 @@ enum rtp_stream_internal_state {
 	RTP_STREAM_INTERNAL_STATE_STARTED
 };
 
-struct impl {
+struct rtp_stream {
 	/* This audio info's content originates from the props that
 	 * are passed to rtp_stream_new(). */
 	struct spa_audio_info info;
@@ -170,13 +170,13 @@ struct impl {
 	 * access below for the reason why. */
 	uint8_t timer_running;
 
-	int (*receive_rtp)(struct impl *impl, struct rtp_packet *p, uint64_t current_time);
+	int (*receive_rtp)(struct rtp_stream *impl, struct rtp_packet *p, uint64_t current_time);
 	/* Called by stream_start() to stop any running timer before continuing to
 	 * start the stream. This is necessary, because by that point, any remaining
 	 * buffered data is stale, and the timer would keep sending it out. */
-	void (*stop_timer)(struct impl *impl);
-	void (*flush_timeout)(struct impl *impl, uint64_t expirations);
-	void (*deinit)(struct impl *impl, enum spa_direction direction);
+	void (*stop_timer)(struct rtp_stream *impl);
+	void (*flush_timeout)(struct rtp_stream *impl, uint64_t expirations);
+	void (*deinit)(struct rtp_stream *impl, enum spa_direction direction);
 
 	/*
 	 * pw_filter where the filter would be driven at the PTP clock
@@ -223,11 +223,11 @@ struct impl {
  * https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
  */
 
-static inline enum rtp_stream_internal_state get_internal_stream_state(struct impl *impl) {
+static inline enum rtp_stream_internal_state get_internal_stream_state(struct rtp_stream *impl) {
 	return (enum rtp_stream_internal_state)SPA_ATOMIC_LOAD(impl->internal_state);
 }
 
-static inline void set_internal_stream_state(struct impl *impl, enum rtp_stream_internal_state state) {
+static inline void set_internal_stream_state(struct rtp_stream *impl, enum rtp_stream_internal_state state) {
 	SPA_ATOMIC_STORE(impl->internal_state, (uint32_t)state);
 }
 
@@ -238,18 +238,18 @@ static inline void set_internal_stream_state(struct impl *impl, enum rtp_stream_
  * they are treated as two independent atomic variables instead of two
  * resources under a common mutex. */
 
-static inline bool is_timer_running(struct impl *impl) {
+static inline bool is_timer_running(struct rtp_stream *impl) {
 	return (bool)SPA_ATOMIC_LOAD(impl->timer_running);
 }
 
-static inline void set_timer_running(struct impl *impl, bool running) {
+static inline void set_timer_running(struct rtp_stream *impl, bool running) {
 	SPA_ATOMIC_STORE(impl->timer_running, (uint8_t)(running ? 1 : 0));
 }
 
 static int do_finish_stopping_state(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	int res = 0;
-	struct impl *impl = user_data;
+	struct rtp_stream *impl = user_data;
 	enum rtp_stream_internal_state cur_state = get_internal_stream_state(impl);
 
 	/* The checks here cover a corner case that can happen when the
@@ -329,7 +329,7 @@ static const struct rtp_format_info rtp_opus_format_info = {
 
 static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size)
 {
-	struct impl *impl = data;
+	struct rtp_stream *impl = data;
 	switch (id) {
 	case SPA_IO_RateMatch:
 		impl->io_rate_match = area;
@@ -342,12 +342,12 @@ static void stream_io_changed(void *data, uint32_t id, void *area, uint32_t size
 
 static void stream_destroy(void *d)
 {
-	struct impl *impl = d;
+	struct rtp_stream *impl = d;
 	spa_hook_remove(&impl->stream_listener);
 	impl->stream = NULL;
 }
 
-static int stream_start(struct impl *impl)
+static int stream_start(struct rtp_stream *impl)
 {
 	int res;
 	enum rtp_stream_internal_state cur_state;
@@ -423,7 +423,7 @@ static int stream_start(struct impl *impl)
 	return 0;
 }
 
-static int stream_stop(struct impl *impl)
+static int stream_stop(struct rtp_stream *impl)
 {
 	bool timer_running;
 
@@ -484,7 +484,7 @@ static int stream_stop(struct impl *impl)
 static void on_stream_state_changed(void *d, enum pw_stream_state old,
 		enum pw_stream_state state, const char *error)
 {
-	struct impl *impl = d;
+	struct rtp_stream *impl = d;
 
 	switch (state) {
 		case PW_STREAM_STATE_UNCONNECTED:
@@ -507,7 +507,7 @@ static void on_stream_state_changed(void *d, enum pw_stream_state old,
 	}
 }
 
-static void update_latency_params(struct impl *impl)
+static void update_latency_params(struct rtp_stream *impl)
 {
 	uint32_t n_params = 0;
 	const struct spa_pod *params[2];
@@ -542,7 +542,7 @@ static void update_latency_params(struct impl *impl)
 	pw_stream_update_params(impl->stream, params, n_params);
 }
 
-static void param_process_latency_changed(struct impl *impl, const struct spa_pod *param)
+static void param_process_latency_changed(struct rtp_stream *impl, const struct spa_pod *param)
 {
 	struct spa_process_latency_info process_latency;
 
@@ -561,7 +561,7 @@ static void param_process_latency_changed(struct impl *impl, const struct spa_po
 
 static void on_stream_param_changed (void *d, uint32_t id, const struct spa_pod *param)
 {
-	struct impl *impl = d;
+	struct rtp_stream *impl = d;
 
 	switch (id) {
 	case SPA_PARAM_ProcessLatency:
@@ -575,7 +575,7 @@ static void on_stream_param_changed (void *d, uint32_t id, const struct spa_pod 
 
 static void on_stream_command(void *d, const struct spa_command *command)
 {
-	struct impl *impl = d;
+	struct rtp_stream *impl = d;
 	rtp_stream_emit_command(impl, command);
 }
 
@@ -612,18 +612,18 @@ static int parse_audio_info(const struct pw_properties *props, struct spa_audio_
 			SPA_KEY_AUDIO_POSITION, NULL);
 }
 
-static uint32_t msec_to_samples(struct impl *impl, float msec)
+static uint32_t msec_to_samples(struct rtp_stream *impl, float msec)
 {
 	return (uint32_t)(msec * impl->rate / 1000);
 }
-static float samples_to_msec(struct impl *impl, uint32_t samples)
+static float samples_to_msec(struct rtp_stream *impl, uint32_t samples)
 {
 	return samples * 1000.0f / impl->rate;
 }
 
 static void on_flush_timeout(void *d, uint64_t expirations)
 {
-	struct impl *impl = d;
+	struct rtp_stream *impl = d;
 	impl->flush_timeout(d, expirations);
 }
 
@@ -631,7 +631,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		enum spa_direction direction, struct pw_properties *props,
 		const struct rtp_stream_events *events, void *data)
 {
-	struct impl *impl;
+	struct rtp_stream *impl;
 	const char *str, *aes67_driver;
 	char tmp[64];
 	uint8_t buffer[1024];
@@ -1010,79 +1010,73 @@ out:
 
 void rtp_stream_destroy(struct rtp_stream *s)
 {
-	struct impl *impl = (struct impl*)s;
+	rtp_stream_emit_destroy(s);
 
-	rtp_stream_emit_destroy(impl);
+	if (s->deinit)
+		s->deinit(s, s->direction);
 
-	if (impl->deinit)
-		impl->deinit(impl, impl->direction);
+	if (s->ptp_sender)
+		pw_filter_destroy(s->ptp_sender);
 
-	if (impl->ptp_sender)
-		pw_filter_destroy(impl->ptp_sender);
+	if (s->stream)
+		pw_stream_destroy(s->stream);
 
-	if (impl->stream)
-		pw_stream_destroy(impl->stream);
+	if (s->timer)
+		pw_loop_destroy_source(s->data_loop, s->timer);
 
-	if (impl->timer)
-		pw_loop_destroy_source(impl->data_loop, impl->timer);
+	if (s->data_loop)
+		pw_context_release_loop(s->context, s->data_loop);
 
-	if (impl->data_loop)
-		pw_context_release_loop(impl->context, impl->data_loop);
-
-	spa_hook_list_clean(&impl->listener_list);
-	free(impl);
+	spa_hook_list_clean(&s->listener_list);
+	free(s);
 }
 
 int rtp_stream_update_properties(struct rtp_stream *s, const struct spa_dict *dict)
 {
-	struct impl *impl = (struct impl*)s;
-	return pw_stream_update_properties(impl->stream, dict);
+	return pw_stream_update_properties(s->stream, dict);
 }
 
 struct rtp_packet *rtp_stream_peek_pending_packet(struct rtp_stream *s)
 {
-	struct impl *impl = (struct impl*)s;
 	struct rtp_packet *p;
 
-	if (spa_list_is_empty(&impl->free)) {
-		if (spa_list_is_empty(&impl->queued)) {
+	if (spa_list_is_empty(&s->free)) {
+		if (spa_list_is_empty(&s->queued)) {
 			errno = EPIPE;
 			return NULL;
 		}
-		p = spa_list_first(&impl->queued, struct rtp_packet, link);
-		impl->num_queued--;
+		p = spa_list_first(&s->queued, struct rtp_packet, link);
+		s->num_queued--;
 		spa_list_remove(&p->link);
-		spa_list_append(&impl->free, &p->link);
+		spa_list_append(&s->free, &p->link);
 
-		if (impl->num_queued > 0) {
+		if (s->num_queued > 0) {
 			struct rtp_packet *q;
-			q = spa_list_first(&impl->queued, struct rtp_packet, link);
-			impl->head_timestamp = q->timestamp;
+			q = spa_list_first(&s->queued, struct rtp_packet, link);
+			s->head_timestamp = q->timestamp;
 		} else {
-			impl->head_timestamp = impl->tail_timestamp = 0;
+			s->head_timestamp = s->tail_timestamp = 0;
 		}
 	}
-	p = spa_list_first(&impl->free, struct rtp_packet, link);
+	p = spa_list_first(&s->free, struct rtp_packet, link);
 	return p;
 }
 
 void rtp_stream_queue_packet(struct rtp_stream *s, struct rtp_packet *p)
 {
-	struct impl *impl = (struct impl*)s;
 	spa_list_remove(&p->link);
-	spa_list_append(&impl->queued, &p->link);
-	impl->num_queued++;
-	if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
-		impl->head_timestamp = p->timestamp;
-	impl->tail_timestamp = p->timestamp;
+	spa_list_append(&s->queued, &p->link);
+	s->num_queued++;
+	if (p == spa_list_first(&s->queued, struct rtp_packet, link))
+		s->head_timestamp = p->timestamp;
+	s->tail_timestamp = p->timestamp;
 }
 
 void rtp_stream_dequeue_packet(struct rtp_stream *s, struct rtp_packet *p)
 {
-	struct impl *impl = (struct impl*)s;
 	spa_list_remove(&p->link);
-	impl->num_queued--;
-	spa_list_append(&impl->free, &p->link);
+	s->num_queued--;
+	spa_list_append(&s->free, &p->link);
 }
 
 void rtp_stream_queue_iov(struct rtp_stream *s, struct iovec *iov, int n_iov)
@@ -1115,26 +1109,24 @@ void rtp_stream_clear_pending_packet(struct rtp_stream *s)
 
 void rtp_stream_clear_queued_packets(struct rtp_stream *s)
 {
-	struct impl *impl = (struct impl*)s;
 	struct rtp_packet *q;
-	spa_list_consume(q, &impl->queued, link) {
+	spa_list_consume(q, &s->queued, link) {
 		spa_list_remove(&q->link);
-		spa_list_append(&impl->free, &q->link);
+		spa_list_append(&s->free, &q->link);
 	}
-	impl->num_queued = 0;
-	impl->head_timestamp = 0;
-	impl->tail_timestamp = 0;
+	s->num_queued = 0;
+	s->head_timestamp = 0;
+	s->tail_timestamp = 0;
 }
 
 void rtp_stream_send_packet(struct rtp_stream *s, struct rtp_packet *p)
 {
-	struct impl *impl = (struct impl*)s;
 	struct iovec iov[1];
 
 	iov[0].iov_base = p->data;
 	iov[0].iov_len = p->size;
 
-	rtp_stream_call_send_packet(impl, iov, 1);
+	rtp_stream_call_send_packet(s, iov, 1);
 
 	rtp_stream_dequeue_packet(s, p);
 }
@@ -1142,7 +1134,6 @@ void rtp_stream_send_packet(struct rtp_stream *s, struct rtp_packet *p)
 int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 				uint64_t current_time)
 {
-	struct impl *impl = (struct impl*)s;
 	struct rtp_header *hdr;
 	uint8_t *buffer;
 	size_t len;
@@ -1175,23 +1166,23 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 
 	packet_ssrc = ntohl(hdr->ssrc);
 
-	if (impl->have_ssrc && impl->ssrc != packet_ssrc)
+	if (s->have_ssrc && s->ssrc != packet_ssrc)
 		goto unexpected_ssrc;
-	impl->ssrc = packet_ssrc;
-	impl->have_ssrc = !impl->ignore_ssrc;
+	s->ssrc = packet_ssrc;
+	s->have_ssrc = !s->ignore_ssrc;
 
 	seq = ntohs(hdr->sequence_number);
-	timestamp = ntohl(hdr->timestamp) - impl->ts_offset;
+	timestamp = ntohl(hdr->timestamp) - s->ts_offset;
 
-	impl->receiving = true;
-	impl->last_recv_timestamp = current_time;
+	s->receiving = true;
+	s->last_recv_timestamp = current_time;
 
 	p->hlen = hlen;
 	p->seq = seq;
-	p->timestamp = timestamp + impl->target_buffer;
+	p->timestamp = timestamp + s->target_buffer;
 	p->nsec = current_time;
 
-	spa_list_for_each_safe_reverse(q, tq, &impl->queued, link) {
+	spa_list_for_each_safe_reverse(q, tq, &s->queued, link) {
 		if (rtp_seqnum_delta(q->seq, p->seq) < 0)
 			break;
 		if (q->seq == p->seq)
@@ -1199,17 +1190,17 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	}
 	spa_list_remove(&p->link);
 	spa_list_prepend(&q->link, &p->link);
-	impl->num_queued++;
+	s->num_queued++;
 
-	if (p == spa_list_first(&impl->queued, struct rtp_packet, link))
-		impl->head_timestamp = p->timestamp;
-	if (p == spa_list_last(&impl->queued, struct rtp_packet, link))
-		impl->tail_timestamp = p->timestamp;
+	if (p == spa_list_first(&s->queued, struct rtp_packet, link))
+		s->head_timestamp = p->timestamp;
+	if (p == spa_list_last(&s->queued, struct rtp_packet, link))
+		s->tail_timestamp = p->timestamp;
 
 	pw_log_trace_fp("got packet %u %08x", p->seq, p->timestamp);
 
-	if (impl->receive_rtp)
-		res = impl->receive_rtp(impl, p, current_time);
+	if (s->receive_rtp)
+		res = s->receive_rtp(s, p, current_time);
 
 	return res;
 
@@ -1224,10 +1215,10 @@ invalid_len:
 	pw_log_warn("invalid RTP length");
 	return -EINVAL;
 unexpected_ssrc:
-	if (!impl->fixed_ssrc) {
+	if (!s->fixed_ssrc) {
 		/* We didn't have a configured SSRC, and there's more than one SSRC on
 		 * this address/port pair */
-		pw_log_warn("unexpected SSRC (expected %u != %u)", impl->ssrc,
+		pw_log_warn("unexpected SSRC (expected %u != %u)", s->ssrc,
 			packet_ssrc);
 	}
 	return -EINVAL;
@@ -1238,12 +1229,11 @@ duplicate_seq:
 }
 int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
 {
-	struct impl *impl = (struct impl*)s;
 	struct rtp_packet *p;
 
 	pw_log_info("resend %d/%d", seq, num);
 
-	spa_list_for_each(p, &impl->queued, link) {
+	spa_list_for_each(p, &s->queued, link) {
 		struct iovec iov[1];
 
 		if (num == 0 || p->seq > seq)
@@ -1253,7 +1243,7 @@ int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
 
 		iov[0].iov_base = p->data;
 		iov[0].iov_len = p->size;
-		rtp_stream_call_send_packet(impl, iov, 1);
+		rtp_stream_call_send_packet(s, iov, 1);
 		seq++;
 		num--;
 	}
@@ -1262,93 +1252,76 @@ int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
 
 uint64_t rtp_stream_get_nsec(struct rtp_stream *s)
 {
-	struct impl *impl = (struct impl*)s;
-	return pw_stream_get_nsec(impl->stream);
+	return pw_stream_get_nsec(s->stream);
 }
 
 uint64_t rtp_stream_get_time(struct rtp_stream *s, uint32_t *rate)
 {
-	struct impl *impl = (struct impl*)s;
-	struct spa_io_position *pos = impl->io_position;
+	struct spa_io_position *pos = s->io_position;
 
 	if (pos == NULL)
 		return -EIO;
 
-	*rate = impl->rate;
-	return pos->clock.position * impl->rate *
+	*rate = s->rate;
+	return pos->clock.position * s->rate *
 		pos->clock.rate.num / pos->clock.rate.denom;
 }
 
 uint16_t rtp_stream_get_seq(struct rtp_stream *s)
 {
-	struct impl *impl = (struct impl*)s;
-	return impl->seq;
+	return s->seq;
 }
 
 size_t rtp_stream_get_mtu(struct rtp_stream *s)
 {
-	struct impl *impl = (struct impl*)s;
-	return impl->mtu;
+	return s->mtu;
 }
 
 void rtp_stream_set_first(struct rtp_stream *s)
 {
-	struct impl *impl = (struct impl*)s;
-
-	impl->first = true;
+	s->first = true;
 }
 
 void rtp_stream_set_error(struct rtp_stream *s, int res, const char *error)
 {
-	struct impl *impl = (struct impl*)s;
-	pw_stream_set_error(impl->stream, res, "%s: %s", error, spa_strerror(res));
+	pw_stream_set_error(s->stream, res, "%s: %s", error, spa_strerror(res));
 }
 
 enum pw_stream_state rtp_stream_get_state(struct rtp_stream *s, const char **error)
 {
-	struct impl *impl = (struct impl*)s;
-
-	return pw_stream_get_state(impl->stream, error);
+	return pw_stream_get_state(s->stream, error);
 }
 int rtp_stream_set_active(struct rtp_stream *s, bool active)
 {
-	struct impl *impl = (struct impl*)s;
-
-	return pw_stream_set_active(impl->stream, active);
+	return pw_stream_set_active(s->stream, active);
 }
 
 int rtp_stream_set_param(struct rtp_stream *s, uint32_t id, const struct spa_pod *param)
 {
-	struct impl *impl = (struct impl*)s;
-
-	return pw_stream_set_param(impl->stream, id, param);
+	return pw_stream_set_param(s->stream, id, param);
 }
 
 int rtp_stream_update_params(struct rtp_stream *s,
 			const struct spa_pod **params,
 			uint32_t n_params)
 {
-	struct impl *impl = (struct impl*)s;
-	return pw_stream_update_params(impl->stream, params, n_params);
+	return pw_stream_update_params(s->stream, params, n_params);
 }
 
 void rtp_stream_update_process_latency(struct rtp_stream *s,
 				const struct spa_process_latency_info *process_latency)
 {
-	struct impl *impl = (struct impl*)s;
-
-	if (spa_process_latency_info_compare(&impl->process_latency, process_latency) == 0)
+	if (spa_process_latency_info_compare(&s->process_latency, process_latency) == 0)
 		return;
 
-	spa_memcpy(&(impl->process_latency), process_latency,
+	spa_memcpy(&(s->process_latency), process_latency,
 		sizeof(const struct spa_process_latency_info));
 
-	update_latency_params(impl);
+	update_latency_params(s);
 }
 
 int rtp_stream_run_in_data_loop(struct rtp_stream *s, spa_invoke_func_t func,
 	uint32_t seq, const void *data, size_t size, void *user_data)
 {
-	struct impl *impl = (struct impl*)s;
-	return pw_loop_locked(impl->data_loop, func, seq, data, size, user_data);
+	return pw_loop_locked(s->data_loop, func, seq, data, size, user_data);
 }

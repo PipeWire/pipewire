@@ -9,7 +9,7 @@
 
 /* read wanted samples from the packet buffer at timestamp. Fill the gaps with
  * silence */
-static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void *dst,
+static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp, void *dst,
 		uint32_t wanted, uint32_t stride)
 {
 	struct rtp_packet *p;
@@ -81,7 +81,7 @@ static void opus_packet_buffer_read(struct impl *impl, uint32_t timestamp, void 
 
 static void rtp_opus_process_playback(void *data)
 {
-	struct impl *impl = data;
+	struct rtp_stream *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t wanted, timestamp, target_buffer, stride, maxsize;
@@ -152,7 +152,7 @@ static void rtp_opus_process_playback(void *data)
 
 static void rtp_opus_process_capture(void *data)
 {
-	struct impl *impl = data;
+	struct rtp_stream *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t offs, size, timestamp, expected_timestamp, stride;
@@ -193,7 +193,7 @@ static void rtp_opus_process_capture(void *data)
 
 	src = SPA_PTROFF(d[0].data, offs, void);
 	while (wanted > 0) {
-		p = rtp_stream_peek_pending_packet((struct rtp_stream*)impl);
+		p = rtp_stream_peek_pending_packet(impl);
 
 		if (p->size < sizeof(struct rtp_header)) {
 			struct rtp_header *header;
@@ -237,13 +237,13 @@ static void rtp_opus_process_capture(void *data)
 			if (res > 0) {
 				p->size += res;
 
-				rtp_stream_queue_packet((struct rtp_stream*)impl, p);
+				rtp_stream_queue_packet(impl, p);
 
 				impl->seq++;
 			} else {
 				pw_log_error("opus encoder error %d", res);
 			}
-			rtp_stream_clear_pending_packet((struct rtp_stream*)impl);
+			rtp_stream_clear_pending_packet(impl);
 		}
 		impl->first = false;
 		expected_timestamp += to_send;
@@ -253,10 +253,10 @@ static void rtp_opus_process_capture(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 
 	spa_list_for_each_safe(p, t, &impl->queued, link)
-		rtp_stream_send_packet((struct rtp_stream*)impl, p);
+		rtp_stream_send_packet(impl, p);
 }
 
-static void rtp_opus_deinit(struct impl *impl, enum spa_direction direction)
+static void rtp_opus_deinit(struct rtp_stream *impl, enum spa_direction direction)
 {
 	if (impl->stream_data) {
 		if (direction == SPA_DIRECTION_INPUT)
@@ -266,7 +266,7 @@ static void rtp_opus_deinit(struct impl *impl, enum spa_direction direction)
 	}
 }
 
-static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
+static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 {
 	int err;
 	unsigned char mapping[255];
@@ -318,7 +318,7 @@ static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
 	return impl->stream_data ? 0 : err;
 }
 #else
-static int rtp_opus_init(struct impl *impl, enum spa_direction direction)
+static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 {
 	return -ENOTSUP;
 }

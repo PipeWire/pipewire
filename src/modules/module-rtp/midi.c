@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include <limits.h>
 
-static int parse_journal(struct impl *impl, uint8_t *packet, uint16_t seq, uint32_t len)
+static int parse_journal(struct rtp_stream *impl, uint8_t *packet, uint16_t seq, uint32_t len)
 {
 	struct rtp_midi_journal *j;
 
@@ -69,7 +69,7 @@ static int get_midi_size(uint8_t *p, uint32_t avail)
 }
 
 /* read events beteen begin and end timestamp. */
-static void midi_packet_buffer_read(struct impl *impl, uint32_t timestamp, uint32_t duration,
+static void midi_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp, uint32_t duration,
 		uint32_t rate, struct spa_pod_builder *b)
 {
 	struct rtp_packet *p, *t;
@@ -187,7 +187,7 @@ done:
 
 static void rtp_midi_process_playback(void *data)
 {
-	struct impl *impl = data;
+	struct rtp_stream *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t timestamp, duration, maxsize, rate;
@@ -230,7 +230,7 @@ static void rtp_midi_process_playback(void *data)
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static double get_time(struct impl *impl, uint64_t current_time)
+static double get_time(struct rtp_stream *impl, uint64_t current_time)
 {
 	struct spa_io_position *pos;
 	double t;
@@ -244,7 +244,7 @@ static double get_time(struct impl *impl, uint64_t current_time)
 	return t;
 }
 
-static int rtp_midi_receive(struct impl *impl, struct rtp_packet *p,
+static int rtp_midi_receive(struct rtp_stream *impl, struct rtp_packet *p,
 		uint64_t current_time)
 {
 	if (impl->direct_timestamp) {
@@ -336,7 +336,7 @@ static int write_event(uint8_t *p, uint32_t buffer_size, uint32_t delta, const u
 	return (int)(count + total);
 }
 
-static void rtp_midi_queue_packets(struct impl *impl,
+static void rtp_midi_queue_packets(struct rtp_stream *impl,
 		struct spa_pod_parser *parser, uint32_t timestamp, uint32_t rate)
 {
 	struct spa_pod_control c;
@@ -394,7 +394,7 @@ static void rtp_midi_queue_packets(struct impl *impl,
 					len, timestamp + base,
 					offset, impl->psamples);
 
-			rtp_stream_queue_iov((struct rtp_stream*)impl, iov, 3);
+			rtp_stream_queue_iov(impl, iov, 3);
 
 			impl->seq++;
 			len = 0;
@@ -438,14 +438,14 @@ static void rtp_midi_queue_packets(struct impl *impl,
 		iov[2].iov_len = len;
 
 		pw_log_trace_fp("sending %d timestamp:%d", len, base);
-		rtp_stream_queue_iov((struct rtp_stream*)impl, iov, 3);
+		rtp_stream_queue_iov(impl, iov, 3);
 		impl->seq++;
 	}
 }
 
 static void rtp_midi_process_capture(void *data)
 {
-	struct impl *impl = data;
+	struct rtp_stream *impl = data;
 	struct pw_buffer *buf;
 	struct spa_data *d;
 	uint32_t timestamp, rate;
@@ -484,12 +484,12 @@ static void rtp_midi_process_capture(void *data)
 	rtp_midi_queue_packets(impl, &parser, timestamp, rate);
 
 	spa_list_for_each_safe(p, t, &impl->queued, link)
-		rtp_stream_send_packet((struct rtp_stream*)impl, p);
+		rtp_stream_send_packet(impl, p);
 done:
 	pw_stream_queue_buffer(impl->stream, buf);
 }
 
-static int rtp_midi_init(struct impl *impl, enum spa_direction direction)
+static int rtp_midi_init(struct rtp_stream *impl, enum spa_direction direction)
 {
 	if (direction == SPA_DIRECTION_INPUT)
 		impl->stream_events.process = rtp_midi_process_capture;

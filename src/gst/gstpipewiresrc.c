@@ -539,6 +539,24 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->transform_value = UINT32_MAX;
 }
 
+/* Drop a pool buffer whose last reference we hold, once the loop lock is not
+ * held any more. buffer_recycle() takes GST_OBJECT_LOCK (pool) first and the
+ * loop lock second; gst_pipewire_src_create() holds the loop lock across
+ * dequeue_buffer(). Releasing the last reference from in there takes those two
+ * in the opposite order from every other caller, which deadlocks against a
+ * consumer recycling a buffer from another thread. */
+static void
+release_pool_buffer (GstPipeWireSrc *pwsrc)
+{
+  GstBuffer *buf = pwsrc->buf_to_release;
+
+  if (buf == NULL)
+    return;
+
+  pwsrc->buf_to_release = NULL;
+  gst_buffer_unref (buf);
+}
+
 static gboolean
 buffer_recycle (GstMiniObject *obj)
 {
@@ -884,9 +902,16 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
       GST_BUFFER_FLAG_SET (buf, GST_BUFFER_FLAG_CORRUPTED);
     }
   }
-  if (pwsrc->use_bufferpool != USE_BUFFERPOOL_NO)
+  if (pwsrc->use_bufferpool != USE_BUFFERPOOL_NO) {
+    /* the meta keeps a reference, so this is not the last one and the recycle
+     * happens later, from whichever thread drops it */
     gst_buffer_add_parent_buffer_meta (buf, data->buf);
-  gst_buffer_unref (data->buf);
+    gst_buffer_unref (data->buf);
+  } else {
+    /* without the meta this *is* the last reference: leave it to the caller to
+     * drop once the loop lock is released, see release_pool_buffer() */
+    pwsrc->buf_to_release = data->buf;
+  }
 
   if (gst_buffer_get_size(buf) == 0)
   {
@@ -1650,6 +1675,15 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
         break;
       }
     }
+    if (pwsrc->buf_to_release != NULL) {
+      /* dequeue_buffer() took a buffer off the pool and then dropped it. Hand
+       * it back to the producer before waiting for the next one, or the next
+       * dequeue overwrites the pointer and the buffer is never recycled. */
+      pw_thread_loop_unlock (pwsrc->stream->core->loop);
+      release_pool_buffer (pwsrc);
+      pw_thread_loop_lock (pwsrc->stream->core->loop);
+      continue;
+    }
     timeout = FALSE;
     if (pwsrc->keepalive_time > 0) {
       if (!have_abstime) {
@@ -1666,6 +1700,7 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
     }
   }
   pw_thread_loop_unlock (pwsrc->stream->core->loop);
+  release_pool_buffer (pwsrc);
 
   *buffer = buf;
 
@@ -1705,21 +1740,25 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 not_negotiated:
   {
     pw_thread_loop_unlock (pwsrc->stream->core->loop);
+    release_pool_buffer (pwsrc);
     return GST_FLOW_NOT_NEGOTIATED;
   }
 streaming_eos:
   {
     pw_thread_loop_unlock (pwsrc->stream->core->loop);
+    release_pool_buffer (pwsrc);
     return GST_FLOW_EOS;
   }
 streaming_error:
   {
     pw_thread_loop_unlock (pwsrc->stream->core->loop);
+    release_pool_buffer (pwsrc);
     return GST_FLOW_ERROR;
   }
 streaming_stopped:
   {
     pw_thread_loop_unlock (pwsrc->stream->core->loop);
+    release_pool_buffer (pwsrc);
     return GST_FLOW_FLUSHING;
   }
 }

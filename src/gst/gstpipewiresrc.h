@@ -54,6 +54,7 @@ struct _GstPipeWireSrc {
 
   /*< private >*/
   gint n_buffers;
+  GstBuffer *buf_to_release;
   gint use_bufferpool;
   gint min_buffers;
   gint max_buffers;

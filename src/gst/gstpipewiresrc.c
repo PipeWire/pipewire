@@ -766,8 +766,13 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     }
     GST_BUFFER_OFFSET (buf) = h->seq;
   } else {
-    GST_BUFFER_PTS (buf) = b->time - pwsrc->delay;
-    GST_BUFFER_DTS (buf) = b->time - pwsrc->delay;
+    gint64 delay_ns = 0;
+    /* We cannot reuse pwsrc->min_latency here because time.delay can be negative.
+     * PTS/DTS needs to be shifted forward when delay is negative. */
+    if (time.rate.denom != 0)
+      delay_ns = time.delay * (gint64)GST_SECOND * time.rate.num / time.rate.denom;
+    GST_BUFFER_PTS (buf) = b->time - delay_ns;
+    GST_BUFFER_DTS (buf) = b->time - delay_ns;
   }
 
   if (pwsrc->media_type == SPA_MEDIA_TYPE_video) {

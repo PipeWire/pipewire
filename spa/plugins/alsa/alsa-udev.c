@@ -783,7 +783,7 @@ static int emit_added_object_info(struct impl *this, struct card *card)
 
 static bool check_access(struct impl *this, struct card *card)
 {
-	char path[128], pcm_prefix[32], compr_prefix[32];;
+	char path[128], pcm_prefix[32], compr_prefix[32];
 	spa_autoptr(DIR) snd = NULL;
 	struct dirent *entry;
 	bool accessible = false;

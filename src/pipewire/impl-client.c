@@ -765,7 +765,12 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 
 			global = pw_context_find_global(context, permissions[i].id);
 			if (global == NULL || global->id != permissions[i].id) {
-				pw_log_warn("%p: invalid global %d", client, permissions[i].id);
+				if (global == NULL && errno == ESTALE)
+					pw_log_debug("%p: stale global %d", client,
+							permissions[i].id);
+				else
+					pw_log_warn("%p: invalid global %d", client,
+							permissions[i].id);
 				continue;
 			}
 			p = ensure_permissions(client, permissions[i].id);

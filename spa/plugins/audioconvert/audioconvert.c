@@ -1497,13 +1497,16 @@ static int load_filter_graph(struct impl *impl, const char *graph, int order)
 	pending->order = order;
 	pending->removing = false;
 
+	/* free the stored descriptor before we walk matching active graphs */
+	free(impl->graph_descs[order]);
+	impl->graph_descs[order] = NULL;
+
 	/* move active graphs with same order to inactive list */
 	spa_list_for_each_safe(g, t, &impl->active_graphs, link) {
 		if (g->order == order) {
 			g->removing = true;
 			spa_log_info(impl->log, "removing filter-graph order:%d", order);
 		}
-		free(impl->graph_descs[order]);
 	}
 
 	if (graph != NULL && graph[0] != '\0') {

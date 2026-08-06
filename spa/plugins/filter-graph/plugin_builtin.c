@@ -446,8 +446,9 @@ static int bq_instantiate1(const struct spa_fga_plugin *plugin, const struct spa
 						spa_log_warn(impl->log, "biquads: ignoring coefficients key: '%s'", key);
 					}
 				}
-				if (labs((long)rate - (long)rate) <
-				    labs((long)best_rate - (long)rate)) {
+				/* impl->rate is the graph rate; local rate shadows the param */
+				if (labs((long)rate - (long)impl->rate) <
+				    labs((long)best_rate - (long)impl->rate)) {
 					best_rate = rate;
 					bq_raw_update(impl, b0, b1, b2, a0, a1, a2);
 				}

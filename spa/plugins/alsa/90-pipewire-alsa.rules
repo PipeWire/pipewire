@@ -86,6 +86,8 @@ ATTRS{subsystem_vendor}=="0x1179", ATTRS{subsystem_device}=="0xff00", ENV{ACP_PR
 ATTRS{subsystem_vendor}=="0x1462", ATTRS{subsystem_device}=="0x1053", ENV{ACP_PROFILE_SET}="force-speaker-and-int-mic.conf"
 # Lenovo 3000 Y410
 ATTRS{subsystem_vendor}=="0x17aa", ATTRS{subsystem_device}=="0x384e", ENV{ACP_PROFILE_SET}="force-speaker.conf"
+# Panasonic Let's Note CF-SX4 (CF-SX4EDHCS)
+ATTRS{subsystem_vendor}=="0x10f7", ATTRS{subsystem_device}=="0x8338", ENV{ACP_PROFILE_SET}="force-speaker.conf"
 
 GOTO="pipewire_end"
 

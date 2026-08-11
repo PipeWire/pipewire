@@ -46,6 +46,8 @@ struct dbus_cmd_data {
 	void *user_data;
 };
 
+static void call_free(struct call *call);
+
 static int mm_state_to_clcc(struct impl *this, MMCallState state)
 {
 	switch (state) {
@@ -99,6 +101,7 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 	DBusMessageIter arg_i, element_i;
 	MMCallDirection direction;
 	MMCallState state;
+	bool terminated = false;
 
 	spa_assert(call->pending == pending);
 	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&call->pending);
@@ -150,16 +153,26 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 
 			dbus_message_iter_get_basic(&value_i, &state);
 			spa_log_debug(this->log, "Call state: %u", state);
-			clcc_state = mm_state_to_clcc(this, state);
-			if (clcc_state < 0) {
-				spa_log_debug(this->log, "Unsupported modem state: %s, state=%d", call->path, call->state);
+			if (state == MM_CALL_STATE_TERMINATED) {
+				terminated = true;
 			} else {
-				call->state = clcc_state;
-				mm_call_state_changed(this);
+				clcc_state = mm_state_to_clcc(this, state);
+				if (clcc_state < 0) {
+					spa_log_debug(this->log, "Unsupported modem state: %s, state=%d", call->path, call->state);
+				} else {
+					call->state = clcc_state;
+					mm_call_state_changed(this);
+				}
 			}
 		}
 
 		dbus_message_iter_next(&element_i);
+	}
+
+	if (terminated) {
+		spa_log_debug(this->log, "Call %s is already terminated, dropping it", call->path);
+		call_free(call);
+		mm_call_state_changed(this);
 	}
 }
 
@@ -690,6 +703,13 @@ static DBusHandlerResult mm_filter_cb(DBusConnection *bus, DBusMessage *m, void 
 
 		if (call == NULL) {
 			spa_log_warn(this->log, "No call reference for %s", path);
+			goto finish;
+		}
+
+		if (new == MM_CALL_STATE_TERMINATED) {
+			spa_log_debug(this->log, "Call %s terminated, dropping it", call->path);
+			call_free(call);
+			mm_call_state_changed(this);
 			goto finish;
 		}
 

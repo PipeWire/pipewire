@@ -102,6 +102,7 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 	MMCallDirection direction;
 	MMCallState state;
 	bool terminated = false;
+	bool state_changed = false;
 
 	spa_assert(call->pending == pending);
 	spa_autoptr(DBusMessage) r = steal_reply_and_unref(&call->pending);
@@ -161,7 +162,7 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 					spa_log_debug(this->log, "Unsupported modem state: %s, state=%d", call->path, call->state);
 				} else {
 					call->state = clcc_state;
-					mm_call_state_changed(this);
+					state_changed = true;
 				}
 			}
 		}
@@ -172,6 +173,8 @@ static void mm_get_call_properties_reply(DBusPendingCall *pending, void *user_da
 	if (terminated) {
 		spa_log_debug(this->log, "Call %s is already terminated, dropping it", call->path);
 		call_free(call);
+		mm_call_state_changed(this);
+	} else if (state_changed) {
 		mm_call_state_changed(this);
 	}
 }

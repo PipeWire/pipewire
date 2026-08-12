@@ -77,7 +77,7 @@
 	"<node>"		 						\
 	" <interface name='" OFONO_MANAGER_IFACE "'>"				\
 	"  <method name='GetModems'>"		 				\
-	"   <arg name='objects' direction='out' type='a{oa{sv}}'/>"		\
+	"   <arg name='objects' direction='out' type='a(oa{sv})'/>"		\
 	"  </method>"								\
 	"  <signal name='ModemAdded'>"						\
 	"   <arg name='path' type='o'/>"					\
@@ -91,10 +91,7 @@
 	DBUS_INTROSPECTABLE_IFACE_INTROSPECT_XML				\
 	"</node>"
 
-#define PW_TELEPHONY_AG_COMMON_INTROSPECT_XML					\
-	"  <method name='Dial'>"						\
-	"   <arg name='number' direction='in' type='s'/>"			\
-	"  </method>"								\
+#define PW_TELEPHONY_AG_COMMON_INTROSPECT_XML_BASE				\
 	"  <method name='SwapCalls'>"						\
 	"  </method>"								\
 	"  <method name='ReleaseAndAnswer'>"					\
@@ -110,6 +107,12 @@
 	"  <method name='SendTones'>"						\
 	"   <arg name='tones' direction='in' type='s'/>"			\
 	"  </method>"
+
+#define PW_TELEPHONY_AG_COMMON_INTROSPECT_XML					\
+	"  <method name='Dial'>"						\
+	"   <arg name='number' direction='in' type='s'/>"			\
+	"  </method>"								\
+	PW_TELEPHONY_AG_COMMON_INTROSPECT_XML_BASE
 
 #define PW_TELEPHONY_AG_INTROSPECT_XML \
 	DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE				\
@@ -129,9 +132,13 @@
 	"  <method name='Activate'/>"						\
 	" </interface>"								\
 	" <interface name='" OFONO_VOICE_CALL_MANAGER_IFACE "'>"		\
-	PW_TELEPHONY_AG_COMMON_INTROSPECT_XML					\
+	"  <method name='Dial'>"						\
+	"   <arg name='number' direction='in' type='s'/>"			\
+	"   <arg name='hide_callerid' direction='in' type='s'/>"		\
+	"  </method>"								\
+	PW_TELEPHONY_AG_COMMON_INTROSPECT_XML_BASE				\
 	"  <method name='GetCalls'>"		 				\
-	"   <arg name='objects' direction='out' type='a{oa{sv}}'/>"		\
+	"   <arg name='objects' direction='out' type='a(oa{sv})'/>"		\
 	"  </method>"								\
 	"  <signal name='CallAdded'>"						\
 	"   <arg name='path' type='o'/>"					\
@@ -365,14 +372,33 @@ static DBusMessage *manager_get_managed_objects(struct impl *impl, DBusMessage *
 
 	dbus_message_iter_init_append(r, &iter);
 	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
-		ofono_compat ? "{oa{sv}}" : "{oa{sa{sv}}}", &array1);
+		ofono_compat ? "(oa{sv})" : "{oa{sa{sv}}}", &array1);
 
 	spa_list_for_each (agimpl, &impl->ag_list, link) {
 		if (agimpl->path) {
-			dbus_message_iter_open_container(&array1, DBUS_TYPE_DICT_ENTRY, NULL, &entry1);
+			dbus_message_iter_open_container(&array1,
+				ofono_compat ? DBUS_TYPE_STRUCT : DBUS_TYPE_DICT_ENTRY,
+				NULL, &entry1);
 			if (ofono_compat) {
+				/* ofono GetModems() returns properties dict with Interfaces field,
+				 * so that scripts can check if VoiceCallManager is available. */
+				const char *iface = OFONO_VOICE_CALL_MANAGER_IFACE;
+				DBusMessageIter prop_entry, prop_val, iface_array;
+				const char *interfaces_key = "Interfaces";
+
 				dbus_message_iter_append_basic(&entry1, DBUS_TYPE_OBJECT_PATH, &agimpl->path);
 				dbus_message_iter_open_container(&entry1, DBUS_TYPE_ARRAY, "{sv}", &props_dict);
+
+				/* Interfaces: ["org.ofono.VoiceCallManager"] */
+				dbus_message_iter_open_container(&props_dict, DBUS_TYPE_DICT_ENTRY, NULL, &prop_entry);
+				dbus_message_iter_append_basic(&prop_entry, DBUS_TYPE_STRING, &interfaces_key);
+				dbus_message_iter_open_container(&prop_entry, DBUS_TYPE_VARIANT, "as", &prop_val);
+				dbus_message_iter_open_container(&prop_val, DBUS_TYPE_ARRAY, "s", &iface_array);
+				dbus_message_iter_append_basic(&iface_array, DBUS_TYPE_STRING, &iface);
+				dbus_message_iter_close_container(&prop_val, &iface_array);
+				dbus_message_iter_close_container(&prop_entry, &prop_val);
+				dbus_message_iter_close_container(&props_dict, &prop_entry);
+
 				dbus_message_iter_close_container(&entry1, &props_dict);
 			} else {
 				dbus_iter_append_ag_interfaces(&entry1, &agimpl->this);
@@ -730,10 +756,12 @@ static DBusMessage *ag_get_managed_objects(struct agimpl *agimpl, DBusMessage *m
 
 	dbus_message_iter_init_append(r, &iter);
 	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
-		ofono_compat ? "{oa{sv}}" : "{oa{sa{sv}}}", &array1);
+		ofono_compat ? "(oa{sv})" : "{oa{sa{sv}}}", &array1);
 
 	spa_list_for_each (callimpl, &agimpl->this.call_list, this.link) {
-		dbus_message_iter_open_container(&array1, DBUS_TYPE_DICT_ENTRY, NULL, &entry1);
+		dbus_message_iter_open_container(&array1,
+			ofono_compat ? DBUS_TYPE_STRUCT : DBUS_TYPE_DICT_ENTRY,
+			NULL, &entry1);
 		dbus_message_iter_append_basic(&entry1, DBUS_TYPE_OBJECT_PATH, &callimpl->path);
 		if (ofono_compat) {
 			dbus_iter_append_call_properties(&entry1, &callimpl->this, true);
@@ -1041,12 +1069,25 @@ static bool validate_tones(const char *tones)
 static DBusMessage *ag_dial(struct agimpl *agimpl, DBusMessage *m)
 {
 	const char *number = NULL;
+	const char *hide_callerid = NULL;
 	enum spa_bt_telephony_error err = BT_TELEPHONY_ERROR_FAILED;
 
-	if (!dbus_message_get_args(m, NULL,
-				DBUS_TYPE_STRING, &number,
-				DBUS_TYPE_INVALID))
-		return NULL;
+	if (spa_streq(dbus_message_get_signature(m), "ss")) {
+		/* ofono compat: Dial(number, hide_callerid)
+		 * hide_callerid ("default"/"enabled"/"disabled") maps to AT+CLIR,
+		 * but is currently ignored — AT+CLIR support is a future improvement. */
+		if (!dbus_message_get_args(m, NULL,
+					DBUS_TYPE_STRING, &number,
+					DBUS_TYPE_STRING, &hide_callerid,
+					DBUS_TYPE_INVALID))
+			return NULL;
+	} else {
+		/* native: Dial(number) */
+		if (!dbus_message_get_args(m, NULL,
+					DBUS_TYPE_STRING, &number,
+					DBUS_TYPE_INVALID))
+			return NULL;
+	}
 
 	if (!validate_phone_number(number)) {
 		err = BT_TELEPHONY_ERROR_INVALID_FORMAT;

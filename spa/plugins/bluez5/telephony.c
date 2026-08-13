@@ -1658,7 +1658,7 @@ static DBusMessage *call_properties_get(struct callimpl *callimpl, DBusMessage *
 				DBUS_TYPE_INVALID))
 		return NULL;
 
-	if (spa_streq(iface, PW_TELEPHONY_CALL_IFACE))
+	if (!spa_streq(iface, PW_TELEPHONY_CALL_IFACE))
 		return dbus_message_new_error(m, DBUS_ERROR_INVALID_ARGS,
 				"No such interface");
 

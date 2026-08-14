@@ -701,8 +701,38 @@ SPA_API_JSON size_t spa_json_encode_stringn(char *dst, size_t capacity, const ch
 				__PUT('\\'); __PUT('u');
 				__PUT('0'); __PUT('0');
 				__PUT(hex[(val>>4)&0xf]); __PUT(hex[val&0xf]);
-			} else {
+			} else if ((unsigned char) val < 0x80) {
 				__PUT(val);
+			} else {
+				/* multi-byte UTF-8: emit valid sequences but replace invalid ones with U+FFFD */
+				size_t cont_needed, cont_valid, i;
+				const unsigned char lead = (unsigned char) val;
+
+				if (lead >= 0xc0 && lead <= 0xdf)
+					cont_needed = 1;
+				else if (lead >= 0xe0 && lead <= 0xef)
+					cont_needed = 2;
+				else if (lead >= 0xf0 && lead <= 0xf7)
+					cont_needed = 3;
+				else
+					cont_needed = 0; /* stray continuation or invalid lead */
+
+				for (cont_valid = 0; cont_valid < cont_needed; cont_valid++) {
+					const size_t next = cont_valid + 1;
+					if (next >= length ||
+					    (unsigned char) src[next] < 0x80 ||
+					    (unsigned char) src[next] > 0xbf)
+						break;
+				}
+				if (cont_needed > 0 && cont_valid == cont_needed) {
+					for (i = 0; i <= cont_needed; i++)
+						__PUT(src[i]);
+					src += cont_needed;
+					length -= cont_needed;
+				} else {
+					/* U+FFFD replacement character */
+					__PUT('\xef'); __PUT('\xbf'); __PUT('\xbd');
+				}
 			}
 			break;
 		}

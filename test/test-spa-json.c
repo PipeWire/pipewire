@@ -593,10 +593,22 @@ PWTEST(json_encode)
 	pwtest_int_eq(strncmp(dst6, "\"test\"", 6), 0);
 	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "test\"\n\r \t\b\f\'"), 20);
 	pwtest_str_eq(dst, "\"test\\\"\\n\\r \\t\\b\\f'\"");
-	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "\x04\x05\x1f\x20\x01\x7f\x90"), 29);
-	pwtest_str_eq(dst, "\"\\u0004\\u0005\\u001f \\u0001\x7f\x90\"");
+	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "\x04\x05\x1f\x20\x01\x7f\x90"), 31);
+	pwtest_str_eq(dst, "\"\\u0004\\u0005\\u001f \\u0001\x7f\xef\xbf\xbd\"");
 	pwtest_int_eq(spa_json_parse_stringn(dst, sizeof(dst), result, sizeof(result)), 1);
-	pwtest_str_eq(result, "\x04\x05\x1f\x20\x01\x7f\x90");
+	pwtest_str_eq(result, "\x04\x05\x1f\x20\x01\x7f\xef\xbf\xbd");
+	/* valid multibyte UTF-8 is preserved */
+	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "a\xc3\xbf\xe2\x82\xac"), 8);
+	pwtest_str_eq(dst, "\"a\xc3\xbf\xe2\x82\xac\"");
+	/* invalid UTF-8 is replaced with U+FFFD so the output stays parseable:
+	 * invalid lead byte, truncated sequence at end of string, sequence with
+	 * a broken continuation byte */
+	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "a\xffz"), 7);
+	pwtest_str_eq(dst, "\"a\xef\xbf\xbdz\"");
+	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "trunc\xc3"), 10);
+	pwtest_str_eq(dst, "\"trunc\xef\xbf\xbd\"");
+	pwtest_int_eq(spa_json_encode_string(dst, sizeof(dst), "a\xc3zz"), 8);
+	pwtest_str_eq(dst, "\"a\xef\xbf\xbdzz\"");
 	strcpy(dst, "\"\\u03b2a\"");
 	pwtest_int_eq(spa_json_parse_stringn(dst, sizeof(dst), result, sizeof(result)), 1);
 	pwtest_str_eq(result, "\316\262a");

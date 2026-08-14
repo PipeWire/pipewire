@@ -24,6 +24,8 @@
 #include <spa/param/param.h>
 #include <spa/pod/filter.h>
 #include <spa/control/control.h>
+#include <spa/debug/types.h>
+#include <spa/param/audio/raw-json.h>
 
 #undef SPA_LOG_TOPIC_DEFAULT
 #define SPA_LOG_TOPIC_DEFAULT &log_topic
@@ -38,6 +40,9 @@ enum wave_type {
 	WAVE_SQUARE,
 };
 
+#define DEFAULT_CLOCK_NAME	"clock.system.monotonic"
+#define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS
+
 #define DEFAULT_RATE		48000
 #define DEFAULT_CHANNELS	2
 
@@ -49,6 +54,11 @@ struct props {
 	uint32_t wave;
 	float freq;
 	float volume;
+	uint32_t format;
+	uint32_t channels;
+	uint32_t rate;
+	uint32_t pos[MAX_CHANNELS];
+	char clock_name[64];
 };
 
 static void reset_props(struct props *props)
@@ -56,6 +66,10 @@ static void reset_props(struct props *props)
 	props->wave = DEFAULT_WAVE;
 	props->freq = DEFAULT_FREQ;
 	props->volume = DEFAULT_VOLUME;
+	props->format = 0;
+	props->channels = 0;
+	props->rate = 0;
+	strncpy(props->clock_name, DEFAULT_CLOCK_NAME, sizeof(props->clock_name));
 }
 
 #define MAX_BUFFERS	16
@@ -280,6 +294,11 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 		if (size > 0 && size < sizeof(struct spa_io_clock))
 			return -EINVAL;
 		this->clock = data;
+		if (this->clock != NULL) {
+			spa_scnprintf(this->clock->name,
+					sizeof(this->clock->name),
+					"%s", this->props.clock_name);
+		}
 		break;
 	case SPA_IO_Position:
 		this->position = data;
@@ -547,22 +566,57 @@ port_enum_formats(struct impl *this,
 		  struct spa_pod **param,
 		  struct spa_pod_builder *builder)
 {
+	struct spa_pod_frame f[1];
+
 	switch (index) {
 	case 0:
-		*param = spa_pod_builder_add_object(builder,
-			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
+		spa_pod_builder_push_object(builder, &f[0],
+			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+
+		spa_pod_builder_add(builder,
 			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
 			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-			SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(5,
+			0);
+		if (this->props.format != 0) {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_format,   SPA_POD_Id(this->props.format),
+				0);
+		} else {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(5,
 							SPA_AUDIO_FORMAT_S16,
 							SPA_AUDIO_FORMAT_S16,
 							SPA_AUDIO_FORMAT_S32,
 							SPA_AUDIO_FORMAT_F32,
 							SPA_AUDIO_FORMAT_F64),
-			SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
-							DEFAULT_RATE, 1, INT32_MAX),
-			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
-							DEFAULT_CHANNELS, 1, INT32_MAX));
+				0);
+		}
+		if (this->props.rate != 0) {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_rate, SPA_POD_Int(this->props.rate),
+				0);
+		} else {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
+								DEFAULT_RATE, 1, INT32_MAX),
+				0);
+		}
+		if (this->props.channels != 0) {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_channels, SPA_POD_Int(this->props.channels),
+				0);
+		} else {
+			spa_pod_builder_add(builder,
+				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
+							DEFAULT_CHANNELS, 1, INT32_MAX),
+				0);
+		}
+		if (this->props.channels != 0) {
+			spa_pod_builder_prop(builder, SPA_FORMAT_AUDIO_position, 0);
+			spa_pod_builder_array(builder, sizeof(uint32_t), SPA_TYPE_Id,
+					this->props.channels, this->props.pos);
+		}
+		*param = spa_pod_builder_pop(builder, &f[0]);
 		break;
 	default:
 		return 0;
@@ -717,7 +771,11 @@ port_set_format(struct impl *this,
 			return -EINVAL;
 
 		if (info.info.raw.rate == 0 ||
-		    info.info.raw.channels == 0)
+		    info.info.raw.channels == 0 ||
+		    info.info.raw.channels > MAX_CHANNELS)
+			return -EINVAL;
+
+		if (this->props.format != 0 && this->props.format != info.info.raw.format)
 			return -EINVAL;
 
 		switch (info.info.raw.format) {
@@ -1038,12 +1096,6 @@ impl_init(const struct spa_handle_factory *factory,
 		return -EINVAL;
 	}
 
-	for (i = 0; info && i < info->n_items; i++) {
-		const char *k = info->items[i].key;
-		const char *s = info->items[i].value;
-		if (spa_streq(k, "clock.quantum-limit"))
-			spa_atou32(s, &this->quantum_limit, 0);
-	}
 	spa_hook_list_init(&this->hooks);
 
 	this->node.iface = SPA_INTERFACE_INIT(
@@ -1088,6 +1140,30 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.params = port->params;
 	port->info.n_params = 5;
 	spa_list_init(&port->empty);
+
+	for (i = 0; info && i < info->n_items; i++) {
+		const char *k = info->items[i].key;
+		const char *s = info->items[i].value;
+		if (spa_streq(k, "clock.quantum-limit")) {
+			spa_atou32(s, &this->quantum_limit, 0);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_FORMAT)) {
+			this->props.format = spa_type_audio_format_from_short_name(s);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_CHANNELS)) {
+			this->props.channels = atoi(s);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_RATE)) {
+			this->props.rate = atoi(s);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_POSITION)) {
+			spa_audio_parse_position_n(s, strlen(s), this->props.pos,
+					SPA_N_ELEMENTS(this->props.pos), &this->props.channels);
+		} else if (spa_streq(k, SPA_KEY_AUDIO_LAYOUT)) {
+			spa_audio_parse_layout(s, this->props.pos,
+					SPA_N_ELEMENTS(this->props.pos), &this->props.channels);
+		} else if (spa_streq(k, "clock.name")) {
+			spa_scnprintf(this->props.clock_name,
+					sizeof(this->props.clock_name),
+					"%s", s);
+		}
+	}
 
 	spa_log_info(this->log, "%p: initialized", this);
 

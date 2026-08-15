@@ -1248,7 +1248,11 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
     current_caps = gst_pad_get_current_caps (GST_BASE_SRC_PAD (pwsrc));
     preferred_new_caps = gst_caps_copy_nth (possible_caps, 0);
 
-    if (current_caps && gst_caps_is_equal (current_caps, preferred_new_caps)) {
+    /* The caps we are already running are still acceptable downstream: a reconfigure
+     * that does not actually ask for anything different should not cost a stream
+     * restart. Comparing against the peer's first structure alone is not enough,
+     * because it can still hold ranges and never compares equal to fixed caps. */
+    if (current_caps && gst_caps_is_subset (current_caps, possible_caps)) {
       GST_DEBUG_OBJECT (pwsrc,
                         "Stream running and new caps equal current ones. "
                         "Skipping renegotiation.");

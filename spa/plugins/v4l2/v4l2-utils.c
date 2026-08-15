@@ -922,8 +922,8 @@ do_frmsize_filter:
 		} else {
 			choice->body.type = SPA_CHOICE_Step;
 			spa_pod_builder_rectangle(&b.b,
-					port->frmsize.stepwise.max_width,
-					port->frmsize.stepwise.max_height);
+					port->frmsize.stepwise.step_width,
+					port->frmsize.stepwise.step_height);
 		}
 		spa_pod_builder_pop(&b.b, &f[1]);
 		try_width = port->frmsize.stepwise.min_width;

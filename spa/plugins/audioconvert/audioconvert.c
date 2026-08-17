@@ -1367,7 +1367,7 @@ static void clean_filter_handles(struct impl *impl, bool force)
 	struct filter_graph *g, *t;
 
 	spa_list_for_each_safe(g, t, &impl->active_graphs, link) {
-		if (!g->removing)
+		if (!g->removing && !force)
 			continue;
 		spa_list_remove(&g->link);
 		if (g->graph)

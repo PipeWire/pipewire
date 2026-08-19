@@ -1439,7 +1439,11 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 	else
 		result.next++;
 
-	if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED)
+	/* A compound control (an array, a string, a struct) can only be accessed
+	 * with VIDIOC_G_EXT_CTRLS/VIDIOC_S_EXT_CTRLS; VIDIOC_G_CTRL returns EINVAL
+	 * for it. VIDIOC_QUERY_EXT_CTRL reports an array of integers as
+	 * V4L2_CTRL_TYPE_INTEGER, so the type alone does not tell them apart. */
+	if (queryctrl.flags & (V4L2_CTRL_FLAG_DISABLED | V4L2_CTRL_FLAG_HAS_PAYLOAD))
 		goto next;
 
 	if (port->n_controls >= MAX_CONTROLS)

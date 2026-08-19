@@ -71,23 +71,22 @@ static void audio_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp
 			next_seq = p->seq;
 			next_timestamp = p->timestamp;
 		}
-		if (p->decoded == NULL)
-			audio_packet_decode(impl, p);
-
-again:
-		ts_end = p->timestamp_end;
-		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
-			goto next;
 
 		seq_delta = rtp_seqnum_delta(p->seq, next_seq);
 		if (seq_delta > 0 && prev_p != NULL) {
 			if (audio_packet_repair(impl, prev_p, p, seq_delta, next_timestamp, p->timestamp) < 0) {
 				pw_log_warn("could not repair packets");
-				goto next;
+				goto skip;
 			}
 			p = spa_list_next(prev_p, link);
-			goto again;
+		} else if (p->decoded == NULL) {
+			if (audio_packet_decode(impl, p) < 0)
+				goto skip;
 		}
+
+		ts_end = p->timestamp_end;
+		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
+			goto next;
 
 		ts = p->timestamp;
 		samples = ts_end - ts;
@@ -113,8 +112,9 @@ again:
 			timestamp += samples;
 		}
 next:
-		next_seq = (p->seq + 1) & 0xffff;
 		next_timestamp = ts_end;
+skip:
+		next_seq = (p->seq + 1) & 0xffff;
 		prev_p = p;
 	}
 	if (wanted > 0)

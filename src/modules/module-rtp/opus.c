@@ -12,6 +12,8 @@ static int opus_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
 	int res;
 	OpusMSDecoder *dec = impl->stream_data;
 
+	//pw_log_info("opus decode %d", p->seq);
+
 	res = opus_multistream_decode_float(dec,
 			SPA_PTROFF(p->data, p->hlen, void), p->size - p->hlen,
 			(float*)p->tmp, p->tmp_size/impl->stride, 0);
@@ -45,6 +47,8 @@ static int opus_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 
 	/* one packet to store all PLC/FEC, this size must match the total amount of
 	 * missing samples. */
+	pw_log_info("opus recover %u %u %u %u", last->seq+1, next->seq, num, duration);
+
 	res = opus_multistream_decode_float(dec, NULL, 0, (float*)data, size, 1);
 	if (res < 0) {
 		pw_log_warn("recover packet failed for %d: %d (%s)", p->seq, res, opus_strerror(res));
@@ -66,11 +70,11 @@ static int opus_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 		p->timestamp_end = p->timestamp + duration;
 
 		if (offs + duration <= size) {
-			pw_log_info("recover %d %d %d %d with PLC", p->seq, offs, duration, size);
+			//pw_log_info("recover %d %d %d %d with PLC", p->seq, offs, duration, size);
 			if (offs > 0)
 				memcpy(p->decoded, &data[offs * impl->stride], p->decoded_len);
 		} else {
-			pw_log_info("recover %d %d %d %d with silence", p->seq, offs, duration, size);
+			//pw_log_info("recover %d %d %d %d with silence", p->seq, offs, duration, size);
 			memset(p->decoded, 0, p->decoded_len);
 		}
 		offs += duration;
@@ -90,6 +94,7 @@ static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 	struct rtp_packet *p, *prev_p = NULL;
 	uint16_t next_seq;
 	uint32_t next_timestamp;
+	int res;
 
 	spa_list_for_each(p, &impl->queued, link) {
 		uint32_t samples, skip, ts, ts_end;
@@ -103,25 +108,23 @@ static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 			next_seq = p->seq;
 			next_timestamp = p->timestamp;
 		}
-		if (p->decoded == NULL) {
-			int res;
-			if ((res = opus_packet_decode(impl, p)) < 0)
-				goto next;
-		}
-again:
-		ts_end = p->timestamp_end;
-		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
-			goto next;
 
 		seq_delta = rtp_seqnum_delta(p->seq, next_seq);
 		if (seq_delta > 0 && prev_p != NULL) {
-			if (opus_packet_repair(impl, prev_p, p, seq_delta, next_timestamp, p->timestamp) < 0) {
-				pw_log_warn("could not repair packets");
-				goto next;
+			if ((res = opus_packet_repair(impl, prev_p, p, seq_delta,
+							next_timestamp, p->timestamp)) < 0) {
+				pw_log_warn("could not repair packets: %d", res);
+				goto skip;
 			}
 			p = spa_list_next(prev_p, link);
-			goto again;
+		} else if (p->decoded == NULL) {
+			if ((res = opus_packet_decode(impl, p)) < 0)
+				goto skip;
 		}
+
+		ts_end = p->timestamp_end;
+		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
+			goto next;
 
 		ts = p->timestamp;
 		samples = ts_end - ts;
@@ -151,8 +154,9 @@ again:
 			timestamp += samples;
 		}
 next:
-		next_seq = (p->seq + 1) & 0xffff;
 		next_timestamp = ts_end;
+skip:
+		next_seq = (p->seq + 1) & 0xffff;
 		prev_p = p;
 	}
 	if (wanted > 0) {
@@ -398,6 +402,8 @@ static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 			impl->info.info.opus.channels, 0,
 			mapping,
 			&err);
+
+		opus_multistream_decoder_ctl(impl->stream_data, OPUS_SET_COMPLEXITY(5));
 	}
 	if (!impl->stream_data)
 		pw_log_error("opus error: %d (%s)", err, opus_strerror(err));

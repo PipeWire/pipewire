@@ -7,38 +7,124 @@
 #include <opus/opus.h>
 #include <opus/opus_multistream.h>
 
+static int opus_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
+{
+	int res;
+	OpusMSDecoder *dec = impl->stream_data;
+
+	res = opus_multistream_decode_float(dec,
+			SPA_PTROFF(p->data, p->hlen, void), p->size - p->hlen,
+			(float*)p->tmp, p->tmp_size/impl->stride, 0);
+	if (res < 0) {
+		pw_log_warn("opus decode error %d (%s)", res, opus_strerror(res));
+		return res;
+	}
+	p->decoded = p->tmp;
+	p->decoded_len = res * impl->stride;
+	p->timestamp_end = p->timestamp + res;
+	return 0;
+}
+
+static int opus_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
+		struct rtp_packet *next, uint32_t num, uint32_t ts_start, uint32_t ts_end)
+{
+	struct rtp_packet *p;
+	uint32_t i, duration, offs;
+	int res;
+	OpusMSDecoder *dec = impl->stream_data;
+	uint8_t *data;
+	uint32_t size;
+
+	duration = (ts_end - ts_start) / num;
+
+	if ((p = rtp_stream_get_free_packet(impl)) == NULL || p == next)
+		return -ENOSPC;
+
+	size = SPA_MIN(ts_end - ts_start, p->tmp_size/impl->stride);
+	data = p->tmp;
+
+	/* one packet to store all PLC/FEC, this size must match the total amount of
+	 * missing samples. */
+	res = opus_multistream_decode_float(dec, NULL, 0, (float*)data, size, 1);
+	if (res < 0) {
+		pw_log_warn("recover packet failed for %d: %d (%s)", p->seq, res, opus_strerror(res));
+		size = 0;
+	} else {
+		size = res;
+	}
+
+	offs = 0;
+	for (i = 0; i < num; i++) {
+		spa_list_remove(&p->link);
+		spa_list_append(&next->link, &p->link);
+
+		p->seq = last->seq + i + 1;
+		p->timestamp = ts_start + offs;
+
+		p->decoded = p->tmp;
+		p->decoded_len = impl->stride * duration;
+		p->timestamp_end = p->timestamp + duration;
+
+		if (offs + duration <= size) {
+			pw_log_info("recover %d %d %d %d with PLC", p->seq, offs, duration, size);
+			if (offs > 0)
+				memcpy(p->decoded, &data[offs * impl->stride], p->decoded_len);
+		} else {
+			pw_log_info("recover %d %d %d %d with silence", p->seq, offs, duration, size);
+			memset(p->decoded, 0, p->decoded_len);
+		}
+		offs += duration;
+
+		if (i+1<num) {
+			if ((p = rtp_stream_get_free_packet(impl)) == NULL || p == next)
+				return -ENOSPC;
+		}
+	}
+	return 0;
+}
 /* read wanted samples from the packet buffer at timestamp. Fill the gaps with
  * silence */
 static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp, void *dst,
 		uint32_t wanted, uint32_t stride)
 {
-	struct rtp_packet *p;
-	OpusMSDecoder *dec = impl->stream_data;
+	struct rtp_packet *p, *prev_p = NULL;
+	uint16_t next_seq;
+	uint32_t next_timestamp;
 
 	spa_list_for_each(p, &impl->queued, link) {
 		uint32_t samples, skip, ts, ts_end;
 		int32_t ts_delta;
+		int16_t seq_delta;
+
 		if (wanted == 0)
 			break;
 
+		if (prev_p == NULL) {
+			next_seq = p->seq;
+			next_timestamp = p->timestamp;
+		}
 		if (p->decoded == NULL) {
 			int res;
-			res = opus_multistream_decode_float(dec,
-				SPA_PTROFF(p->data, p->hlen, void), p->size - p->hlen,
-				(float*)p->tmp, p->tmp_size/sizeof(float), 0);
-			if (res < 0) {
-				pw_log_warn("opus decode error %d", res);
-				continue;
+			if ((res = opus_packet_decode(impl, p)) < 0)
+				goto next;
+		}
+again:
+		ts_end = p->timestamp_end;
+		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
+			goto next;
+
+		seq_delta = rtp_seqnum_delta(p->seq, next_seq);
+		if (seq_delta > 0 && prev_p != NULL) {
+			if (opus_packet_repair(impl, prev_p, p, seq_delta, next_timestamp, p->timestamp) < 0) {
+				pw_log_warn("could not repair packets");
+				goto next;
 			}
-			p->decoded = p->tmp;
-			p->decoded_len = res;
+			p = spa_list_next(prev_p, link);
+			goto again;
 		}
 
-		samples = p->decoded_len;
 		ts = p->timestamp;
-		ts_end = ts + samples;
-		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
-			continue;
+		samples = ts_end - ts;
 
 		ts_delta = rtp_timestamp_delta(timestamp, ts);
 		if (ts_delta < 0) {
@@ -46,8 +132,6 @@ static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 			 * timestamp, we underrun */
 			skip = -ts_delta;
 			skip = SPA_MIN(skip, wanted);
-			if (impl->have_sync)
-				pw_log_warn("underrun %d %u %u, packet buffer too small", skip, ts, timestamp);
 			memset(dst, 0, skip * stride);
 			dst = SPA_PTROFF(dst, skip * stride, void);
 			wanted -= skip;
@@ -57,7 +141,7 @@ static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 			/* packet contains requested timestamp, skip samples
 			 * before timestamp */
 			skip = ts_delta;
-			samples -= skip;
+			samples -= SPA_MIN(skip, samples);
 		}
 		samples = SPA_MIN(samples, wanted);
 		if (samples > 0) {
@@ -66,13 +150,15 @@ static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 			wanted -= samples;
 			timestamp += samples;
 		}
+next:
+		next_seq = (p->seq + 1) & 0xffff;
+		next_timestamp = ts_end;
+		prev_p = p;
 	}
 	if (wanted > 0) {
 		/* we ran out of packets and we could not fill the complete
 		 * buffer -> underrun */
 		memset(dst, 0, wanted * stride);
-		if (impl->have_sync)
-			pw_log_warn("underrun");
 	}
 }
 
@@ -314,7 +400,7 @@ static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 			&err);
 	}
 	if (!impl->stream_data)
-		pw_log_error("opus error: %d", err);
+		pw_log_error("opus error: %d (%s)", err, opus_strerror(err));
 	return impl->stream_data ? 0 : err;
 }
 #else

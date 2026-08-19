@@ -11,32 +11,88 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 #endif
 }
 
+static int audio_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
+{
+	p->decoded = SPA_PTROFF(p->data, p->hlen, void);
+	p->decoded_len = p->size - p->hlen;
+	p->timestamp_end = p->timestamp + (p->decoded_len / impl->stride);
+	return 0;
+}
+
+static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
+		struct rtp_packet *next, uint32_t num, uint32_t ts_start, uint32_t ts_end)
+{
+	struct rtp_packet *p;
+	uint32_t i, duration;
+
+	duration = (ts_end - ts_start) / num;
+
+	pw_log_info("missing seq %d %d  %u %u", num, last->seq, ts_start, duration);
+
+	for (i = 0; i < num; i++) {
+		if ((p = rtp_stream_get_free_packet(impl)) == NULL || p == next)
+			return -ENOSPC;
+
+		spa_list_remove(&p->link);
+		spa_list_append(&next->link, &p->link);
+
+		p->seq = last->seq + i + 1;
+		p->timestamp = ts_start + i * duration;
+
+		p->size = duration * impl->stride;
+		p->hlen = 0;
+
+		memset(p->data, 0, p->size);
+
+		pw_log_info("repaired seq %d", p->seq);
+		audio_packet_decode(impl, p);
+	}
+	return 0;
+}
+
 /* read wanted samples from the packet buffer at timestamp. Fill the gaps with
  * 0 bytes */
 static void audio_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 		void *dst, uint32_t wanted, uint32_t stride)
 {
-	struct rtp_packet *p;
+	struct rtp_packet *p, *prev_p = NULL;
+	uint16_t next_seq;
+	uint32_t next_timestamp;
 
 	spa_list_for_each(p, &impl->queued, link) {
 		uint32_t samples, skip, ts, ts_end;
 		int32_t ts_delta;
+		int16_t seq_delta;
 
 		if (wanted == 0)
 			break;
 
-		if (p->decoded == NULL) {
-			p->decoded = SPA_PTROFF(p->data, p->hlen, void);
-			p->decoded_len = (p->size - p->hlen) / stride;
+		if (prev_p == NULL) {
+			next_seq = p->seq;
+			next_timestamp = p->timestamp;
+		}
+		if (p->decoded == NULL)
+			audio_packet_decode(impl, p);
+
+again:
+		ts_end = p->timestamp_end;
+		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
+			goto next;
+
+		seq_delta = rtp_seqnum_delta(p->seq, next_seq);
+		if (seq_delta > 0 && prev_p != NULL) {
+			if (audio_packet_repair(impl, prev_p, p, seq_delta, next_timestamp, p->timestamp) < 0) {
+				pw_log_warn("could not repair packets");
+				goto next;
+			}
+			p = spa_list_next(prev_p, link);
+			goto again;
 		}
 
-		samples = p->decoded_len;
 		ts = p->timestamp;
-		ts_end = p->timestamp + samples;
-		if (rtp_timestamp_delta(ts_end, timestamp) < 0)
-			continue;
-
+		samples = ts_end - ts;
 		ts_delta = rtp_timestamp_delta(timestamp, ts);
+
 		if (ts_delta < 0) {
 			skip = -ts_delta;
 			skip = SPA_MIN(skip, wanted);
@@ -47,7 +103,7 @@ static void audio_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp
 			skip = 0;
 		} else {
 			skip = ts_delta;
-			samples -= skip;
+			samples -= SPA_MIN(skip, samples);
 		}
 		samples = SPA_MIN(samples, wanted);
 		if (samples > 0) {
@@ -56,6 +112,10 @@ static void audio_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp
 			wanted -= samples;
 			timestamp += samples;
 		}
+next:
+		next_seq = (p->seq + 1) & 0xffff;
+		next_timestamp = ts_end;
+		prev_p = p;
 	}
 	if (wanted > 0)
 		memset(dst, 0, wanted * stride);
@@ -294,7 +354,7 @@ static void rtp_audio_process_capture(void *data)
 	uint32_t offs, size, actual_timestamp, expected_timestamp, stride;
 	uint32_t wanted;
 	struct spa_io_position *pos;
-	uint64_t next_nsec, quantum;
+	uint64_t next_nsec;
 	struct pw_time pwt;
 	void *src, *dst;
 	struct rtp_packet *p, *t;
@@ -324,7 +384,6 @@ static void rtp_audio_process_capture(void *data)
 		uint32_t rate = pos->clock.rate.denom;
 		actual_timestamp = pos->clock.position * impl->rate / rate;
 		next_nsec = pos->clock.next_nsec;
-		quantum = (uint64_t)(pos->clock.duration * SPA_NSEC_PER_SEC / (rate * pos->clock.rate_diff));
 
 		if (impl->separate_sender) {
 			/* the sender process() function uses this for managing the DLL */
@@ -351,7 +410,6 @@ static void rtp_audio_process_capture(void *data)
 	} else {
 		actual_timestamp = expected_timestamp;
 		next_nsec = 0;
-		quantum = 0;
 	}
 
 	/* First do the synchronization checks (if the sender is in sync already.) */

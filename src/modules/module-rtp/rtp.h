@@ -151,6 +151,7 @@ struct rtp_packet {
 
 	void *decoded;
 	uint32_t decoded_len;
+	uint32_t timestamp_end;
 
 	void *tmp;
 	size_t tmp_size;

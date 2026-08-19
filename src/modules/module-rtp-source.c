@@ -361,14 +361,11 @@ on_rtp_io(void *data, int fd, uint32_t mask)
 			return;
 		}
 
-		if (len < 12)
-			goto short_packet;
-
 		if (SPA_LIKELY(impl->stream)) {
 			p->size = len;
 
 			if (rtp_stream_receive_packet(impl->stream, p, current_time) < 0)
-				goto receive_error;
+				goto process_error;
 		}
 
 		/* Update last packet timestamp for IGMP recovery.
@@ -394,10 +391,7 @@ receive_error:
 	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
 		pw_log_warn("(%d suppressed) recv() error: %m", suppressed);
 	return;
-short_packet:
-	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)
-		pw_log_warn("(%d suppressed) short packet of len %zd received",
-				suppressed, len);
+process_error:
 	return;
 packet_larger_than_mtu:
 	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, current_time)) >= 0)

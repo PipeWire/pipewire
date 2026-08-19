@@ -875,7 +875,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 	for (i = 0; i < impl->n_packets; i++) {
 		struct rtp_packet *p;
 
-		p = calloc(1, sizeof(*p) + impl->mtu + 2880 * 4);
+		p = calloc(1, sizeof(*p) + impl->mtu + 2880 * impl->stride);
 		if (p == NULL) {
 			res = -errno;
 			pw_log_error("can't create packet: %m");
@@ -1145,7 +1145,6 @@ int rtp_stream_receive_packet(struct rtp_stream *s, struct rtp_packet *p,
 	buffer = p->data;
 	len = p->size;
 
-	SPA_STATIC_ASSERT(sizeof(struct rtp_header) == 12);
 	if (len < 12)
 		goto short_packet;
 

@@ -756,8 +756,16 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
   pw_stream_get_time_n(pwsrc->stream->pwstream, &time, sizeof(time));
 
+  gint64 delay_ns = 0;
+  if (time.rate.denom != 0) {
+    guint64 abs_delay = time.delay >= 0 ? (guint64) time.delay : -(guint64) time.delay;
+    delay_ns = gst_util_uint64_scale (abs_delay, GST_SECOND * time.rate.num, time.rate.denom);
+    if (time.delay < 0)
+      delay_ns = -delay_ns;
+  }
+
   if (pwsrc->delay != time.delay && time.rate.denom != 0) {
-    pwsrc->min_latency = time.delay * GST_SECOND * time.rate.num / time.rate.denom;
+    pwsrc->min_latency = delay_ns > 0 ? delay_ns : 0;
     GST_LOG_OBJECT (pwsrc, "latency changed %"PRIi64" -> %"PRIi64" %"PRIu64,
 		    pwsrc->delay, time.delay, pwsrc->min_latency);
     pwsrc->delay = time.delay;
@@ -784,11 +792,8 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     }
     GST_BUFFER_OFFSET (buf) = h->seq;
   } else {
-    gint64 delay_ns = 0;
     /* We cannot reuse pwsrc->min_latency here because time.delay can be negative.
      * PTS/DTS needs to be shifted forward when delay is negative. */
-    if (time.rate.denom != 0)
-      delay_ns = time.delay * (gint64)GST_SECOND * time.rate.num / time.rate.denom;
     GST_BUFFER_PTS (buf) = b->time - delay_ns;
     GST_BUFFER_DTS (buf) = b->time - delay_ns;
   }

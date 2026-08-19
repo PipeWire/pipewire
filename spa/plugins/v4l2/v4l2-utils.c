@@ -1556,20 +1556,20 @@ spa_v4l2_update_controls(struct impl *this)
 		spa_zero(control);
 		control.id = c->ctrl_id;
 		if (xioctl(dev->fd, VIDIOC_G_CTRL, &control) < 0) {
-			/* Write only controls like relative pan/tilt return EACCES */
-			if (errno == EACCES) {
-				c->value = 0;
-				continue;
-			}
-			res = -errno;
-			goto done;
+			/* One control that cannot be read must not hide every other
+			 * property of the node. Write only controls like relative
+			 * pan/tilt return EACCES, and a volatile control returns
+			 * whatever its g_volatile_ctrl handler returns. Keep the value
+			 * from the last successful read, or the default that
+			 * spa_v4l2_enum_controls() stored. */
+			spa_log_debug(this->log, "'%s' VIDIOC_G_CTRL %08x: %m",
+					this->props.device, c->ctrl_id);
+			continue;
 		}
 		c->value = control.value;
 	}
-	res = 0;
-done:
 	spa_v4l2_close(dev);
-	return res;
+	return 0;
 }
 
 static int

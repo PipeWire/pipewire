@@ -24,8 +24,15 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 {
 	struct rtp_packet *p;
 	uint32_t i, duration;
+	int32_t span;
 
-	duration = (ts_end - ts_start) / num;
+	span = rtp_timestamp_delta(ts_end, ts_start);
+	if (span < 0)
+		return -EINVAL;
+
+	duration = span / num;
+	if (duration > impl->mtu / impl->stride)
+		return -EINVAL;
 
 	pw_log_info("missing seq %d %d  %u %u", num, last->seq, ts_start, duration);
 

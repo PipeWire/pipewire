@@ -31,18 +31,24 @@ static int opus_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 		struct rtp_packet *next, uint32_t num, uint32_t ts_start, uint32_t ts_end)
 {
 	struct rtp_packet *p;
-	uint32_t i, duration, offs;
+	uint32_t i, duration, offs, size;
 	int res;
 	OpusMSDecoder *dec = impl->stream_data;
 	uint8_t *data;
-	uint32_t size;
+	int32_t span;
 
-	duration = (ts_end - ts_start) / num;
+	span = rtp_timestamp_delta(ts_end, ts_start);
+	if (span <= 0)
+		return -EINVAL;
+
+	duration = span / num;
 
 	if ((p = rtp_stream_get_free_packet(impl)) == NULL || p == next)
 		return -ENOSPC;
+	if (duration > p->tmp_size / impl->stride)
+		return -EINVAL;
 
-	size = SPA_MIN(ts_end - ts_start, p->tmp_size/impl->stride);
+	size = SPA_MIN((uint32_t)span, p->tmp_size/impl->stride);
 	data = p->tmp;
 
 	/* one packet to store all PLC/FEC, this size must match the total amount of

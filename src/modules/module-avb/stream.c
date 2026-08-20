@@ -355,7 +355,7 @@ static void on_source_stream_process(void *data)
 		const char *env_target = getenv("MILAN_AVB_PLAY_TARGET");
 
 		if (env_target) {
-			target = atoi(env_target);
+			target = strtol(env_target, NULL, 10);
 		}
 		if (target < (int32_t)(rate / 1000)) {		/* >= ~1 ms underrun margin */
 			target = (int32_t)(rate / 1000);

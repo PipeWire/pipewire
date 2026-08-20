@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
 			data.verbose = true;
 			break;
 		case 'r':
-			ret = atoi(optarg);
+			ret = strtol(optarg, NULL, 10);
 			if (ret <= 0) {
 				fprintf(stderr, "error: bad rate %s\n", optarg);
 				goto error_usage;
@@ -576,7 +576,7 @@ int main(int argc, char *argv[])
 			data.format = ret;
 			break;
 		case 'b':
-			ret = atoi(optarg);
+			ret = strtol(optarg, NULL, 10);
 			if (ret <= 0) {
 				fprintf(stderr, "error: bad blocksize %s\n", optarg);
 				goto error_usage;
@@ -604,7 +604,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'c':
-			ret = atoi(optarg);
+			ret = strtol(optarg, NULL, 10);
 			if (ret <= 0) {
 				fprintf(stderr, "error: bad channel count %s\n", optarg);
 				goto error_usage;

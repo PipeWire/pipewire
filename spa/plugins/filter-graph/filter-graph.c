@@ -625,11 +625,13 @@ static int port_set_control_value(struct port *port, float *value)
 		v = SPA_CLAMP(v, min, max);
 	}
 
+	if (!port->control_initialized || port->control_current != v)
+		count++;
 	port->control_current = v;
 	port->control_initialized = true;
 
 	for (i = 0; i < node->n_hndl; i++)
-		count += port_id_set_control_value(port, i, v);
+		port_id_set_control_value(port, i, v);
 
 	return count;
 }

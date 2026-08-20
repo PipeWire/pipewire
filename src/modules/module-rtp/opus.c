@@ -23,7 +23,7 @@ static int opus_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
 	}
 	p->decoded = p->tmp;
 	p->decoded_len = res * impl->stride;
-	p->timestamp_end = p->timestamp + res;
+	p->duration = res;
 	return 0;
 }
 
@@ -73,7 +73,7 @@ static int opus_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 
 		p->decoded = p->tmp;
 		p->decoded_len = impl->stride * duration;
-		p->timestamp_end = p->timestamp + duration;
+		p->duration = duration;
 
 		if (offs + duration <= size) {
 			//pw_log_info("recover %d %d %d %d with PLC", p->seq, offs, duration, size);
@@ -128,12 +128,11 @@ static void opus_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 				goto skip;
 		}
 
-		ts_end = p->timestamp_end;
+		ts = p->timestamp;
+		samples = p->duration;
+		ts_end = ts + samples;
 		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
 			goto next;
-
-		ts = p->timestamp;
-		samples = ts_end - ts;
 
 		ts_delta = rtp_timestamp_delta(timestamp, ts);
 		if (ts_delta < 0) {

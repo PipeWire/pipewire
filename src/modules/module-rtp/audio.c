@@ -15,7 +15,7 @@ static int audio_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
 {
 	p->decoded = SPA_PTROFF(p->data, p->hlen, void);
 	p->decoded_len = p->size - p->hlen;
-	p->timestamp_end = p->timestamp + (p->decoded_len / impl->stride);
+	p->duration = p->decoded_len / impl->stride;
 	return 0;
 }
 
@@ -23,8 +23,13 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 		struct rtp_packet *next, uint32_t num, uint32_t ts_start, uint32_t ts_end)
 {
 	struct rtp_packet *p;
-	uint32_t i, duration;
+	uint32_t c, i, j, k, duration, n_samp;
 	int32_t span;
+	uint16_t *d;
+	struct spa_burg_pred pred[2];
+	float state[2][16];
+	float coef[2][16];
+	float tmp[512];
 
 	span = rtp_timestamp_delta(ts_end, ts_start);
 	if (span < 0)
@@ -34,7 +39,17 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 	if (duration > impl->mtu / impl->stride)
 		return -EINVAL;
 
-	pw_log_info("missing seq %d %d  %u %u", num, last->seq, ts_start, duration);
+	pw_log_info("missing seq %d %d  %u %u %u", num, last->seq, ts_start, duration, impl->stride);
+
+	n_samp = SPA_MIN(512u, last->duration);
+	for (c = 0; c < 2; c++) {
+		uint16_t *s = last->decoded;
+
+		for (j = 0; j < n_samp; j++)
+			tmp[j] = ((int16_t)ntohs(s[(last->duration - n_samp + j) * 2 + c])) / 32768.0f;
+
+		spa_burg_pred_fit(&pred[c], tmp, n_samp, 0.98, state[c], coef[c], SPA_N_ELEMENTS(coef[c]));
+	}
 
 	for (i = 0; i < num; i++) {
 		if ((p = rtp_stream_get_free_packet(impl)) == NULL || p == next)
@@ -49,8 +64,20 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 		p->size = duration * impl->stride;
 		p->hlen = 0;
 
-		memset(p->data, 0, p->size);
+		d = p->data;
+		for (c = 0; c < 2; c++) {
+			j = 0;
+			while (j < duration) {
+				uint32_t to_process = SPA_MIN(SPA_N_ELEMENTS(tmp), duration - j);
 
+				for (k = 0; k < to_process; k++) {
+					float v = spa_burg_pred_next(&pred[c]);
+					int16_t vs = (int16_t)lrintf(SPA_CLAMPF(v * 32768.0f, -32768, 32767));
+					d[(j+k)*2+c] = htons(vs);
+				}
+				j += to_process;
+			}
+		}
 		pw_log_info("repaired seq %d", p->seq);
 		audio_packet_decode(impl, p);
 	}
@@ -91,14 +118,13 @@ static void audio_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp
 				goto skip;
 		}
 
-		ts_end = p->timestamp_end;
+		ts = p->timestamp;
+		samples = p->duration;
+		ts_end = ts + samples;
 		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
 			goto next;
 
-		ts = p->timestamp;
-		samples = ts_end - ts;
 		ts_delta = rtp_timestamp_delta(timestamp, ts);
-
 		if (ts_delta < 0) {
 			skip = -ts_delta;
 			skip = SPA_MIN(skip, wanted);

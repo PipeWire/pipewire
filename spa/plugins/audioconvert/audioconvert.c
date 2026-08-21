@@ -1650,6 +1650,7 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 		const char *name;
 		struct spa_pod *pod;
 		char value[4096];
+		int res;
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
@@ -1658,7 +1659,11 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 			break;
 
 		if (spa_pod_is_string(pod)) {
-			spa_pod_copy_string(pod, sizeof(value), value);
+			if ((res = spa_pod_copy_string(pod, sizeof(value), value)) < 0) {
+				spa_log_error(this->log, "can't copy value for '%s' (max %zu bytes): %s",
+						name, sizeof(value)-1, spa_strerror(res));
+				continue;
+			}
 		} else if (spa_pod_is_float(pod)) {
 			spa_dtoa(value, sizeof(value),
 					SPA_POD_VALUE(struct spa_pod_float, pod));

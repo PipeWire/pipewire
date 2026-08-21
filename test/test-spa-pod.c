@@ -288,6 +288,17 @@ PWTEST(pod_init)
 		spa_assert_se(SPA_POD_BODY_SIZE(&pod) == 6);
 		spa_assert_se(spa_pod_is_string(&pod.pod.pod));
 		spa_assert_se(spa_pod_copy_string(&pod.pod.pod, sizeof(val), val) < 0);
+
+		/* a valid string that does not fit in dest is rejected, not
+		 * silently truncated */
+		pod.pod	= SPA_POD_INIT_String(9);
+		strncpy(pod.str, "test", 9);
+
+		spa_assert_se(spa_pod_copy_string(&pod.pod.pod, 4, val) == -ENOSPC);
+		spa_assert_se(spa_streq(val, ""));
+		/* an exact fit is still accepted */
+		spa_assert_se(spa_pod_copy_string(&pod.pod.pod, 9, val) == 0);
+		spa_assert_se(spa_streq(val, "test"));
 	}
 	{
 		struct spa_pod_rectangle pod = SPA_POD_INIT_Rectangle(SPA_RECTANGLE(320,240));

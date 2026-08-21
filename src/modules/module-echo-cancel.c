@@ -703,6 +703,7 @@ static int set_params(struct impl* impl, const struct spa_pod *params)
 		const char *name;
 		struct spa_pod *pod;
 		char value[512];
+		int res;
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
@@ -711,7 +712,11 @@ static int set_params(struct impl* impl, const struct spa_pod *params)
 			break;
 
 		if (spa_pod_is_string(pod)) {
-			spa_pod_copy_string(pod, sizeof(value), value);
+			if ((res = spa_pod_copy_string(pod, sizeof(value), value)) < 0) {
+				pw_log_error("can't copy value for '%s' (max %zu bytes): %s",
+						name, sizeof(value)-1, spa_strerror(res));
+				continue;
+			}
 		} else if (spa_pod_is_none(pod)) {
 			spa_zero(value);
 		} else

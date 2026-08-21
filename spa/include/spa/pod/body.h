@@ -243,6 +243,12 @@ SPA_API_POD_BODY int spa_pod_body_copy_string(const struct spa_pod *pod, const v
 	const char *s;
 	if (spa_pod_body_get_string(pod, body, &s) < 0 || maxlen < 1)
 		return -EINVAL;
+	/* pod->size includes the null terminator; a string that does not fit
+	 * is reported as -ENOSPC instead of being silently truncated. */
+	if (pod->size > maxlen) {
+		dest[0] = '\0';
+		return -ENOSPC;
+	}
 	SPA_BARRIER;
 	strncpy(dest, s, maxlen-1);
 	SPA_BARRIER;

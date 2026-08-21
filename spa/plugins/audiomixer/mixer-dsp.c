@@ -863,6 +863,7 @@ static int impl_node_process(void *object)
 	struct ramp_info *ramps;
 	const void **datas;
 	uint32_t cycle = this->position->clock.cycle & 1;
+	uint32_t duration = this->position->clock.duration;
 	struct spa_data *d;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -887,7 +888,7 @@ static int impl_node_process(void *object)
 	ramps = this->ramp_info;
 	n_buffers = n_ramps = 0;
 
-	maxsize = UINT32_MAX;
+	maxsize = duration * sizeof(float);
 
 	spa_list_for_each(inport, &this->mix_list, mix_link) {
 		struct spa_io_buffers *inio;

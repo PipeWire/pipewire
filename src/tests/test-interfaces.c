@@ -360,5 +360,7 @@ int main(int argc, char *argv[])
 	test_client_abi();
 	test_link_abi();
 
+	pw_deinit();
+
 	return 0;
 }

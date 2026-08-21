@@ -1026,8 +1026,8 @@ static int impl_node_enum_params(void *object, int seq,
 {
 	struct impl *this = object;
 	struct spa_pod *param;
-	struct spa_pod_builder b = { 0 };
-	uint8_t buffer[16384];
+	struct spa_pod_dynamic_builder b;
+	uint8_t buffer[4096];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
 	int res = 0;
@@ -1040,37 +1040,45 @@ static int impl_node_enum_params(void *object, int seq,
       next:
 	result.index = result.next++;
 
-	spa_pod_builder_init(&b, buffer, sizeof(buffer));
+	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 4096);
 
 	param = NULL;
 	switch (id) {
 	case SPA_PARAM_EnumPortConfig:
-		res = node_param_enum_port_config(this, id, result.index, &param, &b);
+		res = node_param_enum_port_config(this, id, result.index, &param, &b.b);
 		break;
 	case SPA_PARAM_PortConfig:
-		res = node_param_port_config(this, id, result.index, &param, &b);
+		res = node_param_port_config(this, id, result.index, &param, &b.b);
 		break;
 	case SPA_PARAM_PropInfo:
-		res = node_param_prop_info(this, id, result.index, &param, &b);
+		res = node_param_prop_info(this, id, result.index, &param, &b.b);
 		break;
 	case SPA_PARAM_Props:
-		res = node_param_props(this, id, result.index, &param, &b);
+		res = node_param_props(this, id, result.index, &param, &b.b);
 		break;
 	default:
-		return 0;
+		res = 0;
+		break;
 	}
 	if (res <= 0)
-		return res;
+		goto done;
 
-	if (param == NULL || spa_pod_filter(&b, &result.param, param, filter) < 0)
+	if (param == NULL || spa_pod_filter(&b.b, &result.param, param, filter) < 0) {
+		spa_pod_dynamic_builder_clean(&b);
 		goto next;
+	}
 
 	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+	spa_pod_dynamic_builder_clean(&b);
 
 	if (++count != num)
 		goto next;
 
 	return 0;
+done:
+	spa_pod_dynamic_builder_clean(&b);
+	return res;
 }
 
 static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
@@ -1647,10 +1655,9 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 		return 0;
 
 	while (true) {
-		const char *name;
+		const char *name, *value;
 		struct spa_pod *pod;
-		char value[4096];
-		int res;
+		char buffer[64];
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
@@ -1659,29 +1666,28 @@ static int parse_prop_params(struct impl *this, struct spa_pod *params)
 			break;
 
 		if (spa_pod_is_string(pod)) {
-			if ((res = spa_pod_copy_string(pod, sizeof(value), value)) < 0) {
-				spa_log_error(this->log, "can't copy value for '%s' (max %zu bytes): %s",
-						name, sizeof(value)-1, spa_strerror(res));
+			if (spa_pod_get_string(pod, &value) < 0)
 				continue;
-			}
 		} else if (spa_pod_is_float(pod)) {
-			spa_dtoa(value, sizeof(value),
+			spa_dtoa(buffer, sizeof(buffer),
 					SPA_POD_VALUE(struct spa_pod_float, pod));
+			value = buffer;
 		} else if (spa_pod_is_double(pod)) {
-			spa_dtoa(value, sizeof(value),
+			spa_dtoa(buffer, sizeof(buffer),
 					SPA_POD_VALUE(struct spa_pod_double, pod));
+			value = buffer;
 		} else if (spa_pod_is_int(pod)) {
-			snprintf(value, sizeof(value), "%d",
+			snprintf(buffer, sizeof(buffer), "%d",
 					SPA_POD_VALUE(struct spa_pod_int, pod));
+			value = buffer;
 		} else if (spa_pod_is_long(pod)) {
-			snprintf(value, sizeof(value), "%"PRIi64,
+			snprintf(buffer, sizeof(buffer), "%"PRIi64,
 					SPA_POD_VALUE(struct spa_pod_long, pod));
+			value = buffer;
 		} else if (spa_pod_is_bool(pod)) {
-			snprintf(value, sizeof(value), "%s",
-					SPA_POD_VALUE(struct spa_pod_bool, pod) ?
-					"true" : "false");
+			value = SPA_POD_VALUE(struct spa_pod_bool, pod) ? "true" : "false";
 		} else if (spa_pod_is_none(pod)) {
-			spa_zero(value);
+			value = "";
 		} else
 			continue;
 

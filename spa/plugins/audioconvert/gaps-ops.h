@@ -9,6 +9,10 @@
 #include <spa/param/audio/raw.h>
 
 struct gaps_state {
+#define GAPS_MODE_ZERO		0
+#define GAPS_MODE_NORMAL	1
+#define GAPS_MODE_FADE_IN	2
+#define GAPS_MODE_FADE_OUT	3
 	uint32_t mode;
 	uint32_t count;
 	float history[1];

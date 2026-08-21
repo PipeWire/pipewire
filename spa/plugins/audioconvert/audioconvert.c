@@ -4121,7 +4121,7 @@ static int impl_node_process(void *object)
 					remap = n_src_datas++;
 					src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 					if (SPA_UNLIKELY(port->ramp_start)) {
-						this->gaps.states[remap].mode = 3;
+						this->gaps.states[remap].mode = GAPS_MODE_FADE_OUT;
 						this->gaps.states[remap].count = 0;
 						port->ramp_start = false;
 					}

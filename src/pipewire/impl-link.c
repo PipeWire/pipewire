@@ -1751,8 +1751,8 @@ void pw_impl_link_destroy(struct pw_impl_link *link)
 
 	try_unlink_controls(impl, link->output, link->input);
 
-	output_remove(link);
 	input_remove(link);
+	output_remove(link);
 
 	if (link->global) {
 		spa_hook_remove(&link->global_listener);

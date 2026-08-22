@@ -1156,6 +1156,54 @@ handle_dmabuf_prop (const struct spa_pod_prop *prop,
   }
 }
 
+/* A SPA fraction is a pair of uint32; a GstFraction is a pair of gint. A source that
+ * advertises a long maximum frame interval inverts into a framerate whose denominator
+ * does not fit: v4l2loopback uses UINT32_MAX, and so does the in-tree mgb4 capture
+ * driver, where 0xFFFFFFFF / MGB4_HW_FREQ is a perfectly ordinary "slowest frame"
+ * of 34 seconds. Passed on as it is, the value arrives as -1, gst_caps_set_simple()
+ * decides the range starts after it ends and drops it, and the whole framerate field
+ * is lost from the caps.
+ *
+ * Reduce first, which is exact and enough for mgb4, and scale only if that still does
+ * not fit, which is the case for v4l2loopback's 1/UINT32_MAX. */
+static void
+fraction_to_gst (const struct spa_fraction *f, gint *num, gint *denom)
+{
+  uint32_t n = f->num, d = f->denom, a, b, g;
+
+  if (d == 0) {
+    *num = 0;
+    *denom = 1;
+    return;
+  }
+
+  for (a = n, b = d; b != 0; ) {
+    uint32_t t = a % b;
+    a = b;
+    b = t;
+  }
+  g = a ? a : 1;
+  n /= g;
+  d /= g;
+
+  if (n > G_MAXINT || d > G_MAXINT) {
+    uint64_t m = SPA_MAX (n, d);
+    uint32_t n0 = n;
+
+    n = (uint32_t) ((uint64_t) n * G_MAXINT / m);
+    d = (uint32_t) ((uint64_t) d * G_MAXINT / m);
+    /* 0/1 is how GStreamer spells a variable frame rate, so do not let a very
+     * small rate round down into it. */
+    if (n == 0 && n0 != 0)
+      n = 1;
+    if (d == 0)
+      d = 1;
+  }
+
+  *num = (gint) n;
+  *denom = (gint) d;
+}
+
 static void
 handle_int_prop (const struct spa_pod_prop *prop, const char *key, GstCaps *res)
 {
@@ -1289,13 +1337,15 @@ handle_fraction_prop (const struct spa_pod_prop *prop, const char *key, GstCaps 
 
       if (fract[1].num == fract[2].num &&
           fract[1].denom == fract[2].denom) {
-        gst_caps_set_simple (res, key, GST_TYPE_FRACTION,
-            fract[1].num, fract[1].denom, NULL);
+        gint n1, d1;
+        fraction_to_gst (&fract[1], &n1, &d1);
+        gst_caps_set_simple (res, key, GST_TYPE_FRACTION, n1, d1, NULL);
       } else {
+        gint n1, d1, n2, d2;
+        fraction_to_gst (&fract[1], &n1, &d1);
+        fraction_to_gst (&fract[2], &n2, &d2);
         gst_caps_set_simple (res, key, GST_TYPE_FRACTION_RANGE,
-            fract[1].num, fract[1].denom,
-            fract[2].num, fract[2].denom,
-            NULL);
+            n1, d1, n2, d2, NULL);
       }
       break;
     }

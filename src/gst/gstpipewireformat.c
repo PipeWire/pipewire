@@ -1204,6 +1204,62 @@ fraction_to_gst (const struct spa_fraction *f, gint *num, gint *denom)
   *denom = (gint) d;
 }
 
+/* A GST_TYPE_INT_RANGE is resolved by gst_caps_fixate() to its minimum, so the value
+ * the source said it preferred - values[0] of the choice - was dropped on the way
+ * into caps, and every consumer without a preference of its own ended up at the
+ * bottom of every range. Keep it as the first entry of a list with the range behind
+ * it: fixation lands on the preferred value, and a consumer that does have a
+ * preference still finds the range. */
+static void
+set_pref_int_range (GstCaps *res, const char *key, int pref, int min, int max)
+{
+  GValue list = { 0 }, v = { 0 };
+
+  if (pref <= min || pref > max) {
+    gst_caps_set_simple (res, key, GST_TYPE_INT_RANGE, min, max, NULL);
+    return;
+  }
+
+  g_value_init (&list, GST_TYPE_LIST);
+  g_value_init (&v, G_TYPE_INT);
+  g_value_set_int (&v, pref);
+  gst_value_list_append_and_take_value (&list, &v);
+  g_value_init (&v, GST_TYPE_INT_RANGE);
+  gst_value_set_int_range (&v, min, max);
+  gst_value_list_append_and_take_value (&list, &v);
+  gst_caps_set_value (res, key, &list);
+  g_value_unset (&list);
+}
+
+static void
+set_pref_fraction_range (GstCaps *res, const char *key,
+    const struct spa_fraction *pref, const struct spa_fraction *min,
+    const struct spa_fraction *max)
+{
+  GValue list = { 0 }, v = { 0 };
+  gint pn, pd, mn, md, xn, xd;
+
+  fraction_to_gst (pref, &pn, &pd);
+  fraction_to_gst (min, &mn, &md);
+  fraction_to_gst (max, &xn, &xd);
+
+  if (gst_util_fraction_compare (pn, pd, mn, md) <= 0 ||
+      gst_util_fraction_compare (pn, pd, xn, xd) > 0) {
+    gst_caps_set_simple (res, key, GST_TYPE_FRACTION_RANGE, mn, md, xn, xd, NULL);
+    return;
+  }
+
+  g_value_init (&list, GST_TYPE_LIST);
+  g_value_init (&v, GST_TYPE_FRACTION);
+  gst_value_set_fraction (&v, pn, pd);
+  gst_value_list_append_and_take_value (&list, &v);
+  g_value_init (&v, GST_TYPE_FRACTION_RANGE);
+  gst_value_set_fraction_range_full (&v, mn, md, xn, xd);
+  gst_value_list_append_and_take_value (&list, &v);
+  gst_caps_set_value (res, key, &list);
+  g_value_unset (&list);
+}
+
 static void
 handle_int_prop (const struct spa_pod_prop *prop, const char *key, GstCaps *res)
 {
@@ -1226,7 +1282,7 @@ handle_int_prop (const struct spa_pod_prop *prop, const char *key, GstCaps *res)
     {
       if (n_items < 3)
         return;
-      gst_caps_set_simple (res, key, GST_TYPE_INT_RANGE, ints[1], ints[2], NULL);
+      set_pref_int_range (res, key, ints[0], ints[1], ints[2]);
       break;
     }
     case SPA_CHOICE_Enum:
@@ -1279,10 +1335,8 @@ handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char
             height, G_TYPE_INT, rect[1].height,
             NULL);
       } else {
-        gst_caps_set_simple (res,
-            width, GST_TYPE_INT_RANGE, rect[1].width, rect[2].width,
-            height, GST_TYPE_INT_RANGE, rect[1].height, rect[2].height,
-            NULL);
+        set_pref_int_range (res, width, rect[0].width, rect[1].width, rect[2].width);
+        set_pref_int_range (res, height, rect[0].height, rect[1].height, rect[2].height);
       }
       break;
     }
@@ -1341,11 +1395,7 @@ handle_fraction_prop (const struct spa_pod_prop *prop, const char *key, GstCaps 
         fraction_to_gst (&fract[1], &n1, &d1);
         gst_caps_set_simple (res, key, GST_TYPE_FRACTION, n1, d1, NULL);
       } else {
-        gint n1, d1, n2, d2;
-        fraction_to_gst (&fract[1], &n1, &d1);
-        fraction_to_gst (&fract[2], &n2, &d2);
-        gst_caps_set_simple (res, key, GST_TYPE_FRACTION_RANGE,
-            n1, d1, n2, d2, NULL);
+        set_pref_fraction_range (res, key, &fract[0], &fract[1], &fract[2]);
       }
       break;
     }

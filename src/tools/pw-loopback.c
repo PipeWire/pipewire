@@ -233,16 +233,22 @@ int main(int argc, char *argv[])
 				data.latency, DEFAULT_RATE);
 	if (data.delay != 0.0f)
 		spa_json_builder_object_double(&b, "target.delay.sec", data.delay);
-	if (data.channels != 0)
-		spa_json_builder_object_uint(&b, "audio.channels", data.channels);
-	if (data.opt_channel_map != NULL)
-		spa_json_builder_object_value(&b, true, "audio.position", data.opt_channel_map);
 	if (data.opt_node_name != NULL)
 		spa_json_builder_object_string(&b, "node.name", data.opt_node_name);
 
 	if (data.opt_group_name != NULL) {
 		pw_properties_set(data.capture_props, PW_KEY_NODE_GROUP, data.opt_group_name);
 		pw_properties_set(data.playback_props, PW_KEY_NODE_GROUP, data.opt_group_name);
+	}
+	if (pw_properties_get(data.capture_props, SPA_KEY_AUDIO_CHANNELS) == NULL &&
+	    pw_properties_get(data.capture_props, SPA_KEY_AUDIO_POSITION) == NULL) {
+		pw_properties_setf(data.capture_props, SPA_KEY_AUDIO_CHANNELS, "%u", data.channels);
+		pw_properties_set(data.capture_props, SPA_KEY_AUDIO_POSITION, data.opt_channel_map);
+	}
+	if (pw_properties_get(data.playback_props, SPA_KEY_AUDIO_CHANNELS) == NULL &&
+	    pw_properties_get(data.playback_props, SPA_KEY_AUDIO_POSITION) == NULL) {
+		pw_properties_setf(data.playback_props, SPA_KEY_AUDIO_CHANNELS, "%u", data.channels);
+		pw_properties_set(data.playback_props, SPA_KEY_AUDIO_POSITION, data.opt_channel_map);
 	}
 
 	spa_json_builder_object_push(&b,  "capture.props", "{");

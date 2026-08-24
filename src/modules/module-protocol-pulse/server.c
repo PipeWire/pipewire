@@ -123,7 +123,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 		(((uint64_t) ntohl(client->desc.offset_lo))));
 	flags = ntohl(client->desc.flags);
 
-	pw_log_debug("client %p: received memblock channel:%d offset:%" PRIi64 " flags:%08x size:%u",
+	pw_log_trace("client %p: received memblock channel:%d offset:%" PRIi64 " flags:%08x size:%u",
 		     client, channel, offset, flags, msg->length);
 
 	stream = pw_map_lookup(&client->streams, channel);
@@ -135,7 +135,7 @@ static int handle_memblock(struct client *client, struct message *msg)
 	}
 
 	filled = spa_ringbuffer_get_write_index(&stream->ring, &index);
-	pw_log_debug("new block %p %p/%u filled:%d index:%d flags:%02x offset:%" PRIu64,
+	pw_log_trace("new block %p %p/%u filled:%d index:%d flags:%02x offset:%" PRIu64,
 		     msg, msg->data, msg->length, filled, index, flags, offset);
 
 	switch (flags & FLAG_SEEKMASK) {

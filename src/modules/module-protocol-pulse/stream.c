@@ -386,7 +386,7 @@ int stream_send_request(struct stream *stream)
 	if (size == 0)
 		return 0;
 
-	pw_log_debug("stream %p: REQUEST channel:%d %u", stream, stream->channel, size);
+	pw_log_trace("stream %p: REQUEST channel:%d %u", stream, stream->channel, size);
 
 	msg = message_alloc(impl, -1, 0);
 	message_put(msg,

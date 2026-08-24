@@ -3083,7 +3083,13 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 
 		bw = (fabs(state->err_avg) + sqrt(fabs(state->err_var)))/1000.0;
 
-		spa_log_debug(state->log, "%s: follower:%d match:%d rate:%f "
+		/* Downgrade to TRACE in nominal operation (rate ~= 1.0, err ~= 0)
+		 * to avoid flooding logs every BW_PERIOD; DEBUG only when correction
+		 * is non-trivial. */
+		spa_log_lev(state->log,
+				(fabs(corr - 1.0) > 0.001 || fabs(err) > state->max_resync * 0.5)
+					? SPA_LOG_LEVEL_DEBUG : SPA_LOG_LEVEL_TRACE,
+				"%s: follower:%d match:%d rate:%f "
 				"bw:%f thr:%u del:%ld target:%ld err:%f max_err:%f max_resync: %f var:%f:%f:%f",
 				state->name, follower, state->matching,
 				corr, state->dll.bw, state->threshold, delay, target,

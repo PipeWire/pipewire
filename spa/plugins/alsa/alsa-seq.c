@@ -982,7 +982,11 @@ static int update_time(struct seq_state *state, uint64_t nsec, bool follower)
 
 	if ((state->next_time - state->base_time) > BW_PERIOD) {
 		state->base_time = state->next_time;
-		spa_log_debug(state->log, "%p: follower:%d rate:%f bw:%f err:%f (%f %f %f)",
+		/* Downgrade to TRACE in nominal operation to avoid log flooding. */
+		spa_log_lev(state->log,
+				(fabs(corr - 1.0) > 0.001)
+					? SPA_LOG_LEVEL_DEBUG : SPA_LOG_LEVEL_TRACE,
+				"%p: follower:%d rate:%f bw:%f err:%f (%f %f %f)",
 				state, follower, corr, state->dll.bw, err,
 				state->dll.z1, state->dll.z2, state->dll.z3);
 	}

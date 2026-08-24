@@ -508,7 +508,11 @@ static void on_timeout(struct spa_source *source)
 
 	if (SPA_UNLIKELY((this->next_time - this->base_time) > BW_PERIOD)) {
 		this->base_time = this->next_time;
-		spa_log_debug(this->log, "%p: rate:%f "
+		/* Downgrade to TRACE in nominal operation to avoid log flooding. */
+		spa_log_lev(this->log,
+				(fabs(corr - 1.0) > 0.001 || fabs(err) > this->max_error * 0.5)
+					? SPA_LOG_LEVEL_DEBUG : SPA_LOG_LEVEL_TRACE,
+			"%p: rate:%f "
 			"bw:%f dur:%"PRIu64" max:%f drift:%f",
 				this, corr, this->dll.bw, duration,
 				this->max_error, err);

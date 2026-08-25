@@ -890,7 +890,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 			if (info.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
 				info.info.raw.rate = 0;
-			} else {
+			} else if (mode != SPA_PARAM_PORT_CONFIG_MODE_passthrough) {
 				const char *subtype_name = spa_type_to_short_name(info.media_subtype,
 										spa_type_media_subtype,
 										"<unknown>");

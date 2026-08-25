@@ -83,10 +83,9 @@ static inline void conv_sse(float *d, const float **s, float *c, uint32_t n_c, u
 	}
 }
 
-static inline void avg_sse(float *d, const float *s0, const float *s1, uint32_t n_samples)
+static inline void add_sse(float *d, const float *s0, const float *s1, uint32_t n_samples)
 {
 	uint32_t n, unrolled;
-	__m128 half = _mm_set1_ps(0.5f);
 
 	if (SPA_IS_ALIGNED(d, 16) &&
 	    SPA_IS_ALIGNED(s0, 16) &&
@@ -97,26 +96,20 @@ static inline void avg_sse(float *d, const float *s0, const float *s1, uint32_t 
 
 	for (n = 0; n < unrolled; n += 8) {
 		_mm_store_ps(&d[n + 0],
-				_mm_mul_ps(
-					_mm_add_ps(
-						_mm_load_ps(&s0[n + 0]),
-						_mm_load_ps(&s1[n + 0])),
-					half));
+				_mm_add_ps(
+					_mm_load_ps(&s0[n + 0]),
+					_mm_load_ps(&s1[n + 0])));
 		_mm_store_ps(&d[n + 4],
-				_mm_mul_ps(
-					_mm_add_ps(
-						_mm_load_ps(&s0[n + 4]),
-						_mm_load_ps(&s1[n + 4])),
-					half));
+				_mm_add_ps(
+					_mm_load_ps(&s0[n + 4]),
+					_mm_load_ps(&s1[n + 4])));
 	}
 
 	for (; n < n_samples; n++)
 		_mm_store_ss(&d[n],
-				_mm_mul_ss(
-					_mm_add_ss(
-						_mm_load_ss(&s0[n]),
-						_mm_load_ss(&s1[n])),
-					half));
+				_mm_add_ss(
+					_mm_load_ss(&s0[n]),
+					_mm_load_ss(&s1[n])));
 }
 
 static inline void sub_sse(float *d, const float *s0, const float *s1, uint32_t n_samples)
@@ -396,7 +389,7 @@ channelmix_f32_2_3p1_sse(struct channelmix *mix, void * SPA_RESTRICT dst[],
 		if (mix->widen == 0.0f) {
 			vol_sse(d[0], s[0], v0, n_samples);
 			vol_sse(d[1], s[1], v1, n_samples);
-			avg_sse(d[2], s[0], s[1], n_samples);
+			add_sse(d[2], s[0], s[1], n_samples);
 		} else {
 			const __m128 mv0 = _mm_set1_ps(matrix[0][0]);
 			const __m128 mv1 = _mm_set1_ps(matrix[1][1]);

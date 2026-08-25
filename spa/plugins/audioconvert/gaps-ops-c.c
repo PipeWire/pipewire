@@ -58,14 +58,10 @@ static int run_gap_check_ramp(struct gaps *gaps, uint32_t c, const float * SPA_R
 	struct gaps_state *s = &gaps->states[c];
 	const float *in = src[c];
 
-	if (s->mode == GAPS_MODE_ZERO)
-		s->mode = GAPS_MODE_NORMAL;
-
-	if (s->mode == GAPS_MODE_NORMAL) {
+	if (s->mode == GAPS_MODE_ZERO || s->mode == GAPS_MODE_NORMAL) {
 		/* in normal mode remember last sample */
 		if (n_samples > 0)
 			s->history[0] = in[n_samples-1];
-		*empty = false;
 		return 0;
 	}
 	*empty = false;
@@ -76,8 +72,8 @@ int gaps_check_c(struct gaps *gaps, const float * SPA_RESTRICT src[], uint32_t n
 {
 	uint32_t c;
 	int res = 0;
-	gaps->empty = true;
 	if (gaps->gap > 0) {
+		gaps->empty = true;
 		for (c = 0; c < gaps->channels; c++)
 			res += run_gap_check(gaps, c, src, n_samples, &gaps->empty);
 	} else {
@@ -147,7 +143,7 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 
 			if (++s->count >= gaps->duration) {
 				/* fade out complete, go to zero mode */
-				s->mode = gaps->gap ? GAPS_MODE_ZERO : GAPS_MODE_NORMAL;
+				s->mode = GAPS_MODE_ZERO;
 				s->count = 0;
 				spa_log_debug(gaps->log, "%p stop %d  fade-out %d", gaps, c, n);
 			}

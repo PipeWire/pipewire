@@ -3778,14 +3778,15 @@ static void add_src_convert_stage(struct impl *impl, struct stage_context *ctx)
 static void run_gap_detect_stage(struct stage *s, struct stage_context *c)
 {
 	struct impl *impl = s->impl;
+	impl->gaps.empty = c->empty;
 	if (gaps_check(&impl->gaps, (const float**)c->datas[s->in_idx], c->n_samples)) {
 		gaps_fix(&impl->gaps, (float**)c->datas[s->out_idx],
 				(const float**)c->datas[s->in_idx], c->n_samples);
 		c->datas[CTX_DATA_GAP] = c->datas[s->out_idx];
 	} else {
-		c->empty = impl->gaps.empty;
 		c->datas[CTX_DATA_GAP] = c->datas[s->in_idx];
 	}
+	c->empty = impl->gaps.empty;
 	spa_log_trace_fp(impl->log, "%p: gap %d", impl, c->n_samples);
 }
 
@@ -4331,8 +4332,8 @@ static int impl_node_process(void *object)
 	this->out_offset += ctx.n_samples;
 	out_empty = ctx.empty;
 
-	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d", this->in_offset, max_in,
-			this->out_offset, max_out, n_samples, n_out);
+	spa_log_trace_fp(this->log, "%d/%d  %d/%d %d->%d %d->%d", this->in_offset, max_in,
+			this->out_offset, max_out, n_samples, n_out, in_empty, out_empty);
 
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	if (SPA_LIKELY(this->in_offset >= max_in || flush_in)) {

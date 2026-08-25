@@ -931,9 +931,9 @@ int channelmix_init(struct channelmix *mix)
 		mix->buffer_size = MAX_BUFFER_SIZE;
 		mix->delay = MAX_BUFFER_SIZE - mix->n_taps;
 	}
-
 	taps_size = SPA_ROUND_UP(mix->n_taps * sizeof(float), CHANNELMIX_OPS_MAX_ALIGN);
-	buffer_size = SPA_ROUND_UP(mix->buffer_size*2 * sizeof(float), CHANNELMIX_OPS_MAX_ALIGN);
+	buffer_size = SPA_ROUND_UP(mix->buffer_size*2 * sizeof(float) +
+			CHANNELMIX_OPS_MAX_ALIGN, CHANNELMIX_OPS_MAX_ALIGN);
 	matrix_size = SPA_ROUND_UP(mix->src_chan * mix->dst_chan * sizeof(float), CHANNELMIX_OPS_MAX_ALIGN);
 	lr4_size = SPA_ROUND_UP(mix->dst_chan * sizeof(struct lr4), CHANNELMIX_OPS_MAX_ALIGN);
 
@@ -949,6 +949,7 @@ int channelmix_init(struct channelmix *mix)
 	mix->matrix = SPA_PTROFF_ALIGN(mix->buffer[1], buffer_size, CHANNELMIX_OPS_MAX_ALIGN, float);
 	mix->matrix_orig = SPA_PTROFF_ALIGN(mix->matrix, matrix_size, CHANNELMIX_OPS_MAX_ALIGN, float);
 	mix->lr4 = SPA_PTROFF_ALIGN(mix->matrix_orig, matrix_size, CHANNELMIX_OPS_MAX_ALIGN, struct lr4);
+
 
 	b[0] = SPA_PTROFF_ALIGN(mix->lr4, lr4_size, CHANNELMIX_OPS_MAX_ALIGN, float);
 	b[1] = SPA_PTROFF_ALIGN(b[0], matrix_size, CHANNELMIX_OPS_MAX_ALIGN, float);

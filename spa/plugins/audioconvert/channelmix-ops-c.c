@@ -111,7 +111,7 @@ static inline void delay_convolve_run_c(float *buffer, uint32_t *pos,
 {
 	uint32_t i, j;
 	uint32_t w = *pos;
-	uint32_t o = n_buffer - delay - n_taps-1;
+	uint32_t o = n_buffer - delay - (n_taps-1);
 
 	if (n_taps == 1) {
 		for (i = 0; i < n_samples; i++) {

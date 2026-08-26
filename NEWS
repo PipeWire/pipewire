@@ -1,3 +1,63 @@
+# PipeWire 1.6.9 (2026-09-17)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Improve JACK object callbacks, avoid reporting old removed objects.
+  - Tweak the resampler cutoff frequencies to preserve more high frequencies
+    when upsampling.
+  - More small fixes and improvements.
+
+## Modules
+  - Fix RAOP encryption for OpenSSL >= 3. (#5370)
+  - Fix netjack2 discovery timeout.
+  - Fix potential truncated audio in RAOP.
+  - Fix potential metadata update problems. (#5445)
+  - Fix RAOP over TCP.
+  - Fix potential overflows in client node buffer checks. (#5462)
+  - Add node.network=true to network sinks and sources so that
+    pavucontrol and others don't wake them up. (#3268)
+
+## SPA
+  - Fix opus audio info type.
+  - Tweak the upsample cutoff frequencies to preserve more high frequencies
+    when upsampling. (#5390)
+  - Fix filter-graph property notification in some cases.
+  - Remove limits on filter-graph descriptions in audioconvert.
+  - Improve dynamic reconfiguration of filter-graphs in audioconvert.
+  - Improve passthrough format handling in audioconvert.
+  - Improve the FC and LFE volumes when upmixing is enabled.
+  - Fix v4l2 controls when one can not be read.
+  - Require 0.6.0 libcamera now.
+  - Improve format filtering in v4l2.
+
+## Pulse-server
+  - Don't let a pending sibling message starve capture.
+  - Fix name of ALSA source.
+  - Fix potential crash with the active_port_name. (#5435)
+
+## Bluetooth
+  - Fix a potential leak when transport fails to start.
+  - Fix potential crash when cleaning up iso-io transport.
+
+## JACK
+  - Rework the object lookups to avoid removed objects from leaking. (#5356)
+
+## GStreamer
+  - Add fixes for state changes and other lockups.
+
+## ALSA Plugin
+  - Generate poll errors when stopping. (#5444)
+
+## Tools
+  - Handle EOF correctly for encoded files in pw-cat.
+  - Fix loopback channel and position handling.
+  - Fix mp3 encoding in pw-record.
+  - Support A-law in pw-record.
+
+Older versions:
+
 # PipeWire 1.6.8 (2026-07-09)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -37,9 +97,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 ## GStreamer
   - Skip invalid crop metadata.
   - Avoid crash because metadata listener was registered twice.
-
-
-Older versions:
 
 # PipeWire 1.6.7 (2026-06-18)
 

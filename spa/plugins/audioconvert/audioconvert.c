@@ -1405,6 +1405,27 @@ static void sync_filter_graph(struct impl *impl)
 		do_sync_filter_graph(NULL, false, 0, NULL, 0, impl);
 }
 
+/* Pull graphs that the data-loop must not run anymore out of its view (under
+ * the loop lock, via sync_filter_graph). A forced unpublish also drops graphs
+ * that are about to be deactivated and re-instantiated, which frees and
+ * recreates the underlying plugin handles, so the RT thread cannot run a graph
+ * while its handles are NULL. They are republished by the sync_filter_graph()
+ * that follows setup. */
+static void unpublish_filter_graphs(struct impl *impl, bool force)
+{
+	struct filter_graph *g;
+	bool sync = false;
+
+	spa_list_for_each(g, &impl->active_graphs, link) {
+		if (force && !g->removing)
+			g->setup = false;
+		if (g->removing || !g->setup)
+			sync = true;
+	}
+	if (sync)
+		sync_filter_graph(impl);
+}
+
 static int setup_filter_graphs(struct impl *impl, bool force)
 {
 	int res;
@@ -1419,19 +1440,12 @@ static int setup_filter_graphs(struct impl *impl, bool force)
 	position = in->format.info.raw.position;
 	impl->maxports = SPA_MAX(in->format.info.raw.channels, out->format.info.raw.channels);
 
-	if (force) {
-		/* A forced setup deactivates and re-instantiates each graph below,
-		 * which frees and recreates the underlying plugin handles. Pull the
-		 * graphs out of the data-loop's view first (under the loop lock, via
-		 * sync_filter_graph) so the RT thread cannot run a graph while its
-		 * handles are NULL during the rebuild. They are republished by the
-		 * sync_filter_graph() that follows setup. */
-		spa_list_for_each(g, &impl->active_graphs, link) {
-			if (!g->removing)
-				g->setup = false;
-		}
-		sync_filter_graph(impl);
-	}
+	/* Only a forced setup rebuilds the graphs. Without it the currently
+	 * published graphs stay valid and must keep running until the new ones
+	 * are activated, so that the sync_filter_graph() after setup swaps them
+	 * in without a gap. */
+	if (force)
+		unpublish_filter_graphs(impl, true);
 
 	spa_list_for_each_safe(g, t, &impl->active_graphs, link) {
 		if (g->removing)
@@ -1457,6 +1471,8 @@ static int setup_filter_graphs(struct impl *impl, bool force)
 static void clean_filter_handles(struct impl *impl, bool force)
 {
 	struct filter_graph *g, *t;
+
+	unpublish_filter_graphs(impl, force);
 
 	spa_list_for_each_safe(g, t, &impl->active_graphs, link) {
 		if (!g->removing && !force)
@@ -2722,6 +2738,10 @@ static int setup_convert(struct impl *this)
 static void reset_node(struct impl *this)
 {
 	struct filter_graph *g;
+
+	/* deactivating a graph tears down its plugin instances, so take the
+	 * graphs out of the data-loop's view first */
+	unpublish_filter_graphs(this, true);
 
 	spa_list_for_each(g, &this->active_graphs, link) {
 		if (g->graph)

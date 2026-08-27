@@ -85,7 +85,6 @@ struct port {
 	uint32_t n_buffers;
 
 	struct spa_list queue;
-	size_t queued_bytes;
 
 	struct spa_list mix_link;
 	bool active:1;

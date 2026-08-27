@@ -1865,8 +1865,8 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	if (dont_inhibit_auto_suspend)
 		pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");
 
-	if ((str = pw_properties_get(client->props, "pulse.zeroramp.gap")) != NULL)
-		pw_properties_set(props, "zeroramp.gap", str);
+	if ((str = pw_properties_get(client->props, "pulse.fade.gap")) != NULL)
+		pw_properties_set(props, "fade.gap", str);
 
 	stream->stream = pw_stream_new(client->core, name, spa_steal_ptr(props));
 	if (stream->stream == NULL)

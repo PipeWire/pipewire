@@ -361,8 +361,8 @@ context.objects = [
             #channelmix.hilbert-taps = 0
             #channelmix.disable     = false
             #dither.noise = 0
-            #zeroramp.gap           = 0
-            #zeroramp.duration      = 0.005
+            #fade.gap               = 0
+            #fade.duration          = 0.005
             #node.param.Props       = {
             #    params = [
             #        audio.channels 6
@@ -429,8 +429,8 @@ context.objects = [
             #channelmix.hilbert-taps = 0
             #channelmix.disable     = false
             #dither.noise = 0
-            #zeroramp.gap           = 0
-            #zeroramp.duration      = 0.005
+            #fade.gap               = 0
+            #fade.duration          = 0.005
             #node.param.Props       = {
             #    params = [
             #        audio.format  S16

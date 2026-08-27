@@ -78,7 +78,7 @@
  *     #pulse.idle.timeout     = 0
  *     #pulse.max-streams      = 64
  *     #pulse.max-sample-cache = 67108864
- *     #pulse.zeroramp.gap     = 0             # detect silence of N samples and fade-in/out
+ *     #pulse.fade.gap         = 0             # detect silence of N samples and fade-in/out
  * }
  *
  * pulse.properties.rules = [
@@ -264,7 +264,7 @@
  * 67108864 (64MB).
  *
  *\code{.unparsed}
- *     pulse.zeroramp.gap = 0
+ *     pulse.fade.gap = 0
  *\endcode
  *
  * Enable silence detection of a playback stream and perform fade-in and fade-out on

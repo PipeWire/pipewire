@@ -109,7 +109,7 @@ struct props {
 	char wav_path[512];
 	unsigned int lock_volumes:1;
 	unsigned int filter_graph_disabled:1;
-	float zeroramp_duration;
+	float fade_duration;
 };
 
 static void props_reset(struct props *props)
@@ -133,7 +133,7 @@ static void props_reset(struct props *props)
 	spa_zero(props->wav_path);
 	props->lock_volumes = false;
 	props->filter_graph_disabled = false;
-	props->zeroramp_duration = 0.005f;
+	props->fade_duration = 0.005f;
 }
 
 struct buffer {
@@ -1650,10 +1650,10 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 					order, spa_strerror(res));
 		}
 	}
-	else if (spa_streq(k, "zeroramp.gap"))
+	else if (spa_streq(k, "fade.gap"))
 		spa_atou32(s, &this->gaps.gap, 0);
-	else if (spa_streq(k, "zeroramp.duration"))
-		spa_atof(s, &this->props.zeroramp_duration);
+	else if (spa_streq(k, "fade.duration"))
+		spa_atof(s, &this->props.fade_duration);
 	else
 		return 0;
 	return 1;
@@ -2478,7 +2478,7 @@ static int setup_resample(struct impl *this)
 	this->gaps.channels = channels;
 	this->gaps.log = this->log;
 	this->gaps.cpu_flags = this->cpu_flags;
-	this->gaps.duration = (uint32_t)(this->props.zeroramp_duration * in->format.info.raw.rate);
+	this->gaps.duration = (uint32_t)(this->props.fade_duration * in->format.info.raw.rate);
 	gaps_init(&this->gaps);
 
 	this->resample.channels = channels;

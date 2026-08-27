@@ -79,8 +79,8 @@ static int setup_context(struct context *ctx)
 	items[6] = SPA_DICT_ITEM_INIT("channelmix.center-level", "0.707106781");
 	items[7] = SPA_DICT_ITEM_INIT("channelmix.surround-level", "0.707106781");
 	items[8] = SPA_DICT_ITEM_INIT("channelmix.lfe-level", "0.5");
-	items[9] = SPA_DICT_ITEM_INIT("zeroramp.gap", "0");
-	items[10] = SPA_DICT_ITEM_INIT("zeroramp.duration", "0.0");
+	items[9] = SPA_DICT_ITEM_INIT("fade.gap", "0");
+	items[10] = SPA_DICT_ITEM_INIT("fade.duration", "0.0");
 
 	res = spa_handle_factory_init(factory,
 			ctx->convert_handle,

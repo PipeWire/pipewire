@@ -112,8 +112,8 @@ stream.properties = {
     #channelmix.stereo-widen = 0.0
     #channelmix.hilbert-taps = 0
     #dither.noise            = 0
-    #zeroramp.gap            = 0
-    #zeroramp.duration       = 0.005
+    #fade.gap                = 0
+    #fade.duration           = 0.005
 }
 
 stream.rules = [

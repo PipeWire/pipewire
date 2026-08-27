@@ -543,9 +543,9 @@ static int check_properties(struct pw_impl_port *port)
 	} else {
 		port->passive_mode = passive_mode_from_string(str);
 	}
-	if ((str = pw_properties_get(port->properties, "zeroramp.duration")) == NULL) {
-		if ((str = pw_properties_get(node->properties, "zeroramp.duration")) != NULL)
-			pw_properties_set(port->properties, "zeroramp.duration", str);
+	if ((str = pw_properties_get(port->properties, "fade.duration")) == NULL) {
+		if ((str = pw_properties_get(node->properties, "fade.duration")) != NULL)
+			pw_properties_set(port->properties, "fade.duration", str);
 	}
 
 	if (media_class != NULL &&
@@ -1157,8 +1157,8 @@ static int setup_mixer(struct pw_impl_port *port, const struct spa_pod *param)
 	items[n_items++] = SPA_DICT_ITEM_INIT(PW_KEY_NODE_LOOP_NAME, port->node->data_loop->name);
 	if ((str = pw_properties_get(port->properties, "control.ump")) != NULL)
 		items[n_items++] = SPA_DICT_ITEM_INIT("control.ump", str);
-	if ((str = pw_properties_get(port->properties, "zeroramp.duration")) != NULL)
-		items[n_items++] = SPA_DICT_ITEM_INIT("zeroramp.duration", str);
+	if ((str = pw_properties_get(port->properties, "fade.duration")) != NULL)
+		items[n_items++] = SPA_DICT_ITEM_INIT("fade.duration", str);
 
 	handle = pw_context_load_spa_handle(context, factory_name,
 			&SPA_DICT_INIT(items, n_items));

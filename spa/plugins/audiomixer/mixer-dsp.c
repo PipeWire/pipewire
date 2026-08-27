@@ -35,6 +35,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.mixer-dsp");
 #define MAX_ALIGN	MIX_OPS_MAX_ALIGN
 #define MAX_CURVE	4096u
 
+#define FADE_DURATION		0.005f
+
 #define PORT_DEFAULT_VOLUME	1.0
 #define PORT_DEFAULT_MUTE	false
 
@@ -136,7 +138,7 @@ struct impl {
 
 	float curve[MAX_CURVE];
 	uint32_t n_curve;
-	float zeroramp_duration;
+	float fade_duration;
 
 	unsigned int have_format:1;
 	unsigned int started:1;
@@ -1089,18 +1091,18 @@ impl_init(const struct spa_handle_factory *factory,
 		this->max_align = SPA_MIN(MAX_ALIGN, spa_cpu_get_max_align(this->cpu));
 	}
 
-	this->zeroramp_duration = 0.005f;
+	this->fade_duration = FADE_DURATION;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
 		if (spa_streq(k, "clock.quantum-limit"))
 			spa_atou32(s, &this->quantum_limit, 0);
-		if (spa_streq(k, "zeroramp.duration"))
-			spa_atof(s, &this->zeroramp_duration);
+		if (spa_streq(k, "fade.duration"))
+			spa_atof(s, &this->fade_duration);
 	}
 
-	this->n_curve = SPA_MIN((uint32_t)(this->zeroramp_duration * 48000), MAX_CURVE);
+	this->n_curve = SPA_MIN((uint32_t)(this->fade_duration * 48000), MAX_CURVE);
 	/* S-shaped curve */
 	for (i = 0; i < this->n_curve; i++)
 		this->curve[i] = (float)(0.5 + 0.5 * cos(M_PI + M_PI * i / this->n_curve));

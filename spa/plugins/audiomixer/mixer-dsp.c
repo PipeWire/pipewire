@@ -83,6 +83,7 @@ struct port {
 
 	struct buffer *buffers;
 	uint32_t n_buffers;
+	uint32_t last_buffer;
 
 	struct spa_list queue;
 
@@ -753,7 +754,29 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 		port->io[0] = NULL;
 		port->io[1] = NULL;
 		port->removing = true;
-		port->ramp_pos = impl->n_curve;
+
+		if (port->direction == SPA_DIRECTION_INPUT &&
+		    port->last_buffer < port->n_buffers) {
+			struct buffer *buf = &port->buffers[port->last_buffer];
+			uint32_t offs, size;
+			float *s;
+			struct spa_data *bd = &buf->buffer->datas[0];
+
+			offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+			size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
+			s = SPA_PTROFF(bd->data, offs, float);
+			size /= sizeof(float);
+
+			if (size > 0)
+				port->history[0] = s[size-1];
+
+			spa_log_info(impl->log, "fade-out %u/%u %f",
+					port->ramp_pos, impl->n_curve, port->history[0]);
+
+			port->ramp_pos = impl->n_curve;
+		} else {
+			port->ramp_pos = 0;
+		}
 	} else {
 		if (info->size >= sizeof(struct spa_io_async_buffers)) {
 			struct spa_io_async_buffers *ab = info->data;
@@ -766,7 +789,8 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 		port->removing = false;
 		port->ramp_pos = 0;
 		if (port->direction == SPA_DIRECTION_INPUT && !port->active) {
-			spa_list_append(&info->impl->mix_list, &port->mix_link);
+			spa_log_info(impl->log, "fade-in %u/%u", port->ramp_pos, impl->n_curve);
+			spa_list_append(&impl->mix_list, &port->mix_link);
 			port->active = true;
 		}
 	}
@@ -827,7 +851,7 @@ static void ramp_up(struct impl *this, float *dst, uint32_t size, struct ramp_in
 	uint32_t i, c;
 	struct port *port = ri->port;
 
-	spa_log_info(this->log, "fade-in %u/%u", port->ramp_pos, this->n_curve);
+	spa_log_trace(this->log, "fade-in %u/%u", port->ramp_pos, this->n_curve);
 
 	for (c = port->ramp_pos, i = 0; i < size && c < this->n_curve; i++, c++)
 		dst[i] += ri->data[i] * this->curve[c];
@@ -842,7 +866,7 @@ static void ramp_down(struct impl *this, float *dst, uint32_t size, struct ramp_
 	struct port *port = ri->port;
 	float last_sample = port->history[0];
 
-	spa_log_info(this->log, "fade-out %u %f", port->ramp_pos, last_sample);
+	spa_log_trace(this->log, "fade-out %u %f", port->ramp_pos, last_sample);
 
 	for (c = port->ramp_pos, i = 0; i < size && c > 0; i++, c--)
 		dst[i] += last_sample * this->curve[c-1];
@@ -935,8 +959,7 @@ static int impl_node_process(void *object)
 				datas[n_buffers++] = s;
 				last_buffer = inb;
 			}
-			if (size >= sizeof(float))
-				inport->history[0] = s[size/sizeof(float)-1];
+			inport->last_buffer = inio->buffer_id;
 			inio->status = SPA_STATUS_NEED_DATA;
 		} else if (inport->ramp_pos > 0) {
 			/* removed port, ramp down */

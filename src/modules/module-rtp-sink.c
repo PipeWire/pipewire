@@ -759,26 +759,41 @@ static void stream_open_connection(void *data, int *result)
 	impl->stream_connected = true;
 }
 
+static int close_rtp_target_sockets(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	/* IMPORTANT: This must be run from within the data loop, since the socket
+	 * FDs of the rtp_targets are closed here, and the stream_send_packet()
+	 * function (which runs in the data loop thread) reads those same FDs. */
+
+	struct impl *impl = user_data;
+	struct rtp_target *rtp_target;
+	int res = 0;
+
+	spa_list_for_each(rtp_target, &(impl->rtp_targets), link) {
+		if (rtp_target->socket_fd >= 0) {
+			res = 1;
+			close(rtp_target->socket_fd);
+			rtp_target->socket_fd = -1;
+		}
+	}
+
+	return res;
+}
+
 static void stream_close_connection(void *data, int *result)
 {
 	struct impl *impl = data;
-	struct rtp_target *rtp_target;
+	int res;
 
 	/* Mark the stream as disconnected to let future on_add_receiver()
 	 * calls know that they must not connect the socket on their own. */
 	impl->stream_connected = false;
 
-	if (result)
-		*result = 0;
+	res = rtp_stream_run_in_data_loop(impl->stream, close_rtp_target_sockets, 1, NULL, 0, impl);
 
-	spa_list_for_each(rtp_target, &(impl->rtp_targets), link) {
-		if (rtp_target->socket_fd >= 0) {
-			if (result)
-				*result = 1;
-			close(rtp_target->socket_fd);
-			rtp_target->socket_fd = -1;
-		}
-	}
+	if (result)
+		*result = res;
 }
 
 static void stream_props_changed(struct impl *impl, uint32_t id, const struct spa_pod *param)

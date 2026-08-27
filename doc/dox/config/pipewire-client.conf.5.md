@@ -88,7 +88,7 @@ stream.properties = {
     #dither.method = none # rectangular, triangular, triangular-hf, wannamaker3, shaped5
     #debug.wav-path = ""
     #fade.gap = 0
-    #fade.duration = 0.005
+    #fade.duration = 0.020
 }
 ```
 

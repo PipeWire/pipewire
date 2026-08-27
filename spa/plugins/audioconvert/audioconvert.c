@@ -133,7 +133,7 @@ static void props_reset(struct props *props)
 	spa_zero(props->wav_path);
 	props->lock_volumes = false;
 	props->filter_graph_disabled = false;
-	props->fade_duration = 0.005f;
+	props->fade_duration = 0.020f;
 }
 
 struct buffer {

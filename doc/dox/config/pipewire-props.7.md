@@ -859,7 +859,7 @@ This is disabled by default because it might corrupt the signal with excessive f
 case the signal has large silence gaps.
 \endparblock
 
-@PAR@ node-prop  fade.duration = 0.005
+@PAR@ node-prop  fade.duration = 0.020
 The duration of fade-in and fade-out of the signal in seconds on silence gaps.
 
 ## Debug Parameters  @IDX@ props

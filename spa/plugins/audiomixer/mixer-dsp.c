@@ -36,7 +36,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.mixer-dsp");
 #define MAX_ALIGN	MIX_OPS_MAX_ALIGN
 #define MAX_CURVE	4096u
 
-#define FADE_DURATION		0.005f
+#define FADE_DURATION		0.020f
 #define FADE_PRED_HIST		256
 #define FADE_PRED_ORDER		16
 #define FADE_PRED_THRESHOLD	0.98

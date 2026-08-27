@@ -113,7 +113,7 @@ stream.properties = {
     #channelmix.hilbert-taps = 0
     #dither.noise            = 0
     #fade.gap                = 0
-    #fade.duration           = 0.005
+    #fade.duration           = 0.020
 }
 
 stream.rules = [

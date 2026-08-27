@@ -362,7 +362,7 @@ context.objects = [
             #channelmix.disable     = false
             #dither.noise = 0
             #fade.gap               = 0
-            #fade.duration          = 0.005
+            #fade.duration          = 0.020
             #node.param.Props       = {
             #    params = [
             #        audio.channels 6
@@ -430,7 +430,7 @@ context.objects = [
             #channelmix.disable     = false
             #dither.noise = 0
             #fade.gap               = 0
-            #fade.duration          = 0.005
+            #fade.duration          = 0.020
             #node.param.Props       = {
             #    params = [
             #        audio.format  S16

@@ -3529,8 +3529,7 @@ static void capture_state(struct impl *impl, struct port *port)
 		s = SPA_PTROFF(bd->data, offs, float);
 		size /= sizeof(float);
 
-		if (size > 0)
-			gs->history[0] = s[size-1];
+		spa_history_push(&gs->hist, s, size);
 
 		port->ramp_start = true;
 		port->last_buffer = SPA_ID_INVALID;
@@ -3575,7 +3574,7 @@ impl_node_port_set_io(void *object,
 	{
 		struct io_data d = { .impl = this, .port = port, .data = data, .size = size };
 		if (this->data_loop)
-                        spa_loop_locked(this->data_loop, do_set_port_io, 0, NULL, 0, &d);
+			spa_loop_locked(this->data_loop, do_set_port_io, 0, NULL, 0, &d);
 		else
 			do_set_port_io(NULL, false, 0, NULL, 0, &d);
 		break;
@@ -4605,6 +4604,10 @@ impl_init(const struct spa_handle_factory *factory,
 
 	channelmix_reset(&this->mix);
 
+	this->gaps.history = 256;
+	this->gaps.order = 16;
+	this->gaps.threshold = 0.98;
+
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
 		const char *s = info->items[i].value;
@@ -4641,6 +4644,12 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_scnprintf(this->group_name, sizeof(this->group_name), "%s", s);
 		else if (spa_streq(k, "monitor.passthrough"))
 			this->monitor_passthrough = spa_atob(s);
+		else if (spa_streq(k, "predict.history"))
+			spa_atou32(s, &this->gaps.history, 0);
+		else if (spa_streq(k, "predict.order"))
+			spa_atou32(s, &this->gaps.order, 0);
+		else if (spa_streq(k, "predict.threshold"))
+			spa_atod(s, &this->gaps.threshold);
 	}
 	this->props.channel.n_volumes = this->props.n_channels;
 	this->props.soft.n_volumes = this->props.n_channels;

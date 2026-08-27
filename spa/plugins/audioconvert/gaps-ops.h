@@ -6,7 +6,14 @@
 #include <stdio.h>
 
 #include <spa/utils/defs.h>
+#include <spa/utils/burg-pred.h>
 #include <spa/param/audio/raw.h>
+
+#include "history.h"
+
+#define GAPS_MAX_HISTORY	8192u
+#define GAPS_MAX_ORDER		128u
+#define GAPS_MAX_CURVE		4096u
 
 struct gaps_state {
 #define GAPS_MODE_ZERO		0
@@ -15,10 +22,11 @@ struct gaps_state {
 #define GAPS_MODE_FADE_OUT	3
 	uint32_t mode;
 	uint32_t count;
-	float history[1];
+	struct spa_history hist;
+	struct spa_burg_pred pred;
+	float *history;
+	float *coeff;
 };
-
-#define GAPS_MAX_CURVE	4096u
 
 struct gaps {
 	uint32_t cpu_flags;
@@ -30,6 +38,9 @@ struct gaps {
 	uint32_t channels;
 	uint32_t gap;
 	uint32_t duration;
+	uint32_t history;
+	uint32_t order;
+	double threshold;
 	float curve[GAPS_MAX_CURVE];
 	bool empty;
 

@@ -15,6 +15,7 @@
 #include <spa/utils/list.h>
 #include <spa/utils/names.h>
 #include <spa/utils/string.h>
+#include <spa/utils/burg-pred.h>
 #include <spa/node/node.h>
 #include <spa/node/utils.h>
 #include <spa/node/io.h>
@@ -36,6 +37,9 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.mixer-dsp");
 #define MAX_CURVE	4096u
 
 #define FADE_DURATION		0.005f
+#define FADE_PRED_HIST		256
+#define FADE_PRED_ORDER		16
+#define FADE_PRED_THRESHOLD	0.98
 
 #define PORT_DEFAULT_VOLUME	1.0
 #define PORT_DEFAULT_MUTE	false
@@ -91,7 +95,10 @@ struct port {
 	bool active:1;
 	bool removing:1;
 	uint32_t ramp_pos;
-	float history[1];
+
+	struct spa_burg_pred pred;
+	float *coef;
+	float *state;
 };
 
 struct ramp_info {
@@ -112,6 +119,9 @@ struct impl {
 	struct spa_loop *data_loop;
 
 	uint32_t quantum_limit;
+	uint32_t n_pred_hist;
+	uint32_t n_pred_order;
+	double pred_threshold;
 
 	struct mix_ops ops;
 
@@ -265,14 +275,21 @@ impl_node_set_callbacks(void *object,
 static struct port *get_free_port(struct impl *this)
 {
 	struct port *port, *tmp;
+	uint32_t pred_size;
+
+	pred_size = sizeof(float) * this->n_pred_order;
+
 	spa_list_for_each_safe(port, tmp, &this->free_list, link) {
 		if (!port->active) {
 			spa_list_remove(&port->link);
 			spa_memzero(port, sizeof(struct port));
-			return port;
+			goto done;
 		}
 	}
-	port = calloc(1, sizeof(struct port));
+	port = calloc(1, sizeof(struct port) + pred_size * 2);
+done:
+	port->coef = SPA_PTROFF(port, sizeof(struct port), float);
+	port->state = SPA_PTROFF(port->coef, pred_size, float);
 	return port;
 }
 
@@ -758,21 +775,27 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 		if (port->direction == SPA_DIRECTION_INPUT &&
 		    port->last_buffer < port->n_buffers) {
 			struct buffer *buf = &port->buffers[port->last_buffer];
-			uint32_t offs, size;
+			uint32_t offs, size, order, hist;
 			float *s;
 			struct spa_data *bd = &buf->buffer->datas[0];
 
 			offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
 			size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
-			s = SPA_PTROFF(bd->data, offs, float);
 			size /= sizeof(float);
 
-			if (size > 0)
-				port->history[0] = s[size-1];
+			hist = SPA_MIN(size, impl->n_pred_hist);
+			offs += (size - hist) * sizeof(float);
 
-			spa_log_info(impl->log, "fade-out %u/%u %f",
-					port->ramp_pos, impl->n_curve, port->history[0]);
+			s = SPA_PTROFF(bd->data, offs, float);
 
+			order = SPA_MIN(impl->n_pred_order, hist / 3);
+
+			spa_burg_pred_fit(&port->pred, s, hist,
+					impl->pred_threshold, port->state,
+					port->coef, order);
+
+			spa_log_info(impl->log, "fade-out %u/%u %d",
+					port->ramp_pos, impl->n_curve, port->pred.n_coef);
 			port->ramp_pos = impl->n_curve;
 		} else {
 			port->ramp_pos = 0;
@@ -864,12 +887,12 @@ static void ramp_down(struct impl *this, float *dst, uint32_t size, struct ramp_
 {
 	uint32_t i, c;
 	struct port *port = ri->port;
-	float last_sample = port->history[0];
 
-	spa_log_trace(this->log, "fade-out %u %f", port->ramp_pos, last_sample);
+	spa_log_trace(this->log, "fade-out %u", port->ramp_pos);
 
 	for (c = port->ramp_pos, i = 0; i < size && c > 0; i++, c--)
-		dst[i] += last_sample * this->curve[c-1];
+		dst[i] += spa_burg_pred_next(&port->pred) * this->curve[c-1];
+
 	port->ramp_pos = c;
 	if (c == 0 && port->active && port->removing) {
 		spa_list_remove(&port->mix_link);
@@ -1114,6 +1137,9 @@ impl_init(const struct spa_handle_factory *factory,
 	}
 
 	this->fade_duration = FADE_DURATION;
+	this->n_pred_hist = FADE_PRED_HIST;
+	this->n_pred_order = FADE_PRED_ORDER;
+	this->pred_threshold = FADE_PRED_THRESHOLD;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
@@ -1122,6 +1148,12 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->quantum_limit, 0);
 		if (spa_streq(k, "fade.duration"))
 			spa_atof(s, &this->fade_duration);
+		if (spa_streq(k, "fade.predict.threshold"))
+			spa_atod(s, &this->pred_threshold);
+		if (spa_streq(k, "fade.predict.history"))
+			spa_atou32(s, &this->n_pred_hist, 0);
+		if (spa_streq(k, "fade.predict.order"))
+			spa_atou32(s, &this->n_pred_order, 0);
 	}
 
 	this->n_curve = SPA_MIN((uint32_t)(this->fade_duration * 48000), MAX_CURVE);

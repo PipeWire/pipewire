@@ -39,8 +39,7 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 	}
 	if (s->mode == GAPS_MODE_NORMAL && head_filled && tail_filled) {
 		/* in normal mode and head and tail seem to have data */
-		if (n_samples > 0)
-			s->history[0] = in[n_samples-1];
+		spa_history_push(&s->hist, in, n_samples);
 		*empty = false;
 		return 0;
 	}
@@ -110,7 +109,7 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 			} else {
 				/* keep last samples to fade out when needed */
 				s->count = 0;
-				s->history[0] = in[n];
+				spa_history_push(&s->hist, &in[n], 1);
 			}
 		}
 		if (s->mode == GAPS_MODE_FADE_IN) {
@@ -129,11 +128,20 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 		}
 		else if (s->mode == GAPS_MODE_FADE_OUT) {
 			/* fade-out mode */
-			if (s->count == 0)
-				spa_log_info(gaps->log, "%p start %d fade-out %f %d",
-						gaps, c, s->history[0], n);
+			if (s->count == 0) {
+				uint32_t hist_len;
+				float *hist;
 
-			out[n] = s->history[0] * (1.0f - gaps->curve[s->count]);
+				hist = spa_history_rotate(&s->hist, &hist_len);
+				spa_burg_pred_fit(&s->pred, hist, hist_len,
+						gaps->threshold, s->history,
+						s->coeff, gaps->order);
+
+				spa_log_info(gaps->log, "%p start %d fade-out %f %d order %d",
+						gaps, c, hist[0], hist_len, s->pred.n_coef);
+			}
+
+			out[n] = spa_burg_pred_next(&s->pred) * (1.0f - gaps->curve[s->count]);
 
 			if (++s->count >= gaps->duration) {
 				/* fade out complete, go to zero mode */

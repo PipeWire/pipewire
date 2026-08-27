@@ -55,7 +55,7 @@ int gaps_init(struct gaps *gaps)
 {
 	const struct gaps_info *info;
 	uint32_t i;
-	size_t alloc_size;
+	size_t hist_size, pred_size, alloc_size;
 
 	info = find_gaps_info(gaps->cpu_flags);
 	if (info == NULL)
@@ -69,13 +69,24 @@ int gaps_init(struct gaps *gaps)
 	for (i = 0; i < gaps->duration; i++)
 		gaps->curve[i] = (float)(0.5 + 0.5 * cos(M_PI + M_PI * i / gaps->duration));
 
-	alloc_size = sizeof(struct gaps_state);
+	if (gaps->threshold <= 0.0 || gaps->threshold > 1.0)
+		gaps->threshold = 0.98;
+	gaps->history = SPA_MIN(gaps->history, GAPS_MAX_HISTORY);
+	gaps->order = SPA_MIN(gaps->order, GAPS_MAX_ORDER);
+
+	hist_size = sizeof(float) * gaps->history;
+	pred_size = sizeof(float) * gaps->order;
+
+	alloc_size = sizeof(struct gaps_state) + hist_size + pred_size;
 	alloc_size = SPA_ROUND_UP_N(alloc_size, 64);
 
 	gaps->data = calloc(1, alloc_size * gaps->channels);
 
 	for (i = 0; i < gaps->channels; i++) {
 		struct gaps_state *s = SPA_PTROFF(gaps->data, alloc_size * i, void);
+		s->history = SPA_PTROFF(s, sizeof(struct gaps_state), float);
+		s->coeff = SPA_PTROFF(s->history, hist_size, float);
+		spa_history_init(&s->hist, s->history, gaps->history);
 		gaps->states[i] = s;
 	}
 	gaps->cpu_flags = info->cpu_flags;

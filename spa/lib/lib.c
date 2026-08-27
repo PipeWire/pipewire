@@ -149,6 +149,7 @@
 #include <spa/support/thread.h>
 #include <spa/utils/ansi.h>
 #include <spa/utils/atomic.h>
+#include <spa/utils/burg-pred.h>
 #include <spa/utils/cleanup.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/dict.h>

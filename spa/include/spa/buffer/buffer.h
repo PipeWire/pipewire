@@ -61,6 +61,7 @@ struct spa_chunk {
 #define SPA_CHUNK_FLAG_EMPTY		(1u<<1)	/**< chunk data is empty with media specific
 						  *  neutral data such as silence or black. This
 						  *  could be used to optimize processing. */
+#define SPA_CHUNK_FLAG_FADE		(1u<<2)	/**< data contains fade-in/out */
 	int32_t flags;			/**< chunk flags */
 };
 

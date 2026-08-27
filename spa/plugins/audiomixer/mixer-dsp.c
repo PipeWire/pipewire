@@ -1021,6 +1021,7 @@ static int impl_node_process(void *object)
 		d[0].chunk->size = maxsize;
 		d[0].chunk->stride = sizeof(float);
 		SPA_FLAG_UPDATE(d[0].chunk->flags, SPA_CHUNK_FLAG_EMPTY, empty);
+		SPA_FLAG_UPDATE(d[0].chunk->flags, SPA_CHUNK_FLAG_FADE, n_ramps > 0);
 
 		spa_log_trace_fp(this->log, "%p: %d mix %d %u", this, n_buffers, maxsize, n_ramps);
 

@@ -167,6 +167,7 @@ struct port {
 
 	struct buffer *buffers;
 	uint32_t n_buffers;
+	uint32_t last_buffer;
 
 	struct spa_latency_info latency[2];
 	unsigned int have_latency:1;
@@ -488,6 +489,7 @@ static int init_port(struct impl *this, enum spa_direction direction, uint32_t p
 		port->blocks = 1;
 		port->stride = 1;
 	}
+	port->last_buffer = SPA_ID_INVALID;
 	port->valid = true;
 	spa_list_init(&port->queue);
 
@@ -3506,17 +3508,47 @@ error:
 }
 
 struct io_data {
+	struct impl *impl;
 	struct port *port;
 	void *data;
 	size_t size;
 };
 
+static void capture_state(struct impl *impl, struct port *port)
+{
+	struct gaps_state *gs = port->id < SPA_AUDIO_MAX_CHANNELS ? &impl->gaps.states[port->id] : NULL;
+
+	if (gs != NULL && port->is_dsp && port->last_buffer < port->n_buffers) {
+		struct buffer *buf = &port->buffers[port->last_buffer];
+		uint32_t offs, size;
+		float *s;
+		struct spa_data *bd = &buf->buf->datas[0];
+
+		offs = SPA_MIN(bd->chunk->offset, bd->maxsize);
+		size = SPA_MIN(bd->maxsize - offs, bd->chunk->size);
+		s = SPA_PTROFF(bd->data, offs, float);
+		size /= sizeof(float);
+
+		if (size > 0)
+			gs->history[0] = s[size-1];
+
+		port->ramp_start = true;
+		port->last_buffer = SPA_ID_INVALID;
+	}
+}
+
 static int do_set_port_io(struct spa_loop *loop, bool async, uint32_t seq,
 		const void *data, size_t size, void *user_data)
 {
 	const struct io_data *d = user_data;
-	if (d->data == NULL && d->port->io != NULL)
-		d->port->ramp_start = true;
+	if (d->data == NULL && d->port->io != NULL) {
+		spa_log_info(d->impl->log, "%p: %p ramp true %p %p", d->impl, d->port, d->data, d->port->io);
+		capture_state(d->impl, d->port);
+	} else if (d->data != NULL) {
+		spa_log_info(d->impl->log, "%p: %p ramp false %p %p", d->impl, d->port, d->data, d->port->io);
+		d->port->ramp_start = false;
+		d->port->last_buffer = SPA_ID_INVALID;
+	}
 	d->port->io = d->data;
 	return 0;
 }
@@ -3540,13 +3572,14 @@ impl_node_port_set_io(void *object,
 
 	switch (id) {
 	case SPA_IO_Buffers:
-		if (this->data_loop) {
-			struct io_data d = { .port = port, .data = data, .size = size };
-			spa_loop_locked(this->data_loop, do_set_port_io, 0, NULL, 0, &d);
-		}
+	{
+		struct io_data d = { .impl = this, .port = port, .data = data, .size = size };
+		if (this->data_loop)
+                        spa_loop_locked(this->data_loop, do_set_port_io, 0, NULL, 0, &d);
 		else
-			port->io = data;
+			do_set_port_io(NULL, false, 0, NULL, 0, &d);
 		break;
+	}
 	case SPA_IO_RateMatch:
 		this->io_rate_match = data;
 		break;
@@ -4131,9 +4164,11 @@ static int impl_node_process(void *object)
 					this, port->id, io, io->status, io->buffer_id,
 					port->n_buffers);
 			buf = &port->buffers[io->buffer_id];
+			port->last_buffer = io->buffer_id;
 		}
 
 		if (SPA_UNLIKELY(buf == NULL)) {
+			port->last_buffer = SPA_ID_INVALID;
 			for (j = 0; j < port->blocks; j++) {
 				if (port->is_control) {
 					spa_log_trace_fp(this->log, "%p: empty control %d", this,
@@ -4142,8 +4177,10 @@ static int impl_node_process(void *object)
 					remap = n_src_datas++;
 					src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 					if (SPA_UNLIKELY(port->ramp_start)) {
-						this->gaps.states[remap].mode = GAPS_MODE_FADE_OUT;
-						this->gaps.states[remap].count = 0;
+						struct gaps_state *gs = &this->gaps.states[remap];
+						spa_log_info(this->log, "%p: %p ramp start", this, port);
+						gs->mode = GAPS_MODE_FADE_OUT;
+						gs->count = 0;
 						port->ramp_start = false;
 					}
 					spa_log_trace_fp(this->log, "%p: empty input %d->%d", this,

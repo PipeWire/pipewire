@@ -56,14 +56,8 @@ static int run_gap_check_ramp(struct gaps *gaps, uint32_t c, const float * SPA_R
 		bool *empty)
 {
 	struct gaps_state *s = &gaps->states[c];
-	const float *in = src[c];
-
-	if (s->mode == GAPS_MODE_ZERO || s->mode == GAPS_MODE_NORMAL) {
-		/* in normal mode remember last sample */
-		if (n_samples > 0)
-			s->history[0] = in[n_samples-1];
+	if (s->mode == GAPS_MODE_ZERO || s->mode == GAPS_MODE_NORMAL)
 		return 0;
-	}
 	*empty = false;
 	return 1;
 }

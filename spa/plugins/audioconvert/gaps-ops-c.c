@@ -18,7 +18,7 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 {
 	uint32_t n;
 	bool head_filled = true, tail_filled = true;
-	struct gaps_state *s = &gaps->states[c];
+	struct gaps_state *s = gaps->states[c];
 	const float *in = src[c];
 
 	for (n = 0; n < SPA_MIN(gaps->gap, n_samples); n++) {
@@ -55,7 +55,7 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 static int run_gap_check_ramp(struct gaps *gaps, uint32_t c, const float * SPA_RESTRICT src[], uint32_t n_samples,
 		bool *empty)
 {
-	struct gaps_state *s = &gaps->states[c];
+	struct gaps_state *s = gaps->states[c];
 	if (s->mode == GAPS_MODE_ZERO || s->mode == GAPS_MODE_NORMAL)
 		return 0;
 	*empty = false;
@@ -81,7 +81,7 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 		const float * SPA_RESTRICT src[], uint32_t n_samples)
 {
 	uint32_t n;
-	struct gaps_state *s = &gaps->states[c];
+	struct gaps_state *s = gaps->states[c];
 	const float *in = src[c];
 	float *out = dst[c];
 

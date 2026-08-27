@@ -3516,7 +3516,7 @@ struct io_data {
 
 static void capture_state(struct impl *impl, struct port *port)
 {
-	struct gaps_state *gs = port->id < SPA_AUDIO_MAX_CHANNELS ? &impl->gaps.states[port->id] : NULL;
+	struct gaps_state *gs = port->id < SPA_AUDIO_MAX_CHANNELS ? impl->gaps.states[port->id] : NULL;
 
 	if (gs != NULL && port->is_dsp && port->last_buffer < port->n_buffers) {
 		struct buffer *buf = &port->buffers[port->last_buffer];
@@ -4177,7 +4177,7 @@ static int impl_node_process(void *object)
 					remap = n_src_datas++;
 					src_datas[remap] = SPA_PTR_ALIGN(this->empty, MAX_ALIGN, void);
 					if (SPA_UNLIKELY(port->ramp_start)) {
-						struct gaps_state *gs = &this->gaps.states[remap];
+						struct gaps_state *gs = this->gaps.states[remap];
 						spa_log_info(this->log, "%p: %p ramp start", this, port);
 						gs->mode = GAPS_MODE_FADE_OUT;
 						gs->count = 0;

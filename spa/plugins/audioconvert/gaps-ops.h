@@ -38,7 +38,9 @@ struct gaps {
 			const float * SPA_RESTRICT src[], uint32_t n_samples);
 	void (*free) (struct gaps *gaps);
 
-	struct gaps_state states[SPA_AUDIO_MAX_CHANNELS];
+	struct gaps_state *states[SPA_AUDIO_MAX_CHANNELS];
+
+	void *data;
 };
 
 int gaps_init(struct gaps *gaps);

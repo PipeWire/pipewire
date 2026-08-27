@@ -46,12 +46,16 @@ static const struct gaps_info *find_gaps_info(uint32_t cpu_flags)
 static void impl_gaps_free(struct gaps *gaps)
 {
 	gaps->fix = NULL;
+	free(gaps->data);
+	gaps->data = NULL;
+	spa_zero(gaps->states);
 }
 
 int gaps_init(struct gaps *gaps)
 {
 	const struct gaps_info *info;
 	uint32_t i;
+	size_t alloc_size;
 
 	info = find_gaps_info(gaps->cpu_flags);
 	if (info == NULL)
@@ -65,9 +69,15 @@ int gaps_init(struct gaps *gaps)
 	for (i = 0; i < gaps->duration; i++)
 		gaps->curve[i] = (float)(0.5 + 0.5 * cos(M_PI + M_PI * i / gaps->duration));
 
-	for (i = 0; i < gaps->channels; i++)
-		spa_zero(gaps->states[i]);
+	alloc_size = sizeof(struct gaps_state);
+	alloc_size = SPA_ROUND_UP_N(alloc_size, 64);
 
+	gaps->data = calloc(1, alloc_size * gaps->channels);
+
+	for (i = 0; i < gaps->channels; i++) {
+		struct gaps_state *s = SPA_PTROFF(gaps->data, alloc_size * i, void);
+		gaps->states[i] = s;
+	}
 	gaps->cpu_flags = info->cpu_flags;
 	gaps->func_name = info->name;
 	gaps->free = impl_gaps_free;

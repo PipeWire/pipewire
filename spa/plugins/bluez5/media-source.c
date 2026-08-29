@@ -1160,10 +1160,6 @@ static int do_remove_source(struct spa_loop *loop,
 
 	if (this->timer_source.loop)
 		spa_loop_remove_source(this->data_loop, &this->timer_source);
-	if (this->transport && this->transport->iso_io) {
-		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
-		spa_bt_iso_io_set_source_buffer(this->transport->iso_io, NULL);
-	}
 	if (this->transport && this->transport->sco_io)
 		spa_bt_sco_io_set_source_cb(this->transport->sco_io, NULL, NULL);
 	set_timeout(this, 0);

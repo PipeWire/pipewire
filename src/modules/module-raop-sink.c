@@ -75,6 +75,10 @@
  *                    "auth_setup". Default is "none".
  * - `raop.audio.codec`: The audio codec to use. Needs to be "PCM". Defaults to "PCM".
  * - `raop.password`: The password to use.
+ * - `raop.disable-volume`: If set to "true", the module will not send volume commands
+ *                    to the remote device. Volume and mute are then applied in software
+ *                    instead and the sink is advertised as having no hardware volume
+ *                    control. Default is "false".
  * - `stream.props = {}`: properties to be passed to the sink stream
  *
  * Options with well-known behavior.
@@ -109,6 +113,7 @@
  *         raop.encryption.type = "RSA"
  *         #raop.audio.codec = "PCM"
  *         #raop.password = "****"
+ *         #raop.disable-volume = "true"
  *         #audio.format = "S16"
  *         #audio.rate = 44100
  *         #audio.channels = 2
@@ -168,6 +173,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 			"( raop.encryption.type=<encryption, default:none> ) "			\
 			"( raop.audio.codec=PCM ) "						\
 			"( raop.password=<password for auth> ) "				\
+			"( raop.disable-volume=<disable volume, default:false> ) "		\
 			"( raop.latency.ms=<min latency in ms, default:"SPA_STRINGIFY(DEFAULT_LATENCY_MS)"> ) "	\
 			"( node.latency=<latency as fraction> ) "				\
 			"( node.name=<name of the nodes> ) "					\
@@ -236,6 +242,8 @@ struct impl {
 	char *nonce;
 
 	unsigned int do_disconnect:1;
+
+	bool disable_volume;
 
 	uint8_t aes_key[AES_CHUNK_SIZE]; /* Key for aes-cbc */
 	uint8_t aes_iv[AES_CHUNK_SIZE];  /* Initialization vector for cbc */
@@ -787,7 +795,7 @@ static int rtsp_log_reply_status(void *data, int status, const struct spa_dict *
 
 static int rtsp_send_volume(struct impl *impl)
 {
-	if (!impl->recording || !impl->volume_valid)
+	if (!impl->recording || !impl->volume_valid || impl->disable_volume)
 		return 0;
 
 	char header[128], volstr[64];
@@ -1583,16 +1591,18 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 		switch (prop->key) {
 		case SPA_PROP_mute:
 		{
-			bool mute;
+			bool mute = false;
 			if (spa_pod_get_bool(&prop->value, &mute) == 0) {
 				if (impl->mute != mute) {
 					impl->mute = mute;
 					rtsp_send_volume(impl);
 				}
                         }
+			uint32_t flags = prop->flags & ~SPA_POD_PROP_FLAG_HARDWARE;
 			spa_pod_builder_prop(&b, SPA_PROP_softMute, 0);
-			spa_pod_builder_bool(&b, false);
-			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
+			spa_pod_builder_bool(&b, impl->disable_volume && mute);
+			spa_pod_builder_prop(&b, prop->key, flags);
+			spa_pod_builder_raw_padded(&b, &prop->value, prop->value.size);
 			break;
 		}
 		case SPA_PROP_channelVolumes:
@@ -1604,9 +1614,10 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 			if ((n_vols = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
 					vols, SPA_N_ELEMENTS(vols))) > 0) {
 				volume = 0.0f;
-				for (i = 0; i < n_vols; i++) {
+				for (i = 0; i < n_vols; i++)
+				{
 					volume += vols[i];
-					soft_vols[i] = 1.0f;
+					soft_vols[i] = impl->disable_volume ? vols[i] : 1.0f;
 				}
 				volume /= n_vols;
 				volume = SPA_CLAMPF(cbrtf(volume) * 30 - 30, VOLUME_MIN, VOLUME_MAX);
@@ -1618,7 +1629,9 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 				spa_pod_builder_array(&b, sizeof(float), SPA_TYPE_Float,
 						n_vols, soft_vols);
 			}
-			spa_pod_builder_raw_padded(&b, prop, SPA_POD_PROP_SIZE(prop));
+			uint32_t flags = prop->flags & ~SPA_POD_PROP_FLAG_HARDWARE;
+			spa_pod_builder_prop(&b, prop->key, flags);
+			spa_pod_builder_raw_padded(&b, &prop->value, prop->value.size);
 			break;
 		}
 		case SPA_PROP_softVolumes:
@@ -1833,6 +1846,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	}
 	str = pw_properties_get(props, "raop.password");
 	impl->password = str ? strdup(str) : NULL;
+
+	impl->disable_volume = pw_properties_get_bool(props, "raop.disable-volume", false);
 
 	if ((name = pw_properties_get(props, "raop.name")) == NULL)
 		name = "RAOP";

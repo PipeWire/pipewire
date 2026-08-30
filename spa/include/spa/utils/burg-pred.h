@@ -41,7 +41,7 @@ struct spa_burg_pred {
 SPA_API_BURG_PRED void spa_burg_pred_fit(struct spa_burg_pred *p, float *samples, uint32_t len,
 		double threshold, float *state, float *coef, uint32_t max_coef)
 {
-	double f[len], b[len];
+	double f[SPA_MAX(len, 1u)], b[SPA_MAX(len, 1u)];
 	double a[max_coef+1], Dk0;
 	double thr = (1.0 - threshold) * (1.0 - threshold);
 	uint32_t i, m;

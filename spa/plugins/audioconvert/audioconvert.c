@@ -4545,6 +4545,8 @@ static int impl_clear(struct spa_handle *handle)
 		channelmix_free(&this->mix);
 	if (this->resample.free)
 		resample_free(&this->resample);
+	if (this->gaps.free)
+		gaps_free(&this->gaps);
 	if (this->wav_file != NULL)
 		wav_file_close(this->wav_file);
 	free (this->vol_ramp_sequence_data);

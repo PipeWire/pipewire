@@ -65,7 +65,7 @@ static int pw_check_flatpak_parse_metadata(const char *buf, size_t size, char **
 
 static int pw_check_flatpak(pid_t pid, char **app_id, char **instance_id, char **devices)
 {
-#if defined(__linux__)
+#if defined(HAVE_GLIB2) && defined(__linux__)
 	char root_path[2048];
 	struct stat stat_buf;
 	int res;

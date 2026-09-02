@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <limits>
 #include <optional>
+#include <span>
 #include <type_traits>
 #include <utility>
 
@@ -303,7 +304,7 @@ void freeBuffers(struct impl *impl, struct port *port)
 }
 
 [[nodiscard]]
-std::size_t count_unique_fds(libcamera::Span<const libcamera::FrameBuffer::Plane> planes)
+std::size_t count_unique_fds(std::span<const libcamera::FrameBuffer::Plane> planes)
 {
 	std::size_t c = 0;
 	int fd = -1;

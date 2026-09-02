@@ -134,7 +134,7 @@ if get_option('spa-plugins').allowed()
   endif
   summary({'Vulkan': have_vulkan}, bool_yn: true, section: 'Misc dependencies')
 
-  libcamera_dep = dependency('libcamera', version: '>= 0.2.0', required: get_option('libcamera'))
+  libcamera_dep = dependency('libcamera', version: '>= 0.6.0', required: get_option('libcamera'))
   summary({'libcamera': libcamera_dep.found()}, bool_yn: true, section: 'Backend')
 
   compress_offload_option = get_option('compress-offload')

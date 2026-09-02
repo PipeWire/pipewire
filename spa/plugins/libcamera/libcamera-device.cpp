@@ -31,6 +31,8 @@
 
 #include "libcamera.hpp"
 
+#include <libcamera/base/span.h>
+
 #include <libcamera/camera.h>
 #include <libcamera/property_ids.h>
 

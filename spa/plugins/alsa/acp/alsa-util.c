@@ -1972,13 +1972,14 @@ void pa_alsa_mixer_free(pa_alsa_mixer *mixer)
 int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld) {
 
     /* The ELD format is specific to HDA Intel sound cards and defined in the
-       HDA specification: http://www.intel.com/content/www/us/en/standards/high-definition-audio-specification.html */
+       HDA specification: https://web.archive.org/web/20201111234825/https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf */
     int err;
     snd_ctl_elem_info_t *info;
     snd_ctl_elem_value_t *value;
     uint8_t *elddata;
     unsigned int eldsize, mnl, sad_count;
     unsigned int device;
+    uint16_t manufacturer;
 
     pa_assert(eld != NULL);
     pa_assert(elem != NULL);
@@ -2003,6 +2004,29 @@ int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld) {
         pa_log_debug("ELD info has wrong size (for device=%d)", device);
         return -1;
     }
+
+    /* Manufacturer and product ID, bytes 16-19, three 5-bit
+     * letters (1 = 'A') packed big-endian, then the little-endian product code */
+    manufacturer = (elddata[16] << 8) | elddata[17];
+    if (manufacturer) {
+        eld->manufacturer[0] = '@' + ((manufacturer >> 10) & 0x1f);
+        eld->manufacturer[1] = '@' + ((manufacturer >> 5) & 0x1f);
+        eld->manufacturer[2] = '@' + (manufacturer & 0x1f);
+        eld->manufacturer[3] = '\0';
+    } else
+        eld->manufacturer[0] = '\0';
+    eld->product_id = elddata[18] | (elddata[19] << 8);
+    if (manufacturer || eld->product_id)
+        pa_log_debug("Manufacturer/product ID in ELD info is %s:%u (for device=%d)",
+                     eld->manufacturer, eld->product_id, device);
+
+    /* Port ID, bytes 8-15, little-endian */
+    eld->port_id = 0;
+    for (int i = 0; i < 8; i++)
+        eld->port_id |= (uint64_t) elddata[8 + i] << (8 * i);
+    if (eld->port_id)
+        pa_log_debug("Port ID in ELD info is 0x%016llx (for device=%d)",
+                     (unsigned long long) eld->port_id, device);
 
     /* Try to fetch monitor name */
     mnl = elddata[4] & 0x1f;

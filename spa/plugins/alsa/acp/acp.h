@@ -170,6 +170,17 @@ const char *acp_available_str(enum acp_available status);
 		 * TV or receiver, read via EDID-like data. Set on nodes with a single port
 		 * since then it is not ambiguous.
 		 */
+#define ACP_KEY_HDMI_PRODUCT_ID "hdmi.product.id"
+		/**< The EDID manufacturer and product ID of a device connected via HDMI/DisplayPort.
+		 * Useful for matching rules, as it is stable for a given device,
+		 * but not unique as all units of the same model share it.
+		 * Three letters for manufacturer, up to 5 decimals for product, like this: "DEL:16618".
+		 */
+#define ACP_KEY_HDMI_PORT_ID "hdmi.port-id"
+		/**< The graphics driver's identifier for the physical HDMI/DisplayPort
+		 * connector read via EDID-like data. These are stable across reboots,
+		 * so can be good targets for matching rules (and consistent default restore).
+		 */
 
 struct acp_device;
 

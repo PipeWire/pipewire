@@ -33,6 +33,9 @@ struct pa_hdmi_eld {
     uint8_t speakers;
     uint64_t iec958_codecs;
     uint8_t lpcm_channels;
+    char manufacturer[4];
+    uint16_t product_id;
+    uint64_t port_id;
 };
 
 int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld);

@@ -1159,7 +1159,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 	pa_card *impl = snd_mixer_elem_get_callback_private(melem);
 	snd_hctl_elem_t **_elem = snd_mixer_elem_get_private(melem), *elem;
 	int device;
-	const char *old_monitor_name, *old_iec958_codec_list, *old_channels, *old_position;
+	const char *old_monitor_name, *old_product_id, *old_port_id, *old_iec958_codec_list, *old_channels, *old_position;
 	pa_device_port *p;
 	pa_hdmi_eld eld;
 	bool changed = false;
@@ -1196,6 +1196,28 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 	} else {
 		changed |= (old_monitor_name == NULL) || (!spa_streq(old_monitor_name, eld.monitor_name));
 		pa_proplist_sets(p->proplist, PA_PROP_DEVICE_PRODUCT_NAME, eld.monitor_name);
+	}
+
+	old_product_id = pa_proplist_gets(p->proplist, ACP_KEY_HDMI_PRODUCT_ID);
+	if (eld.manufacturer[0] == '\0' && eld.product_id == 0) {
+		changed |= old_product_id != NULL;
+		pa_proplist_unset(p->proplist, ACP_KEY_HDMI_PRODUCT_ID);
+	} else {
+		char product_id[16];
+		snprintf(product_id, sizeof(product_id), "%s:%u", eld.manufacturer, eld.product_id);
+		changed |= (old_product_id == NULL) || (!spa_streq(old_product_id, product_id));
+		pa_proplist_sets(p->proplist, ACP_KEY_HDMI_PRODUCT_ID, product_id);
+	}
+
+	old_port_id = pa_proplist_gets(p->proplist, ACP_KEY_HDMI_PORT_ID);
+	if (eld.port_id == 0) {
+		changed |= old_port_id != NULL;
+		pa_proplist_unset(p->proplist, ACP_KEY_HDMI_PORT_ID);
+	} else {
+		char port_id[19];
+		snprintf(port_id, sizeof(port_id), "0x%016llx", (unsigned long long) eld.port_id);
+		changed |= (old_port_id == NULL) || (!spa_streq(old_port_id, port_id));
+		pa_proplist_sets(p->proplist, ACP_KEY_HDMI_PORT_ID, port_id);
 	}
 
 	old_iec958_codec_list = pa_proplist_gets(p->proplist, ACP_KEY_IEC958_CODECS_DETECTED);

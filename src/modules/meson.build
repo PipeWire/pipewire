@@ -647,6 +647,14 @@ if build_module_raop
     dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
   )
   if get_option('tests').allowed()
+    test('pw-test-raop-iovec',
+      executable('pw-test-raop-iovec',
+        [ 'module-raop/test-iovec.c',
+          'module-raop/rtsp-client.c' ],
+        include_directories : [configinc],
+        dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
+      ),
+    )
     test('pw-test-raop-rtsp-client',
       executable('pw-test-raop-rtsp-client',
         [ 'module-raop/test-rtsp-client.c',

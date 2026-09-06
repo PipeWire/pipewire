@@ -413,11 +413,12 @@ static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t r
 	return res;
 }
 
-static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
+static int write_codec_pcm(void *dst, const struct iovec *iov, size_t iovlen, uint32_t n_frames)
 {
-	uint8_t *bp, *b, *d = frames;
+	uint8_t *bp, *b;
 	int bpos = 0;
 	uint32_t i;
+	size_t j;
 
 	b = bp = dst;
 
@@ -433,12 +434,15 @@ static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
 	bit_writer(&bp, &bpos, (n_frames >> 8)  & 0xff, 8);
 	bit_writer(&bp, &bpos, (n_frames)       & 0xff, 8);
 
-	for (i = 0; i < n_frames; i++) {
-		bit_writer(&bp, &bpos, *(d + 1), 8);
-		bit_writer(&bp, &bpos, *(d + 0), 8);
-		bit_writer(&bp, &bpos, *(d + 3), 8);
-		bit_writer(&bp, &bpos, *(d + 2), 8);
-		d += 4;
+	for (j = 0; j < iovlen; j++) {
+		const uint8_t *d = iov[j].iov_base;
+		for (i = 0; i < iov[j].iov_len / 4; i++) {
+			bit_writer(&bp, &bpos, *(d + 1), 8);
+			bit_writer(&bp, &bpos, *(d + 0), 8);
+			bit_writer(&bp, &bpos, *(d + 3), 8);
+			bit_writer(&bp, &bpos, *(d + 2), 8);
+			d += 4;
+		}
 	}
 	bit_writer(&bp, &bpos, 7, 3); /* end tag */
 	return bp - b + 1;
@@ -462,6 +466,7 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	struct rtp_header *header;
 	struct msghdr msg;
 	uint8_t *dst;
+	size_t i;
 
 	if (!impl->recording)
 		return;
@@ -477,7 +482,10 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 		impl->sync = 0;
 	}
 
-	n_frames = iov[1].iov_len / impl->stride;
+	/* The RTP ring buffer can wrap between two frame-aligned segments. */
+	n_frames = 0;
+	for (i = 1; i < iovlen; i++)
+		n_frames += iov[i].iov_len / impl->stride;
 
 	msg.msg_name = NULL;
 	msg.msg_namelen = 0;
@@ -492,7 +500,7 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	switch (impl->codec) {
 	case CODEC_PCM:
 	case CODEC_ALAC:
-		len = write_codec_pcm(dst, (void *)iov[1].iov_base, n_frames);
+		len = write_codec_pcm(dst, &iov[1], iovlen - 1, n_frames);
 		break;
 	default:
 		len = 8 + impl->mtu;

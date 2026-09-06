@@ -403,13 +403,21 @@ static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t r
 	return res;
 }
 
-static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
+static int write_codec_pcm(void *dst, size_t max, const struct iovec *iov, size_t iovlen)
 {
-	uint8_t *bp, *b, *d = frames;
+	uint8_t *bp, *b;
 	int bpos = 0;
-	uint32_t i;
+	uint32_t i, n_frames;
+	size_t j;
 
 	b = bp = dst;
+
+	n_frames = 0;
+	for (j = 0; j < iovlen; j++)
+		n_frames += iov[j].iov_len / 4;
+
+	if (n_frames*4 + 8 > max)
+		return -ENOSPC;
 
 	bit_writer(&bp, &bpos, 1, 3); /* channel=1, stereo */
 	bit_writer(&bp, &bpos, 0, 4); /* Unknown */
@@ -423,12 +431,15 @@ static int write_codec_pcm(void *dst, void *frames, uint32_t n_frames)
 	bit_writer(&bp, &bpos, (n_frames >> 8)  & 0xff, 8);
 	bit_writer(&bp, &bpos, (n_frames)       & 0xff, 8);
 
-	for (i = 0; i < n_frames; i++) {
-		bit_writer(&bp, &bpos, *(d + 1), 8);
-		bit_writer(&bp, &bpos, *(d + 0), 8);
-		bit_writer(&bp, &bpos, *(d + 3), 8);
-		bit_writer(&bp, &bpos, *(d + 2), 8);
-		d += 4;
+	for (j = 0; j < iovlen; j++) {
+		const uint8_t *d = iov[j].iov_base;
+		for (i = 0; i < iov[j].iov_len / 4; i++) {
+			bit_writer(&bp, &bpos, *(d + 1), 8);
+			bit_writer(&bp, &bpos, *(d + 0), 8);
+			bit_writer(&bp, &bpos, *(d + 3), 8);
+			bit_writer(&bp, &bpos, *(d + 2), 8);
+			d += 4;
+		}
 	}
 	bit_writer(&bp, &bpos, 7, 3); /* end tag */
 	return bp - b + 1;
@@ -447,11 +458,12 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 {
 	struct impl *impl = data;
 	const size_t max = 8 + impl->mtu;
-	uint32_t tcp_pkt[1], out[max], len, n_frames, rtptime;
+	uint32_t tcp_pkt[1], out[max], len, rtptime;
 	struct iovec out_vec[3];
 	struct rtp_header *header;
 	struct msghdr msg;
 	uint8_t *dst;
+	int res;
 
 	if (!impl->recording)
 		return;
@@ -467,8 +479,6 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 		impl->sync = 0;
 	}
 
-	n_frames = iov[1].iov_len / impl->stride;
-
 	msg.msg_name = NULL;
 	msg.msg_namelen = 0;
 	msg.msg_iov = out_vec;
@@ -482,7 +492,12 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	switch (impl->codec) {
 	case CODEC_PCM:
 	case CODEC_ALAC:
-		len = write_codec_pcm(dst, (void *)iov[1].iov_base, n_frames);
+		res = write_codec_pcm(dst, max, &iov[1], iovlen - 1);
+		if (res < 0) {
+			pw_log_warn("can't write data: %d (%s)", res, spa_strerror(res));
+			return;
+		}
+		len = res;
 		break;
 	default:
 		len = 8 + impl->mtu;

@@ -102,10 +102,19 @@ static const struct pw_metadata_methods metadata_methods = {
 	.clear = metadata_clear,
 };
 
+static void remove_pending(struct resource_data *d)
+{
+	if (d->pong_seq != 0) {
+		pw_impl_client_set_busy(pw_resource_get_client(d->resource), false);
+		d->pong_seq = 0;
+		d->impl->pending--;
+	}
+}
 
 static void global_unbind(void *data)
 {
 	struct resource_data *d = data;
+	remove_pending(d);
 	if (d->resource) {
 	        spa_hook_remove(&d->resource_listener);
 	        spa_hook_remove(&d->object_listener);
@@ -118,15 +127,6 @@ static const struct pw_resource_events resource_events = {
 	PW_VERSION_RESOURCE_EVENTS,
 	.destroy = global_unbind,
 };
-
-static void remove_pending(struct resource_data *d)
-{
-	if (d->pong_seq != 0) {
-		pw_impl_client_set_busy(pw_resource_get_client(d->resource), false);
-		d->pong_seq = 0;
-		d->impl->pending--;
-	}
-}
 
 static void impl_resource_destroy(void *data)
 {

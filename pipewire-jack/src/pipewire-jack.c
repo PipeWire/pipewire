@@ -4654,6 +4654,16 @@ int jack_client_close (jack_client_t *client)
 		pw_thread_loop_stop(c->context.notify);
 	}
 
+	pw_array_for_each(item, &c->ports[SPA_DIRECTION_OUTPUT].items) {
+                if (pw_map_item_is_free(item))
+			continue;
+		free_port(c, item->data, false);
+	}
+	pw_array_for_each(item, &c->ports[SPA_DIRECTION_INPUT].items) {
+                if (pw_map_item_is_free(item))
+			continue;
+		free_port(c, item->data, false);
+	}
 	if (c->registry) {
 		spa_hook_remove(&c->registry_listener);
 		pw_proxy_destroy((struct pw_proxy*)c->registry);
@@ -4686,16 +4696,6 @@ int jack_client_close (jack_client_t *client)
 
 	pw_log_debug("%p: free", client);
 
-	pw_array_for_each(item, &c->ports[SPA_DIRECTION_OUTPUT].items) {
-                if (pw_map_item_is_free(item))
-			continue;
-		free_port(c, item->data, false);
-	}
-	pw_array_for_each(item, &c->ports[SPA_DIRECTION_INPUT].items) {
-                if (pw_map_item_is_free(item))
-			continue;
-		free_port(c, item->data, false);
-	}
 	pthread_mutex_lock(&globals.lock);
 	spa_list_consume(o, &c->context.objects, link) {
 		bool to_free = o->to_free;

@@ -426,6 +426,9 @@ static int write_codec_pcm(void *dst, size_t max, const struct iovec *iov, size_
 	for (j = 0; j < iovlen; j++)
 		n_frames += iov[j].iov_len / 4;
 
+	if (n_frames*4 + 8 > max)
+		return -ENOSPC;
+
 	bit_writer(&bp, &bpos, 1, 3); /* channel=1, stereo */
 	bit_writer(&bp, &bpos, 0, 4); /* Unknown */
 	bit_writer(&bp, &bpos, 0, 8); /* Unknown */
@@ -470,6 +473,7 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	struct rtp_header *header;
 	struct msghdr msg;
 	uint8_t *dst;
+	int res;
 
 	if (!impl->recording)
 		return;
@@ -498,7 +502,12 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	switch (impl->codec) {
 	case CODEC_PCM:
 	case CODEC_ALAC:
-		len = write_codec_pcm(dst, max, &iov[1], iovlen - 1);
+		res = write_codec_pcm(dst, max, &iov[1], iovlen - 1);
+		if (res < 0) {
+			pw_log_warn("can't write data: %d (%s)", res, spa_strerror(res));
+			return;
+		}
+		len = res;
 		break;
 	default:
 		len = 8 + impl->mtu;

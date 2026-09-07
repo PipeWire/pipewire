@@ -759,6 +759,18 @@ do_enum_fmt:
 						this->props.device);
 				goto exit;
 			}
+			/* This enumerates every pixel format of the device, so a
+			 * filter that constrains the media type but not the pixel
+			 * format is only applied here. */
+			if (filter) {
+				const struct format_info *fi =
+					fourcc_to_format_info(port->fmtdesc.pixelformat);
+
+				if (fi == NULL ||
+				    fi->media_type != filter_media_type ||
+				    fi->media_subtype != filter_media_subtype)
+					goto next_fmtdesc;
+			}
 		}
 		port->next_fmtdesc = false;
 		port->frmsize.index = 0;

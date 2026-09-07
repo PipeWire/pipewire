@@ -26,9 +26,10 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 	uint32_t c, i, j, k, duration, n_samp;
 	int32_t span;
 	uint16_t *d;
-	struct spa_burg_pred pred[2];
-	float state[2][16];
-	float coef[2][16];
+	uint32_t channels = impl->stream_info.info.raw.channels;
+	struct spa_burg_pred pred[channels];
+	float state[channels][16];
+	float coef[channels][16];
 	float tmp[512];
 
 	span = rtp_timestamp_delta(ts_end, ts_start);
@@ -42,11 +43,14 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 	pw_log_info("missing seq %d %d  %u %u %u", num, last->seq, ts_start, duration, impl->stride);
 
 	n_samp = SPA_MIN(512u, last->duration);
-	for (c = 0; c < 2; c++) {
+	for (c = 0; c < channels; c++) {
 		uint16_t *s = last->decoded;
 
-		for (j = 0; j < n_samp; j++)
-			tmp[j] = ((int16_t)ntohs(s[(last->duration - n_samp + j) * 2 + c])) / 32768.0f;
+		if (impl->rtp_format_info->to_float)
+			impl->rtp_format_info->to_float(&s[(last->duration - n_samp) * channels + c],
+					channels, tmp, n_samp);
+		else
+			memset(tmp, 0, sizeof(tmp));
 
 		spa_burg_pred_fit(&pred[c], tmp, n_samp, 0.98, state[c], coef[c], SPA_N_ELEMENTS(coef[c]));
 	}
@@ -65,16 +69,18 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 		p->hlen = 0;
 
 		d = p->data;
-		for (c = 0; c < 2; c++) {
+		for (c = 0; c < channels; c++) {
 			j = 0;
 			while (j < duration) {
 				uint32_t to_process = SPA_MIN(SPA_N_ELEMENTS(tmp), duration - j);
 
-				for (k = 0; k < to_process; k++) {
-					float v = spa_burg_pred_next(&pred[c]);
-					int16_t vs = (int16_t)lrintf(SPA_CLAMPF(v * 32768.0f, -32768, 32767));
-					d[(j+k)*2+c] = htons(vs);
-				}
+				for (k = 0; k < to_process; k++)
+					tmp[k] = spa_burg_pred_next(&pred[c]);
+
+				if (impl->rtp_format_info->from_float)
+					impl->rtp_format_info->from_float(tmp, channels,
+							&d[j*channels+c], n_samp);
+
 				j += to_process;
 			}
 		}

@@ -297,9 +297,6 @@ static int do_finish_stopping_state(struct spa_loop *loop, bool async, uint32_t 
 	return 0;
 }
 
-#include "module-rtp/audio.c"
-#include "module-rtp/midi.c"
-#include "module-rtp/opus.c"
 
 struct rtp_format_info {
 	uint32_t media_subtype;
@@ -307,13 +304,39 @@ struct rtp_format_info {
 	uint32_t size;
 	const char *mime;
 	const char *media_type;
+	void (*to_float) (const void *src, int stride, float *dst, uint32_t n_samples);
+	void (*from_float) (const float *src, int stride, void *dst, uint32_t n_samples);
 };
+
+#include "module-rtp/audio.c"
+#include "module-rtp/midi.c"
+#include "module-rtp/opus.c"
+
+static void s16be_to_float(const void *src, int stride, float *dst, uint32_t n_samples)
+{
+	uint32_t i;
+	const uint16_t *s = src;
+
+	for (i = 0; i < n_samples; i++)
+		dst[i] = ((int16_t)ntohs(s[i*stride])) / 32768.0f;
+}
+
+static void s16be_from_float(const float *src, int stride, void *dst, uint32_t n_samples)
+{
+	uint32_t i;
+	uint16_t *d = dst;
+
+	for (i = 0; i < n_samples; i++) {
+		int16_t vs = (int16_t)lrintf(SPA_CLAMPF(src[i] * 32768.0f, -32768, 32767));
+		d[i*stride] = htons(vs);
+	}
+}
 
 static const struct rtp_format_info rtp_pcm_audio_format_info[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_U8, 1, "L8", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ALAW, 1, "PCMA", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ULAW, 1, "PCMU", "audio" },
-	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio" },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio", s16be_to_float, s16be_from_float },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_LE, 2, "L16", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio" },
 };

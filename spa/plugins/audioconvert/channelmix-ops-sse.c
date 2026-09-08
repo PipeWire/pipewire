@@ -298,7 +298,7 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 			w += 4;
 			if (w >= n_buffer) {
 				w -= n_buffer;
-				t[0] = _mm_loadu_ps(&buffer[n_buffer]);
+				t[0] = _mm_load_ps(&buffer[n_buffer]);
 				_mm_store_ps(&buffer[0], t[0]);
 			}
 		}
@@ -321,7 +321,7 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 			w += 4;
 			if (w >= n_buffer) {
 				w -= n_buffer;
-				t[0] = _mm_loadu_ps(&buffer[n_buffer]);
+				t[0] = _mm_load_ps(&buffer[n_buffer]);
 				_mm_store_ps(&buffer[0], t[0]);
 			}
 		}

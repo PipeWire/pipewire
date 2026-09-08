@@ -926,7 +926,7 @@ int channelmix_init(struct channelmix *mix)
 	else
 		mix->n_taps = 1;
 
-	mix->buffer_size = mix->delay + mix->n_taps;
+	mix->buffer_size = SPA_ROUND_UP_N(mix->delay + mix->n_taps, CHANNELMIX_OPS_MAX_ALIGN/4);
 	if (mix->buffer_size > MAX_BUFFER_SIZE) {
 		mix->buffer_size = MAX_BUFFER_SIZE;
 		mix->delay = MAX_BUFFER_SIZE - mix->n_taps;

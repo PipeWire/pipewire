@@ -655,6 +655,17 @@ if build_module_raop
         dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
       ),
     )
+    test('pw-test-raop-auth',
+      executable('pw-test-raop-auth',
+        [ 'module-raop/test-auth.c',
+          'module-raop/rtsp-client.c' ],
+        include_directories : [configinc],
+        dependencies : [pipewire_module_rtp_common_dep, openssl_lib],
+      ),
+      env : [
+        'SPA_PLUGIN_DIR=@0@'.format(spa_dep.get_variable('plugindir')),
+      ],
+    )
     test('pw-test-raop-rtsp-client',
       executable('pw-test-raop-rtsp-client',
         [ 'module-raop/test-rtsp-client.c',

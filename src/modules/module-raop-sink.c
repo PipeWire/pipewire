@@ -242,6 +242,7 @@ struct impl {
 	char *nonce;
 
 	unsigned int do_disconnect:1;
+	unsigned int auth_setup_auth_retry:1;
 
 	bool disable_volume;
 
@@ -740,16 +741,20 @@ static int MD5_hash(char hash[MD5_HASH_LENGTH+1], const char *fmt, ...)
 	return 0;
 }
 
-static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
+static int rtsp_add_raop_auth_header(struct impl *impl, const char *method, const char *url)
 {
 	char auth[1024];
 
-	if (impl->auth_method == NULL)
+	if (impl->auth_method == NULL) {
+		pw_properties_set(impl->headers, "Authorization", NULL);
 		return 0;
+	}
 
 	if (spa_streq(impl->auth_method, "Basic")) {
 		char buf[256];
 		char enc[512];
+		if (impl->password == NULL)
+			goto error;
 		spa_scnprintf(buf, sizeof(buf), "%s:%s", RAOP_AUTH_USER_NAME, impl->password);
 		pw_base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
 		explicit_bzero(buf, sizeof(buf));
@@ -757,12 +762,12 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 		explicit_bzero(enc, sizeof(enc));
 	}
 	else if (spa_streq(impl->auth_method, "Digest")) {
-		const char *url;
 		char h1[MD5_HASH_LENGTH+1];
 		char h2[MD5_HASH_LENGTH+1];
 		char resp[MD5_HASH_LENGTH+1];
 
-		url = pw_rtsp_client_get_url(impl->rtsp);
+		if (url == NULL || impl->realm == NULL || impl->nonce == NULL || impl->password == NULL)
+			goto error;
 
 		MD5_hash(h1, "%s:%s:%s", RAOP_AUTH_USER_NAME, impl->realm, impl->password);
 		MD5_hash(h2, "%s:%s", method, url);
@@ -784,21 +789,31 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method)
 
 	return 0;
 error:
-	pw_log_error("error adding raop RSA auth");
+	pw_log_error("error adding raop auth");
 	return -EINVAL;
+}
+
+static int rtsp_send_url(struct impl *impl, const char *url, const char *method,
+		const char *content_type, const void *content, size_t content_length,
+		int (*reply) (void *data, int status, const struct spa_dict *headers, const struct pw_array *content))
+{
+	int res;
+
+	if ((res = rtsp_add_raop_auth_header(impl, method, url)) < 0)
+		return res;
+
+	return pw_rtsp_client_url_send(impl->rtsp, url, method, &impl->headers->dict,
+			content_type, content, content_length, reply, impl);
 }
 
 static int rtsp_send(struct impl *impl, const char *method,
 		const char *content_type, const char *content,
 		int (*reply) (void *data, int status, const struct spa_dict *headers, const struct pw_array *content))
 {
-	int res;
+	const char *url = pw_rtsp_client_get_url(impl->rtsp);
+	const size_t content_length = content ? strlen(content) : 0;
 
-	rtsp_add_raop_auth_header(impl, method);
-
-	res = pw_rtsp_client_send(impl->rtsp, method, &impl->headers->dict,
-			content_type, content, reply, impl);
-	return res;
+	return rtsp_send_url(impl, url, method, content_type, content, content_length, reply);
 }
 
 static int rtsp_log_reply_status(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
@@ -1289,14 +1304,30 @@ static int rtsp_do_announce(struct impl *impl)
 	return rtsp_send(impl, "ANNOUNCE", "application/sdp", sdp, rtsp_announce_reply);
 }
 
+static int rtsp_do_post_auth_setup(struct impl *impl);
+static int rtsp_parse_auth(struct impl *impl, const struct spa_dict *headers);
+static void rtsp_clear_auth(struct impl *impl);
+
 static int rtsp_post_auth_setup_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
+	int res;
 
 	pw_log_info("auth-setup status: %d", status);
 	switch (status) {
 	case 200:
 		break;
+	case 401:
+		if (impl->auth_setup_auth_retry) {
+			pw_impl_module_schedule_destroy(impl->module);
+			return 0;
+		}
+		if ((res = rtsp_parse_auth(impl, headers)) < 0) {
+			pw_impl_module_schedule_destroy(impl->module);
+			return 0;
+		}
+		impl->auth_setup_auth_retry = true;
+		return rtsp_do_post_auth_setup(impl);
 	default:
 		pw_impl_module_schedule_destroy(impl->module);
 		return 0;
@@ -1314,9 +1345,13 @@ static int rtsp_do_post_auth_setup(struct impl *impl)
 		0xa9, 0x4d, 0xbd, 0x50, 0xd8, 0xaa, 0x46, 0x5b,
 		0x5d, 0x8c, 0x01, 0x2a, 0x0c, 0x7e, 0x1d, 0x4e };
 
-	return pw_rtsp_client_url_send(impl->rtsp, "/auth-setup", "POST", &impl->headers->dict,
-				       "application/octet-stream", content, sizeof(content),
-				       rtsp_post_auth_setup_reply, impl);
+	int res;
+
+	res = rtsp_send_url(impl, "/auth-setup", "POST", "application/octet-stream",
+			content, sizeof(content), rtsp_post_auth_setup_reply);
+	if (res < 0)
+		pw_impl_module_schedule_destroy(impl->module);
+	return res;
 }
 
 static int rtsp_options_auth_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
@@ -1358,10 +1393,28 @@ static const char *find_attr(char **tokens, const char *key)
 	return NULL;
 }
 
-static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *headers)
+static void rtsp_clear_auth(struct impl *impl)
+{
+	free(impl->auth_method);
+	impl->auth_method = NULL;
+	if (impl->realm) {
+		explicit_bzero(impl->realm, strlen(impl->realm));
+		free(impl->realm);
+		impl->realm = NULL;
+	}
+	if (impl->nonce) {
+		explicit_bzero(impl->nonce, strlen(impl->nonce));
+		free(impl->nonce);
+		impl->nonce = NULL;
+	}
+}
+
+static int rtsp_parse_auth(struct impl *impl, const struct spa_dict *headers)
 {
 	const char *str, *realm, *nonce;
+	char *auth_method = NULL, *realm_copy = NULL, *nonce_copy = NULL;
 	int n_tokens;
+	int res = 0;
 
 	if ((str = spa_dict_lookup(headers, "WWW-Authenticate")) == NULL)
 		return -EINVAL;
@@ -1377,21 +1430,51 @@ static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *header
 	if (tokens == NULL || tokens[0] == NULL)
 		return -EINVAL;
 
-	impl->auth_method = strdup(tokens[0]);
-	if (impl->auth_method == NULL)
+	auth_method = strdup(tokens[0]);
+	if (auth_method == NULL)
 		return -ENOMEM;
 
-	if (spa_streq(impl->auth_method, "Digest")) {
+	if (spa_streq(auth_method, "Digest")) {
 		realm = find_attr(tokens, "realm");
 		nonce = find_attr(tokens, "nonce");
 		if (realm == NULL || nonce == NULL)
-			return -EINVAL;
+			goto error;
 
-		impl->realm = strdup(realm);
-		impl->nonce = strdup(nonce);
-		if (impl->realm == NULL || impl->nonce == NULL)
-			return -ENOMEM;
+		realm_copy = strdup(realm);
+		nonce_copy = strdup(nonce);
+		if (realm_copy == NULL || nonce_copy == NULL) {
+			res = -ENOMEM;
+			goto error;
+		}
 	}
+
+	rtsp_clear_auth(impl);
+	impl->auth_method = auth_method;
+	impl->realm = realm_copy;
+	impl->nonce = nonce_copy;
+	return 0;
+
+error:
+	if (res == 0)
+		res = -EINVAL;
+	free(auth_method);
+	if (realm_copy) {
+		explicit_bzero(realm_copy, strlen(realm_copy));
+		free(realm_copy);
+	}
+	if (nonce_copy) {
+		explicit_bzero(nonce_copy, strlen(nonce_copy));
+		free(nonce_copy);
+	}
+	return res;
+}
+
+static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *headers)
+{
+	int res;
+
+	if ((res = rtsp_parse_auth(impl, headers)) < 0)
+		return res;
 
 	return rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_options_auth_reply);
 }
@@ -1450,6 +1533,7 @@ static void rtsp_connected(void *data)
 static void connection_cleanup(struct impl *impl)
 {
 	impl->ready = false;
+	impl->auth_setup_auth_retry = false;
 	if (impl->server_source != NULL) {
 		pw_loop_destroy_source(impl->loop, impl->server_source);
 		impl->server_source = NULL;
@@ -1476,18 +1560,7 @@ static void connection_cleanup(struct impl *impl)
 	}
 	pw_timer_queue_cancel(&impl->feedback_timer);
 
-	free(impl->auth_method);
-	impl->auth_method = NULL;
-	if (impl->realm) {
-		explicit_bzero(impl->realm, strlen(impl->realm));
-		free(impl->realm);
-		impl->realm = NULL;
-	}
-	if (impl->nonce) {
-		explicit_bzero(impl->nonce, strlen(impl->nonce));
-		free(impl->nonce);
-		impl->nonce = NULL;
-	}
+	rtsp_clear_auth(impl);
 }
 
 static void rtsp_disconnected(void *data)

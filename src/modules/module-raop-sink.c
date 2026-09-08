@@ -758,7 +758,7 @@ static int rtsp_add_raop_auth_header(struct impl *impl, const char *method, cons
 		spa_scnprintf(buf, sizeof(buf), "%s:%s", RAOP_AUTH_USER_NAME, impl->password);
 		pw_base64_encode((uint8_t*)buf, strlen(buf), enc, '=');
 		explicit_bzero(buf, sizeof(buf));
-		spa_scnprintf(auth, sizeof(auth), "Basic %s", enc);
+		spa_scnprintf(auth, sizeof(auth), "%s", enc);
 		explicit_bzero(enc, sizeof(enc));
 	}
 	else if (spa_streq(impl->auth_method, "Digest")) {

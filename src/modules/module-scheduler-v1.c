@@ -959,7 +959,7 @@ again:
 				continue;
 			pw_log_debug("%p: follower %p: active:%d '%s'",
 					context, s, s->active, s->name);
-			ensure_state(s, running, s->pause_on_idle);
+			ensure_state(s, running, !s->can_suspend);
 		}
 
 		if (transport != PW_NODE_ACTIVATION_COMMAND_NONE) {

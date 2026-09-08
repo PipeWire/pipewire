@@ -785,6 +785,7 @@ struct pw_impl_node {
 	unsigned int lazy:1;		/**< the graph is lazy scheduling */
 	unsigned int exclusive:1;	/**< ports can only be linked once */
 	unsigned int reliable:1;	/**< ports need reliable tee */
+	unsigned int can_suspend:1;	/**< node can suspend */
 
 #define PASSIVE_MODE_FALSE		0
 #define PASSIVE_MODE_TRUE		1

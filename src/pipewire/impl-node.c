@@ -1250,9 +1250,15 @@ static void check_properties(struct pw_impl_node *node)
 		SPA_FLAG_UPDATE(node->rt.target.activation->flags, PW_NODE_ACTIVATION_FLAG_ASYNC, async);
 	}
 
+	if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
+	    (spa_strstartswith(str, "Audio/") || spa_strstartswith(str, "Video/"))) {
+		str = pw_properties_get(node->properties, "session.suspend-timeout-seconds");
+		node->can_suspend = str ? atoi(str) != 0 : true;
+	} else
+		node->can_suspend = false;
+
 	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_PASSIVE)) == NULL) {
-		if ((str = pw_properties_get(node->properties, PW_KEY_MEDIA_CLASS)) != NULL &&
-		    (strstr(str, "/Duplex") || strstr(str, "/Sink") || strstr(str, "/Source")))
+		if (node->can_suspend)
 			str = "follow-suspend";
 		else
 			str = "false";

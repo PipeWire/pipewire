@@ -185,17 +185,28 @@ static void expected_digest(char *auth, size_t size, const char *method, const c
 			RAOP_AUTH_USER_NAME, TEST_REALM, TEST_NONCE, url, response);
 }
 
-static void assert_request(const uint8_t *request, size_t size, const char *authorization,
-		unsigned int cseq)
+static void expected_basic(char *auth, size_t size)
+{
+	const char credentials[] = RAOP_AUTH_USER_NAME ":" TEST_PASSWORD;
+	unsigned char encoded[256];
+	int length = EVP_EncodeBlock(encoded, (const unsigned char *)credentials,
+			sizeof(credentials) - 1);
+
+	spa_assert_se(length > 0 && (size_t)length < sizeof(encoded));
+	encoded[length] = '\0';
+	spa_scnprintf(auth, size, "Basic %s", encoded);
+}
+
+static void assert_headers(const uint8_t *request, const char *method, const char *url,
+		const char *authorization, unsigned int cseq)
 {
 	char cseq_header[32];
-	ssize_t end;
+	char request_line[1024];
 
 	spa_scnprintf(cseq_header, sizeof(cseq_header), "\r\nCSeq: %u\r\n", cseq);
-	spa_assert_se(strstr((const char *)request, "POST /auth-setup RTSP/1.0\r\n") != NULL);
+	spa_scnprintf(request_line, sizeof(request_line), "%s %s RTSP/1.0\r\n", method, url);
+	spa_assert_se(strncmp((const char *)request, request_line, strlen(request_line)) == 0);
 	spa_assert_se(strstr((const char *)request, cseq_header) != NULL);
-	spa_assert_se(strstr((const char *)request, "\r\nContent-Type: application/octet-stream\r\n") != NULL);
-	spa_assert_se(strstr((const char *)request, "\r\nContent-Length: 33\r\n") != NULL);
 	if (authorization != NULL) {
 		char header[1024];
 		spa_scnprintf(header, sizeof(header), "\r\nAuthorization: %s\r\n", authorization);
@@ -203,6 +214,16 @@ static void assert_request(const uint8_t *request, size_t size, const char *auth
 	}
 	else
 		spa_assert_se(strstr((const char *)request, "\r\nAuthorization:") == NULL);
+}
+
+static void assert_request(const uint8_t *request, size_t size, const char *authorization,
+		unsigned int cseq)
+{
+	ssize_t end;
+
+	assert_headers(request, "POST", "/auth-setup", authorization, cseq);
+	spa_assert_se(strstr((const char *)request, "\r\nContent-Type: application/octet-stream\r\n") != NULL);
+	spa_assert_se(strstr((const char *)request, "\r\nContent-Length: 33\r\n") != NULL);
 
 	end = header_end(request, size);
 	spa_assert_se(end >= 0);
@@ -210,7 +231,20 @@ static void assert_request(const uint8_t *request, size_t size, const char *auth
 	spa_assert_se(memcmp(request + end + 4, auth_setup_content, sizeof(auth_setup_content)) == 0);
 }
 
-static void test_auth_setup_digest_retry(bool accepted)
+static void reply(struct pw_loop *loop, int fd, unsigned int cseq, int status,
+		const char *challenge)
+{
+	char response[1024];
+	int length = spa_scnprintf(response, sizeof(response),
+			"RTSP/1.0 %d %s\r\nCSeq: %u\r\n%s%s%sContent-Length: 0\r\n\r\n",
+			status, status == 200 ? "OK" : "Unauthorized", cseq,
+			challenge ? "WWW-Authenticate: " : "", challenge ? challenge : "",
+			challenge ? "\r\n" : "");
+
+	send_all(loop, fd, response, length);
+}
+
+static void test_auth_setup(bool accepted, const char *options_auth)
 {
 	struct test_data test = { 0 };
 	struct pw_main_loop *main_loop;
@@ -223,6 +257,10 @@ static void test_auth_setup_digest_retry(bool accepted)
 	uint16_t port;
 	size_t size;
 	int server_fd, peer_fd = -1;
+	unsigned int post_cseq;
+	const bool basic = options_auth && spa_streq(options_auth, "Basic");
+	const char *challenge = basic ? "Basic realm=\"" TEST_REALM "\"" :
+			"Digest realm=\"" TEST_REALM "\", nonce=\"" TEST_NONCE "\"";
 
 	destroy_count = 0;
 	server_fd = create_server(&port);
@@ -236,7 +274,7 @@ static void test_auth_setup_digest_retry(bool accepted)
 	sender.props = pw_properties_new("raop.ip", "127.0.0.1", NULL);
 	sender.headers = pw_properties_new(NULL, NULL);
 	sender.password = strdup(TEST_PASSWORD);
-	sender.encryption = CRYPTO_NONE;
+	sender.encryption = options_auth ? CRYPTO_AUTH_SETUP : CRYPTO_NONE;
 	sender.psamples = 352;
 	sender.rate = 44100;
 	sender.rtsp = client;
@@ -255,40 +293,52 @@ static void test_auth_setup_digest_retry(bool accepted)
 	}
 	spa_assert_se(peer_fd >= 0);
 
-	spa_assert_se(rtsp_do_post_auth_setup(&sender) == 0);
-	read_request(loop, peer_fd, request, sizeof(request), &size);
-	assert_request(request, size, NULL, 1);
-	send_all(loop, peer_fd,
-			"RTSP/1.0 401 Unauthorized\r\n"
-			"CSeq: 1\r\n"
-			"WWW-Authenticate: Digest realm=\"" TEST_REALM "\", nonce=\"" TEST_NONCE "\"\r\n"
-			"Content-Length: 0\r\n\r\n",
-			strlen("RTSP/1.0 401 Unauthorized\r\n"
-				"CSeq: 1\r\n"
-				"WWW-Authenticate: Digest realm=\"" TEST_REALM "\", nonce=\"" TEST_NONCE "\"\r\n"
-				"Content-Length: 0\r\n\r\n"));
+	if (options_auth) {
+		const char *url = pw_rtsp_client_get_url(client);
 
-	expected_digest(authorization, sizeof(authorization), "POST", "/auth-setup");
+		spa_assert_se(accepted);
+		rtsp_connected(&sender);
+		read_request(loop, peer_fd, request, sizeof(request), &size);
+		assert_headers(request, "OPTIONS", url, NULL, 1);
+		reply(loop, peer_fd, 1, 401, challenge);
+		if (basic)
+			expected_basic(authorization, sizeof(authorization));
+		else
+			expected_digest(authorization, sizeof(authorization), "OPTIONS", url);
+		memset(request, 0, sizeof(request));
+		read_request(loop, peer_fd, request, sizeof(request), &size);
+		assert_headers(request, "OPTIONS", url, authorization, 2);
+		reply(loop, peer_fd, 2, 200, NULL);
+		post_cseq = 3;
+	} else {
+		spa_assert_se(rtsp_do_post_auth_setup(&sender) == 0);
+		read_request(loop, peer_fd, request, sizeof(request), &size);
+		assert_request(request, size, NULL, 1);
+		reply(loop, peer_fd, 1, 401, challenge);
+		post_cseq = 2;
+	}
+	if (basic)
+		expected_basic(authorization, sizeof(authorization));
+	else
+		expected_digest(authorization, sizeof(authorization), "POST", "/auth-setup");
 	memset(request, 0, sizeof(request));
 	read_request(loop, peer_fd, request, sizeof(request), &size);
-	assert_request(request, size, authorization, 2);
+	assert_request(request, size, authorization, post_cseq);
 	if (accepted) {
-		send_all(loop, peer_fd,
-				"RTSP/1.0 200 OK\r\nCSeq: 2\r\nContent-Length: 0\r\n\r\n",
-				strlen("RTSP/1.0 200 OK\r\nCSeq: 2\r\nContent-Length: 0\r\n\r\n"));
+		reply(loop, peer_fd, post_cseq, 200, NULL);
 		spa_assert_se(pw_loop_iterate(loop, 10) >= 0);
 		spa_assert_se(destroy_count == 0);
 		memset(request, 0, sizeof(request));
 		read_request(loop, peer_fd, request, sizeof(request), &size);
-		spa_assert_se(strncmp((const char *)request, "ANNOUNCE ", 9) == 0);
-		expected_digest(authorization, sizeof(authorization), "ANNOUNCE",
-				pw_rtsp_client_get_url(client));
-		spa_assert_se(strstr((const char *)request, authorization) != NULL);
+		if (basic)
+			expected_basic(authorization, sizeof(authorization));
+		else
+			expected_digest(authorization, sizeof(authorization), "ANNOUNCE",
+					pw_rtsp_client_get_url(client));
+		assert_headers(request, "ANNOUNCE", pw_rtsp_client_get_url(client),
+				authorization, post_cseq + 1);
 	} else {
-		const char response[] = "RTSP/1.0 401 Unauthorized\r\nCSeq: 2\r\n"
-				"WWW-Authenticate: Digest realm=\"" TEST_REALM "\", nonce=\"" TEST_NONCE "\"\r\n"
-				"Content-Length: 0\r\n\r\n";
-		send_all(loop, peer_fd, response, sizeof(response) - 1);
+		reply(loop, peer_fd, post_cseq, 401, challenge);
 		for (unsigned int i = 0; i < 100 && destroy_count == 0; i++)
 			spa_assert_se(pw_loop_iterate(loop, 10) >= 0);
 		spa_assert_se(destroy_count == 1);
@@ -335,8 +385,10 @@ static void test_invalid_challenge(const char *challenge, bool password)
 int main(int argc, char **argv)
 {
 	pw_init(&argc, &argv);
-	test_auth_setup_digest_retry(true);
-	test_auth_setup_digest_retry(false);
+	test_auth_setup(true, NULL);
+	test_auth_setup(false, NULL);
+	test_auth_setup(true, "Digest");
+	test_auth_setup(true, "Basic");
 	test_invalid_challenge(NULL, true);
 	test_invalid_challenge("Digest realm=\"airplay\"", true);
 	test_invalid_challenge("Bearer test-token", true);

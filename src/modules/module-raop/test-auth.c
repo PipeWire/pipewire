@@ -368,18 +368,30 @@ static void test_auth_setup(bool accepted, const char *options_auth)
 	spa_assert_se(close(server_fd) == 0);
 }
 
-static void test_invalid_challenge(const char *challenge, bool password)
+static void test_invalid_challenge(const char *challenge, bool password, bool options)
 {
-	struct impl sender = { .password = password ? TEST_PASSWORD : NULL };
+	struct impl sender = { .password = password ? TEST_PASSWORD : NULL, .connected = true };
+	struct pw_main_loop *main_loop = pw_main_loop_new(NULL);
 	const struct spa_dict_item items[] = { { "WWW-Authenticate", challenge } };
 	const struct spa_dict headers = SPA_DICT_INIT_ARRAY(items);
 
+	spa_assert_se(main_loop != NULL);
+	sender.rtsp = pw_rtsp_client_new(pw_main_loop_get_loop(main_loop),
+			pw_properties_new(NULL, NULL), 0);
+	spa_assert_se(sender.rtsp != NULL);
+	sender.headers = pw_properties_new(NULL, NULL);
 	destroy_count = 0;
-	spa_assert_se(rtsp_post_auth_setup_reply(&sender, 401, &headers, NULL) <= 0);
+	if (options)
+		spa_assert_se(rtsp_options_reply(&sender, 401, &headers, NULL) < 0);
+	else
+		spa_assert_se(rtsp_post_auth_setup_reply(&sender, 401, &headers, NULL) <= 0);
 	spa_assert_se(destroy_count == 1);
 	free(sender.auth_method);
 	free(sender.realm);
 	free(sender.nonce);
+	pw_properties_free(sender.headers);
+	pw_rtsp_client_destroy(sender.rtsp);
+	pw_main_loop_destroy(main_loop);
 }
 
 int main(int argc, char **argv)
@@ -389,10 +401,12 @@ int main(int argc, char **argv)
 	test_auth_setup(false, NULL);
 	test_auth_setup(true, "Digest");
 	test_auth_setup(true, "Basic");
-	test_invalid_challenge(NULL, true);
-	test_invalid_challenge("Digest realm=\"airplay\"", true);
-	test_invalid_challenge("Bearer test-token", true);
-	test_invalid_challenge("Digest realm=\"airplay\", nonce=\"test-nonce\"", false);
+	for (unsigned int options = 0; options < 2; options++) {
+		test_invalid_challenge(NULL, true, options);
+		test_invalid_challenge("Digest realm=\"airplay\"", true, options);
+		test_invalid_challenge("Bearer test-token", true, options);
+		test_invalid_challenge("Digest realm=\"airplay\", nonce=\"test-nonce\"", false, options);
+	}
 	pw_deinit();
 	return EXIT_SUCCESS;
 }

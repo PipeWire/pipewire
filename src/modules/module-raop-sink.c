@@ -1473,10 +1473,12 @@ static int rtsp_do_options_auth(struct impl *impl, const struct spa_dict *header
 {
 	int res;
 
-	if ((res = rtsp_parse_auth(impl, headers)) < 0)
-		return res;
-
-	return rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_options_auth_reply);
+	res = rtsp_parse_auth(impl, headers);
+	if (res >= 0)
+		res = rtsp_send(impl, "OPTIONS", NULL, NULL, rtsp_options_auth_reply);
+	if (res < 0)
+		pw_impl_module_schedule_destroy(impl->module);
+	return res;
 }
 
 static int rtsp_options_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)

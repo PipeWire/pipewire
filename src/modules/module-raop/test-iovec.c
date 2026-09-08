@@ -29,7 +29,8 @@ static ssize_t packet(struct impl *sender, int receiver, const struct iovec *aud
 static unsigned int check_splits(struct impl *sender, int receiver)
 {
 	uint8_t samples[2][TEST_BYTES];
-	uint8_t reference[TEST_BYTES + 64], actual[sizeof(reference)];
+	uint8_t reference[TEST_BYTES + 64], actual[sizeof(reference) + 4];
+	uint8_t prefix[4];
 	const struct iovec contiguous = { samples[0], TEST_BYTES };
 	unsigned int failures = 0;
 	ssize_t expected;
@@ -39,6 +40,10 @@ static unsigned int check_splits(struct impl *sender, int receiver)
 		samples[0][i] = samples[1][i] = (uint8_t)(i * 73 + i / 256);
 	expected = packet(sender, receiver, &contiguous, 1, reference, sizeof(reference));
 	spa_assert_se(expected == 12 + TEST_BYTES + 8);
+	prefix[0] = '$';
+	prefix[1] = 0;
+	prefix[2] = (uint8_t)(expected >> 8);
+	prefix[3] = (uint8_t)expected;
 	for (split = 0; split <= TEST_FRAMES; split++) {
 		size_t first = split * 4;
 		const struct iovec audio[2] = {
@@ -46,6 +51,14 @@ static unsigned int check_splits(struct impl *sender, int receiver)
 		};
 		ssize_t size = packet(sender, receiver, audio, 2, actual, sizeof(actual));
 		if (size != expected || memcmp(actual, reference, (size_t)expected) != 0)
+			failures++;
+
+		/* Capture TCP framing in one datagram; the RTP/ALAC bytes must be unchanged. */
+		sender->protocol = PROTO_TCP;
+		size = packet(sender, receiver, audio, 2, actual, sizeof(actual));
+		sender->protocol = PROTO_UDP;
+		if (size != expected + 4 || memcmp(actual, prefix, sizeof(prefix)) != 0 ||
+				memcmp(actual + 4, reference, (size_t)expected) != 0)
 			failures++;
 	}
 	return failures;
@@ -65,6 +78,6 @@ int main(int argc, char **argv)
 	spa_assert_se(close(sockets[0]) == 0);
 	spa_assert_se(close(sockets[1]) == 0);
 	pw_deinit();
-	printf("%u cases, %u failures\n", TEST_FRAMES + 2, failures);
+	printf("%u cases, %u failures\n", 1 + 2 * (TEST_FRAMES + 1), failures);
 	return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

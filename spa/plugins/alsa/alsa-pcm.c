@@ -2899,8 +2899,17 @@ recover:
 		/* Driver is the clock source; starting it unprepared
 		 * breaks the entire pipeline. do_drop errors are
 		 * ignored (prepare can reset the hardware). Follower
-		 * errors are non-fatal by design. */
-		update_sources(state, true);
+		 * errors are non-fatal by design.
+		 *
+		 * The PCM is now dropped and unprepared, so do not
+		 * re-arm the poll sources (that would busy-loop on
+		 * POLLERR), reset the state flags so a later restart
+		 * does not skip do_prepare()/do_start(), and signal
+		 * the graph to suspend and restart the node. */
+		update_sources(state, false);
+		driver->alsa_started = false;
+		driver->prepared = false;
+		spa_loop_invoke(driver->main_loop, emit_node_error, 0, NULL, 0, false, driver);
 		return -EIO;
 	}
 	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {

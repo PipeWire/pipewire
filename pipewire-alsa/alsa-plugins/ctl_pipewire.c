@@ -907,7 +907,7 @@ static void device_event_param(void *data, int seq,
 				SPA_PARAM_ROUTE_index, SPA_POD_Int(&idx),
 				SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
 				SPA_PARAM_ROUTE_device, SPA_POD_Int(&device),
-				SPA_PARAM_ROUTE_props, SPA_POD_OPT_Pod(&props)) < 0) {
+				SPA_PARAM_ROUTE_props, SPA_POD_OPT_PodObject(&props)) < 0) {
 			pw_log_warn("device %d: can't parse route", g->id);
 			return;
 		}

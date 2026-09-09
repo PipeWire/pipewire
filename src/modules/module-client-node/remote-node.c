@@ -701,6 +701,11 @@ client_node_port_use_buffers(void *_data,
 						j, bm->id, bm->fd, d->maxsize, d->flags);
 			} else if (d->type == SPA_DATA_MemPtr) {
 				int offs = SPA_PTR_TO_INT(d->data);
+				if (offs < 0 || (uint32_t)offs > mm->size ||
+				    d->maxsize > mm->size - (uint32_t)offs) {
+					res = -EINVAL;
+					goto error_exit_cleanup;
+				}
 				d->data = SPA_PTROFF(mm->ptr, offs, void);
 				d->fd = -1;
 				pw_log_debug(" data %d id:%u -> mem:%p offs:%d maxsize:%d flags:%08x",

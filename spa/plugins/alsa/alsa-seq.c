@@ -678,6 +678,7 @@ static int process_read(struct seq_state *state)
 		if ((res = prepare_buffer(state, port)) < 0) {
 			spa_log_debug(state->log, "can't prepare buffer port:%p %d.%d: %s",
 					port, addr->client, addr->port, spa_strerror(res));
+			port->dropped++;
 			continue;
 		}
 
@@ -710,6 +711,7 @@ static int process_read(struct seq_state *state)
 			if (ev->type == SND_SEQ_EVENT_SYSEX) {
 				switch (ev->flags & SND_SEQ_EVENT_LENGTH_MASK) {
 				case SND_SEQ_EVENT_LENGTH_FIXED:
+					port->dropped++;
 					continue;
 				}
 				size = ev->data.ext.len;
@@ -724,6 +726,7 @@ static int process_read(struct seq_state *state)
 				if ((size = snd_midi_event_decode(stream->codec,
 								midi1_data, sizeof(midi1_data), ev)) < 0) {
 					spa_log_warn(state->log, "decode failed: %s", snd_strerror(size));
+					port->dropped++;
 					continue;
 				}
 				data = midi1_data;
@@ -735,6 +738,12 @@ static int process_read(struct seq_state *state)
 
 		spa_pod_builder_control(&port->builder, offset, ump ? SPA_CONTROL_UMP : SPA_CONTROL_Midi );
 		dst = spa_pod_builder_reserve_bytes(&port->builder, size + extra);
+		if (dst == NULL) {
+			port->dropped++;
+			/* we have to stop here because NULL means the buffer is full and
+			 * there is no point in trying to place more events in the buffer */
+			break;
+		}
 		if (head) {
 			dst[0] = head;
 			dst++;
@@ -746,10 +755,8 @@ static int process_read(struct seq_state *state)
 		if (port->builder.state.offset +
 				sizeof(struct spa_pod_control) +
 				MAX_EVENT_SIZE > port->buffer->buf->datas[0].maxsize)
-			goto done;
+			break;
         }
-
-done:
 	if (res < 0 && res != -EAGAIN)
 		spa_log_warn(state->log, "event read failed: %s", snd_strerror(res));
 
@@ -770,12 +777,15 @@ done:
 						port->builder.state.offset,
 						port->buffer->buf->datas[0].maxsize);
 			}
+			if (port->dropped > 0)
+				spa_log_warn(state->log, "control dropped %d events", port->dropped);
 
 			/* move buffer to ready queue */
 			spa_list_remove(&port->buffer->link);
 			SPA_FLAG_SET(port->buffer->flags, BUFFER_FLAG_OUT);
 			spa_list_append(&port->ready, &port->buffer->link);
 			port->buffer = NULL;
+			port->dropped = 0;
 		}
 
 		/* if there is already data, continue */
@@ -1079,6 +1089,8 @@ static void reset_buffers(struct seq_state *this, struct seq_port *port)
 		} else {
 			spa_list_append(&port->free, &b->link);
 			SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUT);
+			port->buffer = NULL;
+			port->dropped = 0;
 		}
 	}
 }

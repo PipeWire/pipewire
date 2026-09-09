@@ -81,6 +81,7 @@ struct seq_port {
 	struct buffer *buffer;
 	struct spa_pod_builder builder;
 	struct spa_pod_frame frame;
+	uint32_t dropped;
 
 	uint32_t control_types;
 

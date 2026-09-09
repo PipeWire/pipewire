@@ -1516,6 +1516,9 @@ int impl_node_set_param(void *object,
 		libcamera::ControlList controls(impl->camera->controls());
 		int res;
 
+		if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+			return -EINVAL;
+
 		SPA_POD_OBJECT_FOREACH(obj, prop) {
 			switch (prop->key) {
 			default:

@@ -771,7 +771,7 @@ static void stream_props_changed(struct impl *impl, uint32_t id, const struct sp
 	struct spa_pod_object *obj = (struct spa_pod_object *)param;
 	struct spa_pod_prop *prop;
 
-	if (param == NULL)
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
 		return;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {

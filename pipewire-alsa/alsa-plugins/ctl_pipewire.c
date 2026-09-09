@@ -836,6 +836,9 @@ static void parse_props(struct global *g, const struct spa_pod *param, bool devi
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	snd_ctl_pipewire_t *ctl = g->ctl;
 
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+		return;
+
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:

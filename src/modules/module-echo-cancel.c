@@ -745,6 +745,9 @@ static void props_changed(struct impl* impl, const struct spa_pod *param)
 	if (param == NULL)
 		return;
 
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+		return;
+
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		if (prop->key == SPA_PROP_params)
 			set_params(impl, &prop->value);

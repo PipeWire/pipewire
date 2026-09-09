@@ -594,6 +594,9 @@ static void parse_props(struct stream *s, const struct spa_pod *param)
 	struct spa_pod_builder b;
 	const struct spa_pod *params[1];
 
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+		return;
+
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_mute:

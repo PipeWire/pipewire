@@ -272,6 +272,9 @@ static void stream_param_changed(void *d, uint32_t id, const struct spa_pod *par
 	if (param == NULL || id != SPA_PARAM_Props)
 		return;
 
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+		return;
+
 	spa_pod_builder_push_object(&b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {

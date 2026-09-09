@@ -1825,6 +1825,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	int32_t value;
 	uint32_t id;
 
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+		return -EINVAL;
+
 	spa_zero(vrp);
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {

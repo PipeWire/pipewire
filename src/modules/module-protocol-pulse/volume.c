@@ -32,7 +32,7 @@ int volume_parse_param(const struct spa_pod *param, struct volume_info *info, bo
 	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	struct spa_pod_prop *prop;
 
-	if (!spa_pod_is_object(param))
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
 		return -EINVAL;
 
 	SPA_POD_OBJECT_FOREACH(obj, prop) {

@@ -800,6 +800,9 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 	bool soft_mute = false, have_soft_mute = false;
 	bool do_volume = false;
 
+	if (!spa_pod_is_object_type(props, SPA_TYPE_OBJECT_Props))
+		return -EINVAL;
+
 	spa_pod_dynamic_builder_init(&b, buf, sizeof(buf), 1024);
 	spa_pod_builder_push_object(&b.b, &f[0], SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
 

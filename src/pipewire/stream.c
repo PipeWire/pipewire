@@ -1388,6 +1388,9 @@ static int node_event_param(void *object, int seq,
 		float *values;
 		uint32_t i, n_values, val_size, val_type;
 
+		if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+			return -EINVAL;
+
 		SPA_POD_OBJECT_FOREACH(obj, prop) {
 			struct control *c;
 

@@ -251,6 +251,9 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	struct props *p = &this->props;
 	int changed = 0;
 
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+		return -EINVAL;
+
 	SPA_POD_OBJECT_FOREACH(obj, prop) {
 		switch (prop->key) {
 		case SPA_PROP_volume:

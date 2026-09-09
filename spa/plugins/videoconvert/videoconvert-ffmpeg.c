@@ -818,9 +818,6 @@ static int node_set_param_port_config(struct impl *this, uint32_t flags,
 	bool monitor = false, control = false;
 	int res;
 
-	if (param == NULL)
-		return 0;
-
 	if (spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_ParamPortConfig, NULL,
 			SPA_PARAM_PORT_CONFIG_direction,	SPA_POD_Id(&direction),
@@ -842,15 +839,6 @@ static int node_set_param_port_config(struct impl *this, uint32_t flags,
 	return reconfigure_mode(this, mode, direction, monitor, control, infop);
 }
 
-static int node_set_param_props(struct impl *this, uint32_t flags,
-				const struct spa_pod *param)
-{
-	if (param == NULL)
-		return 0;
-
-	apply_props(this, param);
-	return 0;
-}
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -861,10 +849,10 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 
 	switch (id) {
 	case SPA_PARAM_PortConfig:
-		res = node_set_param_port_config(this, flags, param);
+		res = param ? node_set_param_port_config(this, flags, param) : 0;
 		break;
 	case SPA_PARAM_Props:
-		res = node_set_param_props(this, flags, param);
+		res = param ? apply_props(this, param) : 0;
 		break;
 	default:
 		return -ENOENT;

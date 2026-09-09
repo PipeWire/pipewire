@@ -1613,8 +1613,7 @@ static void param_changed(struct impl *impl, uint32_t id, const struct spa_pod *
 		break;
 	}
 	case SPA_PARAM_Props:
-		if (param != NULL)
-			spa_filter_graph_set_props(impl->graph, direction, param);
+		spa_filter_graph_set_props(impl->graph, direction, param);
 		break;
 	case SPA_PARAM_Latency:
 		param_latency_changed(impl, param, direction, stream);

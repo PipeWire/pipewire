@@ -2017,6 +2017,9 @@ static int apply_midi(struct impl *this, uint32_t type, const struct spa_pod *va
 	size_t size = SPA_POD_BODY_SIZE(value);
 	uint64_t state = 0;
 
+	if (!spa_pod_is_bytes(value))
+		return -EINVAL;
+
 	if (type == SPA_CONTROL_UMP) {
 		const uint32_t *body = SPA_POD_BODY_CONST(value);
 		ev_size = spa_ump_to_midi(&body, &size, evd, sizeof(evd), &state);
@@ -2175,7 +2178,8 @@ static int node_set_param_props(struct impl *this, uint32_t flags,
 
 	if (param == NULL)
 		return 0;
-
+	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+		return -EINVAL;
 	this->filter_props_count = 0;
 
 	spa_list_for_each_safe(g, t, &this->active_graphs, link) {

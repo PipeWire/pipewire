@@ -456,7 +456,8 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	if (param == NULL) {
 		reset_props(&new_props);
 	} else {
-		/* noop */
+		if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+			return -EINVAL;
 	}
 
 	changed = (memcmp(&new_props, &this->props, sizeof(struct props)) != 0);

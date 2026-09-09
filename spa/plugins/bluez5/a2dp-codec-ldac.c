@@ -373,12 +373,15 @@ static int codec_set_props(void *props, const struct spa_pod *param)
 {
 	struct props *p = props;
 	const int prev_eqmid = p->eqmid;
+	int res;
+
 	if (param == NULL) {
 		p->eqmid = LDACBT_EQMID_AUTO;
 	} else {
-		spa_pod_parse_object(param,
+		if ((res = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_Props, NULL,
-				SPA_PROP_quality, SPA_POD_OPT_Int(&p->eqmid));
+				SPA_PROP_quality, SPA_POD_OPT_Int(&p->eqmid))) < 0)
+			return res;
 		if (p->eqmid != LDACBT_EQMID_AUTO &&
 			(p->eqmid < LDACBT_EQMID_HQ || p->eqmid > LDACBT_EQMID_MQ))
 			p->eqmid = prev_eqmid;

@@ -250,12 +250,14 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			return 0;
 		}
 
-		spa_pod_parse_object(param,
+		res = spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
 			SPA_PROP_device,       SPA_POD_OPT_Stringn(p->device, sizeof(p->device)),
 			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&lat_ns),
 			SPA_PROP_iec958Codecs, SPA_POD_OPT_Pod(&iec958_codecs),
 			SPA_PROP_params,       SPA_POD_OPT_Pod(&params));
+		if (res < 0)
+			return res;
 
 		if ((this->is_iec958 || this->is_hdmi) && iec958_codecs != NULL) {
 			uint32_t i, codecs[16], n_codecs;

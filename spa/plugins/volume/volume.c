@@ -180,6 +180,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
 	struct impl *this = object;
+	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 
@@ -192,17 +193,17 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			reset_props(p);
 			return 0;
 		}
-		spa_pod_parse_object(param,
+		res = spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
 			SPA_PROP_volume, SPA_POD_OPT_Float(&p->volume),
 			SPA_PROP_mute,   SPA_POD_OPT_Bool(&p->mute));
 		break;
 	}
 	default:
-		return -ENOENT;
+		res = -ENOENT;
+		break;
 	}
-
-	return 0;
+	return res;
 }
 
 static int impl_node_send_command(void *object, const struct spa_command *command)

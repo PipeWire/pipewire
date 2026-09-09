@@ -240,10 +240,12 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			return 0;
 		}
 
-		spa_pod_parse_object(param,
+		res = spa_pod_parse_object(param,
 			SPA_TYPE_OBJECT_Props, NULL,
 			SPA_PROP_latencyOffsetNsec,   SPA_POD_OPT_Long(&lat_ns),
 			SPA_PROP_params,       SPA_POD_OPT_Pod(&params));
+		if (res < 0)
+			return res;
 
 		spa_avb_parse_prop_params(this, params);
 		if (lat_ns != -1) {

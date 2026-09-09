@@ -1264,10 +1264,10 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			return 0;
 		}
 
-		spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_Props, NULL,
-			SPA_PROP_device,       SPA_POD_OPT_Stringn(p->device, sizeof(p->device))
-		);
+		if ((res = spa_pod_parse_object(param,
+				SPA_TYPE_OBJECT_Props, NULL,
+				SPA_PROP_device,       SPA_POD_OPT_Stringn(p->device, sizeof(p->device)))) < 0)
+			return res;
 
 		spa_log_debug(this->log, "%p: setting device name to \"%s\"", this, p->device);
 

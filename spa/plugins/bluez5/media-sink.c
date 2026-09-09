@@ -544,9 +544,11 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	if (param == NULL) {
 		reset_props(this, &new_props);
 	} else {
-		spa_pod_parse_object(param,
+		changed = spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_Props, NULL,
 				SPA_PROP_latencyOffsetNsec, SPA_POD_OPT_Long(&new_props.latency_offset));
+		if (changed < 0)
+			return changed;
 	}
 
 	changed = (memcmp(&new_props, &this->props, sizeof(struct props)) != 0);

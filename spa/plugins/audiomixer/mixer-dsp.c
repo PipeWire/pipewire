@@ -94,7 +94,8 @@ struct port {
 	struct spa_list mix_link;
 	bool active:1;
 	bool removing:1;
-	uint32_t ramp_pos;
+	uint32_t ramp_up;
+	uint32_t ramp_down;
 
 	struct spa_burg_pred pred;
 	float *coef;
@@ -794,11 +795,11 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 					impl->pred_threshold, port->state,
 					port->coef, order);
 
-			spa_log_info(impl->log, "fade-out %u/%u %d",
-					port->ramp_pos, impl->n_curve, port->pred.n_coef);
-			port->ramp_pos = impl->n_curve;
+			spa_log_info(impl->log, "fade-out %u/%u/%u %d", port->ramp_up,
+					port->ramp_down, impl->n_curve, port->pred.n_coef);
+			port->ramp_down = impl->n_curve;
 		} else {
-			port->ramp_pos = 0;
+			port->ramp_down = 0;
 		}
 	} else {
 		if (info->size >= sizeof(struct spa_io_async_buffers)) {
@@ -809,10 +810,10 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 			port->io[0] = info->data;
 			port->io[1] = info->data;
 		}
+		spa_log_info(impl->log, "fade-in %u/%u/%u", port->ramp_up, port->ramp_down, impl->n_curve);
 		port->removing = false;
-		port->ramp_pos = 0;
+		port->ramp_up = 0;
 		if (port->direction == SPA_DIRECTION_INPUT && !port->active) {
-			spa_log_info(impl->log, "fade-in %u/%u", port->ramp_pos, impl->n_curve);
 			spa_list_append(&impl->mix_list, &port->mix_link);
 			port->active = true;
 		}
@@ -874,13 +875,13 @@ static void ramp_up(struct impl *this, float *dst, uint32_t size, struct ramp_in
 	uint32_t i, c;
 	struct port *port = ri->port;
 
-	spa_log_trace(this->log, "fade-in %u/%u", port->ramp_pos, this->n_curve);
+	spa_log_trace(this->log, "fade-in %u/%u", port->ramp_up, this->n_curve);
 
-	for (c = port->ramp_pos, i = 0; i < size && c < this->n_curve; i++, c++)
+	for (c = port->ramp_up, i = 0; i < size && c < this->n_curve; i++, c++)
 		dst[i] += ri->data[i] * this->curve[c];
 	for (; i < size; i++)
 		dst[i] += ri->data[i];
-	port->ramp_pos = c;
+	port->ramp_up = c;
 }
 
 static void ramp_down(struct impl *this, float *dst, uint32_t size, struct ramp_info *ri)
@@ -888,12 +889,12 @@ static void ramp_down(struct impl *this, float *dst, uint32_t size, struct ramp_
 	uint32_t i, c;
 	struct port *port = ri->port;
 
-	spa_log_trace(this->log, "fade-out %u", port->ramp_pos);
+	spa_log_trace(this->log, "fade-out %u", port->ramp_down);
 
-	for (c = port->ramp_pos, i = 0; i < size && c > 0; i++, c--)
+	for (c = port->ramp_down, i = 0; i < size && c > 0; i++, c--)
 		dst[i] += spa_burg_pred_next(&port->pred) * this->curve[c-1];
 
-	port->ramp_pos = c;
+	port->ramp_down = c;
 	if (c == 0 && port->active && port->removing) {
 		spa_list_remove(&port->mix_link);
 		port->active = false;
@@ -946,16 +947,16 @@ static int impl_node_process(void *object)
 		float *s;
 
 		if (SPA_UNLIKELY((inio = inport->io[cycle]) == NULL)) {
-			spa_log_trace_fp(this->log, "%p: skip input id:%d io:%p/%p/%d ramp:%d",
+			spa_log_trace_fp(this->log, "%p: skip input id:%d io:%p/%p/%d ramp:%d/%d",
 					this, inport->id, inport->io[0], inport->io[1], cycle,
-					inport->ramp_pos);
+					inport->ramp_up, import->ramp_down);
 		}
 		else if (inio->buffer_id >= inport->n_buffers ||
 		    inio->status != SPA_STATUS_HAVE_DATA) {
 			spa_log_trace_fp(this->log, "%p: skip input id:%d "
-					"io:%p status:%d buf_id:%d n_buffers:%d ramp:%d", this,
+					"io:%p status:%d buf_id:%d n_buffers:%d ramp:%d/%d", this,
 				inport->id, inio, inio->status, inio->buffer_id, inport->n_buffers,
-				inport->ramp_pos);
+				inport->ramp_up, inport->ramp_down);
 		} else {
 			inb = &inport->buffers[inio->buffer_id];
 		}
@@ -972,7 +973,7 @@ static int impl_node_process(void *object)
 					offs, size, (int)sizeof(float),
 					bd->chunk->flags);
 
-			if (SPA_UNLIKELY(inport->ramp_pos < this->n_curve)) {
+			if (SPA_UNLIKELY(inport->ramp_up < this->n_curve)) {
 				/* new port */
 				struct ramp_info *ri = &ramps[n_ramps++];
 				ri->port = inport;
@@ -984,7 +985,8 @@ static int impl_node_process(void *object)
 			}
 			inport->last_buffer = inio->buffer_id;
 			inio->status = SPA_STATUS_NEED_DATA;
-		} else if (inport->ramp_pos > 0) {
+		}
+		if (inport->ramp_down > 0) {
 			/* removed port, ramp down */
 			struct ramp_info *ri = &ramps[n_ramps++];
 			ri->port = inport;

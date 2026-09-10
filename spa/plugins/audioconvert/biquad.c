@@ -15,9 +15,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-/* Q = 1 / sqrt(2), also resulting Q value when S = 1 */
-#define BIQUAD_DEFAULT_Q 0.707106781186548
-
 static void set_coefficient(struct biquad *bq, double b0, double b1, double b2,
 			    double a0, double a1, double a2)
 {
@@ -42,10 +39,14 @@ static void biquad_lowpass(struct biquad *bq, double cutoff, double Q)
 		set_coefficient(bq, cutoff, 0, 0, 1, 0, 0);
 		return;
 	}
-
-	/* Set Q to a sane default value if not set */
-	if (Q <= 0)
-		Q = BIQUAD_DEFAULT_Q;
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is 0, so set the filter that way.
+		 */
+		set_coefficient(bq, 0, 0, 0, 1, 0, 0);
+		return;
+	}
 
 	/* Compute biquad coefficients for lowpass filter */
 	/* H(s) = 1 / (s^2 + s/Q + 1) */
@@ -78,10 +79,14 @@ static void biquad_highpass(struct biquad *bq, double cutoff, double Q)
 		set_coefficient(bq, 1 - cutoff, 0, 0, 1, 0, 0);
 		return;
 	}
-
-	/* Set Q to a sane default value if not set */
-	if (Q <= 0)
-		Q = BIQUAD_DEFAULT_Q;
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is 0, so set the filter that way.
+		 */
+		set_coefficient(bq, 0, 0, 0, 1, 0, 0);
+		return;
+	}
 
 	/* Compute biquad coefficients for highpass filter */
 	/* H(s) = s^2 / (s^2 + s/Q + 1) */
@@ -158,10 +163,14 @@ static void biquad_lowshelf(struct biquad *bq, double frequency, double Q,
 		set_coefficient(bq, 1, 0, 0, 1, 0, 0);
 		return;
 	}
-
-	/* Set Q to an equivalent value to S = 1 if not specified */
-	if (Q <= 0)
-		Q = BIQUAD_DEFAULT_Q;
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is A, so set the filter that way.
+		 */
+		set_coefficient(bq, A, 0, 0, 1, 0, 0);
+		return;
+	}
 
 	double w0 = M_PI * frequency;
 	double alpha = sin(w0) / (2 * Q);
@@ -198,10 +207,14 @@ static void biquad_highshelf(struct biquad *bq, double frequency, double Q,
 		set_coefficient(bq, A * A, 0, 0, 1, 0, 0);
 		return;
 	}
-
-	/* Set Q to an equivalent value to S = 1 if not specified */
-	if (Q <= 0)
-		Q = BIQUAD_DEFAULT_Q;
+	if (Q <= 0) {
+		/* When Q = 0, the above formulas have problems. If we
+		 * look at the z-transform, we can see that the limit
+		 * as Q->0 is A, so set the filter that way.
+		 */
+		set_coefficient(bq, A, 0, 0, 1, 0, 0);
+		return;
+	}
 
 	double w0 = M_PI * frequency;
 	double alpha = sin(w0) / (2 * Q);

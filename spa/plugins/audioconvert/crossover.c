@@ -8,9 +8,12 @@
 
 #include "crossover.h"
 
+#define BUTTERWORTH_Q 0.707106781186548
+
 void lr4_set(struct lr4 *lr4, enum biquad_type type, float freq)
 {
-	biquad_set(&lr4->bq, type, freq, 0, 0);
+	/* LR4 is two cascaded Butterworth filters */
+	biquad_set(&lr4->bq, type, freq, BUTTERWORTH_Q, 0);
 	lr4->x1 = 0;
 	lr4->x2 = 0;
 	lr4->y1 = 0;

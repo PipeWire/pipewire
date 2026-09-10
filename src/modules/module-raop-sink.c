@@ -508,9 +508,8 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 		aes_encrypt(impl, dst, len);
 
 	if (impl->protocol == PROTO_TCP) {
-		out[0] |= htonl((uint32_t) len + 12);
-		tcp_pkt[0] = htonl(0x24000000);
-  		out_vec[msg.msg_iovlen++] = (struct iovec) { tcp_pkt, 4 };
+		tcp_pkt[0] = htonl(0x24000000 | (len + 12));
+		out_vec[msg.msg_iovlen++] = (struct iovec) { tcp_pkt, 4 };
 	}
 
 	out_vec[msg.msg_iovlen++] = (struct iovec) { header, 12 };

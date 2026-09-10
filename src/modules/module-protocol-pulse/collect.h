@@ -53,7 +53,6 @@ struct device_info {
 	uint32_t card_id;
 	uint32_t device;
 	uint32_t active_port;
-	const char *active_port_name;
 
 };
 
@@ -127,7 +126,8 @@ struct port_info {
 };
 
 uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *card_info,
-			   struct device_info *dev_info, struct port_info *port_info);
+			   struct device_info *dev_info, struct port_info *port_info,
+			   const char **active_port_name);
 
 /* ========================================================================== */
 

@@ -233,7 +233,6 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 			 struct device_info *dev_info, bool monitor, struct defs *defs)
 {
 	struct pw_manager_param *p;
-	dev_info->active_port_name = NULL;
 
 	if (card) {
 		spa_list_for_each(p, &card->param_list, link) {
@@ -255,30 +254,6 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 			if (props && !monitor) {
 				volume_parse_param(props, &dev_info->volume_info, monitor);
 				dev_info->have_volume = true;
-			}
-		}
-
-		/* Look up the port name for the active port */
-		if (dev_info->active_port != SPA_ID_INVALID) {
-			spa_list_for_each(p, &card->param_list, link) {
-				uint32_t index, direction;
-				const char *name = NULL;
-
-				if (p->id != SPA_PARAM_EnumRoute)
-					continue;
-
-				if (spa_pod_parse_object(p->param,
-						SPA_TYPE_OBJECT_ParamRoute, NULL,
-						SPA_PARAM_ROUTE_index, SPA_POD_Int(&index),
-						SPA_PARAM_ROUTE_direction, SPA_POD_Id(&direction),
-						SPA_PARAM_ROUTE_name, SPA_POD_String(&name)) < 0)
-					continue;
-
-				if (index == dev_info->active_port &&
-				    direction == dev_info->direction) {
-					dev_info->active_port_name = name;
-					break;
-				}
 			}
 		}
 	}
@@ -390,10 +365,12 @@ static bool array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
 }
 
 uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *card_info,
-			   struct device_info *dev_info, struct port_info *port_info)
+			   struct device_info *dev_info, struct port_info *port_info,
+			   const char **active_port_name)
 {
 	struct pw_manager_param *p;
 	uint32_t n;
+	const char *aport_name = NULL;
 
 	if (card == NULL)
 		return 0;
@@ -447,7 +424,7 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 			if (!array_contains(pi->devices, pi->n_devices, dev_info->device))
 				continue;
 			if (pi->index == dev_info->active_port)
-				dev_info->active_port_name = pi->name;
+				aport_name = pi->name;
 		}
 
 		while (pi->info != NULL) {
@@ -477,8 +454,11 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 		}
 		n++;
 	}
-	if (dev_info != NULL && dev_info->active_port_name == NULL && n > 0)
-		dev_info->active_port_name = port_info[0].name;
+	if (aport_name == NULL && n > 0)
+		aport_name = port_info[0].name;
+
+	if (active_port_name)
+		*active_port_name = aport_name;
 	return n;
 }
 

@@ -491,7 +491,7 @@ static struct spa_fga_port bq_ports[] = {
 	{ .index = 3,
 	  .name = "Q",
 	  .flags = SPA_FGA_PORT_INPUT | SPA_FGA_PORT_CONTROL,
-	  .def = 0.0f, .min = FLT_MIN, .max = FLT_MAX,
+	  .def = 0.0f, .min = 0.0f, .max = FLT_MAX,
 	},
 	{ .index = 4,
 	  .name = "Gain",

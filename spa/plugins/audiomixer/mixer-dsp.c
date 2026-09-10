@@ -949,7 +949,7 @@ static int impl_node_process(void *object)
 		if (SPA_UNLIKELY((inio = inport->io[cycle]) == NULL)) {
 			spa_log_trace_fp(this->log, "%p: skip input id:%d io:%p/%p/%d ramp:%d/%d",
 					this, inport->id, inport->io[0], inport->io[1], cycle,
-					inport->ramp_up, import->ramp_down);
+					inport->ramp_up, inport->ramp_down);
 		}
 		else if (inio->buffer_id >= inport->n_buffers ||
 		    inio->status != SPA_STATUS_HAVE_DATA) {

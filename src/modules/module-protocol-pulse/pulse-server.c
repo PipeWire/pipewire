@@ -4088,7 +4088,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	if (client->version >= 16) {
 		uint32_t n_ports, n;
 		struct port_info *port_info, *pi;
-		const char *active_port_name;
+		const char *active_port_name = NULL;
 
 		if ((port_info = spa_alloca(card_info.n_ports, sizeof(*port_info), MAX_ALLOCA_SIZE)) == NULL)
 			return -errno;

@@ -2916,7 +2916,19 @@ recover:
 		if (follower != driver && follower->linked)
 			do_prepare(follower);
 	}
-	do_start(driver);
+	if (do_start(driver) < 0) {
+		/* The driver is the clock source; if it failed to start the
+		 * entire pipeline is not running. do_start() already emitted
+		 * the node error event. The PCM is prepared but not running,
+		 * so do not re-arm the poll sources (a non-running device may
+		 * report POLLERR and busy-loop), reset the state flags so a
+		 * later restart does not skip do_prepare()/do_start(), and
+		 * fail the recovery instead of pretending it succeeded. */
+		update_sources(state, false);
+		driver->alsa_started = false;
+		driver->prepared = false;
+		return -EIO;
+	}
 	spa_list_for_each(follower, &driver->rt.followers, rt.driver_link) {
 		if (follower != driver && follower->linked)
 			do_start(follower);

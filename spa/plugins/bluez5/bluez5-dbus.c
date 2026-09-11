@@ -3584,6 +3584,8 @@ int spa_bt_transport_acquire(struct spa_bt_transport *transport, bool optional)
 	if (res >= 0) {
 		transport->acquire_refcount = 1;
 		transport->acquired = true;
+		/* a transport that acquires is working */
+		transport->error_count = 0;
 	}
 
 	return res;

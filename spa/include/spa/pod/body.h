@@ -390,6 +390,18 @@ SPA_API_POD_BODY const void *spa_pod_body_get_array_values(const struct spa_pod 
 	return spa_pod_array_body_get_values(&arr, body, n_values, val_size, val_type);
 }
 
+SPA_API_POD_BODY uint32_t spa_pod_body_copy_array(const struct spa_pod *pod,
+		const void *body, uint32_t type, uint32_t size, void *values, uint32_t max_values)
+{
+	uint32_t n_values, val_size, val_type;
+	const void *v = spa_pod_body_get_array_values(pod, body, &n_values, &val_size, &val_type);
+	if (v == NULL || max_values == 0 || val_type != type || val_size != size)
+		return 0;
+	n_values = SPA_MIN(n_values, max_values);
+	memcpy(values, v, val_size * n_values);
+	return n_values;
+}
+
 SPA_API_POD_BODY int spa_pod_is_choice(const struct spa_pod *pod)
 {
 	return SPA_POD_CHECK(pod, SPA_TYPE_Choice, sizeof(struct spa_pod_choice_body));

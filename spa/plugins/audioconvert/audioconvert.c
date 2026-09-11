@@ -183,7 +183,8 @@ struct port {
 	uint32_t stride;
 	uint32_t maxsize;
 
-	const struct spa_pod_sequence *ctrl;
+	struct spa_pod seq;
+	const void *seq_body;
 	uint32_t ctrl_offset;
 	bool ramp_start;
 
@@ -319,7 +320,8 @@ struct impl {
 	struct gaps gaps;
 	struct volume volume;
 	double rate_scale;
-	struct spa_pod_sequence *vol_ramp_sequence;
+	struct spa_pod vol_ramp_seq;
+	const void *vol_ramp_seq_body;
 	void *vol_ramp_sequence_data;
 	uint32_t vol_ramp_offset;
 
@@ -1233,7 +1235,7 @@ static void graph_info(void *object, const struct spa_filter_graph_info *info)
 	emit_info(g->impl, false);
 }
 
-static int apply_props(struct impl *impl, const struct spa_pod *props);
+static int apply_props(struct impl *impl, const struct spa_pod *props, const void *props_body);
 
 static void graph_apply_props(void *object, enum spa_direction direction, const struct spa_pod *props)
 {
@@ -1241,7 +1243,7 @@ static void graph_apply_props(void *object, enum spa_direction direction, const 
 	struct impl *impl = g->impl;
 	if (g->removing)
 		return;
-	apply_props(impl, props);
+	apply_props(impl, props, SPA_POD_BODY(props));
 
 	emit_info(impl, false);
 }
@@ -1661,50 +1663,47 @@ static int audioconvert_set_param(struct impl *this, const char *k, const char *
 	return 1;
 }
 
-static int parse_prop_params(struct impl *this, struct spa_pod *params)
+static int parse_prop_params(struct impl *this, struct spa_pod *params, const void *params_body)
 {
 	struct spa_pod_parser prs;
 	struct spa_pod_frame f;
 	int changed = 0;
 	bool filter_graph_disabled = this->props.filter_graph_disabled;
 
-	spa_pod_parser_pod(&prs, params);
+	spa_pod_parser_init_pod_body(&prs, params, params_body);
 	if (spa_pod_parser_push_struct(&prs, &f) < 0)
 		return 0;
 
 	while (true) {
 		const char *name, *value;
-		struct spa_pod *pod;
+		struct spa_pod pod;
 		char buffer[64];
+		const void *body;
 
 		if (spa_pod_parser_get_string(&prs, &name) < 0)
 			break;
 
-		if (spa_pod_parser_get_pod(&prs, &pod) < 0)
+		if (spa_pod_parser_get_pod_body(&prs, &pod, &body) < 0)
 			break;
 
-		if (spa_pod_is_string(pod)) {
-			if (spa_pod_get_string(pod, &value) < 0)
+		if (spa_pod_is_string(&pod)) {
+			if (spa_pod_body_get_string(&pod, body, &value) < 0)
 				continue;
-		} else if (spa_pod_is_float(pod)) {
-			spa_dtoa(buffer, sizeof(buffer),
-					SPA_POD_VALUE(struct spa_pod_float, pod));
+		} else if (spa_pod_is_float(&pod)) {
+			spa_dtoa(buffer, sizeof(buffer), *(float*)body);
 			value = buffer;
-		} else if (spa_pod_is_double(pod)) {
-			spa_dtoa(buffer, sizeof(buffer),
-					SPA_POD_VALUE(struct spa_pod_double, pod));
+		} else if (spa_pod_is_double(&pod)) {
+			spa_dtoa(buffer, sizeof(buffer), *(double*)body);
 			value = buffer;
-		} else if (spa_pod_is_int(pod)) {
-			snprintf(buffer, sizeof(buffer), "%d",
-					SPA_POD_VALUE(struct spa_pod_int, pod));
+		} else if (spa_pod_is_int(&pod)) {
+			snprintf(buffer, sizeof(buffer), "%d", *(int32_t*)body);
 			value = buffer;
-		} else if (spa_pod_is_long(pod)) {
-			snprintf(buffer, sizeof(buffer), "%"PRIi64,
-					SPA_POD_VALUE(struct spa_pod_long, pod));
+		} else if (spa_pod_is_long(&pod)) {
+			snprintf(buffer, sizeof(buffer), "%"PRIi64, *(int64_t*)body);
 			value = buffer;
-		} else if (spa_pod_is_bool(pod)) {
-			value = SPA_POD_VALUE(struct spa_pod_bool, pod) ? "true" : "false";
-		} else if (spa_pod_is_none(pod)) {
+		} else if (spa_pod_is_bool(&pod)) {
+			value = (*(int32_t*)body) ? "true" : "false";
+		} else if (spa_pod_is_none(&pod)) {
 			value = "";
 		} else
 			continue;
@@ -1799,22 +1798,22 @@ static struct spa_pod *generate_ramp_seq(struct impl *this, struct volume_ramp_p
 static void generate_volume_ramp(struct impl *this, struct volume_ramp_params *vrp,
 		void *buffer, size_t size)
 {
-	void *sequence;
+	struct spa_pod *sequence;
 
 	sequence = generate_ramp_seq(this, vrp, buffer, size);
-	if (!sequence)
+	if (!sequence) {
 		spa_log_error(this->log, "unable to generate sequence");
-
-	this->vol_ramp_sequence = (struct spa_pod_sequence *) sequence;
-	this->vol_ramp_sequence_data = (void*)sequence == buffer ? NULL : sequence;
-	this->vol_ramp_offset = 0;
+	} else {
+		this->vol_ramp_seq = *sequence;
+		this->vol_ramp_seq_body = SPA_POD_BODY_CONST(sequence);
+		this->vol_ramp_sequence_data = sequence == buffer ? NULL : sequence;
+		this->vol_ramp_offset = 0;
+	}
 	this->recalc = true;
 }
 
-static int apply_props(struct impl *this, const struct spa_pod *param)
+static int apply_props(struct impl *this, const struct spa_pod *param, const void *param_body)
 {
-	struct spa_pod_prop *prop;
-	struct spa_pod_object *obj = (struct spa_pod_object *) param;
 	struct props *p = &this->props;
 	bool have_channel_volume = false;
 	bool have_soft_volume = false;
@@ -1824,96 +1823,101 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	uint32_t n;
 	int32_t value;
 	uint32_t id;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_prop prop;
+	const void *prop_body;
 
-	if (!spa_pod_is_object_type(param, SPA_TYPE_OBJECT_Props))
+	spa_pod_parser_init_pod_body(&parser, param, param_body);
+	if (spa_pod_parser_push_object(&parser, &frame, SPA_TYPE_OBJECT_Props, NULL) < 0)
 		return -EINVAL;
 
 	spa_zero(vrp);
 
-	SPA_POD_OBJECT_FOREACH(obj, prop) {
-		switch (prop->key) {
+	while (spa_pod_parser_get_prop_body(&parser, &prop, &prop_body) >= 0) {
+		switch (prop.key) {
 		case SPA_PROP_volume:
 			p->prev_volume = p->volume;
 
 			if (!p->lock_volumes &&
-			    spa_pod_get_float(&prop->value, &p->volume) == 0) {
+			    spa_pod_body_get_float(&prop.value, prop_body, &p->volume) == 0) {
 				spa_log_debug(this->log, "%p new volume %f", this, p->volume);
 				changed++;
 			}
 			break;
 		case SPA_PROP_mute:
 			if (!p->lock_volumes &&
-			    spa_pod_get_bool(&prop->value, &p->channel.mute) == 0) {
+			    spa_pod_body_get_bool(&prop.value, prop_body, &p->channel.mute) == 0) {
 				have_channel_volume = true;
 				changed++;
 			}
 			break;
 		case SPA_PROP_volumeRampSamples:
-			if (this->vol_ramp_sequence) {
+			if (this->vol_ramp_seq_body) {
 				spa_log_error(this->log, "%p volume ramp sequence is being "
 						"applied try again", this);
 				break;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
+			if (spa_pod_body_get_int(&prop.value, prop_body, &value) == 0 && value) {
 				vrp.volume_ramp_samples = value;
 				spa_log_info(this->log, "%p volume ramp samples %d", this, value);
 				vol_ramp_params_changed++;
 			}
 			break;
 		case SPA_PROP_volumeRampStepSamples:
-			if (this->vol_ramp_sequence) {
+			if (this->vol_ramp_seq_body) {
 				spa_log_error(this->log, "%p volume ramp sequence is being "
 						"applied try again", this);
 				break;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
+			if (spa_pod_body_get_int(&prop.value, prop_body, &value) == 0 && value) {
 				vrp.volume_ramp_step_samples = value;
 				spa_log_info(this->log, "%p volume ramp step samples is %d",
 						this, value);
 			}
 			break;
 		case SPA_PROP_volumeRampTime:
-			if (this->vol_ramp_sequence) {
+			if (this->vol_ramp_seq_body) {
 				spa_log_error(this->log, "%p volume ramp sequence is being "
 						"applied try again", this);
 				break;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
+			if (spa_pod_body_get_int(&prop.value, prop_body, &value) == 0 && value) {
 				vrp.volume_ramp_time = value;
 				spa_log_info(this->log, "%p volume ramp time %d", this, value);
 				vol_ramp_params_changed++;
 			}
 			break;
 		case SPA_PROP_volumeRampStepTime:
-			if (this->vol_ramp_sequence) {
+			if (this->vol_ramp_seq_body) {
 				spa_log_error(this->log, "%p volume ramp sequence is being "
 						"applied try again", this);
 				break;
 			}
 
-			if (spa_pod_get_int(&prop->value, &value) == 0 && value) {
+			if (spa_pod_body_get_int(&prop.value, prop_body, &value) == 0 && value) {
 				vrp.volume_ramp_step_time = value;
 				spa_log_info(this->log, "%p volume ramp time %d", this, value);
 			}
 			break;
 		case SPA_PROP_volumeRampScale:
-			if (this->vol_ramp_sequence) {
+			if (this->vol_ramp_seq_body) {
 				spa_log_error(this->log, "%p volume ramp sequence is being "
 						"applied try again", this);
 				break;
 			}
 
-			if (spa_pod_get_id(&prop->value, &id) == 0 && id) {
+			if (spa_pod_body_get_id(&prop.value, prop_body, &id) == 0 && id) {
 				vrp.scale = id;
 				spa_log_info(this->log, "%p volume ramp scale %d", this, id);
 			}
 			break;
 		case SPA_PROP_channelVolumes:
 			if (!p->lock_volumes &&
-			    (n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+			    (n = spa_pod_body_copy_array(&prop.value, prop_body, SPA_TYPE_Float, sizeof(float),
 					p->channel.volumes, SPA_N_ELEMENTS(p->channel.volumes))) > 0) {
 				have_channel_volume = true;
 				p->channel.n_volumes = n;
@@ -1921,7 +1925,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			}
 			break;
 		case SPA_PROP_channelMap:
-			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Id,
+			if ((n = spa_pod_body_copy_array(&prop.value, prop_body, SPA_TYPE_Id, sizeof(uint32_t),
 					p->channel_map, SPA_N_ELEMENTS(p->channel_map))) > 0) {
 				p->n_channels = n;
 				changed++;
@@ -1929,26 +1933,26 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		case SPA_PROP_softMute:
 			if (!p->lock_volumes &&
-			    spa_pod_get_bool(&prop->value, &p->soft.mute) == 0) {
+			    spa_pod_body_get_bool(&prop.value, prop_body, &p->soft.mute) == 0) {
 				have_soft_volume = true;
 				changed++;
 			}
 			break;
 		case SPA_PROP_softVolumes:
 			if (!p->lock_volumes &&
-			    (n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
-					p->soft.volumes, SPA_N_ELEMENTS(p->soft.volumes))) > 0) {
+			    (n = spa_pod_body_copy_array(&prop.value, prop_body, SPA_TYPE_Float,
+					 sizeof(float), p->soft.volumes, SPA_N_ELEMENTS(p->soft.volumes))) > 0) {
 				have_soft_volume = true;
 				p->soft.n_volumes = n;
 				changed++;
 			}
 			break;
 		case SPA_PROP_monitorMute:
-			if (spa_pod_get_bool(&prop->value, &p->monitor.mute) == 0)
+			if (spa_pod_body_get_bool(&prop.value, prop_body, &p->monitor.mute) == 0)
 				changed++;
 			break;
 		case SPA_PROP_monitorVolumes:
-			if ((n = spa_pod_copy_array(&prop->value, SPA_TYPE_Float,
+			if ((n = spa_pod_body_copy_array(&prop.value, prop_body, SPA_TYPE_Float, sizeof(float),
 					p->monitor.volumes, SPA_N_ELEMENTS(p->monitor.volumes))) > 0) {
 				p->monitor.n_volumes = n;
 				changed++;
@@ -1956,20 +1960,20 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		case SPA_PROP_volumeMin:
 			if (!p->lock_volumes &&
-			    spa_pod_get_float(&prop->value, &p->min_volume) == 0) {
+			    spa_pod_body_get_float(&prop.value, prop_body, &p->min_volume) == 0) {
 				spa_log_debug(this->log, "%p new min-volume %f", this, p->min_volume);
 				changed++;
 			}
 			break;
 		case SPA_PROP_volumeMax:
 			if (!p->lock_volumes &&
-			    spa_pod_get_float(&prop->value, &p->max_volume) == 0) {
+			    spa_pod_body_get_float(&prop.value, prop_body, &p->max_volume) == 0) {
 				spa_log_debug(this->log, "%p new max-volume %f", this, p->min_volume);
 				changed++;
 			}
 			break;
 		case SPA_PROP_rate:
-			if (spa_pod_get_double(&prop->value, &p->rate) == 0 &&
+			if (spa_pod_body_get_double(&prop.value, prop_body, &p->rate) == 0 &&
 			    !this->rate_adjust && p->rate != 1.0) {
 				this->rate_adjust = true;
 				spa_log_info(this->log, "%p: activating adaptive resampler",
@@ -1978,7 +1982,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 			break;
 		case SPA_PROP_params:
 			if (this->filter_props_count == 0)
-				changed += parse_prop_params(this, &prop->value);
+				changed += parse_prop_params(this, &prop.value, prop_body);
 			break;
 		default:
 			break;
@@ -2008,7 +2012,7 @@ static int apply_props(struct impl *this, const struct spa_pod *param)
 	return changed;
 }
 
-static int apply_midi(struct impl *this, uint32_t type, const struct spa_pod *value)
+static int apply_midi(struct impl *this, uint32_t type, const struct spa_pod *value, const void *value_body)
 {
 	struct props *p = &this->props;
 	uint8_t evd[8];
@@ -2021,12 +2025,12 @@ static int apply_midi(struct impl *this, uint32_t type, const struct spa_pod *va
 		return -EINVAL;
 
 	if (type == SPA_CONTROL_UMP) {
-		const uint32_t *body = SPA_POD_BODY_CONST(value);
+		const uint32_t *body = value_body;
 		ev_size = spa_ump_to_midi(&body, &size, evd, sizeof(evd), &state);
 		ev = evd;
 	} else {
 		ev_size = size;
-		ev = SPA_POD_BODY_CONST(value);
+		ev = value_body;
 	}
 	if (ev_size < 3)
 		return -EINVAL;
@@ -2193,7 +2197,7 @@ static int node_set_param_props(struct impl *this, uint32_t flags,
 		this->in_filter_props--;
 	}
 	if (!have_graph)
-		apply_props(this, param);
+		apply_props(this, param, SPA_POD_BODY(param));
 
 	clean_filter_handles(this, false);
 	return 0;
@@ -3610,54 +3614,65 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 }
 
 static int channelmix_process_apply_sequence(struct impl *this,
-			const struct spa_pod_sequence *sequence, uint32_t *processed_offset,
+			const struct spa_pod *pod, const void *body,
+			uint32_t *processed_offset,
 			void *SPA_RESTRICT dst[], const void *SPA_RESTRICT src[],
 			uint32_t n_samples)
 {
-	struct spa_pod_control *c, *prev = NULL;
+	struct spa_pod_control c, prev;
+	const void *c_body = NULL, *prev_body = NULL;
 	uint32_t avail_samples = n_samples;
 	uint32_t i;
 	const float *s[MAX_PORTS], **ss = (const float**) src;
 	float *d[MAX_PORTS], **sd = (float **) dst;
-	const struct spa_pod_sequence_body *body = &(sequence)->body;
-	uint32_t size = SPA_POD_BODY_SIZE(sequence);
 	bool end = false;
+	struct spa_pod_parser parser;
+	struct spa_pod_frame frame;
+	struct spa_pod_sequence seq;
+	const void *seq_body;
 
-	c = spa_pod_control_first(body);
+	spa_pod_parser_init_pod_body(&parser, pod, body);
+	if (spa_pod_parser_push_sequence_body(&parser, &frame, &seq, &seq_body) < 0)
+		return -EINVAL;
+
+	if (spa_pod_parser_get_control_body(&parser, &c, &c_body) < 0)
+		c_body = NULL;
+
 	while (true) {
 		uint32_t chunk;
 
-		if (c == NULL || !spa_pod_control_is_inside(body, size, c)) {
-			c = NULL;
+		if (c_body == NULL) {
+			c_body = NULL;
 			end = true;
 		}
 		if (avail_samples == 0)
 			break;
 
-		/* ignore old control offsets */
-		if (c != NULL) {
-			if (c->offset <= *processed_offset) {
+		if (c_body != NULL) {
+			if (c.offset <= *processed_offset) {
+				/* ignore old control offsets */
 				prev = c;
-				if (c != NULL)
-					c = spa_pod_control_next(c);
+				prev_body = c_body;
+				if (spa_pod_parser_get_control_body(&parser, &c, &c_body) < 0)
+					c_body = NULL;
 				continue;
 			}
-			chunk = SPA_MIN(avail_samples, c->offset - *processed_offset);
+			chunk = SPA_MIN(avail_samples, c.offset - *processed_offset);
 			spa_log_trace_fp(this->log, "%p: process %d-%d %d/%d", this,
-					*processed_offset, c->offset, chunk, avail_samples);
+					*processed_offset, c.offset, chunk, avail_samples);
 		} else {
 			chunk = avail_samples;
 			spa_log_trace_fp(this->log, "%p: process remain %d", this, chunk);
 		}
 
-		if (prev) {
-			switch (prev->type) {
+		if (prev_body) {
+			switch (prev.type) {
 			case SPA_CONTROL_UMP:
 			case SPA_CONTROL_Midi:
-				apply_midi(this, prev->type, &prev->value);
+				apply_midi(this, prev.type, &prev.value, prev_body);
 				break;
 			case SPA_CONTROL_Properties:
-				apply_props(this, &prev->value);
+				apply_props(this, &prev.value, prev_body);
 				break;
 			default:
 				continue;
@@ -3923,18 +3938,18 @@ static void run_channelmix_stage(struct stage *s, struct stage_context *c)
 	struct port *ctrlport = c->ctrlport;
 
 	spa_log_trace_fp(impl->log, "%p: channelmix %d", impl, c->n_samples);
-	if (ctrlport != NULL && ctrlport->ctrl != NULL) {
-		if (channelmix_process_apply_sequence(impl, ctrlport->ctrl,
+	if (ctrlport != NULL && ctrlport->seq_body != NULL) {
+		if (channelmix_process_apply_sequence(impl, &ctrlport->seq, ctrlport->seq_body,
 					&ctrlport->ctrl_offset, out_datas, in_datas, c->n_samples) == 1) {
 			ctrlport->io->status = SPA_STATUS_OK;
-			ctrlport->ctrl = NULL;
+			ctrlport->seq_body = NULL;
 		}
-	} else if (impl->vol_ramp_sequence) {
-		if (channelmix_process_apply_sequence(impl, impl->vol_ramp_sequence,
+	} else if (impl->vol_ramp_seq_body) {
+		if (channelmix_process_apply_sequence(impl, &impl->vol_ramp_seq, impl->vol_ramp_seq_body,
 				&impl->vol_ramp_offset, out_datas, in_datas, c->n_samples) == 1) {
 			free(impl->vol_ramp_sequence_data);
 			impl->vol_ramp_sequence_data = NULL;
-			impl->vol_ramp_sequence = NULL;
+			impl->vol_ramp_seq_body = NULL;
 		}
 	} else {
 		channelmix_process(&impl->mix, out_datas, in_datas, c->n_samples);
@@ -4022,7 +4037,7 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	SPA_FLAG_UPDATE(ctx->bits, FILTER_BIT, this->n_graph != 0);
 
 	test = SPA_FLAG_IS_SET(this->mix.flags, CHANNELMIX_FLAG_IDENTITY) &&
-		(ctrlport == NULL || ctrlport->ctrl == NULL) && (this->vol_ramp_sequence == NULL);
+		(ctrlport == NULL || ctrlport->seq_body == NULL) && (this->vol_ramp_seq_body == NULL);
 	SPA_FLAG_UPDATE(ctx->bits, MIX_BIT, !test);
 
 	do_gap = this->gaps.duration > 0;
@@ -4099,7 +4114,6 @@ static int impl_node_process(void *object)
 	bool in_avail = false, flush_in = false, flush_out = false;
 	bool draining = false, in_empty = this->out_offset == 0, out_empty;
 	struct spa_io_buffers *io;
-	const struct spa_pod_sequence *ctrl = NULL;
 	uint64_t current_time;
 	struct stage_context ctx;
 
@@ -4208,15 +4222,21 @@ static int impl_node_process(void *object)
 					in_empty = false;
 
 				if (SPA_UNLIKELY(port->is_control)) {
+					struct spa_pod seq;
+					const void *seq_body = NULL;
+
 					spa_log_trace_fp(this->log, "%p: control %d", this,
 							i * port->blocks + j);
+
+					if (spa_pod_body_from_data(data, bd->maxsize,
+							bd->chunk->offset, bd->chunk->size,
+							&seq, &seq_body) < 0)
+						continue;
+
 					ctrlport = port;
-					ctrl = spa_pod_from_data(data, bd->maxsize,
-							bd->chunk->offset, bd->chunk->size);
-					if (ctrl && !spa_pod_is_sequence(&ctrl->pod))
-						ctrl = NULL;
-					if (ctrl != ctrlport->ctrl) {
-						ctrlport->ctrl = ctrl;
+					if (seq_body != ctrlport->seq_body) {
+						ctrlport->seq = seq;
+						ctrlport->seq_body = seq_body;
 						ctrlport->ctrl_offset = 0;
 						this->recalc = true;
 					}

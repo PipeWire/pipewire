@@ -225,15 +225,19 @@ static void rtp_audio_process_playback(void *data)
 			device_delay = scale_u64(device_delay, impl->rate, clock_rate);
 		}
 
+		target_buffer = impl->target_buffer;
+
 		/* Reduce target buffer by the delay amount to start playback sooner.
 		 * This compensates for the delay to the device. */
-		if (SPA_UNLIKELY(impl->target_buffer < device_delay)) {
-			pw_log_error("Delay to device (%" PRIu32 ") is higher than "
-				"the target buffer size (%" PRIu32 ")", device_delay,
-				impl->target_buffer);
-			target_buffer = 0;
-		} else {
-			target_buffer = impl->target_buffer - device_delay;
+		if (impl->delay_compensation) {
+			if (SPA_UNLIKELY(target_buffer < device_delay)) {
+				pw_log_error("Delay to device (%" PRIu32 ") is higher than "
+					"the target buffer size (%" PRIu32 ")", device_delay,
+					target_buffer);
+				target_buffer = 0;
+			} else {
+				target_buffer -= device_delay;
+			}
 		}
 
 		/* when the speed of the sender clock and our clock are

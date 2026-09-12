@@ -65,6 +65,9 @@
  * - `sess.media = <string>`: the media type audio|midi|opus, default audio
  * - `sess.ts-direct = <bool>`: use direct timestamp mode, default false
  *                (see the Buffer Modes section below)
+ * - `sess.delay-compensation = <bool>`: Do end-to-end delay compensation, default false.
+ *                Only used in constant latency mode. When true sess.latency.msec sets
+ *                a target latency for the entire graph instead of a fixed network buffer.
  * - `stream.may-pause = <bool>`: pause the stream when no data is reveived, default false
  * - `stream.props = {}`: properties to be passed to the stream
  *
@@ -177,6 +180,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
  		"source.port=<int, source port> "								\
 		"( sess.latency.msec=<target network latency, default "SPA_STRINGIFY(DEFAULT_SESS_LATENCY)"> ) "\
 		"( sess.ignore-ssrc=<to ignore SSRC, default false> ) "\
+		"( sess.delay-compensation=<treat latency as end-to-end latency, default false> ) "\
  		"( sess.media=<string, the media type audio|midi|opus, default audio> ) "			\
 		"( audio.format=<format, default:"DEFAULT_RAW_AUDIO_FORMAT"> ) "				\
 		"( audio.rate=<sample rate, default:"SPA_STRINGIFY(DEFAULT_RATE)"> ) "				\
@@ -1020,6 +1024,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.max-ptime");
 	copy_props(impl, props, "sess.latency.msec");
 	copy_props(impl, props, "sess.ts-direct");
+	copy_props(impl, props, "sess.delay-compensation");
 	copy_props(impl, props, "sess.ignore-ssrc");
 	copy_props(impl, props, "stream.may-pause");
 

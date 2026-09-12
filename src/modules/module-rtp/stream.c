@@ -144,6 +144,7 @@ struct rtp_stream {
 	uint32_t delay;
 
 	unsigned direct_timestamp:1;
+	unsigned delay_compensation:1;
 	unsigned always_process:1;
 	unsigned have_sync:1;
 	unsigned receiving:1;
@@ -781,6 +782,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->marker_on_first = 1;
 	impl->ignore_ssrc = pw_properties_get_bool(props, "sess.ignore-ssrc", false);
 	impl->direct_timestamp = pw_properties_get_bool(props, "sess.ts-direct", false);
+	impl->delay_compensation = pw_properties_get_bool(props, "sess.delay-compensation", false);
 
 	if (direction == PW_DIRECTION_INPUT) {
 		impl->ssrc = pw_properties_get_uint32(props, "rtp.sender-ssrc", pw_rand32());

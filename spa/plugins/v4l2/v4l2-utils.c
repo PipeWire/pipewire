@@ -371,79 +371,7 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 	return NULL;
 }
 
-static int
-enum_filter_format(uint32_t media_type, int32_t media_subtype,
-		   const struct spa_pod *filter, uint32_t index)
-{
-	uint32_t video_format = SPA_VIDEO_FORMAT_UNKNOWN;
 
-	switch (media_type) {
-	case SPA_MEDIA_TYPE_video:
-	case SPA_MEDIA_TYPE_image:
-		if (media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-			const struct spa_pod_prop *p;
-			const struct spa_pod *val;
-			uint32_t n_values, choice;
-			const uint32_t *values;
-
-			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_format)))
-				return -ENOENT;
-
-			val = spa_pod_get_values(&p->value, &n_values, &choice);
-			if (val->type != SPA_TYPE_Id || n_values == 0)
-				return SPA_VIDEO_FORMAT_UNKNOWN;
-
-			values = SPA_POD_BODY(val);
-
-			if (choice == SPA_CHOICE_None) {
-				if (index == 0)
-					video_format = values[0];
-			} else {
-				if (index < n_values - 1)
-					video_format = values[index + 1];
-			}
-		} else {
-			if (index == 0)
-				video_format = SPA_VIDEO_FORMAT_ENCODED;
-		}
-	}
-	return video_format;
-}
-
-static bool
-filter_framesize(struct v4l2_frmsizeenum *frmsize,
-		 const struct spa_rectangle *min,
-		 const struct spa_rectangle *max,
-		 const struct spa_rectangle *step)
-{
-	if (frmsize->type == V4L2_FRMSIZE_TYPE_DISCRETE) {
-		if (frmsize->discrete.width < min->width ||
-		    frmsize->discrete.height < min->height ||
-		    frmsize->discrete.width > max->width ||
-		    frmsize->discrete.height > max->height) {
-			return false;
-		}
-	} else if (frmsize->type == V4L2_FRMSIZE_TYPE_CONTINUOUS ||
-		   frmsize->type == V4L2_FRMSIZE_TYPE_STEPWISE) {
-		/* FIXME, use LCM */
-		frmsize->stepwise.step_width *= step->width;
-		frmsize->stepwise.step_height *= step->height;
-
-		if (frmsize->stepwise.max_width < min->width ||
-		    frmsize->stepwise.max_height < min->height ||
-		    frmsize->stepwise.min_width > max->width ||
-		    frmsize->stepwise.min_height > max->height)
-			return false;
-
-		frmsize->stepwise.min_width = SPA_MAX(frmsize->stepwise.min_width, min->width);
-		frmsize->stepwise.min_height = SPA_MAX(frmsize->stepwise.min_height, min->height);
-		frmsize->stepwise.max_width = SPA_MIN(frmsize->stepwise.max_width, max->width);
-		frmsize->stepwise.max_height = SPA_MIN(frmsize->stepwise.max_height, max->height);
-	} else
-		return false;
-
-	return true;
-}
 
 static int compare_fraction(struct v4l2_fract *f1, const struct spa_fraction *f2)
 {
@@ -461,39 +389,6 @@ static int compare_fraction(struct v4l2_fract *f1, const struct spa_fraction *f2
 	return 1;
 }
 
-static bool
-filter_framerate(struct v4l2_frmivalenum *frmival,
-		 const struct spa_fraction *min,
-		 const struct spa_fraction *max,
-		 const struct spa_fraction *step)
-{
-	if (frmival->type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-		if (compare_fraction(&frmival->discrete, min) < 0 ||
-		    compare_fraction(&frmival->discrete, max) > 0)
-			return false;
-	} else if (frmival->type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
-		   frmival->type == V4L2_FRMIVAL_TYPE_STEPWISE) {
-		/* FIXME, use LCM */
-		frmival->stepwise.step.denominator *= step->num;
-		frmival->stepwise.step.numerator *= step->denom;
-
-		if (compare_fraction(&frmival->stepwise.min, min) < 0 ||
-		    compare_fraction(&frmival->stepwise.max, max) > 0)
-			return false;
-
-		if (compare_fraction(&frmival->stepwise.max, min) < 0) {
-			frmival->stepwise.max.denominator = min->num;
-			frmival->stepwise.max.numerator = min->denom;
-		}
-		if (compare_fraction(&frmival->stepwise.min, max) > 0) {
-			frmival->stepwise.min.denominator = max->num;
-			frmival->stepwise.min.numerator = max->denom;
-		}
-	} else
-		return false;
-
-	return true;
-}
 
 struct spa_video_colorimetry v4l2_colorimetry_map[] = {
 	{ /* V4L2_COLORSPACE_DEFAULT */
@@ -692,13 +587,15 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	int res, n_fractions;
 	const struct format_info *info;
 	struct spa_pod_choice *choice;
-	uint32_t filter_media_type, filter_media_subtype;
 	struct spa_v4l2_device *dev = &port->dev;
 	uint8_t buffer[1024];
 	spa_auto(spa_pod_dynamic_builder) b = { 0 };
 	struct spa_pod_builder_state state;
-	struct spa_pod_frame f[2];
+	struct spa_pod_frame f[2], nf;
 	struct spa_result_node_params result;
+	struct spa_pod *param, *nomod;
+	uint8_t nbuffer[1024];
+	spa_auto(spa_pod_dynamic_builder) nb = { 0 };
 	struct v4l2_format fmt;
 	uint32_t count = 0, try_width = 0, try_height = 0;
 	uint32_t def_width = 0, def_height = 0;
@@ -723,10 +620,6 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 		spa_zero(port->frmival);
 	}
 
-	if (filter) {
-		if ((res = spa_format_parse(filter, &filter_media_type, &filter_media_subtype)) < 0)
-			return res;
-	}
 	with_modifier = !filter || spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_modifier);
 
 	if (false) {
@@ -739,69 +632,14 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	result.index = result.next++;
 
 	while (port->next_fmtdesc) {
-		if (filter) {
-			struct v4l2_format fmt;
-
-			res = enum_filter_format(filter_media_type,
-					    filter_media_subtype,
-					    filter, port->fmtdesc.index);
-			if (res == -ENOENT)
-				goto do_enum_fmt;
-			if (res < 0)
-				goto exit;
-			if (res == SPA_VIDEO_FORMAT_UNKNOWN)
+		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
+			if (errno == EINVAL)
 				goto enum_end;
 
-			info = find_format_info_by_media_type(filter_media_type,
-							      filter_media_subtype,
-							      res, 0);
-			if (info == NULL)
-				goto next_fmtdesc;
-
-			port->fmtdesc.pixelformat = info->fourcc;
-
-			spa_zero(fmt);
-			fmt.type = port->fmtdesc.type;
-			fmt.fmt.pix.pixelformat = info->fourcc;
-			fmt.fmt.pix.field = V4L2_FIELD_ANY;
-			fmt.fmt.pix.width = 0;
-			fmt.fmt.pix.height = 0;
-
-			if ((res = xioctl(dev->fd, VIDIOC_TRY_FMT, &fmt)) < 0) {
-				spa_log_debug(this->log, "'%s' VIDIOC_TRY_FMT %08x: %m",
-						this->props.device, info->fourcc);
-				goto next_fmtdesc;
-			}
-			if (fmt.fmt.pix.pixelformat != info->fourcc) {
-				spa_log_debug(this->log, "'%s' VIDIOC_TRY_FMT wanted %.4s gave %.4s",
-						this->props.device, (char*)&info->fourcc,
-						(char*)&fmt.fmt.pix.pixelformat);
-				goto next_fmtdesc;
-			}
-
-		} else {
-do_enum_fmt:
-			if ((res = xioctl(dev->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
-				if (errno == EINVAL)
-					goto enum_end;
-
-				res = -errno;
-				spa_log_error(this->log, "'%s' VIDIOC_ENUM_FMT: %m",
-						this->props.device);
-				goto exit;
-			}
-			/* This enumerates every pixel format of the device, so a
-			 * filter that constrains the media type but not the pixel
-			 * format is only applied here. */
-			if (filter) {
-				const struct format_info *fi =
-					fourcc_to_format_info(port->fmtdesc.pixelformat);
-
-				if (fi == NULL ||
-				    fi->media_type != filter_media_type ||
-				    fi->media_subtype != filter_media_subtype)
-					goto next_fmtdesc;
-			}
+			res = -errno;
+			spa_log_error(this->log, "'%s' VIDIOC_ENUM_FMT: %m",
+					this->props.device);
+			goto exit;
 		}
 		port->next_fmtdesc = false;
 		port->frmsize.index = 0;
@@ -813,32 +651,6 @@ do_enum_fmt:
 
       next_frmsize:
 	while (port->next_frmsize) {
-		if (filter) {
-			const struct spa_pod_prop *p;
-			struct spa_pod *val;
-			uint32_t n_vals, choice;
-
-			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_size)))
-				goto do_frmsize;
-
-			val = spa_pod_get_values(&p->value, &n_vals, &choice);
-			if (val->type != SPA_TYPE_Rectangle || n_vals == 0)
-				goto enum_end;
-
-			if (choice == SPA_CHOICE_None) {
-				const struct spa_rectangle *values = SPA_POD_BODY(val);
-
-				if (port->frmsize.index > 0)
-					goto next_fmtdesc;
-
-				port->frmsize.type = V4L2_FRMSIZE_TYPE_DISCRETE;
-				port->frmsize.discrete.width = values[0].width;
-				port->frmsize.discrete.height = values[0].height;
-				goto have_size;
-			}
-		}
-	      do_frmsize:
 		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FRAMESIZES, &port->frmsize)) < 0) {
 			if (errno == ENOTTY)
 				goto next_fmtdesc;
@@ -853,7 +665,7 @@ do_enum_fmt:
 					port->frmsize.stepwise.step_height = 16;
 					port->fmtdesc.index++;
 					port->next_fmtdesc = true;
-					goto do_frmsize_filter;
+					goto have_size;
 				}
 				else
 					goto next_fmtdesc;
@@ -864,43 +676,7 @@ do_enum_fmt:
 					this->props.device);
 			goto exit;
 		}
-do_frmsize_filter:
-		if (filter) {
-			static const struct spa_rectangle step = {1, 1};
-
-			const struct spa_rectangle *values;
-			const struct spa_pod_prop *p;
-			struct spa_pod *val;
-			uint32_t choice, i, n_values;
-
-			/* check if we have a fixed frame size */
-			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_size)))
-				goto have_size;
-
-			val = spa_pod_get_values(&p->value, &n_values, &choice);
-			if (val->type != SPA_TYPE_Rectangle || n_values == 0)
-				goto have_size;
-
-			values = SPA_POD_BODY_CONST(val);
-
-			if (choice == SPA_CHOICE_Range && n_values > 2) {
-				if (filter_framesize(&port->frmsize, &values[1], &values[2], &step))
-					goto have_size;
-			} else if (choice == SPA_CHOICE_Step && n_values > 3) {
-				if (filter_framesize(&port->frmsize, &values[1], &values[2], &values[3]))
-					goto have_size;
-			} else if (choice == SPA_CHOICE_Enum) {
-				for (i = 1; i < n_values; i++) {
-					if (filter_framesize(&port->frmsize, &values[i], &values[i], &step))
-						goto have_size;
-				}
-			}
-			/* nothing matches the filter, get next frame size */
-			port->frmsize.index++;
-			continue;
-		}
-
-	      have_size:
+      have_size:
 		if (port->frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
 			/* we have a fixed size, use this to get the frame intervals */
 			port->frmival.index = 0;
@@ -1032,53 +808,6 @@ do_frmsize_filter:
 			goto exit;
 		}
 do_frminterval_filter:
-		if (filter) {
-			static const struct spa_fraction step = {1, 1};
-
-			const struct spa_fraction *values;
-			const struct spa_pod_prop *p;
-			struct spa_pod *val;
-			uint32_t i, n_values, choice;
-
-			if (!(p = spa_pod_find_prop(filter, NULL, SPA_FORMAT_VIDEO_framerate)))
-				goto have_framerate;
-
-			val = spa_pod_get_values(&p->value, &n_values, &choice);
-			if (val->type != SPA_TYPE_Fraction || n_values == 0)
-				goto enum_end;
-
-			values = SPA_POD_BODY(val);
-
-			switch (choice) {
-			case SPA_CHOICE_None:
-				if (filter_framerate(&port->frmival, &values[0], &values[0], &step))
-					goto have_framerate;
-				break;
-
-			case SPA_CHOICE_Range:
-				if (n_values > 2 && filter_framerate(&port->frmival, &values[1], &values[2], &step))
-					goto have_framerate;
-				break;
-
-			case SPA_CHOICE_Step:
-				if (n_values > 3 && filter_framerate(&port->frmival, &values[1], &values[2], &values[3]))
-					goto have_framerate;
-				break;
-
-			case SPA_CHOICE_Enum:
-				for (i = 1; i < n_values; i++) {
-					if (filter_framerate(&port->frmival, &values[i], &values[i], &step))
-						goto have_framerate;
-				}
-				break;
-			default:
-				break;
-			}
-			port->frmival.index++;
-			continue;
-		}
-
-	      have_framerate:
 
 		if (port->frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
 			choice->body.type = SPA_CHOICE_Enum;
@@ -1135,32 +864,48 @@ do_frminterval_filter:
 		choice->body.type = SPA_CHOICE_None;
 	spa_pod_builder_pop(&b.b, &f[1]);
 
-	result.param = spa_pod_builder_pop(&b.b, &f[0]);
+	param = spa_pod_builder_pop(&b.b, &f[0]);
 
-	spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
-
-	if (++count == num)
-		goto enum_end;
-
+	/* The variant without the modifier is built first, from a builder of its
+	 * own: filtering appends to b, which can move its data off the stack
+	 * buffer, and param points into it. */
+	nomod = NULL;
 	if (with_modifier && info->media_subtype == SPA_MEDIA_SUBTYPE_raw) {
-		struct spa_pod_object *op = (struct spa_pod_object *) result.param;
+		struct spa_pod_object *op = (struct spa_pod_object *) param;
 		const struct spa_pod_prop *p;
 
-		spa_pod_builder_push_object(&b.b, &f[0], op->body.type, op->body.id);
+		spa_pod_dynamic_builder_clean(&nb);
+		spa_pod_dynamic_builder_init(&nb, nbuffer, sizeof(nbuffer), 1024);
+		spa_pod_builder_push_object(&nb.b, &nf, op->body.type, op->body.id);
 
 		SPA_POD_OBJECT_FOREACH(op, p) {
 			if (p->key != SPA_FORMAT_VIDEO_modifier)
-				spa_pod_builder_raw_padded(&b.b, p, SPA_POD_PROP_SIZE(p));
+				spa_pod_builder_raw_padded(&nb.b, p, SPA_POD_PROP_SIZE(p));
 		}
 
-		result.index = result.next++;
-		result.param = spa_pod_builder_pop(&b.b, &f[0]);
-
-		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+		nomod = spa_pod_builder_pop(&nb.b, &nf);
 	}
 
-	if (++count != num)
-		goto next;
+	/* Everything the device offers is built here and the caller's filter is
+	 * applied to the result, rather than the filter steering which ioctls are
+	 * made. What the filter excludes simply does not match. */
+	if (spa_pod_filter(&b.b, &result.param, param, filter) >= 0) {
+		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+		if (++count == num)
+			goto enum_end;
+	}
+
+	if (nomod != NULL &&
+	    spa_pod_filter(&b.b, &result.param, nomod, filter) >= 0) {
+		result.index = result.next++;
+		spa_node_emit_result(&this->hooks, seq, 0, SPA_RESULT_TYPE_NODE_PARAMS, &result);
+
+		if (++count == num)
+			goto enum_end;
+	}
+
+	goto next;
 
       enum_end:
 	res = 0;

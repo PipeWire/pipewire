@@ -172,7 +172,7 @@ include:
 .debian:
   variables:
      # Update this tag when you want to trigger a rebuild
-    BASE_TAG: '2025-08-10.0'
+    BASE_TAG: '2026-09-22.0'
     FDO_DISTRIBUTION_VERSION: 'trixie'
     FDO_DISTRIBUTION_PACKAGES: >-
       build-essential

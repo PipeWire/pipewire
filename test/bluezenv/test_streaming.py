@@ -9,10 +9,12 @@ devenv::
 
     meson devenv -C ../pipewire/builddir -w . python3 -mpytest test/bluezenv -v
 """
+
 import sys
 import os
 import re
 import pytest
+import signal
 import subprocess
 import tempfile
 import time
@@ -359,7 +361,7 @@ class PipeWire(HostPlugin):
         res = self.record_signal.wait(timeout=timeout)
         return res and self.record_success
 
-    def teardown(self):
+    def _terminate(self):
         log.info("Stop pipewire")
         self.pw.terminate()
         self.wp.terminate()
@@ -377,7 +379,42 @@ class PipeWire(HostPlugin):
                 pass
             self.record.terminate()
             self.record_thread.join()
+
+    def shutdown(self):
+        """Terminate PipeWire/WirePlumber and check they exited cleanly."""
+        self._terminate()
+
+        for name, proc in (("pipewire", self.pw), ("wireplumber", self.wp)):
+            rc = proc.wait()
+            if rc < 0:
+                try:
+                    sig = signal.Signals(-rc).name
+                except ValueError:
+                    sig = str(-rc)
+                raise RuntimeError(f"{name} terminated by signal {sig}")
+            if rc != 0:
+                raise RuntimeError(f"{name} exited with code {rc}")
+
+    def teardown(self):
+        self._terminate()
         self.tmpdir.cleanup()
+
+
+class BluetoothdWithRestart(Bluetoothd):
+    """Bluetoothd plugin that can be restarted via ``restart()``."""
+
+    def restart(self):
+        # SIGUSR1 kills bluetoothd abruptly (no graceful D-Bus cleanup), which
+        # may crash PipeWire/WirePlumber.
+        self.log.info("Restart bluetoothd")
+        self.job.send_signal(signal.SIGUSR1)
+        try:
+            self.job.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.job.kill()
+            self.job.wait()
+        self.teardown()
+        self.setup(None)  # setup() ignores impl
 
 
 a2dp_host = [Bluetoothctl(), PipeWire(roles="a2dp_sink a2dp_source")]
@@ -399,6 +436,27 @@ def test_pipewire_a2dp(paired_hosts):
     host0.pipewire.pw_play()
 
     assert host1.pipewire.pw_record_wait_signal()
+
+
+pw_client_host = [BluetoothdWithRestart(), PipeWire(), Bluetoothctl()]
+
+a2dp_server_host = [Bluetoothctl(), PipeWire(roles="a2dp_sink a2dp_source")]
+
+
+@host_config(pw_client_host, a2dp_server_host, mem=VM_MEM)
+def test_pipewire_bluez_restart(paired_hosts):
+    host0, host1 = paired_hosts
+
+    # Connect to the A2DP server on host1
+    host1.bluetoothctl.send(f"trust {host0.bdaddr}\n")
+    host0.bluetoothctl.send(f"connect {host1.bdaddr}\n")
+
+    # Wait for the bluez card to appear
+    check_pipewire_devices_exist(host0, "a2dp-sink")
+
+    host0.bluetoothd.restart()
+
+    host0.pipewire.shutdown()
 
 
 bap_ucast_host = [

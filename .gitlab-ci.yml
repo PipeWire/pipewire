@@ -20,6 +20,8 @@ variables:
   BLUEZ_COMMIT: 'ee4a4775bc4f8348e2a860dc44bcdd7570279908'
   PYTEST_BLUEZENV_VERSION: 'pytest-bluezenv==0.1.5'
   BLUEZENV_BZIMAGE: 'https://github.com/pv/bluez-test-functional-kernel/releases/download/2026-05-08.1/bzImage-v7.0-cfg3ed20edd'
+  WIREPLUMBER_URL: 'https://gitlab.freedesktop.org/pipewire/wireplumber.git'
+  WIREPLUMBER_REVISION: 'master'
 
 # ci-templates as of Mar 25th 2024
 .templates_sha: &templates_sha ef5e4669b7500834a17ffe9277e15fbb6d977fff
@@ -250,6 +252,12 @@ include:
 .build:
   before_script:
     # setup the environment
+    - |
+      cat <<EOF > subprojects/wireplumber.wrap
+      [wrap-git]
+      url = $WIREPLUMBER_URL
+      revision = $WIREPLUMBER_REVISION
+      EOF
     - export BUILD_ID="$CI_JOB_ID"
     - export PREFIX="$PWD/prefix-$BUILD_ID"
     - export BUILD_DIR="$PWD/build-$BUILD_ID"

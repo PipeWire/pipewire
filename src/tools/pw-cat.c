@@ -1775,7 +1775,6 @@ static void format_from_filename(SF_INFO *info, const char *filename, const char
 	else
 		extension = filename;
 
-	fprintf(stderr, "%s\n", filename);
 	if (sf_command(NULL, SFC_GET_FORMAT_MAJOR_COUNT, &count, sizeof(int)) != 0)
 		count = 0;
 
@@ -2035,11 +2034,12 @@ static int setup_sndfile(struct data *data)
 			}
 		}
 		fill_properties(data);
-
-		/* try native format first, else decode to float */
-		if ((fi = format_info_by_sf_format(info.format)) == NULL)
-			fi = format_info_by_sf_format(SF_FORMAT_FLOAT);
 	}
+
+	/* try native format first, else decode to float */
+	if ((fi = format_info_by_sf_format(info.format)) == NULL)
+		fi = format_info_by_sf_format(SF_FORMAT_FLOAT);
+
 	if (fi == NULL)
 		return -EIO;
 

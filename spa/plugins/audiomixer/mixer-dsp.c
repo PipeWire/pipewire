@@ -501,20 +501,19 @@ next:
 static int clear_buffers(struct impl *this, struct port *port)
 {
 	uint32_t i, j;
+	struct port *outport = GET_OUT_PORT(this, 0);
 
 	spa_log_debug(this->log, "%p: clear buffers %p %d", this, port, port->n_buffers);
 
-	if (this->passthrough_port == port) {
-		struct port *outp = GET_OUT_PORT(this, 0);
-		spa_log_debug(this->log, "%p: restore buffers %p %d", this, outp, outp->n_buffers);
-		for (i = 0; i < outp->n_buffers; i++) {
-			struct buffer *b = &outp->buffers[i];
+	if (this->passthrough_port == port && port != outport) {
+		spa_log_debug(this->log, "%p: restore buffers %p %d", this, outport, outport->n_buffers);
+		for (i = 0; i < outport->n_buffers; i++) {
+			struct buffer *b = &outport->buffers[i];
 			*b->buffer = b->buf;
 		}
 	}
 	for (i = 0; i < port->n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
-		*b->buffer = b->buf;
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->buffer->n_datas; j++) {
 				if (b->datas[j]) {

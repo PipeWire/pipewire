@@ -2158,6 +2158,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
+	activate_io(this, false);
+
 	spa_hook_remove(&this->follower_listener);
 	spa_node_set_callbacks(this->follower, NULL, NULL);
 

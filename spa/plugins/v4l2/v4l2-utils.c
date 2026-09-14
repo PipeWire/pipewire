@@ -1771,7 +1771,7 @@ static void v4l2_on_fd_events(struct spa_source *source)
 
 	if (source->rmask & SPA_IO_ERR) {
 		struct port *port = &this->out_ports[0];
-		spa_log_error(this->log, "'%p' error %08x", this->props.device, source->rmask);
+		spa_log_error(this->log, "'%s' error %08x", this->props.device, source->rmask);
 		if (port->source.loop)
 			spa_loop_remove_source(this->data_loop, &port->source);
 		return;

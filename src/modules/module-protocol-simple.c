@@ -29,6 +29,7 @@
 #include <spa/param/audio/type-info.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/audio/raw-json.h>
+#include <spa/param/latency-utils.h>
 
 #include <pipewire/impl.h>
 
@@ -58,6 +59,8 @@
  *               sink for each connected client.
  *  - `playback`: boolean if playback is enabled. This will create a playback or
  *               source stream for each connected client.
+ *  - `capture.latency.ms`: Latency to report for the capture stream.
+ *  - `playback.latency.ms`: Latency to report for the playback stream.
  *  - `local.ifname = <str>`: interface name to use
  *  - `local.ifaddress = <str>`: interface address to use
  *  - `server.address = []`: an array of server addresses to listen on as
@@ -224,6 +227,8 @@ struct impl {
 	struct spa_audio_info_raw playback_info;
 	uint32_t capture_frame_size;
 	uint32_t playback_frame_size;
+	struct spa_process_latency_info capture_latency;
+	struct spa_process_latency_info playback_latency;
 };
 
 struct client {
@@ -486,7 +491,7 @@ static const struct pw_stream_events playback_stream_events = {
 static int create_streams(struct impl *impl, struct client *client)
 {
 	uint32_t n_params;
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[3];
 	uint8_t buffer[1024];
 	struct spa_pod_builder b;
 	struct pw_properties *props;
@@ -525,12 +530,17 @@ static int create_streams(struct impl *impl, struct client *client)
 				&playback_stream_events, client);
 	}
 
-
 	if (impl->capture) {
+		struct spa_latency_info info = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
+
 		n_params = 0;
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 				&impl->capture_info);
+		params[n_params++] = spa_process_latency_build(&b, SPA_PARAM_ProcessLatency,
+				&impl->capture_latency);
+		spa_process_latency_info_add(&impl->capture_latency, &info);
+		params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &info);
 
 		if ((res = pw_stream_connect(client->capture,
 				PW_DIRECTION_INPUT,
@@ -542,10 +552,16 @@ static int create_streams(struct impl *impl, struct client *client)
 			return res;
 	}
 	if (impl->playback) {
+		struct spa_latency_info info = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
+
 		n_params = 0;
 		spa_pod_builder_init(&b, buffer, sizeof(buffer));
 		params[n_params++] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
 				&impl->playback_info);
+		params[n_params++] = spa_process_latency_build(&b, SPA_PARAM_ProcessLatency,
+				&impl->playback_latency);
+		spa_process_latency_info_add(&impl->playback_latency, &info);
+		params[n_params++] = spa_latency_build(&b, SPA_PARAM_Latency, &info);
 
 		if ((res = pw_stream_connect(client->playback,
 				PW_DIRECTION_OUTPUT,
@@ -857,6 +873,7 @@ static int parse_params(struct impl *impl)
 	struct spa_json it[1];
 	char value[512];
 	int res;
+	int64_t val;
 
 	pw_properties_fetch_bool(impl->props, "capture", &impl->capture);
 	pw_properties_fetch_bool(impl->props, "playback", &impl->playback);
@@ -882,6 +899,12 @@ static int parse_params(struct impl *impl)
 		pw_log_error("can't create props: %m");
 		return -errno;
 	}
+	if ((str = pw_properties_get(impl->props, "capture.latency.ms")) != NULL)
+		if (spa_atoi64(str, &val, 0))
+			impl->capture_latency.ns = val * 1000;
+	if ((str = pw_properties_get(impl->props, "playback.latency.ms")) != NULL)
+		if (spa_atoi64(str, &val, 0))
+			impl->playback_latency.ns = val * 1000;
 
 	if ((str = pw_properties_get(impl->props, "capture.props")) != NULL)
 		pw_properties_update_string(impl->capture_props, str, strlen(str));

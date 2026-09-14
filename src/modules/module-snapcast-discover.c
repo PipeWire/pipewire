@@ -60,6 +60,8 @@
  *
  * - `snapcast.discover-local` = allow discovery of local services as well.
  *    false by default.
+ * - `capture.latency.ms` = latency for all streams in microseconds. This
+ *    can be overwritten in the stream rules.
  * - `stream.rules` = \<rules\>: match rules, use create-stream actions. See
  *   \ref page_module_protocol_simple for module properties.
  *
@@ -712,6 +714,9 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 
 	spa_dict_for_each(it, info)
 		pw_properties_from_zeroconf(it->key, it->value, props);
+
+	if ((str = pw_properties_get(impl->properties, "capture.latency.ms")) != NULL)
+		pw_properties_set(props, "capture.latency.ms", str);
 
 	if ((str = pw_properties_get(impl->properties, "stream.rules")) == NULL)
 		str = DEFAULT_CREATE_RULES;

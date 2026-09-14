@@ -97,6 +97,7 @@ class PipeWire(HostPlugin):
             self.exe_pw = find_exe("", "pipewire")
             self.exe_wp = find_exe("", "wireplumber")
             self.exe_dump = find_exe("", "pw-dump")
+            self.exe_cli = find_exe("", "pw-cli")
             self.exe_play = find_exe("", "pw-play")
             self.exe_record = find_exe("", "pw-record")
 
@@ -295,6 +296,38 @@ class PipeWire(HostPlugin):
 
         return ret.stdout
 
+    def pw_set_profile(self, profile):
+        """
+        Set profile of the Bluetooth device, by profile name prefix
+        """
+        for item in json.loads(self.pw_dump()):
+            if item.get("type", None) != "PipeWire:Interface:Device":
+                continue
+            if item["info"]["props"].get("device.api", None) != "bluez5":
+                continue
+            for entry in item["info"]["params"].get("EnumProfile", []):
+                if not entry["name"].startswith(profile):
+                    continue
+                subprocess.run(
+                    [
+                        self.exe_cli,
+                        "set-param",
+                        str(item["id"]),
+                        "Profile",
+                        json.dumps({"index": entry["index"], "save": False}),
+                    ],
+                    env=self.environ,
+                    check=True,
+                    # The device may block in a synchronous transport release
+                    # and codec switch; a loaded VM can take a while to
+                    # process the request. Completion is verified by
+                    # check_pipewire_devices_exist().
+                    timeout=30,
+                )
+                return entry["name"]
+
+        raise ValueError(f"no profile {profile} on the bluez5 device")
+
     def pw_play(self):
         self.play = subprocess.Popen(
             [
@@ -378,24 +411,31 @@ class PipeWire(HostPlugin):
         res = self.record_signal.wait(timeout=timeout)
         return res and self.record_success
 
-    def _terminate(self):
-        log.info("Stop pipewire")
-        self.pw.terminate()
-        self.wp.terminate()
+    def pw_stop_streams(self):
+        # Terminate before closing the pipes: the IO threads may be blocked
+        # on them, and hold the locks close() needs.
         if self.play is not None:
+            self.play.terminate()
+            self.play_thread.join()
             try:
                 self.play.stdin.close()
             except BrokenPipeError:
                 pass
-            self.play.terminate()
-            self.play_thread.join()
+            self.play = None
         if self.record is not None:
+            self.record.terminate()
+            self.record_thread.join()
             try:
                 self.record.stdout.close()
             except BrokenPipeError:
                 pass
-            self.record.terminate()
-            self.record_thread.join()
+            self.record = None
+
+    def _terminate(self):
+        log.info("Stop pipewire")
+        self.pw.terminate()
+        self.wp.terminate()
+        self.pw_stop_streams()
 
     def shutdown(self):
         """Terminate PipeWire/WirePlumber and check they exited cleanly."""
@@ -615,6 +655,116 @@ def test_pipewire_hfp(paired_hosts):
     host0.pipewire.pw_play()
 
     assert host1.pipewire.pw_record_wait_signal()
+
+
+# WirePlumber profile autoswitch reverts profiles that no stream asks for,
+# after a delay that starts counting when the device appears. The test
+# switches profiles itself, so the policy must not act on the host doing
+# the switching.
+no_profile_autoswitch_config = """
+wireplumber.settings = {
+  bluetooth.autoswitch-to-headset-profile = false
+}
+"""
+
+a2dp_hfp_ag_host = [
+    Bluetoothctl(),
+    PipeWire(
+        roles="a2dp_source hfp_ag",
+        uuids=(
+            "0000110a-0000-1000-8000-00805f9b34fb",
+            "0000111f-0000-1000-8000-00805f9b34fb",
+        ),
+        config=no_profile_autoswitch_config,
+    ),
+]
+
+a2dp_hfp_hf_host = [
+    Bluetoothctl(),
+    PipeWire(
+        roles="a2dp_sink hfp_hf",
+        uuids=(
+            "0000110b-0000-1000-8000-00805f9b34fb",
+            "0000111e-0000-1000-8000-00805f9b34fb",
+        ),
+    ),
+]
+
+
+@host_config(a2dp_hfp_ag_host, a2dp_hfp_hf_host, mem=VM_MEM)
+def test_pipewire_profile_switch(paired_hosts, caplog):
+    """
+    Switching profiles while streaming releases the transport under a
+    started node, which must not be counted as a transport error.
+    """
+    host0, host1 = paired_hosts
+
+    # Connect
+    host1.bluetoothctl.send(f"trust {host0.bdaddr}\n")
+
+    host0.bluetoothctl.send(f"scan off\n")
+    host0.bluetoothctl.send(f"connect {host1.bdaddr}\n")
+
+    check_pipewire_devices_exist(host0, "a2dp-sink")
+
+    # Switch profiles back and forth, while streaming
+    host0.pipewire.pw_play()
+
+    # Three, which is what it takes to exhaust TRANSPORT_ERROR_MAX_RETRY
+    # if the releases are counted as errors
+    for _ in range(3):
+        host0.pipewire.pw_set_profile("headset-head-unit")
+        check_pipewire_devices_exist(host0, "hfp")
+
+        host0.pipewire.pw_set_profile("a2dp-sink")
+        check_pipewire_devices_exist(host0, "a2dp-sink")
+
+    assert not [
+        r for r in caplog.records if "Bluetooth audio transport" in r.getMessage()
+    ]
+
+    host0.pipewire.pw_stop_streams()
+
+    # Test streaming still works
+    host1.pipewire.pw_record()
+    host0.pipewire.pw_play()
+
+    assert host1.pipewire.pw_record_wait_signal()
+
+
+@host_config(bap_ucast_host, bap_ucast_host, mem=VM_MEM)
+def test_pipewire_bap_profile_switch(paired_hosts, caplog):
+    """
+    As above, for BAP: the transports are released the same way, and linked
+    transports make their release decisions from transport->acquired.
+
+    Only one switch: switching back to the duplex profile does not complete
+    here, the BAP reconfiguration gets no reply from BlueZ and times out.
+    """
+    host0, host1 = paired_hosts
+
+    # Connect
+    host1.bluetoothctl.send(f"trust {host0.bdaddr}\n")
+
+    host0.bluetoothctl.send(f"scan off\n")
+    host0.bluetoothctl.send(f"connect {host1.bdaddr}\n")
+
+    check_pipewire_devices_exist(host0, "bap-sink")
+
+    # Stream, and wait until the sink is actually started: pw_play() returns
+    # as soon as the process exists, which is before that
+    host1.pipewire.pw_record()
+    host0.pipewire.pw_play()
+
+    assert host1.pipewire.pw_record_wait_signal()
+
+    # Switch profile, while streaming
+    host0.pipewire.pw_set_profile("bap-sink")
+    check_pipewire_devices_exist(host0, "bap-sink")
+
+    assert not [
+        r for r in caplog.records if "Bluetooth audio transport" in r.getMessage()
+    ]
 
 
 def check_pipewire_devices_exist(host, profile="a2dp-sink"):

@@ -516,6 +516,14 @@ static const float wan3[] = { /* Table 3; 3 Coefficients */
 static const float lips44[] = { /* improved E-weighted (appendix: 5) */
 	2.033f, -2.165f, 1.959f, -1.590f, 0.6149f
 };
+/* Shifts noise to the ultrasonic spectrum */
+static const float highpass3[] = {
+	3.0f, -3.f,  1.f
+};
+/* Shifts noise to the ultrasonic spectrum, less aggressive for higher rates */
+static const float highpass2[] = {
+	2.0f, -1.f
+};
 
 static const struct dither_info {
 	uint32_t method;
@@ -529,7 +537,9 @@ static const struct dither_info {
 	{ DITHER_METHOD_TRIANGULAR, NOISE_METHOD_TRIANGULAR, },
 	{ DITHER_METHOD_TRIANGULAR_HF, NOISE_METHOD_TRIANGULAR_HF, },
 	{ DITHER_METHOD_WANNAMAKER_3, NOISE_METHOD_TRIANGULAR_HF, 44100, wan3, SPA_N_ELEMENTS(wan3) },
-	{ DITHER_METHOD_LIPSHITZ, NOISE_METHOD_TRIANGULAR, 44100, lips44, SPA_N_ELEMENTS(lips44) }
+	{ DITHER_METHOD_LIPSHITZ, NOISE_METHOD_TRIANGULAR, 44100, lips44, SPA_N_ELEMENTS(lips44) },
+	{ DITHER_METHOD_HIGHPASS3, NOISE_METHOD_TRIANGULAR, 88200, highpass3, SPA_N_ELEMENTS(highpass3) },
+	{ DITHER_METHOD_HIGHPASS2, NOISE_METHOD_TRIANGULAR, 172000, highpass2, SPA_N_ELEMENTS(highpass2) }
 };
 
 static const struct dither_info *find_dither_info(uint32_t method, uint32_t rate)
@@ -539,7 +549,7 @@ static const struct dither_info *find_dither_info(uint32_t method, uint32_t rate
 			continue;
 		/* don't use shaped for too low rates, it moves the noise to
 		 * audible ranges */
-		if (di->ns != NULL && rate < di->rate * 3 / 4)
+		if (di->ns != NULL && rate < 22050)
 			return find_dither_info(DITHER_METHOD_TRIANGULAR_HF, rate);
 		return di;
 	}

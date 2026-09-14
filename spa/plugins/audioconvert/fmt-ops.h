@@ -212,6 +212,8 @@ struct convert {
 #define DITHER_METHOD_TRIANGULAR_HF	3
 #define DITHER_METHOD_WANNAMAKER_3	4
 #define DITHER_METHOD_LIPSHITZ		5
+#define DITHER_METHOD_HIGHPASS3		6
+#define DITHER_METHOD_HIGHPASS2		7
 	uint32_t method;
 
 	uint32_t src_fmt;
@@ -269,6 +271,10 @@ static const struct dither_method_info {
 		"wannamaker3", "Wannamaker 3 dithering", },
 	[DITHER_METHOD_LIPSHITZ] = { DITHER_METHOD_LIPSHITZ,
 		"shaped5", "Lipshitz 5 dithering", },
+	[DITHER_METHOD_HIGHPASS3] = { DITHER_METHOD_HIGHPASS3,
+		"highpass3", "Highpass 3 dithering", },
+	[DITHER_METHOD_HIGHPASS2] = { DITHER_METHOD_HIGHPASS2,
+		"highpass2", "Highpass 2 dithering", },
 };
 
 static inline uint32_t dither_method_from_label(const char *label)

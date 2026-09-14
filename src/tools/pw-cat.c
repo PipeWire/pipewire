@@ -207,7 +207,7 @@ static const struct format_info {
 	uint32_t flags;
 } format_info[] = {
 	{  "ulaw", SF_FORMAT_ULAW, 1, "ulaw", SPA_AUDIO_FORMAT_ULAW, 1, 0 },
-	{  "alaw", SF_FORMAT_ULAW, 1, "alaw", SPA_AUDIO_FORMAT_ALAW, 1, 0 },
+	{  "alaw", SF_FORMAT_ALAW, 1, "alaw", SPA_AUDIO_FORMAT_ALAW, 1, 0 },
 	{  "s8", SF_FORMAT_PCM_S8, 1, "s8", SPA_AUDIO_FORMAT_S8, 1, 0 },
 	{  "u8", SF_FORMAT_PCM_U8, 1, "u8", SPA_AUDIO_FORMAT_U8, 1, 0 },
 	{  "s16", SF_FORMAT_PCM_16, 2, "s16", SPA_AUDIO_FORMAT_S16, 2, 0 },

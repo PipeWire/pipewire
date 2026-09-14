@@ -139,6 +139,8 @@ struct impl {
 	struct spa_list port_list;
 	struct spa_list free_list;
 
+	struct port *passthrough_port;
+
 	struct buffer *mix_buffers[MAX_PORTS];
 	const void *mix_datas[MAX_PORTS];
 	struct ramp_info ramp_info[MAX_PORTS];
@@ -501,8 +503,18 @@ static int clear_buffers(struct impl *this, struct port *port)
 	uint32_t i, j;
 
 	spa_log_debug(this->log, "%p: clear buffers %p %d", this, port, port->n_buffers);
+
+	if (this->passthrough_port == port) {
+		struct port *outp = GET_OUT_PORT(this, 0);
+		spa_log_debug(this->log, "%p: restore buffers %p %d", this, outp, outp->n_buffers);
+		for (i = 0; i < outp->n_buffers; i++) {
+			struct buffer *b = &outp->buffers[i];
+			*b->buffer = b->buf;
+		}
+	}
 	for (i = 0; i < port->n_buffers; i++) {
 		struct buffer *b = &port->buffers[i];
+		*b->buffer = b->buf;
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_MAPPED)) {
 			for (j = 0; j < b->buffer->n_datas; j++) {
 				if (b->datas[j]) {
@@ -904,11 +916,10 @@ static void ramp_down(struct impl *this, float *dst, uint32_t size, struct ramp_
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
-	struct port *outport, *inport;
+	struct port *outport, *inport, *passthrough_port = NULL;
 	struct spa_io_buffers *outio;
 	uint32_t n_buffers, maxsize, n_ramps, i;
-	struct buffer *last_buffer = NULL;
-	struct buffer *outb;
+	struct buffer *outb, *passthrough_buffer = NULL;
 	struct ramp_info *ramps;
 	const void **datas;
 	uint32_t cycle = this->position->clock.cycle & 1;
@@ -981,7 +992,8 @@ static int impl_node_process(void *object)
 				ri->data = s;
 			} else {
 				datas[n_buffers++] = s;
-				last_buffer = inb;
+				passthrough_buffer = inb;
+				passthrough_port = inport;
 			}
 			inport->last_buffer = inio->buffer_id;
 			inio->status = SPA_STATUS_NEED_DATA;
@@ -1008,12 +1020,14 @@ static int impl_node_process(void *object)
 
 	if (n_buffers == 1 && SPA_FLAG_IS_SET(d[0].flags, SPA_DATA_FLAG_DYNAMIC) && n_ramps == 0) {
 		spa_log_trace_fp(this->log, "%p: %d passthrough", this, n_buffers);
-		*outb->buffer = *last_buffer->buffer;
+		*outb->buffer = *passthrough_buffer->buffer;
+		this->passthrough_port = passthrough_port;
 	} else {
 		bool empty = n_buffers == 0 && n_ramps == 0;
 		float *dst = d[0].data;
 		uint32_t dst_samples;
 
+		this->passthrough_port = NULL;
 		*outb->buffer = outb->buf;
 
 		maxsize = SPA_MIN(maxsize, d[0].maxsize);

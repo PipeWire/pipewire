@@ -5392,6 +5392,8 @@ int spa_bt_device_ensure_media_codec(struct spa_bt_device *device, const struct 
 			bool active_ep = false;
 
 			spa_list_for_each(t, &device->transport_list, device_link) {
+				if (!(t->profile & SPA_BT_PROFILE_BAP_AUDIO))
+					continue;
 				if (spa_streq(t->remote_endpoint_path, sw->paths[i].path)) {
 					active_ep = true;
 					break;

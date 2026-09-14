@@ -237,13 +237,13 @@ impl_init(const struct spa_handle_factory *factory,
 	reset_props(&this->props);
 
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_V4L2_PATH)))
-		strncpy(this->props.device, str, sizeof(this->props.device)-1);
+		spa_scnprintf(this->props.device, sizeof(this->props.device), "%s", str);
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_DEVIDS)))
-		strncpy(this->props.devnum, str, sizeof(this->props.devnum)-1);
+		spa_scnprintf(this->props.devnum, sizeof(this->props.devnum), "%s", str);
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_PRODUCT_ID)))
-		strncpy(this->props.product_id, str, sizeof(this->props.product_id)-1);
+		spa_scnprintf(this->props.product_id, sizeof(this->props.product_id), "%s", str);
 	if (info && (str = spa_dict_lookup(info, SPA_KEY_DEVICE_VENDOR_ID)))
-		strncpy(this->props.vendor_id, str, sizeof(this->props.vendor_id)-1);
+		spa_scnprintf(this->props.vendor_id, sizeof(this->props.vendor_id), "%s", str);
 
 	return 0;
 }

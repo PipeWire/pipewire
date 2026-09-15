@@ -45,6 +45,8 @@ struct measurement {
 	struct spa_fraction latency;
 	uint32_t xrun_count;
 	bool async;
+	int32_t pending;
+	int32_t required;
 };
 
 struct node {
@@ -417,7 +419,9 @@ static int process_driver_block(struct data *d, const struct spa_pod *pod, struc
 			SPA_POD_Long(&m.finish),
 			SPA_POD_Int(&m.status),
 			SPA_POD_Fraction(&m.latency),
-			SPA_POD_OPT_Int(&m.xrun_count))) < 0)
+			SPA_POD_OPT_Int(&m.xrun_count),
+			SPA_POD_OPT_Int(&m.pending),
+			SPA_POD_OPT_Int(&m.required))) < 0)
 		return res;
 
 	if ((n = find_node(d, id)) == NULL)
@@ -451,7 +455,9 @@ static int process_follower_block(struct data *d, const struct spa_pod *pod, str
 			SPA_POD_Int(&m.status),
 			SPA_POD_Fraction(&m.latency),
 			SPA_POD_OPT_Int(&m.xrun_count),
-			SPA_POD_OPT_Bool(&m.async))) < 0)
+			SPA_POD_OPT_Bool(&m.async),
+			SPA_POD_OPT_Int(&m.pending),
+			SPA_POD_OPT_Int(&m.required))) < 0)
 		return res;
 
 	if ((n = find_node(d, id)) == NULL)

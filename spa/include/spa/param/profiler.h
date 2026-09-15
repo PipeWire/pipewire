@@ -53,7 +53,9 @@ enum spa_profiler {
 							  *      Long : driver finish,
 							  *      Int : driver status,
 							  *      Fraction : latency,
-							  *      Int : xrun_count))  */
+							  *      Int : xrun_count,
+							  *      Int : pending,
+							  *      Int : required))  */
 
 	SPA_PROFILER_START_Follower	= 0x20000,	/**< follower related profiler properties */
 	SPA_PROFILER_followerBlock,			/**< generic follower info block
@@ -66,8 +68,10 @@ enum spa_profiler {
 							  *      Long : finish,
 							  *      Int : status,
 							  *      Fraction : latency,
-							  *      Int : xrun_count))
-							  *      Bool : async))  */
+							  *      Int : xrun_count,
+							  *      Bool : async,
+							  *      Int : pending,
+							  *      Int : required))  */
 	SPA_PROFILER_followerClock,			/**< follower clock information
 							  *  (Struct(
 							  *      Int : clock id,

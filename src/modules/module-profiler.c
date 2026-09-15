@@ -264,7 +264,9 @@ static void context_do_profile(void *data)
 			SPA_POD_Long(a->finish_time),
 			SPA_POD_Int(a->status),
 			SPA_POD_Fraction(&node->latency),
-			SPA_POD_Int(a->xrun_count));
+			SPA_POD_Int(a->xrun_count),
+			SPA_POD_Int(a->state[0].pending),
+			SPA_POD_Int(a->state[0].required));
 
 	spa_list_for_each(t, &node->rt.target_list, link) {
 		struct pw_impl_node *tn = t->node;
@@ -303,7 +305,9 @@ static void context_do_profile(void *data)
 			SPA_POD_Int(ta->status),
 			SPA_POD_Fraction(&latency),
 			SPA_POD_Int(ta->xrun_count),
-			SPA_POD_Bool(async));
+			SPA_POD_Bool(async),
+			SPA_POD_Int(ta->state[0].pending),
+			SPA_POD_Int(ta->state[0].required));
 
 		if (tn && tn->driver) {
 			struct spa_io_position *tpos = &tn->rt.target.activation->position;

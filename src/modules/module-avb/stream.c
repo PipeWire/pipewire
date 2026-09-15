@@ -945,6 +945,7 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 				/* milan-avb: avb.source IS the listener's media clock; it drives the graph at the recovered talker rate (mc.rate) so consumers run sample-locked (no resampling, bit-perfect); NODE_DRIVER + high priority elects it over the fallback Dummy-Driver. */
 				PW_KEY_NODE_DRIVER, "true",
 				PW_KEY_PRIORITY_DRIVER, "300000",
+				PW_KEY_NODE_NETWORK, "true",
 				NULL));
 	} else {
 		stream->stream = pw_stream_new(server->impl->core, "sink",
@@ -955,6 +956,7 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 				/* milan-avb: avb.sink IS the graph driver (self-clocked off the AVTP/PHC rate), not a follower; NODE_DRIVER + high PRIORITY_DRIVER elect it over the fallback Dummy-Driver (priority 200000) so pw-cat clocks to us. */
 				PW_KEY_NODE_DRIVER, "true",
 				PW_KEY_PRIORITY_DRIVER, "300000",
+				PW_KEY_NODE_NETWORK, "true",
 				NULL));
 	}
 

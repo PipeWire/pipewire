@@ -79,6 +79,7 @@
  * - \ref PW_KEY_NODE_DESCRIPTION
  * - \ref PW_KEY_NODE_GROUP
  * - \ref PW_KEY_NODE_VIRTUAL
+ * - \ref PW_KEY_NODE_NETWORK
  * - \ref PW_KEY_MEDIA_CLASS
  * - \ref PW_KEY_TARGET_OBJECT to specify the remote node.name or serial.id to link to
  *

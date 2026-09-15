@@ -2443,6 +2443,9 @@ static int do_transport_destroy(struct spa_loop *loop,
 				void *user_data)
 {
 	struct impl *this = user_data;
+
+	if (this->transport)
+		spa_hook_remove(&this->transport_listener);
 	this->transport = NULL;
 	return 0;
 }
@@ -2451,6 +2454,15 @@ static void transport_destroy(void *data)
 {
 	struct impl *this = data;
 	spa_log_debug(this->log, "transport %p destroy", this->transport);
+	spa_loop_locked(this->data_loop, do_transport_destroy, 0, NULL, 0, this);
+}
+
+static void transport_remove_node(void *data)
+{
+	struct impl *this = data;
+
+	spa_log_debug(this->log, "transport %p remove node", this->transport);
+	do_stop(this);
 	spa_loop_locked(this->data_loop, do_transport_destroy, 0, NULL, 0, this);
 }
 
@@ -2501,6 +2513,7 @@ static const struct spa_bt_transport_events transport_events = {
 	.delay_changed = transport_delay_changed,
 	.state_changed = transport_state_changed,
 	.destroy = transport_destroy,
+	.remove_node = transport_remove_node,
 };
 
 static int impl_get_interface(struct spa_handle *handle, const char *type, void **interface)

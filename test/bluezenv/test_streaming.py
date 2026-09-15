@@ -201,17 +201,34 @@ class PipeWire(HostPlugin):
             stderr=subprocess.STDOUT,
         )
 
+        log.debug(f"Wait for pipewire...")
+
+        def cond():
+            try:
+                ret = subprocess.run(
+                    [self.exe_dump],
+                    stdout=subprocess.DEVNULL,
+                    env=self.environ,
+                    timeout=5,
+                )
+            except subprocess.TimeoutExpired:
+                return False
+            return ret.returncode == 0
+
+        wait_until(cond)
+
         log.info(f"Starting wireplumber: {self.exe_wp}")
 
+        self.wp_logger = LogStream("wireplumber")
         self.wp = subprocess.Popen(
             self.exe_wp,
             env=environ,
-            stdout=self.logger.stream,
+            stdout=self.wp_logger.stream,
             stderr=subprocess.STDOUT,
         )
 
         # Wait for PipeWire's bluetooth services
-        log.info("Wait for PipeWire...")
+        log.info("Wait for PipeWire endpoints...")
         bus = dbus.SystemBus()
         bus.set_exit_on_disconnect(False)
         adapter = dbus.Interface(

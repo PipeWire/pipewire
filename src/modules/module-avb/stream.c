@@ -272,6 +272,7 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 				PW_KEY_NODE_NAME, "avb.source",
 				PW_KEY_NODE_DESCRIPTION, "AVB Source",
 				PW_KEY_NODE_WANT_DRIVER, "true",
+				PW_KEY_NODE_NETWORK, "true",
 				NULL));
 	} else {
 		stream->stream = pw_stream_new(server->impl->core, "sink",
@@ -280,6 +281,7 @@ struct stream *server_create_stream(struct server *server, struct stream *stream
 				PW_KEY_NODE_NAME, "avb.sink",
 				PW_KEY_NODE_DESCRIPTION, "AVB Sink",
 				PW_KEY_NODE_WANT_DRIVER, "true",
+				PW_KEY_NODE_NETWORK, "true",
 				NULL));
 	}
 	if (stream->stream == NULL)

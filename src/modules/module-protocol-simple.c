@@ -78,6 +78,8 @@
  * - \ref PW_KEY_NODE_RATE
  * - \ref PW_KEY_STREAM_CAPTURE_SINK
  * - \ref PW_KEY_NODE_NAME
+ * - \ref PW_KEY_NODE_VIRTUAL
+ * - \ref PW_KEY_NODE_NETWORK
  * - \ref PW_KEY_TARGET_OBJECT
  *
  * By default the server will work with stereo 16 bits samples at 44.1KHz.

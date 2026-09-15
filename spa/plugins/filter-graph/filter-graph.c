@@ -1899,7 +1899,7 @@ static int setup_graph(struct graph *graph)
 	struct port *port;
 	struct graph_port *gp;
 	struct graph_hndl *gh;
-	uint32_t i, j, n, n_input, n_output, n_hndl = 0, n_out_hndl;
+	uint32_t i, j, n, n_input, n_output, n_hndl = 0, n_out_hndl, target_outputs;
 	int res;
 	struct descriptor *desc;
 	const struct spa_fga_descriptor *d;
@@ -1933,12 +1933,20 @@ static int setup_graph(struct graph *graph)
 	if (graph->n_outputs == 0)
 		graph->n_outputs = impl->info.n_outputs;
 
+	/* With port pair we try to get as many outputs as inputs, otherwise
+	 * we aim to fill all outputs */
+	if (first == last &&
+	    SPA_FLAG_IS_SET(first->desc->desc->flags, SPA_FGA_DESCRIPTOR_PORT_PAIR))
+		target_outputs = graph->n_inputs;
+	else
+		target_outputs = n_output;
+
 	/* compare to the requested number of inputs and duplicate the
 	 * graph n_hndl times when needed. */
 	n_hndl = n_input ? graph->n_inputs / n_input : 1;
 
 	if (graph->n_outputs == 0)
-		graph->n_outputs = n_output * n_hndl;
+		graph->n_outputs = target_outputs * n_hndl;
 
 	n_out_hndl = n_output ? graph->n_outputs / n_output : 1;
 
@@ -1968,9 +1976,10 @@ static int setup_graph(struct graph *graph)
 				graph->n_outputs, n_output);
 
 		if (graph->n_outputs == 0)
-			graph->n_outputs = n_output * n_hndl;
+			graph->n_outputs = target_outputs * n_hndl;
 	}
-	spa_log_info(impl->log, "using %d instances %d %d", n_hndl, n_input, n_output);
+	spa_log_info(impl->log, "using %d instances %d/%d %d/%d", n_hndl,
+			graph->n_inputs, n_input, graph->n_outputs, n_output);
 
 	graph->n_input = 0;
 	size_t input_count, output_count;

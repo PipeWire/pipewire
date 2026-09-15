@@ -2519,7 +2519,8 @@ static struct spa_fga_port param_eq_ports[] = {
 
 static const struct spa_fga_descriptor param_eq_desc = {
 	.name = "param_eq",
-	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA |
+		SPA_FGA_DESCRIPTOR_PORT_PAIR,
 
 	.n_ports = SPA_N_ELEMENTS(param_eq_ports),
 	.ports = param_eq_ports,
@@ -2855,7 +2856,8 @@ static struct spa_fga_port dcblock_ports[] = {
 
 static const struct spa_fga_descriptor dcblock_desc = {
 	.name = "dcblock",
-	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA |
+		SPA_FGA_DESCRIPTOR_PORT_PAIR,
 
 	.n_ports = SPA_N_ELEMENTS(dcblock_ports),
 	.ports = dcblock_ports,

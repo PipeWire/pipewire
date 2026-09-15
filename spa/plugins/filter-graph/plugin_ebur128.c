@@ -389,7 +389,8 @@ static struct spa_fga_port ebur128_ports[] = {
 
 static const struct spa_fga_descriptor ebur128_desc = {
 	.name = "ebur128",
-	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA,
+	.flags = SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA |
+		SPA_FGA_DESCRIPTOR_PORT_PAIR,
 
 	.ports = ebur128_ports,
 	.n_ports = SPA_N_ELEMENTS(ebur128_ports),

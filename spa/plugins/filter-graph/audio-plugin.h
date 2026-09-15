@@ -55,6 +55,7 @@ struct spa_fga_descriptor {
 	const char *name;
 #define SPA_FGA_DESCRIPTOR_SUPPORTS_NULL_DATA	(1ULL << 0)
 #define SPA_FGA_DESCRIPTOR_COPY			(1ULL << 1)
+#define SPA_FGA_DESCRIPTOR_PORT_PAIR		(1ULL << 2)
 	uint64_t flags;
 
 	void (*free) (const struct spa_fga_descriptor *desc);

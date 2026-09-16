@@ -192,6 +192,16 @@ if get_option('bluez5-codec-opus').allowed() and opus_dep.found()
 endif
 
 if get_option('bluez5-codec-lc3').allowed() and lc3_dep.found()
+  if get_option('tests').enabled()
+    test('test-bap-codec-lc3-null-settings',
+      executable('test-bap-codec-lc3-null-settings',
+        [ 'test-bap-codec-lc3-null-settings.c', 'media-codecs.c' ],
+        include_directories : [ configinc ],
+        c_args : codec_args,
+        dependencies : [ spa_dep, lc3_dep, mathlib ],
+        install : false))
+  endif
+
   bluez_codec_lc3 = shared_library('spa-codec-bluez5-lc3',
     [ 'bap-codec-lc3.c', 'media-codecs.c' ],
     include_directories : [ configinc ],

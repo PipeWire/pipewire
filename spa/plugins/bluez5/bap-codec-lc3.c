@@ -842,6 +842,7 @@ static void parse_settings(struct settings *s, const struct spa_dict *settings,
 	s->latency = -1;
 	s->delay = -1;
 	s->framing = -1;
+	*debug_ctx = SPA_LOG_DEBUG_INIT(NULL, SPA_LOG_LEVEL_TRACE);
 
 	if (!settings)
 		return;
@@ -878,8 +879,6 @@ static void parse_settings(struct settings *s, const struct spa_dict *settings,
 
 	if (spa_atob(spa_dict_lookup(settings, "bluez5.bap.debug")))
 		*debug_ctx = SPA_LOG_DEBUG_INIT(log_, SPA_LOG_LEVEL_DEBUG);
-	else
-		*debug_ctx = SPA_LOG_DEBUG_INIT(NULL, SPA_LOG_LEVEL_TRACE);
 
 	/* Is local endpoint sink or source */
 	s->sink = spa_atob(spa_dict_lookup(settings, "bluez5.bap.sink"));
@@ -932,7 +931,8 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 
 	parse_settings(&d->settings, settings, &debug_ctx);
 
-	if (spa_atou32(spa_dict_lookup(settings, "bluez5.bap.metadata-len"), &metadata_len, 0)) {
+	if (settings && spa_atou32(spa_dict_lookup(settings, "bluez5.bap.metadata-len"),
+			&metadata_len, 0)) {
 		metadata = spa_dict_lookup(settings, "bluez5.bap.metadata");
 		if (!metadata)
 			metadata_len = 0;

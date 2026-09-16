@@ -200,6 +200,15 @@ if get_option('bluez5-codec-lc3').allowed() and lc3_dep.found()
     install : true,
     install_dir : spa_plugindir / 'bluez5')
 
+  if get_option('tests').enabled()
+    test('test-bap-codec-lc3',
+      executable('test-bap-codec-lc3',
+        [ 'test-bap-codec-lc3.c', 'bap-codec-lc3.c', 'media-codecs.c' ],
+        include_directories : [ configinc ],
+        c_args : codec_args,
+        dependencies : [ spa_dep, lc3_dep, mathlib ]))
+  endif
+
   bluez_codec_hfp_lc3_swb = shared_library('spa-codec-bluez5-hfp-lc3-swb',
     [ 'hfp-codec-lc3-swb.c', 'media-codecs.c' ],
     include_directories : [ configinc ],

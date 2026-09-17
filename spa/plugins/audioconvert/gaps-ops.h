@@ -22,6 +22,7 @@ struct gaps_state {
 #define GAPS_MODE_FADE_OUT	3
 	uint32_t mode;
 	uint32_t count;
+	bool fading;
 	struct spa_history hist;
 	struct spa_burg_pred pred;
 	float *history;

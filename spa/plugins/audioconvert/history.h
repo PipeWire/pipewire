@@ -7,12 +7,17 @@ struct spa_history {
 	float *history;
 };
 
+static inline void spa_history_clear(struct spa_history *h)
+{
+	h->pos = 0;
+	h->fill = 0;
+}
+
 static inline void spa_history_init(struct spa_history *h, float *history, uint32_t max)
 {
 	h->history = history;
 	h->max = max;
-	h->pos = 0;
-	h->fill = 0;
+	spa_history_clear(h);
 }
 
 static inline void spa_history_push(struct spa_history *h, const float *s, uint32_t n)

@@ -4246,6 +4246,8 @@ static int impl_node_process(void *object)
 					remap = n_src_datas++;
 					offs += this->in_offset * port->stride;
 					src_datas[remap] = SPA_PTROFF(data, offs, void);
+					this->gaps.states[remap]->fading =
+						SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_FADE);
 
 					spa_log_trace_fp(this->log, "%p: input %d:%d:%d %d %d %d->%d", this,
 							offs, size, port->stride, this->in_offset, max_in,

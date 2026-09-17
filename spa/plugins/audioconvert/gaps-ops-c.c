@@ -37,6 +37,17 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 	} else {
 		tail_filled = head_filled;
 	}
+	if (s->fading) {
+		if (n_samples > 0) {
+			if (in[n_samples-1] != 0.0f) {
+				s->mode = GAPS_MODE_NORMAL;
+				head_filled = tail_filled = true;
+			} else {
+				s->mode = GAPS_MODE_ZERO;
+				head_filled = tail_filled = false;
+			}
+		}
+	}
 	if (s->mode == GAPS_MODE_NORMAL && head_filled && tail_filled) {
 		/* in normal mode and head and tail seem to have data */
 		spa_history_push(&s->hist, in, n_samples);
@@ -45,6 +56,7 @@ static int run_gap_check(struct gaps *gaps, uint32_t c, const float * SPA_RESTRI
 	}
 	else if (s->mode == GAPS_MODE_ZERO && !tail_filled && !head_filled) {
 		/* zero mode and head and tail seem to be empty */
+		spa_history_clear(&s->hist);
 		return 0;
 	}
 	*empty = false;

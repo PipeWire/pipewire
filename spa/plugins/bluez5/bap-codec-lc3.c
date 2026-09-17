@@ -932,10 +932,11 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 
 	parse_settings(&d->settings, settings, &debug_ctx);
 
-	if (spa_atou32(spa_dict_lookup(settings, "bluez5.bap.metadata-len"), &metadata_len, 0))
+	if (spa_atou32(spa_dict_lookup(settings, "bluez5.bap.metadata-len"), &metadata_len, 0)) {
 		metadata = spa_dict_lookup(settings, "bluez5.bap.metadata");
-	if (!metadata)
-		metadata_len = 0;
+		if (!metadata)
+			metadata_len = 0;
+	}
 
 	/* Select best conf from those possible */
 	npacs = parse_bluez_pacs(caps, caps_size, metadata, metadata_len, pacs, &debug_ctx.ctx);

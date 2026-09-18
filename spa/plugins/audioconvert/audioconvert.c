@@ -3157,6 +3157,9 @@ static int port_set_latency(void *object,
 			this, direction, port_id, latency);
 
 	port = GET_PORT(this, direction, port_id);
+	if (port == NULL)
+		return -EINVAL;
+
 	if (latency == NULL) {
 		info = SPA_LATENCY_INFO(other);
 		have_latency = false;
@@ -3185,8 +3188,8 @@ static int port_set_latency(void *object,
 
 		if (oport != NULL)
 			port_update_latency(oport, &info, have_latency);
-	}
-	recalc_latencies(this, direction);
+	} else
+		recalc_latencies(this, direction);
 	return 0;
 }
 

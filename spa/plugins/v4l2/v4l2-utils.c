@@ -1437,6 +1437,26 @@ static int mmap_read(struct impl *this)
 
 	spa_log_trace(this->log, "v4l2 %p: have output %d/%d", this, buf.index, buf.sequence);
 
+	if (buf.index >= port->n_buffers) {
+		/* Guard against drivers that dequeue a buffer that was never
+		 * queued. The source only queues buffers 0..n_buffers-1, and a
+		 * compliant driver never returns any other, so this is only a
+		 * workaround for drivers that break that rule, such as
+		 * v4l2loopback, which hands the reader buffers in write order.
+		 * We have no buffer for this index: queue it back and skip the
+		 * frame. Keeping it would not help, since such a driver does
+		 * not track what the reader queued, and on a driver that does
+		 * it would take a buffer out of rotation for the whole
+		 * session. */
+		spa_log_lev(this->log, port->warned_unqueued ? SPA_LOG_LEVEL_DEBUG : SPA_LOG_LEVEL_WARN,
+				"'%s' dequeued buffer %u, but only %u were queued",
+				this->props.device, buf.index, port->n_buffers);
+		port->warned_unqueued = true;
+		if (xioctl(dev->fd, VIDIOC_QBUF, &buf) < 0)
+			spa_log_warn(this->log, "v4l2 %p: error qbuf: %m", this);
+		return 0;
+	}
+
 	/* Drop the first frame in order to work around common firmware
 	 * timestamp issues */
 	if (port->first_buffer) {
@@ -1893,6 +1913,7 @@ static int spa_v4l2_stream_on(struct impl *this)
 		port->first_buffer = true;
 	else
 		port->first_buffer = false;
+	port->warned_unqueued = false;
 	mmap_read(this);
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;

@@ -81,6 +81,7 @@ struct port {
 	bool probed_expbuf;
 	bool have_expbuf;
 	bool first_buffer;
+	bool warned_unqueued;
 	uint32_t max_buffers;
 
 	bool next_fmtdesc;

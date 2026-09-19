@@ -43,7 +43,7 @@ pytestmark = [pytest.mark.vm]
 log = logging.getLogger(__name__)
 
 # Use larger VM instances in case ASAN is enabled
-VM_MEM = "512M"
+VM_MEM = "784M"
 
 
 class PipeWire(HostPlugin):

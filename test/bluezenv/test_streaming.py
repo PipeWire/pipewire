@@ -101,12 +101,16 @@ class PipeWire(HostPlugin):
             self.exe_play = find_exe("", "pw-play")
             self.exe_record = find_exe("", "pw-record")
 
+            env = dict(os.environ)
+            env["ASAN_OPTIONS"] = "detect_leaks=0:leak_check_at_exit=0"
+
             # get versions
             res = subprocess.run(
                 [self.exe_pw, "--version"],
                 stdout=subprocess.PIPE,
                 encoding="utf-8",
                 check=True,
+                env=env,
             )
             m = re.search("libpipewire ([0-9.]+)", res.stdout)
             if m:
@@ -121,6 +125,7 @@ class PipeWire(HostPlugin):
                 stdout=subprocess.PIPE,
                 encoding="utf-8",
                 check=True,
+                env=env,
             )
             m = re.search("libwireplumber ([0-9.]+)", res.stdout)
             if m:

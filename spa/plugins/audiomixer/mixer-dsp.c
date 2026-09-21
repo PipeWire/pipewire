@@ -996,23 +996,16 @@ static int impl_node_process(void *object)
 					bd->chunk->flags);
 
 			if (SPA_UNLIKELY(inport->ramp_up < this->n_curve)) {
-				/* new port */
-				struct ramp_info *ri = &ramps[n_ramps++];
-				bool fading;
-
-				fading = SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_FADE);
-
-				if (size > 0 && fading)
-					fading = s[0] == 0.0f;
-
-				if (fading) {
+				if (SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_FADE) &&
+				    size > 0 && s[0] == 0.0f)
 					/* new buffer was fade in from silence, complete ramp-up */
 					inport->ramp_up = this->n_curve;
-				} else {
-					ri->port = inport;
-					ri->ramp_dir = 1;
-					ri->data = s;
-				}
+			}
+			if (SPA_UNLIKELY(inport->ramp_up < this->n_curve)) {
+				struct ramp_info *ri = &ramps[n_ramps++];
+				ri->port = inport;
+				ri->ramp_dir = 1;
+				ri->data = s;
 			} else {
 				datas[n_buffers++] = s;
 				passthrough_buffer = inb;

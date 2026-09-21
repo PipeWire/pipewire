@@ -759,7 +759,7 @@ done:
 				spa_strbuf_append(&sb1, "%1.3f ", matrix[i][j]);
 		}
 		if (sb2.pos > 0)
-			spa_log_info(mix->log, "     %s", str2);
+			spa_log_info(mix->log, "         %s", str2);
 		if (sb1.pos > 0) {
 			spa_log_info(mix->log, "%03d %-4.4s %s   %f", ic,
 					dst_mask == 0 ? "UNK" :

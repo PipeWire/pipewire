@@ -2492,7 +2492,8 @@ static int setup_resample(struct impl *this)
 	this->gaps.log = this->log;
 	this->gaps.cpu_flags = this->cpu_flags;
 	this->gaps.duration = (uint32_t)(this->props.fade_duration * in->format.info.raw.rate);
-	gaps_init(&this->gaps);
+	if ((res = gaps_init(&this->gaps)) < 0)
+		return res;
 
 	this->resample.channels = channels;
 	this->resample.i_rate = in->format.info.raw.rate;
@@ -4202,8 +4203,10 @@ static int impl_node_process(void *object)
 					if (SPA_UNLIKELY(port->ramp_start)) {
 						struct gaps_state *gs = this->gaps.states[remap];
 						spa_log_info(this->log, "%p: %p ramp start", this, port);
-						gs->mode = GAPS_MODE_FADE_OUT;
-						gs->count = 0;
+						if (gs != NULL) {
+							gs->mode = GAPS_MODE_FADE_OUT;
+							gs->count = 0;
+						}
 						port->ramp_start = false;
 					}
 					spa_log_trace_fp(this->log, "%p: empty input %d->%d", this,
@@ -4244,13 +4247,17 @@ static int impl_node_process(void *object)
 						this->recalc = true;
 					}
 				} else  {
+					struct gaps_state *gs;
+
 					max_in = SPA_MIN(max_in, size / port->stride);
 
 					remap = n_src_datas++;
 					offs += this->in_offset * port->stride;
 					src_datas[remap] = SPA_PTROFF(data, offs, void);
-					this->gaps.states[remap]->fading =
-						SPA_FLAG_IS_SET(bd->chunk->flags, SPA_CHUNK_FLAG_FADE);
+
+					if ((gs = this->gaps.states[remap]) != NULL)
+						gs->fading = SPA_FLAG_IS_SET(bd->chunk->flags,
+								SPA_CHUNK_FLAG_FADE);
 
 					spa_log_trace_fp(this->log, "%p: input %d:%d:%d %d %d %d->%d", this,
 							offs, size, port->stride, this->in_offset, max_in,

@@ -2505,15 +2505,6 @@ static int setup_resample(struct impl *this)
 
 	if (this->resample.free)
 		resample_free(&this->resample);
-	if (this->gaps.free)
-		gaps_free(&this->gaps);
-
-	this->gaps.channels = channels;
-	this->gaps.log = this->log;
-	this->gaps.cpu_flags = this->cpu_flags;
-	this->gaps.duration = (uint32_t)(this->props.fade_duration * in->format.info.raw.rate);
-	if ((res = gaps_init(&this->gaps)) < 0)
-		return res;
 
 	this->resample.channels = channels;
 	this->resample.i_rate = in->format.info.raw.rate;

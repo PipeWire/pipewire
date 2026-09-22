@@ -361,7 +361,8 @@ static int webrtc_run(void *object, const float *rec[], const float *play[], flo
 	unsigned int num_blocks = n_samples * 1000 / impl->play_info.rate / 10;
 
 	if (n_samples * 1000 / impl->play_info.rate % 10 != 0) {
-		spa_log_error(impl->log, "Buffers must be multiples of 10ms in length (currently %u samples)", n_samples);
+		spa_log_error(impl->log, "Buffers must be multiples of 10ms in length "
+				"(currently %u samples @%d)", n_samples, impl->play_info.rate);
 		return -EINVAL;
 	}
 

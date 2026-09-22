@@ -42,6 +42,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.filter-graph");
 
 #define MAX_HNDL 64
 #define MAX_CHANNELS SPA_AUDIO_MAX_CHANNELS
+#define MAX_IO 8
 
 #define DEFAULT_RATE	48000
 
@@ -224,6 +225,12 @@ struct impl {
 	struct spa_fga_dsp *dsp;
 	struct spa_plugin_loader *loader;
 	struct spa_loop *data_loop;
+
+	struct {
+		const char *type;
+		void *data;
+		size_t size;
+	} io[MAX_IO];
 
 	uint64_t info_all;
 	struct spa_filter_graph_info info;
@@ -891,9 +898,8 @@ static int impl_set_props(void *object, enum spa_direction direction, const stru
 	return 0;
 }
 
-static int impl_set_io(void *object, const char *type, void *data, size_t size)
+static int sync_io(struct impl *impl, const char *type, void *data, size_t size)
 {
-	struct impl *impl = object;
 	struct graph *graph = &impl->graph;
 	struct node *node;
 	uint32_t i;
@@ -907,6 +913,43 @@ static int impl_set_io(void *object, const char *type, void *data, size_t size)
 				d->set_io(node->hndl[i], type, data, size);
 		}
 	}
+	return 0;
+}
+
+static int sync_all_io(struct impl *impl)
+{
+	uint32_t i;
+	for (i = 0; i < SPA_N_ELEMENTS(impl->io);  i++) {
+		if (impl->io[i].type != NULL)
+			sync_io(impl, impl->io[i].type, impl->io[i].data, impl->io[i].size);
+	}
+	return 0;
+}
+
+static int impl_set_io(void *object, const char *type, void *data, size_t size)
+{
+	struct impl *impl = object;
+	uint32_t i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(impl->io);  i++) {
+		if (spa_streq(impl->io[i].type, type)) {
+			impl->io[i].data = data;
+			impl->io[i].size = size;
+			break;
+		}
+	}
+	if (i == SPA_N_ELEMENTS(impl->io)) {
+		do {
+			i--;
+			if (impl->io[i].type == NULL) {
+				impl->io[i].type = type;
+				impl->io[i].data = data;
+				impl->io[i].size = size;
+				break;
+			}
+		} while (i > 0);
+	}
+	sync_io(impl, type, data, size);
 	return 0;
 }
 
@@ -1726,6 +1769,7 @@ static int impl_activate(void *object, const struct spa_dict *props)
 		}
 		node->control_changed = true;
 	}
+	sync_all_io(impl);
 
 	/* then link ports */
 	spa_list_for_each(node, &graph->node_list, link) {

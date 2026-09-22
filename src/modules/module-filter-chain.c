@@ -1409,10 +1409,6 @@ static int activate_graph(struct impl *impl)
 	if (res >= 0) {
 		struct pw_loop *data_loop = pw_stream_get_data_loop(impl->playback);
 
-		spa_filter_graph_set_io(impl->graph, SPA_TYPE_INFO_IO_BASE "Latency",
-			&impl->io_latency, sizeof(impl->io_latency));
-		spa_filter_graph_set_io(impl->graph, SPA_TYPE_INFO_IO_BASE "Position",
-				impl->position, sizeof(struct spa_io_position));
 
 		pw_loop_lock(data_loop);
 		impl->graph_active = true;
@@ -1503,6 +1499,9 @@ static void update_io_latency(struct impl *impl, enum spa_direction direction)
 		impl->io_latency.capture_latency = time.delay;
 	else
 		impl->io_latency.playback_latency = time.delay;
+
+	spa_filter_graph_set_io(impl->graph, SPA_TYPE_INFO_IO_BASE "Latency",
+		&impl->io_latency, sizeof(impl->io_latency));
 }
 
 static void param_latency_changed(struct impl *impl, const struct spa_pod *param,
@@ -1585,6 +1584,8 @@ static void io_changed(void *data, uint32_t id, void *area, uint32_t size)
 	switch (id) {
 	case SPA_IO_Position:
 		impl->position = area;
+		spa_filter_graph_set_io(impl->graph, SPA_TYPE_INFO_IO_BASE "Position",
+				impl->position, sizeof(struct spa_io_position));
 		break;
 	default:
 		break;

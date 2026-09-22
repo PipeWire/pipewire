@@ -779,9 +779,11 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 	struct port *port = info->port;
 	struct impl *impl = info->impl;
 
-	if (info->data == NULL || info->size < sizeof(struct spa_io_buffers)) {
+	if ((info->data == NULL || info->size < sizeof(struct spa_io_buffers))) {
 		port->io[0] = NULL;
 		port->io[1] = NULL;
+		if (port->removing)
+			return 0;
 		port->removing = true;
 
 		if (port->direction == SPA_DIRECTION_INPUT &&
@@ -819,8 +821,9 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 				/* was faded out */
 				port->ramp_down = 0;
 			}
-			spa_log_info(impl->log, "fade-out %u/%u/%u %d", port->ramp_up,
-					port->ramp_down, impl->n_curve, port->pred.n_coef);
+			spa_log_info(impl->log, "fade-out %d:%u %u/%u/%u %d", port->direction,
+					port->id, port->ramp_up, port->ramp_down, impl->n_curve,
+					port->pred.n_coef);
 		} else {
 			port->ramp_down = 0;
 		}
@@ -833,7 +836,8 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 			port->io[0] = info->data;
 			port->io[1] = info->data;
 		}
-		spa_log_info(impl->log, "fade-in %u/%u/%u", port->ramp_up, port->ramp_down, impl->n_curve);
+		spa_log_info(impl->log, "fade-in %d:%u %u/%u/%u", port->direction, port->id,
+				port->ramp_up, port->ramp_down, impl->n_curve);
 		port->removing = false;
 		port->ramp_up = 0;
 		if (port->direction == SPA_DIRECTION_INPUT && !port->active) {

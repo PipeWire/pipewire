@@ -80,7 +80,9 @@ int gaps_init(struct gaps *gaps)
 	alloc_size = sizeof(struct gaps_state) + hist_size + pred_size;
 	alloc_size = SPA_ROUND_UP_N(alloc_size, 64);
 
-	gaps->data = calloc(1, alloc_size * gaps->channels);
+	gaps->data = calloc(gaps->channels, alloc_size);
+	if (gaps->data == NULL)
+		return -errno;
 
 	for (i = 0; i < gaps->channels; i++) {
 		struct gaps_state *s = SPA_PTROFF(gaps->data, alloc_size * i, void);

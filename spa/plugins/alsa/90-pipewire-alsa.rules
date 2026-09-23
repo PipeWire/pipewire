@@ -129,7 +129,7 @@ ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12ad", ENV{ACP_PROFILE_SET}="usb-gam
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1294", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1730", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # ID 1038:1282 is for SteelSeries GameDAC
-ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1282", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
+ATTRS{idVendor}=="1038", ATTRS{idProduct}=="1282", ENV{ACP_PROFILE_SET}="steelseries-gamedac-usb-audio.conf"
 # ID 1038:12c4 is for Arctis 9
 ATTRS{idVendor}=="1038", ATTRS{idProduct}=="12c4", ENV{ACP_PROFILE_SET}="usb-gaming-headset.conf"
 # Lucidsound LS31

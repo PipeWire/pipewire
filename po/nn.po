@@ -835,12 +835,12 @@ msgstr "Telefon"
 
 #: spa/plugins/bluez5/bluez5-device.c:2639
 msgid "Bluetooth"
-msgstr "Bluetooth"
+msgstr "Blåtann"
 
 #: spa/plugins/bluez5/bluez5-device.c:2640
 #| msgid "Handsfree"
 msgid "Bluetooth Handsfree"
-msgstr "Bluetooth-handfri"
+msgstr "Blåtann (handfri)"
 
 #~ msgid "Headset Head Unit (HSP/HFP)"
 #~ msgstr "Hodesett (HSP/HFP)"

@@ -1839,9 +1839,10 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 				if (dev->device.format.map == NULL)
 					break;
 
-				while ((position = pa_split_in_place(positions, ",", &n, &split_state)) != NULL &&
+				while ((position = pa_split_in_place(positions, "[,]", &n, &split_state)) != NULL &&
 						i < dev->device.format.channels) {
-					dev->device.format.map[i++] = acp_channel_from_str(position, n);
+					if (n > 0)
+						dev->device.format.map[i++] = acp_channel_from_str(position, n);
 				}
 
 				break;

@@ -4544,7 +4544,7 @@ static int mapping_verify(pa_alsa_mapping *m, const pa_channel_map *bonus) {
         { "analog-surround-41",     N_("Analog Surround 4.1") },
         { "analog-surround-50",     N_("Analog Surround 5.0") },
         { "analog-surround-51",     N_("Analog Surround 5.1") },
-        { "analog-surround-61",     N_("Analog Surround 6.0") },
+        { "analog-surround-60",     N_("Analog Surround 6.0") },
         { "analog-surround-61",     N_("Analog Surround 6.1") },
         { "analog-surround-70",     N_("Analog Surround 7.0") },
         { "analog-surround-71",     N_("Analog Surround 7.1") },

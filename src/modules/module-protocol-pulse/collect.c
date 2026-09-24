@@ -233,6 +233,7 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 			 struct device_info *dev_info, bool monitor, struct defs *defs)
 {
 	struct pw_manager_param *p;
+	uint32_t enum_channels = 0;
 
 	if (card) {
 		spa_list_for_each(p, &card->param_list, link) {
@@ -263,6 +264,9 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 		case SPA_PARAM_EnumFormat:
 		{
 			struct spa_pod *to_free = NULL, *c = p->param;
+			struct sample_spec ss = dev_info->ss;
+			struct channel_map map = dev_info->map;
+
 			if (!spa_pod_is_fixated(c)) {
 				to_free = spa_pod_copy(c);
 				if (to_free == NULL)
@@ -270,8 +274,13 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 				spa_pod_fixate(to_free);
 				c = to_free;
 			}
-			format_parse_param(c, true, &dev_info->ss, &dev_info->map,
-					&defs->sample_spec, &defs->channel_map);
+			if (format_parse_param(c, true, &ss, &map,
+					&defs->sample_spec, &defs->channel_map) >= 0 &&
+			    ss.channels > enum_channels) {
+				dev_info->ss = ss;
+				dev_info->map = map;
+				enum_channels = ss.channels;
+			}
 			free(to_free);
 			break;
 		}

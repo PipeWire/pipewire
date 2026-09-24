@@ -178,7 +178,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 	char codecs[512];
 	struct spa_device_object_info info;
 	struct acp_card *card = this->card;
-	const char *stream, *card_id, *bus;
+	const char *stream, *card_id, *bus, *product;
 	struct spa_strbuf b;
 
 	info = SPA_DEVICE_OBJECT_INFO_INIT();
@@ -194,7 +194,7 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	info.change_mask = SPA_DEVICE_OBJECT_CHANGE_MASK_PROPS;
 
-	items = alloca((dev->props.n_items + 12) * sizeof(*items));
+	items = alloca((dev->props.n_items + 13) * sizeof(*items));
 	n_items = 0;
 
 	snprintf(card_index, sizeof(card_index), "%d", card->index);
@@ -234,6 +234,10 @@ static int emit_node(struct impl *this, struct acp_device *dev)
 
 	snprintf(routes, sizeof(routes), "%d", dev->n_ports);
 	items[n_items++] = SPA_DICT_ITEM_INIT("device.routes", routes);
+
+	if (dev->n_ports == 1 &&
+	    (product = acp_dict_lookup(&dev->ports[0]->props, SPA_KEY_DEVICE_PRODUCT_NAME)))
+		items[n_items++] = SPA_DICT_ITEM_INIT(ACP_KEY_HDMI_PRODUCT_NAME, product);
 
 	acp_dict_for_each(it, &dev->props)
 		items[n_items++] = SPA_DICT_ITEM_INIT(it->key, it->value);

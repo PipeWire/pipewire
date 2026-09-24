@@ -154,16 +154,21 @@ const char *acp_available_str(enum acp_available status);
 		 * as receivers are powered on or off.
 		 */
 #define ACP_KEY_AUDIO_CHANNELS_DETECTED "audio.channels.detected"
-		/**< The number of channels detected detected via EDID-like data read from a device
+		/**< The number of channels detected via EDID-like data read from a device
 		 * connected via HDMI/DisplayPort. This only serves as a hint, as the auto-detected
 		 * values may be incorrect and/or might change, e.g. when external devices such
 		 * as receivers are powered on or off.
 		 */
 #define ACP_KEY_AUDIO_POSITION_DETECTED "audio.position.detected"
-		/**< The channel positions detected detected via EDID-like data read from a device
+		/**< The channel positions detected via EDID-like data read from a device
 		 * connected via HDMI/DisplayPort. This only serves as a hint, as the auto-detected
 		 * values may be incorrect and/or might change, e.g. when external devices such
 		 * as receivers are powered on or off.
+		 */
+#define ACP_KEY_HDMI_PRODUCT_NAME "hdmi.product.name"
+		/**< The product name of the device connected via HDMI/DisplayPort, e.g. a monitor,
+		 * TV or receiver, read via EDID-like data. Set on nodes with a single port
+		 * since then it is not ambiguous.
 		 */
 
 struct acp_device;

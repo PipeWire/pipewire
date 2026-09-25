@@ -479,8 +479,10 @@ DEFINE_FUNCTION(f32d_to_s16s, sse2);
 DEFINE_FUNCTION(f32d_to_s16_noise, sse2);
 DEFINE_FUNCTION(f32d_to_s16d, sse2);
 DEFINE_FUNCTION(f32d_to_s16d_noise, sse2);
+DEFINE_FUNCTION(32_to_32d_2, sse2);
 DEFINE_FUNCTION(32_to_32d, sse2);
 DEFINE_FUNCTION(32s_to_32d, sse2);
+DEFINE_FUNCTION(32d_to_32_2, sse2);
 DEFINE_FUNCTION(32d_to_32, sse2);
 DEFINE_FUNCTION(32d_to_32s, sse2);
 #endif

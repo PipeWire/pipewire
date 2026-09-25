@@ -69,10 +69,8 @@ SPA_API_POD_COMPARE int spa_pod_compare_value(uint32_t type, const void *r1, con
 	{
 		const struct spa_fraction *f1 = (struct spa_fraction *) r1,
 		    *f2 = (struct spa_fraction *) r2;
-		uint64_t n1, n2;
-		n1 = ((uint64_t) f1->num) * f2->denom;
-		n2 = ((uint64_t) f2->num) * f1->denom;
-		return SPA_CMP(n1, n2);
+
+		return spa_fraction_cmp(f1, f2);
 	}
 	default:
 		return memcmp(r1, r2, size);

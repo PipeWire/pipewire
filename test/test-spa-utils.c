@@ -999,6 +999,33 @@ PWTEST(utils_callback_version)
 	return PWTEST_PASS;
 }
 
+PWTEST(utils_fraction_cmp)
+{
+	/* equal fractions */
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(1, 2), &SPA_FRACTION(1, 2)), 0);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(0, 1), &SPA_FRACTION(0, 1)), 0);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(0, 1), &SPA_FRACTION(0, 48000)), 0);
+	/* equivalent non-normalized fractions */
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(1, 2), &SPA_FRACTION(2, 4)), 0);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(1, 3), &SPA_FRACTION(2, 6)), 0);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(3, 7), &SPA_FRACTION(6, 14)), 0);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(48000, 1), &SPA_FRACTION(96000, 2)), 0);
+	/* less than */
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(1, 3), &SPA_FRACTION(1, 2)), -1);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(24000, 1), &SPA_FRACTION(48000, 1)), -1);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(0, 1), &SPA_FRACTION(1, 1)), -1);
+	/* greater than */
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(1, 2), &SPA_FRACTION(1, 3)), 1);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(48000, 1), &SPA_FRACTION(24000, 1)), 1);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(1, 1), &SPA_FRACTION(0, 1)), 1);
+	/* large values that would overflow uint32_t multiplication */
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(UINT32_MAX, 1), &SPA_FRACTION(UINT32_MAX, 1)), 0);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(UINT32_MAX, 1), &SPA_FRACTION(UINT32_MAX - 1, 1)), 1);
+	pwtest_int_eq(spa_fraction_cmp(&SPA_FRACTION(UINT32_MAX - 1, 1), &SPA_FRACTION(UINT32_MAX, 1)), -1);
+
+	return PWTEST_PASS;
+}
+
 PWTEST_SUITE(spa_utils)
 {
 	pwtest_add(utils_abi_sizes, PWTEST_NOARG);
@@ -1027,6 +1054,7 @@ PWTEST_SUITE(spa_utils)
 	pwtest_add(utils_callback, PWTEST_NOARG);
 	pwtest_add(utils_callback_func_is_null, PWTEST_NOARG);
 	pwtest_add(utils_callback_version, PWTEST_NOARG);
+	pwtest_add(utils_fraction_cmp, PWTEST_NOARG);
 
 	return PWTEST_PASS;
 }

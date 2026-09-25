@@ -521,6 +521,14 @@ struct spa_error_location {
 	_res;							\
 })
 
+SPA_API_UTILS_DEFS int spa_fraction_cmp(const struct spa_fraction *a, const struct spa_fraction *b)
+{
+	uint64_t x = (uint64_t) a->num * b->denom;
+	uint64_t y = (uint64_t) b->num * a->denom;
+
+	return SPA_CMP(x, y);
+}
+
 /**
  * \}
  */

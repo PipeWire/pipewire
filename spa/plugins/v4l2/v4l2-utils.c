@@ -375,18 +375,7 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 
 static int compare_fraction(struct v4l2_fract *f1, const struct spa_fraction *f2)
 {
-	uint64_t n1, n2;
-
-	/* fractions are reduced when set, so we can quickly see if they're equal */
-	if (f1->denominator == f2->num && f1->numerator == f2->denom)
-		return 0;
-
-	/* extend to 64 bits */
-	n1 = ((int64_t) f1->denominator) * f2->denom;
-	n2 = ((int64_t) f1->numerator) * f2->num;
-	if (n1 < n2)
-		return -1;
-	return 1;
+	return spa_fraction_cmp(&SPA_FRACTION(f1->numerator, f1->denominator), f2);
 }
 
 

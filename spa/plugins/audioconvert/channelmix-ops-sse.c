@@ -274,7 +274,7 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 		const float *taps, uint32_t n_taps,
 		float *dst, const float *src, const float vol, uint32_t n_samples)
 {
-	__m128 t[2];
+	__m128 t[1];
 	const __m128 v = _mm_set1_ps(vol);
 	uint32_t i;
 	uint32_t w = *pos;
@@ -282,18 +282,19 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 	uint32_t n, unrolled;
 
 	if (SPA_IS_ALIGNED(src, 16) &&
-	    SPA_IS_ALIGNED(dst, 16))
+	    SPA_IS_ALIGNED(dst, 16) &&
+	    delay >= 4)
 		unrolled = n_samples & ~3;
 	else
 		unrolled = 0;
 
 	if (n_taps == 1) {
 		for(n = 0; n < unrolled; n += 4) {
-			t[1] = _mm_loadu_ps(&buffer[w+o]);
 			t[0] = _mm_load_ps(&src[n]);
 			_mm_storeu_ps(&buffer[w], t[0]);
 			_mm_storeu_ps(&buffer[w+n_buffer], t[0]);
-			t[0] = _mm_mul_ps(t[1], v);
+			t[0] = _mm_loadu_ps(&buffer[w+o]);
+			t[0] = _mm_mul_ps(t[0], v);
 			_mm_store_ps(&dst[n], t[0]);
 			w += 4;
 			if (w >= n_buffer) {
@@ -303,21 +304,21 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 			}
 		}
 		for(; n < n_samples; n++) {
-			t[1] = _mm_load_ss(&buffer[w+o]);
 			t[0] = _mm_load_ss(&src[n]);
 			_mm_store_ss(&buffer[w], t[0]);
 			_mm_store_ss(&buffer[w+n_buffer], t[0]);
-			t[0] = _mm_mul_ss(t[1], v);
+			t[0] = _mm_load_ss(&buffer[w+o]);
+			t[0] = _mm_mul_ss(t[0], v);
 			_mm_store_ss(&dst[n], t[0]);
 			w = w + 1 >= n_buffer ? 0 : w + 1;
 		}
 	} else {
 		for(n = 0; n < unrolled; n += 4) {
 			t[0] = _mm_load_ps(&src[n]);
-			for(i = 0; i < 4; i++)
-				convolver_run(&buffer[w+o+i], &dst[n+i], taps, n_taps, v);
 			_mm_storeu_ps(&buffer[w], t[0]);
 			_mm_storeu_ps(&buffer[w+n_buffer], t[0]);
+			for(i = 0; i < 4; i++)
+				convolver_run(&buffer[w+o+i], &dst[n+i], taps, n_taps, v);
 			w += 4;
 			if (w >= n_buffer) {
 				w -= n_buffer;
@@ -327,9 +328,9 @@ static inline void delay_convolve_run_sse(float *buffer, uint32_t *pos,
 		}
 		for(; n < n_samples; n++) {
 			t[0] = _mm_load_ss(&src[n]);
-			convolver_run(&buffer[w+o], &dst[n], taps, n_taps, v);
 			_mm_store_ss(&buffer[w], t[0]);
 			_mm_store_ss(&buffer[w+n_buffer], t[0]);
+			convolver_run(&buffer[w+o], &dst[n], taps, n_taps, v);
 			w = w + 1 >= n_buffer ? 0 : w + 1;
 		}
 	}

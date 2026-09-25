@@ -767,6 +767,50 @@ conv_s32_to_f32d_4s_avx2(void *data, void * SPA_RESTRICT dst[], const void * SPA
 }
 
 void
+conv_s32_to_f32d_2_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
+		uint32_t n_samples)
+{
+	const int32_t *s = src[0];
+	float *d0 = dst[0], *d1 = dst[1];
+	uint32_t n, unrolled;
+	__m256 t0, t1, factor = _mm256_set1_ps(1.0f / S32_SCALE_I2F);
+	__m256i perm = _mm256_setr_epi32(0, 1, 4, 5, 2, 3, 6, 7);
+
+	if (SPA_IS_ALIGNED(s, 32) &&
+	    SPA_IS_ALIGNED(d0, 32) &&
+	    SPA_IS_ALIGNED(d1, 32))
+		unrolled = n_samples & ~7;
+	else
+		unrolled = 0;
+
+	for(n = 0; n < unrolled; n += 8) {
+		__m256 out0, out1;
+
+		t0 = _mm256_mul_ps(_mm256_cvtepi32_ps(
+				_mm256_load_si256((__m256i*)(s + 0))), factor);
+		t1 = _mm256_mul_ps(_mm256_cvtepi32_ps(
+				_mm256_load_si256((__m256i*)(s + 8))), factor);
+
+		out0 = _mm256_shuffle_ps(t0, t1, _MM_SHUFFLE(2, 0, 2, 0));
+		out1 = _mm256_shuffle_ps(t0, t1, _MM_SHUFFLE(3, 1, 3, 1));
+
+		_mm256_store_ps(&d0[n], _mm256_permutevar8x32_ps(out0, perm));
+		_mm256_store_ps(&d1[n], _mm256_permutevar8x32_ps(out1, perm));
+		s += 16;
+	}
+	for(; n < n_samples; n++) {
+		__m128 out, factor = _mm_set1_ps(1.0f / S32_SCALE_I2F);
+		out = _mm_cvtsi32_ss(factor, s[0]);
+		out = _mm_mul_ss(out, factor);
+		_mm_store_ss(&d0[n], out);
+		out = _mm_cvtsi32_ss(factor, s[1]);
+		out = _mm_mul_ss(out, factor);
+		_mm_store_ss(&d1[n], out);
+		s += 2;
+	}
+}
+
+void
 conv_s32_to_f32d_avx2(struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 		uint32_t n_samples)
 {

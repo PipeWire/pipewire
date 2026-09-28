@@ -874,8 +874,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	/* We're not expecting odd ptimes, so this modulo should be 0 */
 	if (fmodf(impl->target_buffer, impl->psamples) != 0) {
-		pw_log_warn("sess.latency.msec %f should be an integer multiple of rtp.ptime %f",
-				latency_msec, ptime);
+		pw_log_warn("sess.latency.msec %f should be an integer multiple of rtp.ptime %f %d",
+				latency_msec, ptime, impl->rate);
 		impl->target_buffer = SPA_ROUND_DOWN(impl->target_buffer, impl->psamples);
 	}
 

@@ -1961,19 +1961,24 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		hostname = name;
 
 	impl->rate = RAOP_RATE;
-	impl->latency = msec_to_samples(impl, RAOP_LATENCY_MS);
+
+	if (pw_properties_get(props, PW_KEY_AUDIO_FORMAT) == NULL)
+		pw_properties_setf(props, PW_KEY_AUDIO_FORMAT, "%s", RAOP_FORMAT);
+
 	impl->stride = RAOP_STRIDE;
 
+	if ((str = pw_properties_get(props, PW_KEY_AUDIO_RATE)) == NULL)
+		pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", impl->rate);
+	else if (!spa_atou32(str, &impl->rate, 10))
+		impl->rate = RAOP_RATE;
+
+	impl->latency = msec_to_samples(impl, RAOP_LATENCY_MS);
 	if ((str = pw_properties_get(props, "raop.latency.ms")) == NULL)
 		str = SPA_STRINGIFY(DEFAULT_LATENCY_MS);
 	uint32_t latency_ms;
 	if (spa_atou32(str, &latency_ms, 10))
 		impl->latency = SPA_MAX(impl->latency, msec_to_samples(impl, latency_ms));
 
-	if (pw_properties_get(props, PW_KEY_AUDIO_FORMAT) == NULL)
-		pw_properties_setf(props, PW_KEY_AUDIO_FORMAT, "%s", RAOP_FORMAT);
-	if (pw_properties_get(props, PW_KEY_AUDIO_RATE) == NULL)
-		pw_properties_setf(props, PW_KEY_AUDIO_RATE, "%u", impl->rate);
 	if (pw_properties_get(props, PW_KEY_DEVICE_ICON_NAME) == NULL)
 		pw_properties_set(props, PW_KEY_DEVICE_ICON_NAME, "audio-speakers");
 	if (pw_properties_get(props, PW_KEY_NODE_NAME) == NULL)
@@ -2001,7 +2006,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	if (pw_properties_get(props, "sess.media") == NULL)
 		pw_properties_set(props, "sess.media", "raop");
 	if (pw_properties_get(props, "sess.latency.msec") == NULL)
-		pw_properties_setf(props, "sess.latency.msec", "%d", RAOP_LATENCY_MS);
+		pw_properties_setf(props, "sess.latency.msec", "%d", impl->latency * 1000 / impl->rate);
 
 	if ((str = pw_properties_get(props, "stream.props")) != NULL)
 		pw_properties_update_string(impl->stream_props, str, strlen(str));

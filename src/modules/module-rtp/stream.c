@@ -49,7 +49,7 @@ PW_LOG_TOPIC_EXTERN(mod_topic);
 
 #define rtp_stream_call(s,m,v,...)		spa_callbacks_call_fast(&s->rtp_callbacks, \
 							struct rtp_stream_events, m, v, ##__VA_ARGS__)
-#define rtp_stream_call_send_packet(s,i,l)	rtp_stream_call(s, send_packet,0,i,l)
+#define rtp_stream_call_send_packet(s,p)	rtp_stream_call(s, send_packet,0,p)
 #define rtp_stream_call_send_feedback(s,seq)	rtp_stream_call(s, send_feedback,0,seq)
 
 enum rtp_stream_internal_state {
@@ -1145,13 +1145,7 @@ void rtp_stream_clear_queued_packets(struct rtp_stream *s)
 
 void rtp_stream_send_packet(struct rtp_stream *s, struct rtp_packet *p)
 {
-	struct iovec iov[1];
-
-	iov[0].iov_base = p->data;
-	iov[0].iov_len = p->size;
-
-	rtp_stream_call_send_packet(s, iov, 1);
-
+	rtp_stream_call_send_packet(s, p);
 	rtp_stream_dequeue_packet(s, p);
 }
 
@@ -1254,16 +1248,12 @@ int rtp_stream_resend_packets(struct rtp_stream *s, uint16_t seq, uint16_t num)
 	pw_log_info("resend %d/%d", seq, num);
 
 	spa_list_for_each(p, &s->queued, link) {
-		struct iovec iov[1];
-
 		if (num == 0 || p->seq > seq)
 			break;
 		if (p->seq < seq)
 			continue;
 
-		iov[0].iov_base = p->data;
-		iov[0].iov_len = p->size;
-		rtp_stream_call_send_packet(s, iov, 1);
+		rtp_stream_call_send_packet(s, p);
 		seq++;
 		num--;
 	}

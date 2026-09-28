@@ -466,20 +466,24 @@ static void send_close_connection(void *data, int *result)
 		session_stop(sess);
 }
 
-static void send_send_packet(void *data, struct iovec *iov, size_t iovlen)
+static void send_send_packet(void *data, struct rtp_packet *packet)
 {
 	struct session *sess = data;
 	struct impl *impl = sess->impl;
 	struct msghdr msg;
+	struct iovec iovec[1];
 
 	if (!sess->data_ready || !sess->sending)
 		return;
 
+	iovec[0].iov_base = packet->data;
+	iovec[0].iov_len = packet->size;
+
 	spa_zero(msg);
 	msg.msg_name = &sess->data_addr;
 	msg.msg_namelen = sess->data_len;
-	msg.msg_iov = iov;
-	msg.msg_iovlen = iovlen;
+	msg.msg_iov = iovec;
+	msg.msg_iovlen = 1;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	msg.msg_flags = 0;

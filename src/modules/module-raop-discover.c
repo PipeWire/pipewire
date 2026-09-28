@@ -471,7 +471,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->properties = props;
 
 	if ((local = pw_properties_get(impl->properties, "raop.discover-local")) == NULL)
-		local = "false";
+		local = "true";
 	pw_properties_set(impl->properties, PW_KEY_ZEROCONF_DISCOVER_LOCAL, local);
 
 	pw_impl_module_add_listener(module, &impl->module_listener, &module_events, impl);

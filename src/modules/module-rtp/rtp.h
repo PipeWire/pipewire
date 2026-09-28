@@ -137,26 +137,6 @@ static inline int32_t rtp_timestamp_delta(uint32_t ts_a, uint32_t ts_b)
 	return (int32_t)(ts_a - ts_b);
 }
 
-struct rtp_packet {
-	struct spa_list link;
-
-	void *data;
-	size_t maxsize;
-	size_t size;
-
-	uint64_t nsec;
-	uint16_t seq;
-	uint32_t timestamp;
-	size_t hlen;
-
-	void *decoded;
-	uint32_t decoded_len;
-	uint32_t duration;
-
-	void *tmp;
-	size_t tmp_size;
-};
-
 #ifdef __cplusplus
 }
 #endif

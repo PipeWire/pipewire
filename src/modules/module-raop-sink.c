@@ -415,19 +415,15 @@ static int send_udp_timing_packet(struct impl *impl, uint64_t remote, uint64_t r
 	return res;
 }
 
-static int write_codec_pcm(void *dst, size_t max, const struct iovec *iov, size_t iovlen)
+static int write_codec_pcm(void *dst, size_t max, const void *data, size_t len)
 {
 	uint8_t *bp, *b;
 	int bpos = 0;
 	uint32_t i, n_frames;
-	size_t j;
 
 	b = bp = dst;
 
-	n_frames = 0;
-	for (j = 0; j < iovlen; j++)
-		n_frames += iov[j].iov_len / 4;
-
+	n_frames = len / 4;
 	if (n_frames*4 + 8 > max)
 		return -ENOSPC;
 
@@ -443,15 +439,13 @@ static int write_codec_pcm(void *dst, size_t max, const struct iovec *iov, size_
 	bit_writer(&bp, &bpos, (n_frames >> 8)  & 0xff, 8);
 	bit_writer(&bp, &bpos, (n_frames)       & 0xff, 8);
 
-	for (j = 0; j < iovlen; j++) {
-		const uint8_t *d = iov[j].iov_base;
-		for (i = 0; i < iov[j].iov_len / 4; i++) {
-			bit_writer(&bp, &bpos, *(d + 1), 8);
-			bit_writer(&bp, &bpos, *(d + 0), 8);
-			bit_writer(&bp, &bpos, *(d + 3), 8);
-			bit_writer(&bp, &bpos, *(d + 2), 8);
-			d += 4;
-		}
+	const uint8_t *d = data;
+	for (i = 0; i < n_frames; i++) {
+		bit_writer(&bp, &bpos, *(d + 1), 8);
+		bit_writer(&bp, &bpos, *(d + 0), 8);
+		bit_writer(&bp, &bpos, *(d + 3), 8);
+		bit_writer(&bp, &bpos, *(d + 2), 8);
+		d += 4;
 	}
 	bit_writer(&bp, &bpos, 7, 3); /* end tag */
 	return bp - b + 1;
@@ -466,34 +460,36 @@ static ssize_t send_packet(int fd, struct msghdr *msg)
 	return n;
 }
 
-static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
+static void stream_send_packet(void *data, struct rtp_packet *packet)
 {
 	struct impl *impl = data;
 	const size_t max = 8 + impl->mtu;
-	uint32_t i, tcp_pkt[1], out[max], len, rtptime, hlen, in_iovlen;
-	struct iovec out_vec[3], in_vec[iovlen];
+	uint32_t tcp_pkt[1], out[max], len, rtptime, hlen;
+	struct iovec out_vec[3];
 	struct rtp_header *header;
 	struct msghdr msg;
-	uint8_t *dst, *src;
+	uint8_t *dst, *payload;
+	size_t payload_size;
 	int res;
 
 	if (!impl->recording)
 		return;
 
-	src = iov[0].iov_base;
-
-	header = (struct rtp_header*)src;
+	header = (struct rtp_header*)packet->data;
 	if (header->v != 2)
 		pw_log_warn("invalid rtp packet version");
 
 	hlen = 12 + header->cc * 4;
 	if (header->x) {
-		if (hlen + 4 > (ssize_t)iov[0].iov_len)
+		if (hlen + 4 > (ssize_t)packet->size)
 			return;
-		hlen += 4 + ntohs(*SPA_PTROFF(iov[0].iov_base, hlen + 2, uint16_t)) * 4;
+		hlen += 4 + ntohs(*SPA_PTROFF(packet->data, hlen + 2, uint16_t)) * 4;
 	}
-	if (hlen > (ssize_t)iov[0].iov_len)
+	if (hlen > (ssize_t)packet->size)
 		return;
+
+	payload = SPA_PTROFF(packet->data, hlen, uint8_t);
+	payload_size = packet->size - hlen;
 
 	rtptime = htonl(header->timestamp);
 
@@ -502,30 +498,12 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 		impl->sync = 0;
 	}
 
-	msg.msg_name = NULL;
-	msg.msg_namelen = 0;
-	msg.msg_iov = out_vec;
-	msg.msg_iovlen = 0;
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	msg.msg_flags = 0;
-
 	dst = (uint8_t*)&out[0];
-
-	in_iovlen = 0;
-	for (i = 0; i < iovlen; i++) {
-		if (hlen < iov[i].iov_len) {
-			in_vec[in_iovlen].iov_base = SPA_PTROFF(iov[i].iov_base, hlen, void);
-			in_vec[in_iovlen++].iov_len = iov[i].iov_len - hlen;
-		} else {
-			hlen -= iov[i].iov_len;
-		}
-	}
 
 	switch (impl->codec) {
 	case CODEC_PCM:
 	case CODEC_ALAC:
-		res = write_codec_pcm(dst, max, in_vec, in_iovlen);
+		res = write_codec_pcm(dst, max, payload, payload_size);
 		if (res < 0) {
 			pw_log_warn("can't write data: %d (%s)", res, spa_strerror(res));
 			return;
@@ -539,6 +517,14 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 	}
 	if (impl->encryption == CRYPTO_RSA)
 		aes_encrypt(impl, dst, len);
+
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
+	msg.msg_iov = out_vec;
+	msg.msg_iovlen = 0;
+	msg.msg_control = NULL;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
 
 	if (impl->protocol == PROTO_TCP) {
 		tcp_pkt[0] = htonl(0x24000000 | (len + 12));

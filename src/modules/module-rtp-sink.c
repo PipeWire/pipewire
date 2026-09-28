@@ -691,16 +691,20 @@ static inline uint64_t get_time_ns(void)
 	return SPA_TIMESPEC_TO_NSEC(&ts);
 }
 
-static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
+static void stream_send_packet(void *data, struct rtp_packet *packet)
 {
 	struct impl *impl = data;
 	struct msghdr msg;
 	ssize_t n;
 	struct rtp_target *rtp_target;
+	struct iovec iov[1];
+
+	iov[0].iov_base = packet->data;
+	iov[0].iov_len = packet->size;
 
 	spa_zero(msg);
 	msg.msg_iov = iov;
-	msg.msg_iovlen = iovlen;
+	msg.msg_iovlen = 1;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	msg.msg_flags = 0;

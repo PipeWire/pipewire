@@ -31,6 +31,27 @@ struct rtp_stream;
 #define DEFAULT_MIN_PTIME	2.0f
 #define DEFAULT_MAX_PTIME	20.0f
 
+struct rtp_packet {
+	struct spa_list link;
+
+	void *data;
+	size_t maxsize;
+	size_t size;
+
+	uint64_t nsec;
+	uint16_t seq;
+	uint32_t timestamp;
+	size_t hlen;
+
+	void *decoded;
+	uint32_t decoded_len;
+	uint32_t duration;
+
+	void *tmp;
+	size_t tmp_size;
+};
+
+
 struct rtp_stream_events {
 #define RTP_VERSION_STREAM_EVENTS        0
 	uint32_t version;
@@ -53,7 +74,7 @@ struct rtp_stream_events {
 
 	void (*command) (void *data, const struct spa_command *command);
 
-	void (*send_packet) (void *data, struct iovec *iov, size_t iovlen);
+	void (*send_packet) (void *data, struct rtp_packet *packet);
 
 	void (*send_feedback) (void *data, uint32_t seqnum);
 };

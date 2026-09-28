@@ -5580,6 +5580,12 @@ static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBus
 			spa_bt_device_check_profiles(device, false);
 	}
 
+	/* BlueZ calls ClearConfiguration() without expecting a reply; an
+	 * unrequested reply is rejected by the system bus and logged by
+	 * dbus-daemon. */
+	if (dbus_message_get_no_reply(m))
+		return DBUS_HANDLER_RESULT_HANDLED;
+
 	if ((r = dbus_message_new_method_return(m)) == NULL)
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 	if (!dbus_connection_send(conn, r, NULL))
@@ -5590,6 +5596,11 @@ static DBusHandlerResult endpoint_clear_configuration(DBusConnection *conn, DBus
 
 static DBusHandlerResult endpoint_release(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
+	/* BlueZ calls Release() without expecting a reply; an unrequested reply
+	 * is rejected by the system bus and logged by dbus-daemon. */
+	if (dbus_message_get_no_reply(m))
+		return DBUS_HANDLER_RESULT_HANDLED;
+
 	if (!reply_with_error(conn, m, BLUEZ_MEDIA_ENDPOINT_INTERFACE ".Error.NotImplemented", "Method not implemented"))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 

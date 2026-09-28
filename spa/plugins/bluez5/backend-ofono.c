@@ -470,6 +470,11 @@ static DBusHandlerResult ofono_release(DBusConnection *conn, DBusMessage *m, voi
 
 	spa_log_warn(backend->log, "release");
 
+	/* oFono calls Release() without expecting a reply; an unrequested reply
+	 * is rejected by the system bus and logged by dbus-daemon. */
+	if (dbus_message_get_no_reply(m))
+		return DBUS_HANDLER_RESULT_HANDLED;
+
 	if (!reply_with_error(conn, m, OFONO_HF_AUDIO_AGENT_INTERFACE ".Error.NotImplemented", "Method not implemented"))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 

@@ -332,6 +332,11 @@ static void sco_offload_btcodec(struct impl *backend, int sock, bool msbc)
 
 static DBusHandlerResult profile_release(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
+	/* BlueZ calls Release() without expecting a reply; an unrequested reply
+	 * is rejected by the system bus and logged by dbus-daemon. */
+	if (dbus_message_get_no_reply(m))
+		return DBUS_HANDLER_RESULT_HANDLED;
+
 	if (!reply_with_error(conn, m, BLUEZ_PROFILE_INTERFACE ".Error.NotImplemented", "Method not implemented"))
 		return DBUS_HANDLER_RESULT_NEED_MEMORY;
 

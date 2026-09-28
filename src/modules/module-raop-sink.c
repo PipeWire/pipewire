@@ -470,19 +470,30 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 {
 	struct impl *impl = data;
 	const size_t max = 8 + impl->mtu;
-	uint32_t tcp_pkt[1], out[max], len, rtptime;
-	struct iovec out_vec[3];
+	uint32_t i, tcp_pkt[1], out[max], len, rtptime, hlen, in_iovlen;
+	struct iovec out_vec[3], in_vec[iovlen];
 	struct rtp_header *header;
 	struct msghdr msg;
-	uint8_t *dst;
+	uint8_t *dst, *src;
 	int res;
 
 	if (!impl->recording)
 		return;
 
-	header = (struct rtp_header*)iov[0].iov_base;
+	src = iov[0].iov_base;
+
+	header = (struct rtp_header*)src;
 	if (header->v != 2)
 		pw_log_warn("invalid rtp packet version");
+
+	hlen = 12 + header->cc * 4;
+	if (header->x) {
+		if (hlen + 4 > (ssize_t)iov[0].iov_len)
+			return;
+		hlen += 4 + ntohs(*SPA_PTROFF(iov[0].iov_base, hlen + 2, uint16_t)) * 4;
+	}
+	if (hlen > (ssize_t)iov[0].iov_len)
+		return;
 
 	rtptime = htonl(header->timestamp);
 
@@ -501,10 +512,20 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 
 	dst = (uint8_t*)&out[0];
 
+	in_iovlen = 0;
+	for (i = 0; i < iovlen; i++) {
+		if (hlen < iov[i].iov_len) {
+			in_vec[in_iovlen].iov_base = SPA_PTROFF(iov[i].iov_base, hlen, void);
+			in_vec[in_iovlen++].iov_len = iov[i].iov_len - hlen;
+		} else {
+			hlen -= iov[i].iov_len;
+		}
+	}
+
 	switch (impl->codec) {
 	case CODEC_PCM:
 	case CODEC_ALAC:
-		res = write_codec_pcm(dst, max, &iov[1], iovlen - 1);
+		res = write_codec_pcm(dst, max, in_vec, in_iovlen);
 		if (res < 0) {
 			pw_log_warn("can't write data: %d (%s)", res, spa_strerror(res));
 			return;
@@ -526,7 +547,7 @@ static void stream_send_packet(void *data, struct iovec *iov, size_t iovlen)
 		out_vec[2].iov_len = 0;
 	}
 
-	out_vec[msg.msg_iovlen++] = (struct iovec) { header, 12 };
+	out_vec[msg.msg_iovlen++] = (struct iovec) { header, hlen };
 	out_vec[msg.msg_iovlen++] = (struct iovec) { out, len };
 
 	pw_log_debug("raop sending %zu", out_vec[0].iov_len + out_vec[1].iov_len + out_vec[2].iov_len);

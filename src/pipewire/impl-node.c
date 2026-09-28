@@ -2175,13 +2175,18 @@ again:
 
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *ta = t->activation;
+		pw_node_activation_state_reset(&ta->state[0]);
+		pw_log_debug("%p: reset state:%s-%d:%p pending:%d/%d",
+				driver, t->name, t->id, &ta->state[0], ta->state[0].pending, ta->state[0].required);
+	}
+
+	spa_list_for_each(t, &driver->rt.target_list, link) {
+		struct pw_node_activation *ta = t->activation;
 		uint32_t id = t->id;
 
 		ta->driver_id = driver->info.id;
 retry_status:
-		pw_node_activation_state_reset(&ta->state[0]);
-
-		if (ta->active_driver_id != ta->driver_id) {
+		if (ta->active_driver_id != driver->info.id) {
 			pw_log_trace_fp("%p: (%s-%u) %d waiting for driver %d<>%d", t->node,
 					t->name, t->id, ta->status,
 					ta->active_driver_id, ta->driver_id);
@@ -2194,8 +2199,26 @@ retry_status:
 		 * do the atomic CAS from NOT_TRIGGERED to TRIGGERED and we don't
 		 * write the eventfd. */
 		old_status = SPA_ATOMIC_LOAD(ta->status);
-		if (SPA_UNLIKELY(old_status == PW_NODE_ACTIVATION_INACTIVE))
+		if (SPA_UNLIKELY(old_status == PW_NODE_ACTIVATION_INACTIVE)) {
+			struct pw_node_target *tt;
+			/* INACTIVE nodes that are still in the driver target list are
+			 * deactivated from the client but not yet in the server. All of
+			 * dependencies to the peers are still there and need to be
+			 * removed here
+			 * FIXME, this only works for targets that have a node.
+			 * Drivers that run out of the server context will not be able
+			 * to patch up the peers of other nodes. */
+			if (t->node == NULL || !t->node->rt.prepared || t->node->exported)
+				continue;
+			spa_list_for_each(tt, &t->node->rt.target_list, link) {
+				if (tt->node == node || !tt->active)
+					continue;
+				pw_log_debug("%p: inactive (%s-%u), remove pending from peer %s-%u",
+						node, t->name, t->id, tt->name, tt->id);
+				SPA_ATOMIC_DEC(tt->activation->state[0].pending);
+			}
 			continue;
+		}
 
 		/* if this fails, the node might just have stopped and we need to retry */
 		if (SPA_UNLIKELY(!SPA_ATOMIC_CAS(ta->status, old_status, PW_NODE_ACTIVATION_NOT_TRIGGERED)))

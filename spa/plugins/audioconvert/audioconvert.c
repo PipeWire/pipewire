@@ -3569,10 +3569,10 @@ static int do_set_port_io(struct spa_loop *loop, bool async, uint32_t seq,
 {
 	const struct io_data *d = user_data;
 	if (d->data == NULL && d->port->io != NULL) {
-		spa_log_info(d->impl->log, "%p: %p ramp true %p %p", d->impl, d->port, d->data, d->port->io);
+		spa_log_debug(d->impl->log, "%p: %p ramp true %p %p", d->impl, d->port, d->data, d->port->io);
 		capture_state(d->impl, d->port);
 	} else if (d->data != NULL) {
-		spa_log_info(d->impl->log, "%p: %p ramp false %p %p", d->impl, d->port, d->data, d->port->io);
+		spa_log_debug(d->impl->log, "%p: %p ramp false %p %p", d->impl, d->port, d->data, d->port->io);
 		d->port->ramp_start = false;
 		d->port->last_buffer = SPA_ID_INVALID;
 	}

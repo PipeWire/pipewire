@@ -750,6 +750,18 @@ finish:
 		*result = res;
 }
 
+static int do_remove_source(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = user_data;
+
+	if (impl->source) {
+		pw_loop_destroy_source(impl->data_loop, impl->source);
+		impl->source = NULL;
+	}
+	return 0;
+}
+
 static void stream_close_connection(void *data, int *result)
 {
 	struct impl *impl = data;
@@ -765,8 +777,7 @@ static void stream_close_connection(void *data, int *result)
 	pw_timer_queue_cancel(&impl->stream_start_retry_timer);
 	pw_timer_queue_cancel(&impl->igmp_recovery.timer);
 
-	pw_loop_destroy_source(impl->data_loop, impl->source);
-	impl->source = NULL;
+	pw_loop_locked(impl->data_loop, do_remove_source, 1, NULL, 0, impl);
 }
 
 static void stream_destroy(void *d)
@@ -892,10 +903,10 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
+	if (impl->source)
+		pw_loop_locked(impl->data_loop, do_remove_source, 1, NULL, 0, impl);
 	if (impl->stream)
 		rtp_stream_destroy(impl->stream);
-	if (impl->source)
-		pw_loop_destroy_source(impl->data_loop, impl->source);
 
 	if (impl->core && impl->do_disconnect)
 		pw_core_disconnect(impl->core);

@@ -3374,6 +3374,45 @@ void pa_alsa_path_set_set_callback(pa_alsa_path_set *ps, snd_mixer_t *m, snd_mix
         pa_alsa_path_set_callback(p, m, cb, userdata);
 }
 
+/* Attach the callback to an element that has just been added to the mixer,
+ * if it is one of the path's elements. Returns whether it was. */
+bool pa_alsa_path_attach_callback(pa_alsa_path *p, snd_mixer_elem_t *me, snd_mixer_elem_callback_t cb, void *userdata) {
+    pa_alsa_element *e;
+
+    pa_assert(p);
+    pa_assert(me);
+    pa_assert(cb);
+
+    /* The mixer also holds elements of our own class, for jacks and ELD. */
+    if (snd_mixer_elem_get_type(me) != SND_MIXER_ELEM_SIMPLE)
+        return false;
+
+    PA_LLIST_FOREACH(e, p->elements) {
+        if (pa_streq(snd_mixer_selem_get_name(me), e->alsa_id.name) &&
+            snd_mixer_selem_get_index(me) == (unsigned int) e->alsa_id.index) {
+            snd_mixer_elem_set_callback(me, cb);
+            snd_mixer_elem_set_callback_private(me, userdata);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool pa_alsa_path_set_attach_callback(pa_alsa_path_set *ps, snd_mixer_elem_t *me, snd_mixer_elem_callback_t cb, void *userdata) {
+    pa_alsa_path *p;
+    void *state;
+    bool attached = false;
+
+    pa_assert(ps);
+
+    PA_HASHMAP_FOREACH(p, ps->paths, state)
+        if (pa_alsa_path_attach_callback(p, me, cb, userdata))
+            attached = true;
+
+    return attached;
+}
+
 static pa_alsa_path *profile_set_get_path(pa_alsa_profile_set *ps, const char *path_name) {
     pa_alsa_path *path;
 

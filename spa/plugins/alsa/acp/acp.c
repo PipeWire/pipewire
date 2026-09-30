@@ -1455,6 +1455,46 @@ static int mixer_callback(snd_mixer_elem_t *elem, unsigned int mask)
 	return 0;
 }
 
+/*
+ * A control can leave the card and come back while the card stays, for
+ * instance when the driver that provides it is unbound and bound again.
+ * The element that comes back is a new object without mixer_callback()
+ * on it: the device would still write the control but no longer see it
+ * change. Attach the callback again and pick up the current value.
+ */
+static int mixer_elem_added(snd_mixer_t *mixer, unsigned int mask, snd_mixer_elem_t *elem)
+{
+	pa_card *impl = snd_mixer_get_callback_private(mixer);
+	pa_alsa_device *dev;
+	uint32_t idx;
+	bool attached;
+
+	if (!(mask & SND_CTL_EVENT_MASK_ADD))
+		return 0;
+
+	PA_DYNARRAY_FOREACH(dev, &impl->out.devices, idx) {
+		if (dev->mixer_handle != mixer || !(dev->device.flags & ACP_DEVICE_ACTIVE))
+			continue;
+
+		if (dev->mixer_path_set)
+			attached = pa_alsa_path_set_attach_callback(dev->mixer_path_set, elem, mixer_callback, dev);
+		else if (dev->mixer_path)
+			attached = pa_alsa_path_attach_callback(dev->mixer_path, elem, mixer_callback, dev);
+		else
+			attached = false;
+
+		if (!attached)
+			continue;
+
+		pa_log_info("%p mixer element returned", dev);
+		if (dev->read_volume)
+			dev->read_volume(dev);
+		if (dev->read_mute)
+			dev->read_mute(dev);
+	}
+	return 0;
+}
+
 static int read_volume(pa_alsa_device *dev)
 {
 	pa_card *impl = dev->card;
@@ -1790,6 +1830,8 @@ static int setup_mixer(pa_card *impl, pa_alsa_device *dev, bool ignore_dB)
 			pa_alsa_path_set_set_callback(dev->mixer_path_set, dev->mixer_handle, mixer_callback, dev);
 		else
 			pa_alsa_path_set_callback(dev->mixer_path, dev->mixer_handle, mixer_callback, dev);
+		snd_mixer_set_callback(dev->mixer_handle, mixer_elem_added);
+		snd_mixer_set_callback_private(dev->mixer_handle, impl);
 	}
 	return 0;
 }

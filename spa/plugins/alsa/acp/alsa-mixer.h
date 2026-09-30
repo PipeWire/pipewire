@@ -270,11 +270,13 @@ int pa_alsa_path_set_volume(pa_alsa_path *path, snd_mixer_t *m, const pa_channel
 int pa_alsa_path_set_mute(pa_alsa_path *path, snd_mixer_t *m, bool muted);
 int pa_alsa_path_select(pa_alsa_path *p, pa_alsa_setting *s, snd_mixer_t *m, bool device_is_muted);
 void pa_alsa_path_set_callback(pa_alsa_path *p, snd_mixer_t *m, snd_mixer_elem_callback_t cb, void *userdata);
+bool pa_alsa_path_attach_callback(pa_alsa_path *p, snd_mixer_elem_t *me, snd_mixer_elem_callback_t cb, void *userdata);
 void pa_alsa_path_free(pa_alsa_path *p);
 
 pa_alsa_path_set *pa_alsa_path_set_new(pa_alsa_mapping *m, pa_alsa_direction_t direction, const char *paths_dir);
 void pa_alsa_path_set_dump(pa_alsa_path_set *s);
 void pa_alsa_path_set_set_callback(pa_alsa_path_set *ps, snd_mixer_t *m, snd_mixer_elem_callback_t cb, void *userdata);
+bool pa_alsa_path_set_attach_callback(pa_alsa_path_set *ps, snd_mixer_elem_t *me, snd_mixer_elem_callback_t cb, void *userdata);
 void pa_alsa_path_set_free(pa_alsa_path_set *s);
 int pa_alsa_path_set_is_empty(pa_alsa_path_set *s);
 

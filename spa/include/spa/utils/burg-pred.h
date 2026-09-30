@@ -32,14 +32,14 @@ struct spa_burg_pred;
 #endif
 
 struct spa_burg_pred {
-	float *coef;
+	double *coef;
 	uint32_t n_coef;
-	float *state;
+	double *state;
 	uint32_t pos;
 };
 
 SPA_API_BURG_PRED void spa_burg_pred_fit(struct spa_burg_pred *p, float *samples, uint32_t len,
-		double threshold, float *state, float *coef, uint32_t max_coef)
+		double threshold, double *state, double *coef, uint32_t max_coef)
 {
 	double f[SPA_MAX(len, 1u)], b[SPA_MAX(len, 1u)];
 	double a[max_coef+1], Dk0;
@@ -83,11 +83,11 @@ SPA_API_BURG_PRED void spa_burg_pred_fit(struct spa_burg_pred *p, float *samples
 	}
 	if (m == 0 && max_coef > 0 && len > 0) {
 		m = 1;
-		coef[0] = 1.0f;
+		coef[0] = 1.0;
 		state[0] = samples[len-1];
 	} else {
 		for (i = 0; i < m; i++) {
-			coef[i] = (float)-a[m-i];
+			coef[i] = -a[m-i];
 			state[i] = samples[len-m+i];
 		}
 	}
@@ -100,7 +100,7 @@ SPA_API_BURG_PRED void spa_burg_pred_fit(struct spa_burg_pred *p, float *samples
 SPA_API_BURG_PRED float spa_burg_pred_next(struct spa_burg_pred *p)
 {
 	uint32_t i;
-	float v;
+	double v;
 
 	if (p->n_coef < 1)
 		return 0.0f;
@@ -111,7 +111,7 @@ SPA_API_BURG_PRED float spa_burg_pred_next(struct spa_burg_pred *p)
 		v += p->coef[i] * (p->state[i-1] = p->state[i]);
 	p->state[i-1] = v;
 
-	return v;
+	return (float)v;
 }
 
 

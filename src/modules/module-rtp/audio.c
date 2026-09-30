@@ -28,8 +28,8 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 	uint16_t *d;
 	uint32_t channels = impl->stream_info.info.raw.channels;
 	struct spa_burg_pred pred[channels];
-	float state[channels][16];
-	float coef[channels][16];
+	double state[channels][16];
+	double coef[channels][16];
 	float tmp[512];
 
 	span = rtp_timestamp_delta(ts_end, ts_start);
@@ -45,6 +45,7 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 	n_samp = SPA_MIN(512u, last->duration);
 	for (c = 0; c < channels; c++) {
 		uint16_t *s = last->decoded;
+		uint32_t order;
 
 		if (impl->rtp_format_info->to_float)
 			impl->rtp_format_info->to_float(&s[(last->duration - n_samp) * channels + c],
@@ -52,7 +53,9 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 		else
 			memset(tmp, 0, sizeof(tmp));
 
-		spa_burg_pred_fit(&pred[c], tmp, n_samp, 0.98, state[c], coef[c], SPA_N_ELEMENTS(coef[c]));
+		order = SPA_MIN(n_samp / 4, SPA_N_ELEMENTS(coef[c]));
+
+		spa_burg_pred_fit(&pred[c], tmp, n_samp, 0.98, state[c], coef[c], order);
 	}
 
 	for (i = 0; i < num; i++) {

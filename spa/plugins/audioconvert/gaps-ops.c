@@ -75,9 +75,10 @@ int gaps_init(struct gaps *gaps)
 	gaps->order = SPA_MIN(gaps->order, GAPS_MAX_ORDER);
 
 	hist_size = sizeof(float) * gaps->history;
-	pred_size = sizeof(float) * gaps->order;
+	hist_size = SPA_ROUND_UP_N(hist_size, 8);
+	pred_size = sizeof(double) * gaps->order;
 
-	alloc_size = sizeof(struct gaps_state) + hist_size + pred_size;
+	alloc_size = sizeof(struct gaps_state) + hist_size + pred_size * 2;
 	alloc_size = SPA_ROUND_UP_N(alloc_size, 64);
 
 	gaps->data = calloc(gaps->channels, alloc_size);
@@ -87,7 +88,8 @@ int gaps_init(struct gaps *gaps)
 	for (i = 0; i < gaps->channels; i++) {
 		struct gaps_state *s = SPA_PTROFF(gaps->data, alloc_size * i, void);
 		s->history = SPA_PTROFF(s, sizeof(struct gaps_state), float);
-		s->coeff = SPA_PTROFF(s->history, hist_size, float);
+		s->pred_state = SPA_PTROFF(s->history, hist_size, double);
+		s->coeff = s->pred_state + gaps->order;
 		spa_history_init(&s->hist, s->history, gaps->history);
 		gaps->states[i] = s;
 	}

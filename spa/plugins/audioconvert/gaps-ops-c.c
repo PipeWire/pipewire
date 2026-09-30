@@ -141,13 +141,15 @@ static void run_gap_fix(struct gaps *gaps, uint32_t c, float * SPA_RESTRICT dst[
 		else if (s->mode == GAPS_MODE_FADE_OUT) {
 			/* fade-out mode */
 			if (s->count == 0) {
-				uint32_t hist_len;
+				uint32_t hist_len, order;
 				float *hist;
 
 				hist = spa_history_rotate(&s->hist, &hist_len);
+				order = SPA_MIN(gaps->order, hist_len / 4);
+
 				spa_burg_pred_fit(&s->pred, hist, hist_len,
-						gaps->threshold, s->history,
-						s->coeff, gaps->order);
+						gaps->threshold, s->pred_state,
+						s->coeff, order);
 
 				spa_log_info(gaps->log, "%p start %d fade-out %f %d order %d",
 						gaps, c, hist[0], hist_len, s->pred.n_coef);

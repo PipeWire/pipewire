@@ -26,7 +26,8 @@ struct gaps_state {
 	struct spa_history hist;
 	struct spa_burg_pred pred;
 	float *history;
-	float *coeff;
+	double *pred_state;
+	double *coeff;
 };
 
 struct gaps {

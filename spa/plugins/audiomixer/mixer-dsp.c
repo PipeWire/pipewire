@@ -98,8 +98,8 @@ struct port {
 	uint32_t ramp_down;
 
 	struct spa_burg_pred pred;
-	float *coef;
-	float *state;
+	double *coef;
+	double *state;
 };
 
 struct ramp_info {
@@ -280,7 +280,7 @@ static struct port *get_free_port(struct impl *this)
 	struct port *port, *tmp;
 	uint32_t pred_size;
 
-	pred_size = sizeof(float) * this->n_pred_order;
+	pred_size = sizeof(double) * this->n_pred_order;
 
 	spa_list_for_each_safe(port, tmp, &this->free_list, link) {
 		if (!port->active) {
@@ -291,8 +291,8 @@ static struct port *get_free_port(struct impl *this)
 	}
 	port = calloc(1, sizeof(struct port) + pred_size * 2);
 done:
-	port->coef = SPA_PTROFF(port, sizeof(struct port), float);
-	port->state = SPA_PTROFF(port->coef, pred_size, float);
+	port->coef = SPA_PTROFF(port, sizeof(struct port), double);
+	port->state = SPA_PTROFF(port->coef, pred_size, double);
 	return port;
 }
 
@@ -811,7 +811,7 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 			if (!fading) {
 				/* was not faded out, start extrapolation and
 				 * fade out */
-				order = SPA_MIN(impl->n_pred_order, hist / 3);
+				order = SPA_MIN(impl->n_pred_order, hist / 4);
 
 				spa_burg_pred_fit(&port->pred, s, hist,
 						impl->pred_threshold, port->state,

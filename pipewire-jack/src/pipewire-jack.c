@@ -710,9 +710,11 @@ static struct mix *create_mix(struct client *c, struct port *port,
 	spa_list_remove(&mix->link);
 	spa_list_append(&c->mix, &mix->link);
 
-	spa_list_append(&port->mix, &mix->port_link);
-
 	init_mix(mix, mix_id, port, peer_id);
+
+	pw_loop_lock(c->loop->loop);
+	spa_list_append(&port->mix, &mix->port_link);
+	pw_loop_unlock(c->loop->loop);
 
 	return mix;
 }
@@ -796,7 +798,9 @@ static struct port * alloc_port(struct client *c, enum spa_direction direction)
 
 	p->direction = direction;
 	p->emptyptr = SPA_PTR_ALIGN(p->empty, c->max_align, float);
+	pw_loop_lock(c->loop->loop);
 	p->port_id = pw_map_insert_new(&c->ports[direction], p);
+	pw_loop_unlock(c->loop->loop);
 	c->n_ports++;
 
 	pthread_mutex_lock(&c->context.lock);

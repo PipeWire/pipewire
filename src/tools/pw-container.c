@@ -125,7 +125,7 @@ static void do_quit(void *data, int signal_number)
 static void show_help(struct data *d, const char *name, bool error)
 {
 	FILE *out = error ? stderr : stdout;
-	fprintf(out, "%s [options] [application]\n"
+	fprintf(out, "%s [options] [application [args ...]]\n"
 		"  -h, --help                            Show this help\n"
 		"      --version                         Show version\n"
 		"  -r, --remote                          Remote daemon name\n"

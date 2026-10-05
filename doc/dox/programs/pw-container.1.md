@@ -4,7 +4,7 @@ The PipeWire container utility
 
 # SYNOPSIS
 
-**pw-container** \[*options*\] \[*PROGRAM*\]
+**pw-container** \[*options*\] \[*PROGRAM* \[*ARGS* ... \]\]
 
 # DESCRIPTION
 
@@ -23,8 +23,7 @@ with `PIPEWIRE_REMOTE=<socket-address>` to connect through this security
 context.
 
 When *PROGRAM* is given, the `PIPEWIRE_REMOTE` env variable will be set
-and *PROGRAM* will be passed to system(). Argument to *PROGRAM* need to be
-properly quoted.
+and *PROGRAM* and optional *ARGS* will be passed to execvp().
 
 # OPTIONS
 
@@ -51,12 +50,12 @@ Otherwise, it exits with nonzero exit status.
 
 # EXAMPLES
 
-**pw-container** 'pw-dump i 0'
+**pw-container** pw-dump 0
 
 Run pw-dump of the Core object. Note the difference in the object permissions
 when running pw-dump with and without **pw-container**.
 
-**pw-container** 'pw-dump pw-dump'
+**pw-container** pw-dump pw-dump
 
 Run pw-dump of itself. Note the difference in the Client security tokens when
 running pw-dump with and without **pw-container**.

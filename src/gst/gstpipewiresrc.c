@@ -581,20 +581,14 @@ buffer_recycle (GstMiniObject *obj)
     return TRUE;
   }
 
-  GST_OBJECT_LOCK (data->pool);
-  if (!obj->dispose) {
-    GST_OBJECT_UNLOCK (data->pool);
-    return TRUE;
-  }
-
-  GST_BUFFER_FLAGS (obj) = data->flags;
-
   pw_thread_loop_lock (src->stream->core->loop);
   if (!obj->dispose) {
     pw_thread_loop_unlock (src->stream->core->loop);
-    GST_OBJECT_UNLOCK (data->pool);
     return TRUE;
   }
+
+  GST_OBJECT_LOCK (data->pool);
+  GST_BUFFER_FLAGS (obj) = data->flags;
 
   gst_mini_object_ref (obj);
 
@@ -607,9 +601,8 @@ buffer_recycle (GstMiniObject *obj)
   else
     GST_LOG_OBJECT (src, "recycle buffer %p", obj);
 
-  pw_thread_loop_unlock (src->stream->core->loop);
-
   GST_OBJECT_UNLOCK (data->pool);
+  pw_thread_loop_unlock (src->stream->core->loop);
 
   return FALSE;
 }

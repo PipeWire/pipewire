@@ -256,6 +256,11 @@ static int link_find_format(struct pw_impl_link *this,
 
 	pw_log_debug("%p: states %d %d", this, state[0], state[1]);
 
+	spa_node_send_command(node[0],
+                        &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
+	spa_node_send_command(node[1],
+                        &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
+
 	if (state[0] == PW_IMPL_PORT_STATE_CONFIGURE && state[1] > PW_IMPL_PORT_STATE_CONFIGURE) {
 		/* only port 0 needs format, take format from port 1 and filter */
 		spa_pod_builder_init(&fb, fbuf, sizeof(fbuf));
@@ -390,11 +395,16 @@ static int link_find_format(struct pw_impl_link *this,
 		*error = spa_aprintf("error bad node state");
 		goto error;
 	}
+exit:
+	spa_node_send_command(node[0],
+                        &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamEnd));
+	spa_node_send_command(node[1],
+                        &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamEnd));
 	return res;
 error:
 	if (res == 0)
 		res = -EINVAL;
-	return res;
+	goto exit;
 }
 
 static int do_negotiate(struct pw_impl_link *this)

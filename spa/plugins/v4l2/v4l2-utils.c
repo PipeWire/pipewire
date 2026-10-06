@@ -588,8 +588,9 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	struct v4l2_format fmt;
 	uint32_t count = 0, try_width = 0, try_height = 0;
 	uint32_t def_width = 0, def_height = 0;
-	bool with_modifier;
+	bool with_modifier, opened;
 
+	opened = dev->fd != -1;
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
@@ -899,7 +900,8 @@ do_frminterval_filter:
       enum_end:
 	res = 0;
       exit:
-	spa_v4l2_close(dev);
+	if (!opened)
+		spa_v4l2_close(dev);
 	return res;
 }
 

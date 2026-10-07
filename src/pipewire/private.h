@@ -1357,6 +1357,13 @@ int pw_impl_port_for_each_filtered_param(struct pw_impl_port *in_port,
 						     struct spa_pod *param),
 				    void *data);
 
+int pw_impl_port_enum_param(struct pw_impl_port *port,
+			   uint32_t param_id,
+			   uint32_t *index,
+			   const struct spa_pod *filter,
+			   struct spa_pod **param,
+			   struct spa_pod_builder *builder);
+
 /** Iterate the links of the port. The callback should return
  * 0 to fetch the next item, any other value stops the iteration and returns
  * the value. When all callbacks return 0, this function returns 0 when all

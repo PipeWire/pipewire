@@ -1660,6 +1660,33 @@ static void result_port_params(void *data, int seq, int res, uint32_t type, cons
 	}
 }
 
+int pw_impl_port_enum_param(struct pw_impl_port *port,
+			   uint32_t param_id,
+			   uint32_t *index,
+			   const struct spa_pod *filter,
+			   struct spa_pod **param,
+			   struct spa_pod_builder *builder)
+{
+	struct impl *impl = SPA_CONTAINER_OF(port, struct impl, this);
+	struct pw_param *p;
+	uint32_t idx = 0;
+
+	spa_list_for_each(p, &impl->param_list, link) {
+		if (p->id != param_id)
+			continue;
+
+		if (idx++ < *index)
+			continue;
+
+		if (spa_pod_filter(builder, param, p->param, filter) >= 0) {
+			pw_log_debug("%p: param %u", port, idx);
+			*index = idx;
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			   int seq,
 			   uint32_t param_id,

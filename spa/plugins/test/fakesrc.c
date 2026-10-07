@@ -310,6 +310,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = false;
 		set_timer(this, false);
 		break;
+	case SPA_NODE_COMMAND_ParamBegin:
+	case SPA_NODE_COMMAND_ParamEnd:
+		break;
 	default:
 		return -ENOTSUP;
 	}

@@ -1581,6 +1581,9 @@ int impl_node_send_command(void *object, const struct spa_command *command)
 		if ((res = spa_libcamera_stream_off(impl)) < 0)
 			return res;
 		break;
+	case SPA_NODE_COMMAND_ParamBegin:
+	case SPA_NODE_COMMAND_ParamEnd:
+		break;
 	default:
 		return -ENOTSUP;
 	}

@@ -194,6 +194,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = false;
 		spa_vulkan_compute_stop(&this->state);
 		break;
+	case SPA_NODE_COMMAND_ParamBegin:
+	case SPA_NODE_COMMAND_ParamEnd:
+		break;
 	default:
 		return -ENOTSUP;
 	}

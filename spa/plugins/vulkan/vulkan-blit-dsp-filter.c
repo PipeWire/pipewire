@@ -227,6 +227,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		unlock_renderer(this);
 		// Locking the renderer from the renderer is no longer required
 		break;
+	case SPA_NODE_COMMAND_ParamBegin:
+	case SPA_NODE_COMMAND_ParamEnd:
+		break;
 	default:
 		return -ENOTSUP;
 	}

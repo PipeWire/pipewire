@@ -1428,6 +1428,9 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		if (res2 < 0)
 			return res2;
 		break;
+	case SPA_NODE_COMMAND_ParamBegin:
+	case SPA_NODE_COMMAND_ParamEnd:
+		break;
 	default:
 		return -ENOTSUP;
 	}

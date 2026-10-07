@@ -15,13 +15,15 @@
 #include <spa/pod/dynamic.h>
 #include <spa/utils/cleanup.h>
 #include <spa/utils/result.h>
+#include <spa/debug/pod.h>
 
-static int xioctl(int fd, int request, void *arg)
+static int xioctl(struct spa_v4l2_device *dev, int request, void *arg)
 {
 	int err;
 
+	spa_log_trace_fp(dev->log, "ioctl %d %p", request, arg);
 	do {
-		err = ioctl(fd, request, arg);
+		err = ioctl(dev->fd, request, arg);
 	} while (err == -1 && errno == EINTR);
 
 	return err;
@@ -63,7 +65,7 @@ int spa_v4l2_open(struct spa_v4l2_device *dev, const char *path)
 		goto error_close;
 	}
 
-	if (xioctl(dev->fd, VIDIOC_QUERYCAP, &dev->cap) < 0) {
+	if (xioctl(dev, VIDIOC_QUERYCAP, &dev->cap) < 0) {
 		err = errno;
 		spa_log_error(dev->log, "'%s' QUERYCAP: %m", path);
 		goto error_close;
@@ -116,7 +118,7 @@ static int spa_v4l2_buffer_recycle(struct impl *this, uint32_t buffer_id)
 	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUTSTANDING);
 	spa_log_trace(this->log, "v4l2 %p: recycle buffer %d", this, buffer_id);
 
-	if (xioctl(dev->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
+	if (xioctl(dev, VIDIOC_QBUF, &b->v4l2_buffer) < 0) {
 		err = errno;
 		spa_log_error(this->log, "'%s' VIDIOC_QBUF: %m", this->props.device);
 		return -err;
@@ -161,7 +163,7 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 	reqbuf.memory = port->memtype;
 	reqbuf.count = 0;
 
-	if (xioctl(port->dev.fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+	if (xioctl(&port->dev, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		spa_log_warn(this->log, "VIDIOC_REQBUFS: %m");
 	}
 	port->n_buffers = 0;
@@ -555,7 +557,7 @@ static void spa_v4l2_native_size(struct spa_v4l2_device *dev,
 	spa_zero(sel);
 	sel.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	sel.target = V4L2_SEL_TGT_CROP_BOUNDS;
-	if (xioctl(dev->fd, VIDIOC_G_SELECTION, &sel) < 0)
+	if (xioctl(dev, VIDIOC_G_SELECTION, &sel) < 0)
 		return;
 	if (sel.r.width < s->min_width || sel.r.width > s->max_width ||
 	    sel.r.height < s->min_height || sel.r.height > s->max_height)
@@ -594,6 +596,8 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	if ((res = spa_v4l2_open(dev, this->props.device)) < 0)
 		return res;
 
+	spa_log_trace(this->log, "enum %d %d", start, num);
+
 	spa_pod_dynamic_builder_init(&b, buffer, sizeof(buffer), 8192);
 	spa_pod_builder_get_state(&b.b, &state);
 
@@ -622,7 +626,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	result.index = result.next++;
 
 	while (port->next_fmtdesc) {
-		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
+		if ((res = xioctl(dev, VIDIOC_ENUM_FMT, &port->fmtdesc)) < 0) {
 			if (errno == EINVAL)
 				goto enum_end;
 
@@ -641,7 +645,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 
       next_frmsize:
 	while (port->next_frmsize) {
-		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FRAMESIZES, &port->frmsize)) < 0) {
+		if ((res = xioctl(dev, VIDIOC_ENUM_FRAMESIZES, &port->frmsize)) < 0) {
 			if (errno == ENOTTY)
 				goto next_fmtdesc;
 			if (errno == EINVAL) {
@@ -748,7 +752,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	fmt.fmt.pix.width = try_width;
 	fmt.fmt.pix.height = try_height;
 
-	if ((res = xioctl(dev->fd, VIDIOC_TRY_FMT, &fmt)) < 0) {
+	if ((res = xioctl(dev, VIDIOC_TRY_FMT, &fmt)) < 0) {
 		spa_log_debug(this->log, "'%s' VIDIOC_TRY_FMT %08x: %m",
 				this->props.device, info->fourcc);
 	} else {
@@ -777,7 +781,7 @@ spa_v4l2_enum_format(struct impl *this, int seq,
 	port->frmival.index = 0;
 
 	while (true) {
-		if ((res = xioctl(dev->fd, VIDIOC_ENUM_FRAMEINTERVALS, &port->frmival)) < 0) {
+		if ((res = xioctl(dev, VIDIOC_ENUM_FRAMEINTERVALS, &port->frmival)) < 0) {
 			res = -errno;
 			port->frmsize.index++;
 			port->next_frmsize = true;
@@ -902,6 +906,7 @@ do_frminterval_filter:
       exit:
 	if (!opened)
 		spa_v4l2_close(dev);
+	spa_log_trace(this->log, "enum end %d %d", start, num);
 	return res;
 }
 
@@ -921,7 +926,7 @@ static int probe_expbuf(struct impl *this)
 	reqbuf.memory = V4L2_MEMORY_MMAP;
 	reqbuf.count = port->max_buffers = MAX_BUFFERS;
 
-	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+	if (xioctl(dev, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		spa_log_error(this->log, "'%s' VIDIOC_REQBUFS: %m", this->props.device);
 		return -errno;
 	}
@@ -931,7 +936,7 @@ static int probe_expbuf(struct impl *this)
 	expbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	expbuf.index = 0;
 	expbuf.flags = O_CLOEXEC | O_RDONLY;
-	if (xioctl(dev->fd, VIDIOC_EXPBUF, &expbuf) < 0) {
+	if (xioctl(dev, VIDIOC_EXPBUF, &expbuf) < 0) {
 		spa_log_info(this->log, "'%s' EXPBUF not supported: %m", this->props.device);
 		port->have_expbuf = false;
 		port->alloc_buffers = false;
@@ -941,7 +946,7 @@ static int probe_expbuf(struct impl *this)
 	}
 
 	reqbuf.count = 0;
-	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+	if (xioctl(dev, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		spa_log_error(this->log, "'%s' VIDIOC_REQBUFS: %m", this->props.device);
 		return -errno;
 	}
@@ -1016,7 +1021,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 		return res;
 
 	cmd = (flags & SPA_NODE_PARAM_FLAG_TEST_ONLY) ? VIDIOC_TRY_FMT : VIDIOC_S_FMT;
-	if (xioctl(dev->fd, cmd, &fmt) < 0) {
+	if (xioctl(dev, cmd, &fmt) < 0) {
 		res = -errno;
 		spa_log_error(this->log, "'%s' VIDIOC_S_FMT: %m",
 				this->props.device);
@@ -1024,7 +1029,7 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 	}
 
 	/* some cheap USB cam's won't accept any change */
-	if (xioctl(dev->fd, VIDIOC_S_PARM, &streamparm) < 0)
+	if (xioctl(dev, VIDIOC_S_PARM, &streamparm) < 0)
 		spa_log_warn(this->log, "%s: VIDIOC_S_PARM: %m", this->props.device);
 
 	match = (reqfmt.fmt.pix.pixelformat == fmt.fmt.pix.pixelformat &&
@@ -1078,14 +1083,14 @@ static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *q
 	int res;
 
 	if (port->have_query_ext_ctrl) {
-		res = xioctl(dev->fd, VIDIOC_QUERY_EXT_CTRL, qctrl);
+		res = xioctl(dev, VIDIOC_QUERY_EXT_CTRL, qctrl);
 		if (res == 0 || errno != ENOTTY)
 			return res;
 		port->have_query_ext_ctrl = false;
 	}
 	spa_zero(qc);
 	qc.id = qctrl->id;
-	res = xioctl(dev->fd, VIDIOC_QUERYCTRL, &qc);
+	res = xioctl(dev, VIDIOC_QUERYCTRL, &qc);
 	if (res == 0) {
 		qctrl->type = qc.type;
 		memcpy(qctrl->name, qc.name, sizeof(qctrl->name));
@@ -1284,7 +1289,7 @@ spa_v4l2_enum_controls(struct impl *this, int seq,
 		for (querymenu.index = queryctrl.minimum;
 		    querymenu.index <= queryctrl.maximum;
 		    querymenu.index++) {
-			if (xioctl(dev->fd, VIDIOC_QUERYMENU, &querymenu) == 0) {
+			if (xioctl(dev, VIDIOC_QUERYMENU, &querymenu) == 0) {
 				spa_pod_builder_int(&b.b, querymenu.index);
 				spa_pod_builder_string(&b.b, (const char *)querymenu.name);
 			}
@@ -1336,7 +1341,7 @@ spa_v4l2_update_controls(struct impl *this)
 
 		spa_zero(control);
 		control.id = c->ctrl_id;
-		if (xioctl(dev->fd, VIDIOC_G_CTRL, &control) < 0) {
+		if (xioctl(dev, VIDIOC_G_CTRL, &control) < 0) {
 			/* One control that cannot be read must not hide every other
 			 * property of the node. Write only controls like relative
 			 * pan/tilt return EACCES, and a volatile control returns
@@ -1398,7 +1403,7 @@ spa_v4l2_set_control(struct impl *this, const struct spa_pod_prop *prop, const v
 		res = -EINVAL;
 		goto done;
 	}
-	if (xioctl(dev->fd, VIDIOC_S_CTRL, &control) < 0) {
+	if (xioctl(dev, VIDIOC_S_CTRL, &control) < 0) {
 		res = -errno;
 		goto done;
 	}
@@ -1423,7 +1428,7 @@ static int mmap_read(struct impl *this)
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf.memory = port->memtype;
 
-	if (xioctl(dev->fd, VIDIOC_DQBUF, &buf) < 0)
+	if (xioctl(dev, VIDIOC_DQBUF, &buf) < 0)
 		return -errno;
 
 	spa_log_trace(this->log, "v4l2 %p: have output %d/%d", this, buf.index, buf.sequence);
@@ -1443,7 +1448,7 @@ static int mmap_read(struct impl *this)
 				"'%s' dequeued buffer %u, but only %u were queued",
 				this->props.device, buf.index, port->n_buffers);
 		port->warned_unqueued = true;
-		if (xioctl(dev->fd, VIDIOC_QBUF, &buf) < 0)
+		if (xioctl(dev, VIDIOC_QBUF, &buf) < 0)
 			spa_log_warn(this->log, "v4l2 %p: error qbuf: %m", this);
 		return 0;
 	}
@@ -1452,7 +1457,7 @@ static int mmap_read(struct impl *this)
 	 * timestamp issues */
 	if (port->first_buffer) {
 		port->first_buffer = false;
-		if (xioctl(dev->fd, VIDIOC_QBUF, &buf) < 0)
+		if (xioctl(dev, VIDIOC_QBUF, &buf) < 0)
 			spa_log_warn(this->log, "v4l2 %p: error qbuf: %m", this);
 		return 0;
 	}
@@ -1596,7 +1601,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 	reqbuf.memory = port->memtype;
 	reqbuf.count = n_buffers;
 
-	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+	if (xioctl(dev, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		if (port->memtype != V4L2_MEMORY_USERPTR) {
 			spa_log_error(this->log, "'%s' VIDIOC_REQBUFS %m", this->props.device);
 			return -errno;
@@ -1609,7 +1614,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 		reqbuf.memory = port->memtype;
 		reqbuf.count = n_buffers;
 
-		if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+		if (xioctl(dev, VIDIOC_REQBUFS, &reqbuf) < 0) {
 			spa_log_error(this->log, "'%s' VIDIOC_REQBUFS %m", this->props.device);
 			return -errno;
 		}
@@ -1675,7 +1680,7 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 				b->v4l2_buffer.length = d[0].maxsize;
 			}
 			else {
-				if (xioctl(dev->fd, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
+				if (xioctl(dev, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
 					spa_log_error(this->log, "'%s' VIDIOC_QUERYBUF: %m", this->props.device);
 					return -errno;
 				}
@@ -1722,7 +1727,7 @@ mmap_init(struct impl *this,
 	reqbuf.memory = port->memtype;
 	reqbuf.count = n_buffers;
 
-	if (xioctl(dev->fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+	if (xioctl(dev, VIDIOC_REQBUFS, &reqbuf) < 0) {
 		spa_log_error(this->log, "'%s' VIDIOC_REQBUFS: %m", this->props.device);
 		return -errno;
 	}
@@ -1757,7 +1762,7 @@ mmap_init(struct impl *this,
 		b->v4l2_buffer.memory = port->memtype;
 		b->v4l2_buffer.index = i;
 
-		if (xioctl(dev->fd, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
+		if (xioctl(dev, VIDIOC_QUERYBUF, &b->v4l2_buffer) < 0) {
 			spa_log_error(this->log, "'%s' VIDIOC_QUERYBUF: %m", this->props.device);
 			return -errno;
 		}
@@ -1789,7 +1794,7 @@ again:
 			expbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			expbuf.index = i;
 			expbuf.flags = O_CLOEXEC | O_RDONLY;
-			if (xioctl(dev->fd, VIDIOC_EXPBUF, &expbuf) < 0) {
+			if (xioctl(dev, VIDIOC_EXPBUF, &expbuf) < 0) {
 				if (errno == ENOTTY || errno == EINVAL) {
 					spa_log_debug(this->log, "'%s' VIDIOC_EXPBUF not supported: %m",
 							this->props.device);
@@ -1908,7 +1913,7 @@ static int spa_v4l2_stream_on(struct impl *this)
 	mmap_read(this);
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	if (xioctl(dev->fd, VIDIOC_STREAMON, &type) < 0) {
+	if (xioctl(dev, VIDIOC_STREAMON, &type) < 0) {
 		spa_log_error(this->log, "'%s' VIDIOC_STREAMON: %m", this->props.device);
 		return -errno;
 	}
@@ -1957,7 +1962,7 @@ static int spa_v4l2_stream_off(struct impl *this)
 	spa_loop_locked(this->data_loop, do_remove_source, 0, NULL, 0, port);
 
 	type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	if (xioctl(dev->fd, VIDIOC_STREAMOFF, &type) < 0) {
+	if (xioctl(dev, VIDIOC_STREAMOFF, &type) < 0) {
 		spa_log_error(this->log, "'%s' VIDIOC_STREAMOFF: %m", this->props.device);
 		return -errno;
 	}
@@ -1966,7 +1971,7 @@ static int spa_v4l2_stream_off(struct impl *this)
 
 		b = &port->buffers[i];
 		if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING)) {
-			if (xioctl(dev->fd, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
+			if (xioctl(dev, VIDIOC_QBUF, &b->v4l2_buffer) < 0)
 				spa_log_warn(this->log, "VIDIOC_QBUF: %s", strerror(errno));
 		}
 	}

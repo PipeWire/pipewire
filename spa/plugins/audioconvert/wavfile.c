@@ -130,7 +130,7 @@ static struct format_info {
 	MAKE_AUDIO_RAW(SPA_AUDIO_FORMAT_F32P,		32, true, 3, writen_32),
 	MAKE_AUDIO_RAW(SPA_AUDIO_FORMAT_F32_LE,		32, false, 3, writei),
 	MAKE_AUDIO_RAW(SPA_AUDIO_FORMAT_F64P,		64, true, 3, writen_64),
-	MAKE_AUDIO_RAW(SPA_AUDIO_FORMAT_F64_LE,		32, false, 3, writei),
+	MAKE_AUDIO_RAW(SPA_AUDIO_FORMAT_F64_LE,		64, false, 3, writei),
 };
 
 #define CHECK_RES(expr) if ((res = (expr)) < 0) return res

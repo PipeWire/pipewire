@@ -826,7 +826,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		if (!spa_atou32(str, &framecount, 0))
 			framecount = 0;
 
-	if (ptime > 0.0f || framecount > 0) {
+	bool have_ptime = ptime > 0.0f || framecount > 0;
+	if (have_ptime) {
 		if (!framecount) {
 			impl->psamples = msec_to_samples(impl, ptime);
 			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
@@ -897,6 +898,18 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	/* make packets */
 	impl->n_packets = (2*impl->target_buffer*impl->stride + impl->mtu-1) / impl->mtu;
+	if (direction == PW_DIRECTION_OUTPUT &&
+	    impl->info.media_subtype == SPA_MEDIA_SUBTYPE_raw) {
+		/* Received packets can be much smaller than the MTU. Make room for
+		 * 3 times the target latency: the receiver buffers up to 2 times
+		 * before it resyncs, plus one extra for jitter. Use the
+		 * announced packet size, or else the smallest allowed one. */
+		uint32_t samples = have_ptime ? impl->psamples : min_samples;
+		if (samples > 0) {
+			uint32_t n_packets = (3*impl->target_buffer + samples-1) / samples;
+			impl->n_packets = SPA_MAX(impl->n_packets, n_packets);
+		}
+	}
 	impl->n_packets = SPA_MAX(impl->n_packets, min_packets);
 	for (i = 0; i < impl->n_packets; i++) {
 		struct rtp_packet *p;

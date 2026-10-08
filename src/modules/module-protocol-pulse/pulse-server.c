@@ -1411,9 +1411,14 @@ do_process_done(struct spa_loop *loop,
 		} else {
 			if (SPA_UNLIKELY((uint32_t)avail > stream->attr.maxlength)) {
 				uint32_t skip = avail - stream->attr.fragsize;
+				int suppressed;
 				/* overrun, catch up to latest fragment and send it */
-				pw_log_warn("%p: [%s] overrun recover read:%u avail:%d max:%u skip:%u",
-					stream, client->name, index, avail, stream->attr.maxlength, skip);
+				if ((suppressed = spa_ratelimit_test(&impl->rate_limit, stream->timestamp)) >= 0) {
+					pw_log_warn("%p: [%s] overrun recover read:%u avail:%d max:%u"
+							" skip:%u (%d suppressed)",
+						stream, client->name, index, avail,
+						stream->attr.maxlength, skip, suppressed);
+				}
 				index += skip;
 				stream->read_index += skip;
 				avail = stream->attr.fragsize;

@@ -289,9 +289,12 @@ int stream_send_overflow(struct stream *stream)
 	struct client *client = stream->client;
 	struct impl *impl = client->impl;
 	struct message *reply;
+	int suppressed;
 
-	pw_log_warn("client %p [%s]: stream %p OVERFLOW channel:%u",
-		    client, client->name, stream, stream->channel);
+	if ((suppressed = spa_ratelimit_test(&impl->rate_limit, stream->timestamp)) >= 0) {
+		pw_log_warn("[%s]: OVERFLOW channel:%u (%d suppressed)",
+			    client->name, stream->channel, suppressed);
+	}
 
 	reply = message_alloc(impl, -1, 0);
 	message_put(reply,

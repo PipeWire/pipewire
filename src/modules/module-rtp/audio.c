@@ -503,8 +503,10 @@ static void rtp_audio_process_capture(void *data)
 	 * that resynchronization is needed, then this will be done immediately below. */
 
 	if (!impl->have_sync) {
-		if (!impl->direct_timestamp)
-			impl->ts_align = actual_timestamp - impl->expected_timestamp;
+		/* keep the RTP timestamps continuous when the driver changes */
+		if (!impl->direct_timestamp && !impl->separate_sender && pos &&
+		    impl->clock_id != SPA_ID_INVALID && pos->clock.id != impl->clock_id)
+			impl->ts_align += impl->expected_timestamp - actual_timestamp;
 		pw_log_info("(re)sync to timestamp:%u seq:%u ts_offset:%u ts_align:%u SSRC:%u",
 				actual_timestamp, impl->seq, impl->ts_offset, impl->ts_align, impl->ssrc);
 		rtp_stream_clear_pending_packet(impl);
@@ -517,6 +519,8 @@ static void rtp_audio_process_capture(void *data)
 			impl->refilling = true;
 		}
 	}
+	if (SPA_LIKELY(pos))
+		impl->clock_id = pos->clock.id;
 
 	src = SPA_PTROFF(d[0].data, offs, void);
 	while (wanted > 0) {

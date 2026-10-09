@@ -123,6 +123,7 @@ struct rtp_stream {
 	uint32_t header_size;
 	uint32_t payload_size;
 	uint32_t ts_align;
+	uint32_t clock_id;
 
 	uint32_t n_packets;
 	struct spa_list free;
@@ -673,6 +674,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		goto out;
 	}
 	impl->first = true;
+	impl->clock_id = SPA_ID_INVALID;
 	set_internal_stream_state(impl, RTP_STREAM_INTERNAL_STATE_STOPPED);
 	spa_hook_list_init(&impl->listener_list);
 	impl->direction = direction;
@@ -1287,7 +1289,7 @@ uint64_t rtp_stream_get_time(struct rtp_stream *s, uint32_t *rate)
 
 	*rate = s->rate;
 	return pos->clock.position * s->rate *
-		pos->clock.rate.num / pos->clock.rate.denom;
+		pos->clock.rate.num / pos->clock.rate.denom + s->ts_align;
 }
 
 uint16_t rtp_stream_get_seq(struct rtp_stream *s)

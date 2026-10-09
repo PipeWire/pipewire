@@ -852,7 +852,9 @@ static void impulse_clear(struct impulse *ir)
 static int finfo_read_samples(struct plugin *pl, struct finfo *info, struct impulse *ir)
 {
 	float *samples, v;
-	int i, n, h, delay = (int)(ir->delay * info->rate), alloc_size;
+	int i, h;
+	int64_t delay = (int64_t)(ir->delay * info->rate), n;
+	size_t alloc_size;
 
 	if (ir->length <= 0)
 		ir->length = info->def_frames;
@@ -975,7 +977,7 @@ static float *resample_buffer(struct plugin *pl, float *samples, int *n_samples,
 {
 #ifdef HAVE_SPA_PLUGINS
 	uint32_t in_len, out_len, total_out = 0;
-	int out_n_samples;
+	uint64_t out_n_samples;
 	float *out_samples = NULL, *out_buf, *in_buf;
 	struct resample r;
 	int res;
@@ -1003,6 +1005,7 @@ static float *resample_buffer(struct plugin *pl, float *samples, int *n_samples,
 		goto error;
 	}
 	out_n_samples /= in_rate;
+
 	out_samples = calloc(out_n_samples, sizeof(float));
 	if (out_samples == NULL)
 		goto error;

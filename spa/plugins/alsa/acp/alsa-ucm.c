@@ -103,6 +103,7 @@ static struct ucm_items item[] = {
     {"PlaybackPriority", PA_ALSA_PROP_UCM_PLAYBACK_PRIORITY},
     {"PlaybackRate", PA_ALSA_PROP_UCM_PLAYBACK_RATE},
     {"PlaybackChannels", PA_ALSA_PROP_UCM_PLAYBACK_CHANNELS},
+    {"EldChannels", PA_ALSA_PROP_UCM_ELD_CHANNELS},
     {"CaptureCTL", PA_ALSA_PROP_UCM_CAPTURE_CTL_DEVICE},
     {"CaptureVolume", PA_ALSA_PROP_UCM_CAPTURE_VOLUME},
     {"CaptureSwitch", PA_ALSA_PROP_UCM_CAPTURE_SWITCH},
@@ -989,10 +990,10 @@ int pa_alsa_ucm_query_profiles(pa_alsa_ucm_config *ucm, int card_index) {
     char *card_name;
     const char **verb_list, *value;
     int num_verbs, i, err = 0;
-    const char *split_prefix = ucm->split_enable ? "<<<SplitPCM=1>>>" : "";
+    const char *split_prefix = ucm->split_enable ? " SplitPCM=1" : "";
 
     /* support multiple card instances, address card directly by index */
-    card_name = pa_sprintf_malloc("%shw:%i", split_prefix, card_index);
+    card_name = pa_sprintf_malloc("<<<HdmiEld=1%s>>>hw:%i", split_prefix, card_index);
     if (card_name == NULL)
         return -PA_ALSA_ERR_UNSPECIFIED;
     err = snd_use_case_mgr_open(&ucm->ucm_mgr, card_name);

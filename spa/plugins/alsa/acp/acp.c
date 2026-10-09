@@ -1891,7 +1891,9 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 	if (dev->active_port)
 		dev->active_port->port.flags |= ACP_PORT_ACTIVE;
 
-	if (impl->use_eld_channels) {
+	if (impl->use_eld_channels ||
+	    (mapping->ucm_context.ucm_device &&
+	     pa_proplist_gets(mapping->ucm_context.ucm_device->proplist, PA_ALSA_PROP_UCM_ELD_CHANNELS))) {
 		while ((p = pa_hashmap_iterate(dev->ports, &state, NULL))) {
 			const char *channels = pa_proplist_gets(p->proplist, ACP_KEY_AUDIO_CHANNELS_DETECTED);
 			const char *positions = pa_proplist_gets(p->proplist, ACP_KEY_AUDIO_POSITION_DETECTED);

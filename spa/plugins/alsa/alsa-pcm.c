@@ -54,9 +54,9 @@ static struct card *ensure_card(uint32_t index, bool ucm, bool ucm_split)
 	c->index = index;
 
 	if (ucm) {
-		const char *split_prefix = ucm_split ? "<<<SplitPCM=1>>>" : "";
+		const char *split_prefix = ucm_split ? " SplitPCM=1" : "";
 
-		snprintf(card_name, sizeof(card_name), "%shw:%i", split_prefix, index);
+		snprintf(card_name, sizeof(card_name), "<<<HdmiEld=1%s>>>hw:%i", split_prefix, index);
 		err = snd_use_case_mgr_open(&c->ucm, card_name);
 		if (err < 0) {
 			char *name;
@@ -64,7 +64,7 @@ static struct card *ensure_card(uint32_t index, bool ucm, bool ucm_split)
 			if (err < 0)
 				goto error;
 
-			snprintf(card_name, sizeof(card_name), "%s%s", split_prefix, name);
+			snprintf(card_name, sizeof(card_name), "<<<HdmiEld=1%s>>>%s", split_prefix, name);
 			free(name);
 
 			err = snd_use_case_mgr_open(&c->ucm, card_name);

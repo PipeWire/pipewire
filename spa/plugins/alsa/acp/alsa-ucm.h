@@ -83,6 +83,9 @@ typedef void snd_use_case_mgr_t;
 /** For devices: Playback channels */
 #define PA_ALSA_PROP_UCM_PLAYBACK_CHANNELS          "alsa.ucm.playback.channels"
 
+/** For devices: Take the playback channel count from the ELD */
+#define PA_ALSA_PROP_UCM_ELD_CHANNELS               "alsa.ucm.eld.channels"
+
 /** For devices: Capture roles */
 #define PA_ALSA_PROP_UCM_CAPTURE_ROLES              "alsa.ucm.capture.roles"
 

@@ -5321,21 +5321,39 @@ void pa_alsa_profile_set_probe(
 void pa_alsa_profile_set_recheck_hdmi_eld(
         pa_alsa_profile_set *ps,
         uint32_t card_index,
+        int device_index,
         const struct pa_hdmi_eld *eld) {
 
     pa_alsa_profile *p;
+    pa_alsa_mapping *m;
+    const char *device_string = NULL;
     void *state;
 
     pa_assert(ps);
 
     pa_log_debug("Refreshing HDMI profile-set support on card %u", card_index);
 
+    /* First identify the device we are dealing with. If we only had stereo at
+     * probe time, for example, the hw_device_index for other profiles might be
+     * -1. So we match based on the actual device string when iterating over
+     * mappings below. */
+    PA_HASHMAP_FOREACH(m, ps->mappings, state) {
+        if (m->direction != PA_ALSA_DIRECTION_INPUT && m->hw_device_index == device_index) {
+            device_string = m->device_strings[0];
+            break;
+        }
+    }
+
+    if (!device_string) {
+        pa_log_debug("Could not find device string for %d", device_index);
+        return;
+    }
+
     /* For each profile containing output HDMI mappings, use the ELD channel
      * count to determine if the profile is supported by the connected sink.
      * Other profiles are left untouched. */
     PA_HASHMAP_FOREACH(p, ps->profiles, state) {
         uint32_t idx;
-        pa_alsa_mapping *m;
         bool supports_hdmi_output_mapping = false;
 
         if (p->profile.flags & (ACP_PROFILE_OFF | ACP_PROFILE_PRO))
@@ -5347,9 +5365,8 @@ void pa_alsa_profile_set_recheck_hdmi_eld(
 
         if (p->output_mappings) {
             PA_IDXSET_FOREACH(m, p->output_mappings, idx) {
-
-                /* Only handle HDMI mappings */
-                if (strcmp (m->device_strings[0], "hdmi:%f") != 0)
+                /* Only handle mappings for the device whose ELD changed */
+                if (!pa_streq(m->device_strings[0], device_string))
                     continue;
 
                 if (eld->lpcm_channels < (int)m->channel_map.channels) {

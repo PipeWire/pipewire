@@ -1304,6 +1304,17 @@ handle_int_prop (const struct spa_pod_prop *prop, const char *key, GstCaps *res)
   }
 }
 
+/* Use this only for choice upper bounds, not fixed sizes or minima. */
+static struct spa_rectangle
+sanitize_rect_max (struct spa_rectangle rect)
+{
+  if (rect.width == UINT32_MAX)
+    rect.width = G_MAXINT;
+  if (rect.height == UINT32_MAX)
+    rect.height = G_MAXINT;
+  return rect;
+}
+
 static void
 handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char *height, GstCaps *res)
 {
@@ -1335,8 +1346,10 @@ handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char
             height, G_TYPE_INT, rect[1].height,
             NULL);
       } else {
-        set_pref_int_range (res, width, rect[0].width, rect[1].width, rect[2].width);
-        set_pref_int_range (res, height, rect[0].height, rect[1].height, rect[2].height);
+        struct spa_rectangle max = sanitize_rect_max (rect[2]);
+
+        set_pref_int_range (res, width, rect[0].width, rect[1].width, max.width);
+        set_pref_int_range (res, height, rect[0].height, rect[1].height, max.height);
       }
       break;
     }

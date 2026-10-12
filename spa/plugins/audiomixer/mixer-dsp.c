@@ -151,6 +151,7 @@ struct impl {
 
 	float curve[MAX_CURVE];
 	uint32_t n_curve;
+	uint32_t curve_rate;
 	float fade_duration;
 
 	unsigned int have_format:1;
@@ -900,6 +901,32 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	return queue_buffer(this, port, &port->buffers[buffer_id]);
 }
 
+static void rebuild_curve(struct impl *this, uint32_t rate)
+{
+	uint32_t i, n;
+	struct port *port;
+
+	if (rate == 0)
+		rate = 48000;
+	if (rate == this->curve_rate)
+		return;
+
+	n = SPA_MIN((uint32_t)(this->fade_duration * rate), MAX_CURVE);
+	this->curve_rate = rate;
+	this->n_curve = n;
+	for (i = 0; i < n; i++)
+		this->curve[i] = (float)(0.5 + 0.5 * cos(M_PI + M_PI * i / n));
+
+	/* Keep in-progress fades within the new curve length */
+	spa_list_for_each(port, &this->mix_list, mix_link) {
+		if (port->ramp_up > n)
+			port->ramp_up = n;
+		if (port->ramp_down > n)
+			port->ramp_down = n;
+	}
+	spa_log_debug(this->log, "%p: fade curve rate:%u samples:%u", this, rate, n);
+}
+
 static void ramp_up(struct impl *this, float *dst, uint32_t size, struct ramp_info *ri)
 {
 	uint32_t i, c;
@@ -949,6 +976,10 @@ static int impl_node_process(void *object)
 	outport = GET_OUT_PORT(this, 0);
 	if ((outio = outport->io[cycle]) == NULL)
 		return -EIO;
+
+	/* fade.duration is in seconds; rebuild when the graph rate changes */
+	if (SPA_LIKELY(this->position))
+		rebuild_curve(this, this->position->clock.rate.denom);
 
 	spa_log_trace_fp(this->log, "%p: status %p %d %d",
 			this, outio, outio->status, outio->buffer_id);
@@ -1196,10 +1227,7 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->n_pred_order, 0);
 	}
 
-	this->n_curve = SPA_MIN((uint32_t)(this->fade_duration * 48000), MAX_CURVE);
-	/* S-shaped curve */
-	for (i = 0; i < this->n_curve; i++)
-		this->curve[i] = (float)(0.5 + 0.5 * cos(M_PI + M_PI * i / this->n_curve));
+	rebuild_curve(this, 48000);
 
 	spa_hook_list_init(&this->hooks);
 	spa_list_init(&this->port_list);

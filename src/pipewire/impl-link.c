@@ -256,6 +256,11 @@ static int link_find_format(struct pw_impl_link *this,
 
 	pw_log_debug("%p: states %d %d", this, state[0], state[1]);
 
+	/* a device can change its formats without changing the param info,
+	 * enumerate them again once for this negotiation */
+	pw_impl_port_invalidate_param(info[0]->port, SPA_PARAM_EnumFormat);
+	pw_impl_port_invalidate_param(info[1]->port, SPA_PARAM_EnumFormat);
+
 	spa_node_send_command(node[0],
                         &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));
 	spa_node_send_command(node[1],

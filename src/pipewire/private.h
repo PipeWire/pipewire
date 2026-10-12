@@ -1367,6 +1367,10 @@ int pw_impl_port_enum_param(struct pw_impl_port *port,
 			   struct spa_pod **param,
 			   struct spa_pod_builder *builder);
 
+/** Mark the cached values of a param as stale, the next full enumeration
+ * fetches them from the node again */
+void pw_impl_port_invalidate_param(struct pw_impl_port *port, uint32_t param_id);
+
 /** Iterate the links of the port. The callback should return
  * 0 to fetch the next item, any other value stops the iteration and returns
  * the value. When all callbacks return 0, this function returns 0 when all

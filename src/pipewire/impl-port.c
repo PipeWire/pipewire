@@ -1726,6 +1726,15 @@ direct:
 			param_id, index, filter, param, builder);
 }
 
+void pw_impl_port_invalidate_param(struct pw_impl_port *port, uint32_t param_id)
+{
+	struct spa_param_info *pi;
+
+	pi = pw_param_info_find(port->info.params, port->info.n_params, param_id);
+	if (pi != NULL)
+		pi->user = 0;
+}
+
 int pw_impl_port_for_each_param(struct pw_impl_port *port,
 			   int seq,
 			   uint32_t param_id,

@@ -638,7 +638,7 @@ static int parse_audio_info(const struct pw_properties *props, struct spa_audio_
 
 static uint32_t msec_to_samples(struct rtp_stream *impl, float msec)
 {
-	return (uint32_t)(msec * impl->rate / 1000);
+	return (uint32_t)lrintf(msec * impl->rate / 1000);
 }
 static float samples_to_msec(struct rtp_stream *impl, uint32_t samples)
 {

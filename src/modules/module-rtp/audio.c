@@ -486,7 +486,7 @@ static void rtp_audio_process_capture(void *data)
 		if (SPA_FLAG_IS_SET(pos->clock.flags, SPA_IO_CLOCK_FLAG_DISCONT)) {
 			pw_log_info("IO clock reports discontinuity; resynchronizing");
 			impl->have_sync = false;
-		} else if (SPA_ABS((int64_t)expected_timestamp - (int64_t)actual_timestamp) > (int64_t)(pos->clock.duration)) {
+		} else if (SPA_ABS((int64_t)rtp_timestamp_delta(expected_timestamp, actual_timestamp)) > (int64_t)pos->clock.duration) {
 			/* Normally, expected and actual timestamp should be in sync, and deviate
 			 * only minimally at most. If a major deviation occurs, then most likely
 			 * the driver clock has experienced an unexpected jump. Note that the

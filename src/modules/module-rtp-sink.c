@@ -1235,6 +1235,8 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	copy_props(impl, props, "sess.version");
 	copy_props(impl, props, "sess.min-ptime");
 	copy_props(impl, props, "sess.max-ptime");
+	copy_props(impl, props, "rtp.ptime");
+	copy_props(impl, props, "rtp.framecount");
 	copy_props(impl, props, "sess.latency.msec");
 	copy_props(impl, props, "sess.ts-direct");
 	copy_props(impl, props, "sess.ts-refclk");

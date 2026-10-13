@@ -52,7 +52,6 @@ typedef struct {
 	unsigned int activated:1;	/* PipeWire is activated? */
 	unsigned int drained:1;
 	unsigned int draining:1;
-	unsigned int xrun_detected:1;
 	unsigned int hw_params_changed:1;
 	unsigned int negotiated:1;
 
@@ -98,7 +97,7 @@ static int update_active(snd_pcm_ioplug_t *io, bool force_wakeup)
 
 	if (pw->error > 0 || force_wakeup ||
 	    io->state == SND_PCM_STATE_SETUP ||
-	    pw->xrun_detected) {
+	    io->state == SND_PCM_STATE_XRUN) {
 		active = true;
 	}
 	else if (io->state == SND_PCM_STATE_DRAINING) {
@@ -171,7 +170,7 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 	*revents = pfds[0].revents & ~(POLLIN | POLLOUT);
 	if (pfds[0].revents & POLLIN && update_active(io, false))
 		*revents |= (io->stream == SND_PCM_STREAM_PLAYBACK) ? POLLOUT : POLLIN;
-	if (io->state == SND_PCM_STATE_SETUP || pw->xrun_detected)
+	if (io->state == SND_PCM_STATE_SETUP || io->state == SND_PCM_STATE_XRUN)
 		*revents |= POLLERR;
 
 	pw_log_trace_fp("poll %d", *revents);
@@ -182,7 +181,7 @@ static int snd_pcm_pipewire_poll_revents(snd_pcm_ioplug_t *io,
 static snd_pcm_sframes_t snd_pcm_pipewire_pointer(snd_pcm_ioplug_t *io)
 {
 	snd_pcm_pipewire_t *pw = io->private_data;
-	if (pw->xrun_detected)
+	if (io->state == SND_PCM_STATE_XRUN)
 		return -EPIPE;
 	if (pw->error < 0)
 		return pw->error;
@@ -330,7 +329,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 		if (io->state == SND_PCM_STATE_RUNNING ||
 			io->state == SND_PCM_STATE_DRAINING) {
 			/* report Xrun to user application */
-			pw->xrun_detected = true;
+			snd_pcm_ioplug_set_state(io, SND_PCM_STATE_XRUN);
 		}
 	}
 	return xfer;
@@ -581,7 +580,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 done:
 	pw->hw_ptr = 0;
 	pw->now = 0;
-	pw->xrun_detected = false;
 	pw->drained = false;
 	pw->draining = false;
 

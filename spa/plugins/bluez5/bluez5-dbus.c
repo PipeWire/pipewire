@@ -86,6 +86,8 @@ struct spa_bt_monitor {
 	struct spa_handle handle;
 	struct spa_device device;
 
+	struct spa_list link;
+
 	struct spa_log *log;
 	struct spa_loop *main_loop;
 	struct spa_loop *data_loop;
@@ -1900,6 +1902,27 @@ static uint32_t adapter_connectable_profiles(struct spa_bt_adapter *adapter)
 	return mask;
 }
 
+/* Used to get a unique serial for every object */
+static uint32_t serial_counter;
+
+/*
+ * List of all monitors, so that device and node factories can find the
+ * device or transport by serial.
+ */
+static struct spa_list monitor_list = SPA_LIST_INIT(&monitor_list);
+
+struct spa_bt_device *spa_bt_device_find_by_serial(uint32_t serial)
+{
+	struct spa_bt_monitor *monitor;
+	struct spa_bt_device *d;
+
+	spa_list_for_each(monitor, &monitor_list, link)
+		spa_list_for_each(d, &monitor->device_list, link)
+			if (d->serial == serial)
+				return d;
+	return NULL;
+}
+
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_device *d;
@@ -1940,6 +1963,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 		return NULL;
 
 	d->id = monitor->id++;
+	d->serial = serial_counter++;
 	d->monitor = monitor;
 	d->path = strdup(path);
 	d->battery_path = battery_get_name(d->path);
@@ -2159,7 +2183,7 @@ static void emit_device_info(struct spa_bt_monitor *monitor,
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ICON, device->icon);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PATH, device->path);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_ADDRESS, device->address);
-	snprintf(dev, sizeof(dev), "pointer:%p", device);
+	snprintf(dev, sizeof(dev), "%u", device->serial);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_DEVICE, dev);
 	snprintf(class, sizeof(class), "0x%06x", device->bluetooth_class);
 	items[n_items++] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CLASS, class);
@@ -3365,6 +3389,18 @@ static void remote_endpoint_free(struct spa_bt_remote_endpoint *remote_endpoint)
 	free(remote_endpoint);
 }
 
+struct spa_bt_transport *spa_bt_transport_find_by_serial(uint32_t serial)
+{
+	struct spa_bt_monitor *monitor;
+	struct spa_bt_transport *t;
+
+	spa_list_for_each(monitor, &monitor_list, link)
+		spa_list_for_each(t, &monitor->transport_list, link)
+			if (t->serial == serial)
+				return t;
+	return NULL;
+}
+
 struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, const char *path)
 {
 	struct spa_bt_transport *t;
@@ -3395,6 +3431,7 @@ struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor,
 	if (t == NULL)
 		return NULL;
 
+	t->serial = serial_counter++;
 	t->acquire_refcount = 0;
 	t->monitor = monitor;
 	t->path = path;
@@ -7210,6 +7247,8 @@ static int impl_clear(struct spa_handle *handle)
 
 	monitor = (struct spa_bt_monitor *) handle;
 
+	spa_list_remove(&monitor->link);
+
 	/*
 	 * We don't call BlueZ API unregister methods here, since BlueZ generally does the
 	 * unregistration when the DBus connection is closed below.  We'll unregister DBus
@@ -7880,6 +7919,8 @@ impl_init(const struct spa_handle_factory *factory,
 	this->backends[BACKEND_NATIVE] = backend_native_new(this, this->conn, info, this->quirks, support, n_support);
 	this->backends[BACKEND_OFONO] = backend_ofono_new(this, this->conn, info, this->quirks, support, n_support);
 	this->backends[BACKEND_HSPHFPD] = backend_hsphfpd_new(this, this->conn, info, this->quirks, support, n_support);
+
+	spa_list_append(&monitor_list, &this->link);
 
 	return 0;
 

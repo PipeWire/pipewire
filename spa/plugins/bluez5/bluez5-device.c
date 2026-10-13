@@ -730,7 +730,7 @@ static void emit_node(struct impl *this, struct spa_bt_transport *t,
 	else
 		in_device_set = this->device_set.source_enabled;
 
-	snprintf(transport, sizeof(transport), "pointer:%p", t);
+	snprintf(transport, sizeof(transport), "%u", t->serial);
 	items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_TRANSPORT, transport);
 	items[1] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_PROFILE, spa_bt_profile_name(t->profile));
 	items[2] = SPA_DICT_ITEM_INIT(SPA_KEY_API_BLUEZ5_CODEC, get_codec_name(t, a2dp_duplex));
@@ -3543,6 +3543,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	const char *str;
+	uint32_t serial;
 	unsigned int i;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -3558,12 +3559,13 @@ impl_init(const struct spa_handle_factory *factory,
 
 	spa_log_topic_init(this->log, &log_topic);
 
-	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_DEVICE)))
-		sscanf(str, "pointer:%p", &this->bt_dev);
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_DEVICE)) &&
+	    spa_atou32(str, &serial, 10))
+		this->bt_dev = spa_bt_device_find_by_serial(serial);
 
 	if (this->bt_dev == NULL) {
-		spa_log_error(this->log, "a device is needed");
-		return -EINVAL;
+		spa_log_debug(this->log, "could not find device by serial");
+		return -ESTALE;
 	}
 
 	if (info) {

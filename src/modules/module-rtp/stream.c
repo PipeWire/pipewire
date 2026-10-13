@@ -841,6 +841,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		} else if (fabsf((samples_to_msec(impl, framecount)) - ptime) > 0.1f) {
 			impl->psamples = msec_to_samples(impl, ptime);
 			pw_log_warn("rtp.ptime doesn't match rtp.framecount. Choosing rtp.ptime");
+		} else {
+			impl->psamples = framecount;
 		}
 	} else {
 		impl->psamples = impl->payload_size / impl->stride;

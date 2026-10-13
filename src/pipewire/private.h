@@ -849,6 +849,8 @@ struct pw_impl_node {
 	struct spa_fraction target_rate;
 	uint64_t target_quantum;
 
+	enum pw_node_state pending_state;
+
 	uint64_t driver_start;
 	uint64_t elapsed;		/* elapsed time in playing */
 

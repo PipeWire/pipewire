@@ -37,7 +37,6 @@ PW_LOG_TOPIC_EXTERN(log_node);
 struct impl {
 	struct pw_impl_node this;
 
-	enum pw_node_state pending_state;
 	uint32_t pending_id;
 
 	struct pw_work_queue *work;
@@ -308,15 +307,14 @@ static void node_deactivate(struct pw_impl_node *this)
 
 static int idle_node(struct pw_impl_node *this)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 
 	pw_log_debug("%p: idle node state:%s pending:%s pause-on-idle:%d", this,
 			pw_node_state_as_string(this->info.state),
-			pw_node_state_as_string(impl->pending_state),
+			pw_node_state_as_string(this->pending_state),
 			this->pause_on_idle);
 
-	if (impl->pending_state == PW_NODE_STATE_IDLE)
+	if (this->pending_state == PW_NODE_STATE_IDLE)
 		return 0;
 
 	if (!this->pause_on_idle)
@@ -359,7 +357,7 @@ static int start_node(struct pw_impl_node *this)
 
 	node_activate(this);
 
-	if (impl->pending_state >= PW_NODE_STATE_RUNNING)
+	if (this->pending_state >= PW_NODE_STATE_RUNNING)
 		return 0;
 
 	pw_log_debug("%p: start node driving:%d driver:%d prepared:%d", this,
@@ -501,7 +499,7 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 	free((char*)node->info.error);
 	node->info.error = error;
 	node->info.state = state;
-	impl->pending_state = state;
+	node->pending_state = state;
 
 	pw_log_debug("%p: (%s) %s -> %s (%s)", node, node->name,
 		     pw_node_state_as_string(old), pw_node_state_as_string(state), error);
@@ -541,7 +539,6 @@ static void node_update_state(struct pw_impl_node *node, enum pw_node_state stat
 
 static int suspend_node(struct pw_impl_node *this)
 {
-	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
 	int res = 0;
 	struct pw_impl_port *p;
 
@@ -549,7 +546,7 @@ static int suspend_node(struct pw_impl_node *this)
 			pw_node_state_as_string(this->info.state));
 
 	if ((this->info.state > 0 && this->info.state < PW_NODE_STATE_SUSPENDED) ||
-	    (this->info.state == PW_NODE_STATE_SUSPENDED && impl->pending_state == PW_NODE_STATE_SUSPENDED))
+	    (this->info.state == PW_NODE_STATE_SUSPENDED && this->pending_state == PW_NODE_STATE_SUSPENDED))
 		return 0;
 
 	pw_context_freeze_recalc_graph(this->context);
@@ -1042,7 +1039,6 @@ static void remove_segment_owner(struct pw_impl_node *driver, uint32_t node_id)
 SPA_EXPORT
 int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driver)
 {
-	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	struct pw_impl_node *old = node->driver_node;
 	bool was_driving, no_driver = (driver == NULL);
 
@@ -1086,7 +1082,7 @@ int pw_impl_node_set_driver(struct pw_impl_node *node, struct pw_impl_node *driv
 	 * calculate a new state so that the Start command is sent to the
 	 * node */
 	if (was_driving && !node->driving)
-		impl->pending_state = node->info.state;
+		node->pending_state = node->info.state;
 
 	/* and then make the driver trigger the node */
 	node->from_driver_peer = pw_node_peer_ref(driver, node);
@@ -1960,10 +1956,10 @@ static void handle_request_process_command(struct pw_impl_node *node, const stru
 {
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
 	if (node->driving) {
-		pw_log_debug("request process %d %d", node->info.state, impl->pending_state);
+		pw_log_debug("request process %d %d", node->info.state, node->pending_state);
 		if (node->info.state == PW_NODE_STATE_RUNNING) {
 			spa_node_send_command(node->driver_node->node, command);
-		} else if (impl->pending_state == PW_NODE_STATE_RUNNING) {
+		} else if (node->pending_state == PW_NODE_STATE_RUNNING) {
 			spa_clear_ptr(impl->pending_request_process, free);
 			impl->pending_request_process = (struct spa_command*)spa_pod_copy(&command->pod);
 		}
@@ -2855,7 +2851,7 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 {
 	int res = 0;
 	struct impl *impl = SPA_CONTAINER_OF(node, struct impl, this);
-	enum pw_node_state old = impl->pending_state;
+	enum pw_node_state old = node->pending_state;
 
 	pw_log_debug("%p: set state (%s) %s -> %s, active %d pause_on_idle:%d", node,
 			pw_node_state_as_string(node->info.state),
@@ -2898,22 +2894,22 @@ int pw_impl_node_set_state(struct pw_impl_node *node, enum pw_node_state state)
 		if (impl->pending_id != SPA_ID_INVALID) {
 			pw_log_debug("cancel state from %s to %s to %s",
 				pw_node_state_as_string(node->info.state),
-				pw_node_state_as_string(impl->pending_state),
+				pw_node_state_as_string(node->pending_state),
 				pw_node_state_as_string(state));
 
-			if (impl->pending_state == PW_NODE_STATE_RUNNING &&
+			if (node->pending_state == PW_NODE_STATE_RUNNING &&
 			    state < PW_NODE_STATE_RUNNING &&
 			    impl->pending_play) {
 				impl->pending_play = false;
 				idle_node(node);
 			}
 			pw_work_queue_cancel(impl->work, node, impl->pending_id);
-			node->info.state = impl->pending_state;
+			node->info.state = node->pending_state;
 		}
 		/* driver nodes return EBUSY to add a -EBUSY to the work queue. This
 		 * will wait until all previous items in the work queue are
 		 * completed */
-		impl->pending_state = state;
+		node->pending_state = state;
 		if (node->exported) {
 			/* exported nodes must complete immediately. This is important
 			 * because the server sends ping to check completion. The server

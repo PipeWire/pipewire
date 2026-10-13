@@ -1678,11 +1678,6 @@ int pw_impl_port_enum_param(struct pw_impl_port *port,
 	if (pi == NULL)
 		return -ENOENT;
 
-	/* the current format changes without a param info change, and reading
-	 * it is cheap, so always ask the node */
-	if (param_id == SPA_PARAM_Format)
-		goto direct;
-
 	if (pi->user != 1) {
 		/* fill the cache with one full enumeration; node errors such as
 		 * -ENOENT for an unreadable param are returned as before */
@@ -1691,7 +1686,7 @@ int pw_impl_port_enum_param(struct pw_impl_port *port,
 		if (res < 0)
 			return res;
 		if (pi->user != 1)
-			goto direct;
+			return -EIO;
 	}
 
 	spa_list_for_each(p, &impl->param_list, link) {
@@ -1708,17 +1703,6 @@ int pw_impl_port_enum_param(struct pw_impl_port *port,
 		}
 	}
 	return 0;
-
-direct:
-	/* IO params come from the mixer, as in pw_impl_port_for_each_param() */
-	if (param_id == SPA_PARAM_IO)
-		return spa_node_port_enum_params_sync(port->mix,
-				port->direction, SPA_ID_INVALID,
-				param_id, index, filter, param, builder);
-
-	return spa_node_port_enum_params_sync(port->node->node,
-			port->direction, port->port_id,
-			param_id, index, filter, param, builder);
 }
 
 void pw_impl_port_invalidate_param(struct pw_impl_port *port, uint32_t param_id)

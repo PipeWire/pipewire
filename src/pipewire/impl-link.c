@@ -260,6 +260,8 @@ static int link_find_format(struct pw_impl_link *this,
 	 * enumerate them again once for this negotiation */
 	pw_impl_port_invalidate_param(info[0]->port, SPA_PARAM_EnumFormat);
 	pw_impl_port_invalidate_param(info[1]->port, SPA_PARAM_EnumFormat);
+	pw_impl_port_invalidate_param(info[0]->port, SPA_PARAM_Format);
+	pw_impl_port_invalidate_param(info[1]->port, SPA_PARAM_Format);
 
 	spa_node_send_command(node[0],
                         &SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_ParamBegin));

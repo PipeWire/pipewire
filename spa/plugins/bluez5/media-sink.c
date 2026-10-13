@@ -2566,6 +2566,7 @@ impl_init(const struct spa_handle_factory *factory,
 	struct impl *this;
 	struct port *port;
 	const char *str;
+	uint32_t serial;
 	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
@@ -2648,12 +2649,13 @@ impl_init(const struct spa_handle_factory *factory,
 	if (info && (str = spa_dict_lookup(info, "bluez5.debug.iso-mono")) != NULL)
 		this->iso_debug_mono = spa_atob(str);
 
-	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)))
-		sscanf(str, "pointer:%p", &this->transport);
+	if (info && (str = spa_dict_lookup(info, SPA_KEY_API_BLUEZ5_TRANSPORT)) &&
+	    spa_atou32(str, &serial, 10))
+		this->transport = spa_bt_transport_find_by_serial(serial);
 
 	if (this->transport == NULL) {
-		spa_log_error(this->log, "a transport is needed");
-		return -EINVAL;
+		spa_log_debug(this->log, "could not find transport by serial");
+		return -ESTALE;
 	}
 	if (this->transport->media_codec == NULL) {
 		spa_log_error(this->log, "a transport codec is needed");

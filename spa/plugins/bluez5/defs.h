@@ -537,6 +537,7 @@ struct spa_bt_device {
 	struct spa_bt_monitor *monitor;
 	struct spa_bt_adapter *adapter;
 	uint32_t id;
+	uint32_t serial;
 	char *path;
 	char *alias;
 	char *address;
@@ -588,6 +589,7 @@ struct spa_bt_device {
 	bool disable_dummy_call;
 };
 
+struct spa_bt_device *spa_bt_device_find_by_serial(uint32_t serial);
 struct spa_bt_device *spa_bt_device_find(struct spa_bt_monitor *monitor, const char *path);
 struct spa_bt_device *spa_bt_device_find_by_address(struct spa_bt_monitor *monitor, const char *remote_address, const char *local_address);
 int spa_bt_device_add_profile(struct spa_bt_device *device, enum spa_bt_profile profile);
@@ -679,6 +681,7 @@ struct spa_bt_transport_volume {
 
 struct spa_bt_transport {
 	struct spa_list link;
+	uint32_t serial;
 	struct spa_bt_monitor *monitor;
 	struct spa_bt_backend *backend;
 	char *path;
@@ -736,6 +739,7 @@ struct spa_bt_transport {
 struct spa_bt_transport *spa_bt_transport_create(struct spa_bt_monitor *monitor, char *path, size_t extra);
 void spa_bt_transport_free(struct spa_bt_transport *transport);
 void spa_bt_transport_set_state(struct spa_bt_transport *transport, enum spa_bt_transport_state state);
+struct spa_bt_transport *spa_bt_transport_find_by_serial(uint32_t serial);
 struct spa_bt_transport *spa_bt_transport_find(struct spa_bt_monitor *monitor, const char *path);
 struct spa_bt_transport *spa_bt_transport_find_full(struct spa_bt_monitor *monitor,
                                                     bool (*callback) (struct spa_bt_transport *t, const void *data),

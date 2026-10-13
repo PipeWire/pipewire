@@ -856,6 +856,15 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		}
 	}
 
+	if (impl->psamples == 0) {
+		if (have_ptime)
+			pw_log_error("rtp.ptime %f too small", ptime);
+		else
+			pw_log_error("sess.max-ptime %f too small", max_ptime);
+		res = -EINVAL;
+		goto out;
+	}
+
 	ptime = samples_to_msec(impl, impl->psamples);
 
 	/* For senders, the default latency is ptime and for a receiver it is

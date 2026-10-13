@@ -103,7 +103,7 @@ static int ensure_state(struct pw_impl_node *node, bool running, bool idle)
 		state = PW_NODE_STATE_RUNNING;
 	else if (!need_config && idle)
 		state = PW_NODE_STATE_IDLE;
-	else if (state > PW_NODE_STATE_IDLE)
+	else if (state > PW_NODE_STATE_IDLE || node->pending_state >= PW_NODE_STATE_IDLE)
 		state = PW_NODE_STATE_IDLE;
 	return pw_impl_node_set_state(node, state);
 }

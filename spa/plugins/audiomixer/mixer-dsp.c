@@ -1227,8 +1227,6 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->n_pred_order, 0);
 	}
 
-	rebuild_curve(this, 48000);
-
 	spa_hook_list_init(&this->hooks);
 	spa_list_init(&this->port_list);
 	spa_list_init(&this->free_list);
@@ -1265,6 +1263,8 @@ impl_init(const struct spa_handle_factory *factory,
 	port->info.n_params = 5;
 
 	spa_list_init(&port->queue);
+
+	rebuild_curve(this, 48000);
 
 	return 0;
 }

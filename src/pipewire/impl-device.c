@@ -306,7 +306,8 @@ static void result_device_params(void *data, int seq, int res, uint32_t type, co
 	case SPA_RESULT_TYPE_DEVICE_PARAMS:
 	{
 		const struct spa_result_device_params *r = result;
-		d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+		if (d->callback)
+			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 		if (d->cache) {
 			pw_log_debug("%p: add param %d", impl, r->id);
 			if (d->count++ == 0)

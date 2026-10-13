@@ -1649,7 +1649,8 @@ static void result_port_params(void *data, int seq, int res, uint32_t type, cons
 	{
 		const struct spa_result_node_params *r = result;
 		if (d->seq == seq) {
-			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+			if (d->callback)
+				d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 			if (d->cache)
 				pw_param_add(&impl->pending_list, seq, r->id, r->param);
 		}
@@ -1658,12 +1659,6 @@ static void result_port_params(void *data, int seq, int res, uint32_t type, cons
 	default:
 		break;
 	}
-}
-
-static int ignore_param(void *data, int seq, uint32_t id, uint32_t index,
-		uint32_t next, struct spa_pod *param)
-{
-	return 0;
 }
 
 int pw_impl_port_enum_param(struct pw_impl_port *port,
@@ -1692,7 +1687,7 @@ int pw_impl_port_enum_param(struct pw_impl_port *port,
 		/* fill the cache with one full enumeration; node errors such as
 		 * -ENOENT for an unreadable param are returned as before */
 		res = pw_impl_port_for_each_param(port, 0, param_id, 0, 0, NULL,
-				ignore_param, NULL);
+				NULL, NULL);
 		if (res < 0)
 			return res;
 		if (pi->user != 1)

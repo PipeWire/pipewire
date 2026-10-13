@@ -2606,7 +2606,8 @@ static void result_node_params(void *data, int seq, int res, uint32_t type, cons
 	{
 		const struct spa_result_node_params *r = result;
 		if (d->seq == seq) {
-			d->callback(d->data, seq, r->id, r->index, r->next, r->param);
+			if (d->callback)
+				d->callback(d->data, seq, r->id, r->index, r->next, r->param);
 			if (d->cache)
 				pw_param_add(&impl->pending_list, seq, r->id, r->param);
 		}

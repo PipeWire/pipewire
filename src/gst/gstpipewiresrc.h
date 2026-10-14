@@ -63,6 +63,7 @@ struct _GstPipeWireSrc {
   gboolean resend_last;
   gint keepalive_time;
   gboolean autoconnect;
+  gboolean dont_reconnect;
 
   GstCaps *caps;
   GstCaps *possible_caps;

@@ -47,6 +47,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define DEFAULT_RESEND_LAST     false
 #define DEFAULT_KEEPALIVE_TIME  0
 #define DEFAULT_AUTOCONNECT     true
+#define DEFAULT_DONT_RECONNECT  true
 #define DEFAULT_USE_BUFFERPOOL  USE_BUFFERPOOL_AUTO
 #define DEFAULT_ON_DISCONNECT   GST_PIPEWIRE_SRC_ON_DISCONNECT_NONE
 #define DEFAULT_PROVIDE_CLOCK   TRUE
@@ -66,6 +67,7 @@ enum
   PROP_RESEND_LAST,
   PROP_KEEPALIVE_TIME,
   PROP_AUTOCONNECT,
+  PROP_DONT_RECONNECT,
   PROP_USE_BUFFERPOOL,
   PROP_ON_DISCONNECT,
   PROP_PROVIDE_CLOCK,
@@ -187,6 +189,10 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->autoconnect = g_value_get_boolean (value);
       break;
 
+    case PROP_DONT_RECONNECT:
+      pwsrc->dont_reconnect = g_value_get_boolean (value);
+      break;
+
     case PROP_USE_BUFFERPOOL:
       if(g_value_get_boolean (value))
         pwsrc->use_bufferpool = USE_BUFFERPOOL_YES;
@@ -267,6 +273,10 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
 
     case PROP_AUTOCONNECT:
       g_value_set_boolean (value, pwsrc->autoconnect);
+      break;
+
+    case PROP_DONT_RECONNECT:
+      g_value_set_boolean (value, pwsrc->dont_reconnect);
       break;
 
     case PROP_USE_BUFFERPOOL:
@@ -456,6 +466,15 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                          G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (gobject_class,
+                                   PROP_DONT_RECONNECT,
+                                   g_param_spec_boolean ("dont_reconnect",
+                                                         "Don't reconnect",
+                                                         "Don't reconnect if the target disappears",
+                                                         DEFAULT_DONT_RECONNECT,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (gobject_class,
                                    PROP_USE_BUFFERPOOL,
                                    g_param_spec_boolean ("use-bufferpool",
                                                          "Use bufferpool",
@@ -529,6 +548,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->resend_last = DEFAULT_RESEND_LAST;
   src->keepalive_time = DEFAULT_KEEPALIVE_TIME;
   src->autoconnect = DEFAULT_AUTOCONNECT;
+  src->dont_reconnect = DEFAULT_DONT_RECONNECT;
   src->min_latency = 0;
   src->max_latency = GST_CLOCK_TIME_NONE;
   src->last_buffer_clock_time = GST_CLOCK_TIME_NONE;
@@ -1288,8 +1308,9 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   pwsrc->negotiated = FALSE;
 
   enum pw_stream_flags flags;
-  flags = PW_STREAM_FLAG_DONT_RECONNECT |
-	  PW_STREAM_FLAG_ASYNC;
+  flags = PW_STREAM_FLAG_ASYNC;
+  if (pwsrc->dont_reconnect)
+    flags |= PW_STREAM_FLAG_DONT_RECONNECT;
   if (pwsrc->autoconnect)
     flags |= PW_STREAM_FLAG_AUTOCONNECT;
   pw_stream_connect (pwsrc->stream->pwstream,

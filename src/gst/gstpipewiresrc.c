@@ -467,7 +467,7 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
 
   g_object_class_install_property (gobject_class,
                                    PROP_DONT_RECONNECT,
-                                   g_param_spec_boolean ("dont_reconnect",
+                                   g_param_spec_boolean ("dont-reconnect",
                                                          "Don't reconnect",
                                                          "Don't reconnect if the target disappears",
                                                          DEFAULT_DONT_RECONNECT,

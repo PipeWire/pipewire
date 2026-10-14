@@ -1172,9 +1172,12 @@ handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char
             height, G_TYPE_INT, rect[1].height,
             NULL);
       } else {
+	struct spa_rectangle max = SPA_RECTANGLE(
+			SPA_MIN(rect[2].width, (uint32_t)INT_MAX),
+			SPA_MIN(rect[2].height, (uint32_t)INT_MAX));
         gst_caps_set_simple (res,
-            width, GST_TYPE_INT_RANGE, rect[1].width, rect[2].width,
-            height, GST_TYPE_INT_RANGE, rect[1].height, rect[2].height,
+            width, GST_TYPE_INT_RANGE, rect[1].width, max.width,
+            height, GST_TYPE_INT_RANGE, rect[1].height, max.height,
             NULL);
       }
       break;

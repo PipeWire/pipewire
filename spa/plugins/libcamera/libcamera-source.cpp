@@ -209,6 +209,8 @@ struct impl {
 
 void setup_initial_controls(const ControlInfoMap& ctrl_infos, ControlList& ctrls)
 {
+	ctrls.clear();
+
 	/* Libcamera recommends cameras default to manual focus mode, but we don't
 	 * expose any focus controls.  So, specifically enable autofocus on
 	 * cameras which support it. */

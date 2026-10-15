@@ -241,9 +241,6 @@ int spa_libcamera_open(struct impl *impl)
 
 	spa_assert(!impl->allocator.allocated());
 
-	const ControlInfoMap &controls = impl->camera->controls();
-	setup_initial_controls(controls, impl->initial_controls);
-
 	impl->acquired = true;
 	return 0;
 }
@@ -717,6 +714,8 @@ int spa_libcamera_set_format(struct impl *impl, struct port *port,
 
 	if ((res = allocBuffers(impl, port, port->streamConfig.bufferCount)) < 0)
 		goto error;
+
+	setup_initial_controls(impl->camera->controls(), impl->initial_controls);
 
 	port->info.change_mask |= SPA_PORT_CHANGE_MASK_FLAGS | SPA_PORT_CHANGE_MASK_RATE;
 	port->info.flags = SPA_PORT_FLAG_CAN_ALLOC_BUFFERS |

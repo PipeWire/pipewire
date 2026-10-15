@@ -214,7 +214,7 @@ void setup_initial_controls(const ControlInfoMap& ctrl_infos, ControlList& ctrls
 	/* Libcamera recommends cameras default to manual focus mode, but we don't
 	 * expose any focus controls.  So, specifically enable autofocus on
 	 * cameras which support it. */
-	auto af_it = ctrl_infos.find(libcamera::controls::AF_MODE);
+	auto af_it = ctrl_infos.find(&libcamera::controls::AfMode);
 	if (af_it != ctrl_infos.end()) {
 		const ControlInfo &ctrl_info = af_it->second;
 		auto is_af_continuous = [](const ControlValue &value) {
@@ -222,15 +222,14 @@ void setup_initial_controls(const ControlInfoMap& ctrl_infos, ControlList& ctrls
 		};
 		if (std::any_of(ctrl_info.values().begin(),
 		    ctrl_info.values().end(), is_af_continuous)) {
-			ctrls.set(libcamera::controls::AF_MODE,
+			ctrls.set(libcamera::controls::AfMode,
 					libcamera::controls::AfModeContinuous);
 		}
 	}
 
-	auto ae_it = ctrl_infos.find(libcamera::controls::AE_ENABLE);
-	if (ae_it != ctrl_infos.end()) {
-		ctrls.set(libcamera::controls::AE_ENABLE, true);
-	}
+	auto ae_it = ctrl_infos.find(&libcamera::controls::AeEnable);
+	if (ae_it != ctrl_infos.end())
+		ctrls.set(libcamera::controls::AeEnable, true);
 }
 
 int spa_libcamera_open(struct impl *impl)

@@ -75,6 +75,11 @@
  *                    "auth_setup". Default is "none".
  * - `raop.audio.codec`: The audio codec to use. Needs to be "PCM". Defaults to "PCM".
  * - `raop.password`: The password to use.
+ * - `raop.latency.ms`: The playback delay on the receiver in milliseconds, i.e.
+ *                    how long after sending the audio is played. Lower values
+ *                    reduce the delay but need a more reliable network. Values
+ *                    below 250 are raised to 250, and a larger Audio-Latency
+ *                    requested by the receiver takes precedence. Default is 1500.
  * - `raop.disable-volume`: If set to "true", the module will not send volume commands
  *                    to the remote device. Volume and mute are then applied in software
  *                    instead and the sink is advertised as having no hardware volume
@@ -114,6 +119,7 @@
  *         raop.encryption.type = "RSA"
  *         #raop.audio.codec = "PCM"
  *         #raop.password = "****"
+ *         #raop.latency.ms = 1500
  *         #raop.disable-volume = "true"
  *         #audio.format = "S16"
  *         #audio.rate = 44100

@@ -44,8 +44,8 @@
  *
  * - `raop.discover-local` = allow discovery of local services as well.
  *    false by default.
- * - `raop.latency.ms` = latency for all streams in microseconds. This
- *    can be overwritten in the stream rules.
+ * - `raop.latency.ms` = playback delay for all streams in milliseconds, see
+ *    \ref page_module_raop_sink. This can be overwritten in the stream rules.
  * - `stream.rules` = \<rules\>: match rules, use create-stream actions. See
  *   \ref page_module_raop_sink for module properties.
  *
@@ -58,7 +58,7 @@
  * {   name = libpipewire-module-raop-discover
  *     args = {
  *         #raop.discover-local = false;
- *         #raop.latency.ms = 1000
+ *         #raop.latency.ms = 1500
  *         stream.rules = [
  *             {   matches = [
  *                     {    raop.ip = "~.*"
@@ -79,6 +79,7 @@
  *                 actions = {
  *                     create-stream = {
  *                         #raop.password = ""
+ *                         #raop.latency.ms = 1500
  *                         stream.props = {
  *                             #target.object = ""
  *                             #media.class = "Audio/Sink"

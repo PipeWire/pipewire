@@ -1771,7 +1771,7 @@ static inline void *get_buffer_output(struct port *p, uint32_t frames, uint32_t 
 		SPA_ATOMIC_STORE(io->status, SPA_STATUS_HAVE_DATA);
 		SPA_ATOMIC_STORE(mix->io_busy, 0);
 	} else {
-		while (SPA_ATOMIC_LOAD(io->status) != SPA_STATUS_HAVE_DATA)
+		while (SPA_ATOMIC_LOAD(mix->io_busy) != 0)
 			;
 		if (SPA_UNLIKELY(io->buffer_id >= mix->n_buffers))
 			return NULL;

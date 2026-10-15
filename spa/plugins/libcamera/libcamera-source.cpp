@@ -68,7 +68,6 @@ struct port {
 
 	std::optional<spa_video_info> current_format;
 
-	struct spa_fraction rate = {};
 	StreamConfiguration streamConfig;
 
 	uint32_t buffers_blocks = 1;
@@ -726,7 +725,7 @@ int spa_libcamera_set_format(struct impl *impl, struct port *port,
 		SPA_PORT_FLAG_LIVE |
 		SPA_PORT_FLAG_PHYSICAL |
 		SPA_PORT_FLAG_TERMINAL;
-	port->info.rate = SPA_FRACTION(port->rate.num, port->rate.denom);
+	port->info.rate = {};
 
 	return 0;
 error:
@@ -1075,11 +1074,11 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 		}
 		/* FIXME, we should follow the driver clock and target_ values.
 		 * for now we ignore and use our own. */
-		impl->clock->target_rate = port->rate;
+		impl->clock->target_rate = {};
 		impl->clock->target_duration = 1;
 
 		impl->clock->nsec = fmd.timestamp;
-		impl->clock->rate = port->rate;
+		impl->clock->rate = {};
 		impl->clock->position = fmd.sequence;
 		impl->clock->duration = 1;
 		impl->clock->delay = 0;

@@ -322,7 +322,7 @@ int impl_add_listener(void *object,
 		      const struct spa_device_events *events,
 		      void *data)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct spa_hook_list save;
 	int res = 0;
 
@@ -341,7 +341,7 @@ int impl_add_listener(void *object,
 
 int impl_sync(void *object, int seq)
 {
-	struct impl *impl = (struct impl*) object;
+	auto *impl = static_cast<struct impl *>(object);
 
 	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 

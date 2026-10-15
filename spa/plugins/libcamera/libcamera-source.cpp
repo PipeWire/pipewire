@@ -1133,7 +1133,7 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 
 void libcamera_on_fd_events(struct spa_source *source)
 {
-	struct impl *impl = (struct impl*) source->data;
+	auto *impl = static_cast<struct impl *>(source->data);
 	uint32_t index;
 	uint64_t cnt;
 
@@ -1228,10 +1228,11 @@ spa_libcamera_alloc_buffers(struct impl *impl, struct port *port,
 		b->id = i;
 		b->outbuf = buffers[i];
 		b->flags = 0;
-		b->h = (struct spa_meta_header*)spa_buffer_find_meta_data(buffers[i], SPA_META_Header, sizeof(*b->h));
+		b->h = static_cast<spa_meta_header *>(spa_buffer_find_meta_data(
+			buffers[i], SPA_META_Header, sizeof(*b->h)));
 
-		b->videotransform = (struct spa_meta_videotransform*)spa_buffer_find_meta_data(
-			buffers[i], SPA_META_VideoTransform, sizeof(*b->videotransform));
+		b->videotransform = static_cast<spa_meta_videotransform *>(spa_buffer_find_meta_data(
+			buffers[i], SPA_META_VideoTransform, sizeof(*b->videotransform)));
 		if (b->videotransform) {
 			b->videotransform->transform =
 				libcamera_orientation_to_spa_transform_value(impl->config->orientation);
@@ -1428,7 +1429,7 @@ int port_get_format(struct impl *impl, struct port *port,
 		return -EIO;
 	}
 
-	*param = (struct spa_pod*)spa_pod_builder_pop(builder, &f);
+	*param = spa_pod_builder_pop(builder, &f);
 
 	return 1;
 }
@@ -1437,7 +1438,7 @@ int impl_node_enum_params(void *object, int seq,
 			  uint32_t id, uint32_t start, uint32_t num,
 			  const struct spa_pod *filter)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
 	uint8_t buffer[1024];
@@ -1544,18 +1545,18 @@ int impl_node_set_param(void *object,
 
 int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 
 	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
 	switch (id) {
 	case SPA_IO_Clock:
-		impl->clock = (struct spa_io_clock*)data;
+		impl->clock = static_cast<spa_io_clock *>(data);
 		if (impl->clock)
 			SPA_FLAG_SET(impl->clock->flags, SPA_IO_CLOCK_FLAG_NO_RATE);
 		break;
 	case SPA_IO_Position:
-		impl->position = (struct spa_io_position*)data;
+		impl->position = static_cast<spa_io_position *>(data);
 		break;
 	default:
 		return -ENOENT;
@@ -1565,7 +1566,7 @@ int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 
 int impl_node_send_command(void *object, const struct spa_command *command)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	int res;
 
 	spa_return_val_if_fail(impl != nullptr, -EINVAL);
@@ -1635,7 +1636,7 @@ impl_node_add_listener(void *object,
 		const struct spa_node_events *events,
 		void *data)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct spa_hook_list save;
 
 	spa_return_val_if_fail(impl != nullptr, -EINVAL);
@@ -1654,7 +1655,7 @@ int impl_node_set_callbacks(void *object,
 			    const struct spa_node_callbacks *callbacks,
 			    void *data)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 
 	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
@@ -1665,7 +1666,7 @@ int impl_node_set_callbacks(void *object,
 
 int impl_node_sync(void *object, int seq)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 
 	spa_return_val_if_fail(impl != nullptr, -EINVAL);
 
@@ -1695,7 +1696,7 @@ int impl_node_port_enum_params(void *object, int seq,
 			       const struct spa_pod *filter)
 {
 
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct port *port;
 	struct spa_pod *param;
 	struct spa_pod_builder b = { 0 };
@@ -1740,7 +1741,7 @@ next:
 		 */
 		uint32_t n_buffers = port->streamConfig.bufferCount;
 
-		param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(n_buffers),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(port->buffers_blocks),
@@ -1751,13 +1752,13 @@ next:
 	case SPA_PARAM_Meta:
 		switch (result.index) {
 		case 0:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 			break;
 		case 1:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoTransform),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_videotransform)));
@@ -1769,19 +1770,19 @@ next:
 	case SPA_PARAM_IO:
 		switch (result.index) {
 		case 0:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Buffers),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_buffers)));
 			break;
 		case 1:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Clock),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_clock)));
 			break;
 		case 2:
-			param = (struct spa_pod*)spa_pod_builder_add_object(&b,
+			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamIO, id,
 				SPA_PARAM_IO_id,   SPA_POD_Id(SPA_IO_Control),
 				SPA_PARAM_IO_size, SPA_POD_Int(sizeof(struct spa_io_sequence)));
@@ -1898,7 +1899,7 @@ int impl_node_port_set_param(void *object,
 			     uint32_t id, uint32_t flags,
 			     const struct spa_pod *param)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct port *port;
 	int res;
 
@@ -1924,7 +1925,7 @@ int impl_node_port_use_buffers(void *object,
 			       struct spa_buffer **buffers,
 			       uint32_t n_buffers)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct port *port;
 	int res;
 
@@ -1959,7 +1960,7 @@ int impl_node_port_set_io(void *object,
 			  uint32_t id,
 			  void *data, size_t size)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct port *port;
 
 	spa_return_val_if_fail(impl != nullptr, -EINVAL);
@@ -1969,10 +1970,10 @@ int impl_node_port_set_io(void *object,
 
 	switch (id) {
 	case SPA_IO_Buffers:
-		port->io = (struct spa_io_buffers*)data;
+		port->io = static_cast<spa_io_buffers *>(data);
 		break;
 	case SPA_IO_Control:
-		port->control = (struct spa_io_sequence*)data;
+		port->control = static_cast<spa_io_sequence *>(data);
 		port->control_size = size;
 		break;
 	default:
@@ -1985,7 +1986,7 @@ int impl_node_port_reuse_buffer(void *object,
 				uint32_t port_id,
 				uint32_t buffer_id)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	struct port *port;
 	int res;
 
@@ -2047,7 +2048,7 @@ int process_control(struct impl *impl, struct spa_pod_sequence *control, uint32_
 
 int impl_node_process(void *object)
 {
-	struct impl *impl = (struct impl*)object;
+	auto *impl = static_cast<struct impl *>(object);
 	int res;
 	struct spa_io_buffers *io;
 	struct port *port;

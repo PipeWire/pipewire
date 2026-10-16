@@ -1815,19 +1815,9 @@ static void format_from_filename(SF_INFO *info, const char *filename, const char
 	if (format == SF_FORMAT_WAV && info->channels > 2)
 		format = SF_FORMAT_WAVEX;
 
-	switch (format & SF_FORMAT_TYPEMASK) {
-	case SF_FORMAT_OGG:
-	case SF_FORMAT_FLAC:
-	case SF_FORMAT_MPEG:
-	case SF_FORMAT_AIFF:
-	case SF_FORMAT_WAVEX:
-		info->format |= SF_ENDIAN_FILE;
-		break;
-	default:
-		info->format |= SF_ENDIAN_CPU;
-		break;
-	}
-	info->format |= format;
+	/* Let libsndfile pick the container's native byte order; many
+	 * containers (W64, RF64, WAVEX, FLAC, ...) reject SF_ENDIAN_CPU. */
+	info->format |= SF_ENDIAN_FILE | format;
 }
 
 static void list_containers(struct data *d)

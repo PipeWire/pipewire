@@ -284,18 +284,14 @@ int spa_libcamera_close(struct impl *impl)
 
 int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t buffer_id)
 {
-	struct buffer *b = &port->buffers[buffer_id];
+	spa_assert(buffer_id < impl->requestPool.size());
 
+	struct buffer *b = &port->buffers[buffer_id];
 	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING))
 		return 0;
 
 	SPA_FLAG_CLEAR(b->flags, BUFFER_FLAG_OUTSTANDING);
 
-	if (buffer_id >= impl->requestPool.size()) {
-		spa_log_warn(impl->log, "invalid buffer_id %u >= %zu",
-				buffer_id, impl->requestPool.size());
-		return -EINVAL;
-	}
 	Request *request = impl->requestPool[buffer_id].get();
 	if (impl->active)
 		return impl->queue_request(request);

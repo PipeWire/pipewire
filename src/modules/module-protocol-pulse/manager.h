@@ -48,9 +48,6 @@ struct pw_manager {
 	struct pw_registry *registry;
 
 	struct pw_core_info *info;
-
-	uint32_t n_objects;
-	struct spa_list object_list;
 };
 
 struct pw_manager_param {
@@ -104,6 +101,8 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 int pw_manager_for_each_object(struct pw_manager *manager,
 		int (*callback) (void *data, struct pw_manager_object *object),
 		void *data);
+
+uint32_t pw_manager_id_to_index(struct pw_manager *manager, uint32_t id);
 
 void *pw_manager_object_add_data(struct pw_manager_object *o, const char *key, size_t size);
 void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *key);

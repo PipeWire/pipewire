@@ -29,59 +29,73 @@ void select_best(struct selector *s, struct pw_manager_object *o)
 	}
 }
 
-struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s)
+static int select_object_cb(void *data, struct pw_manager_object *o)
 {
-	struct pw_manager_object *o;
+	struct selector *s = data;
 	const char *str;
 
-	spa_list_for_each(o, &m->object_list, link) {
-		if (o->creating || o->removing)
-			continue;
-		if (s->type != NULL && !s->type(o))
-			continue;
-		if (o->id == s->id)
-			return o;
-		if (o->index == s->index)
-			return o;
-		if (s->accumulate)
-			s->accumulate(s, o);
-		if (o->props && s->key != NULL && s->value != NULL &&
-		    (str = pw_properties_get(o->props, s->key)) != NULL &&
-		    spa_streq(str, s->value))
-			return o;
-		if (s->value != NULL && (uint32_t)atoi(s->value) == o->index)
-			return o;
-	}
+	if (s->type != NULL && !s->type(o))
+		return 0;
+	if (o->id == s->id)
+		goto found;
+	if (o->index == s->index)
+		goto found;
+	if (s->accumulate)
+		s->accumulate(s, o);
+	if (o->props && s->key != NULL && s->value != NULL &&
+	    (str = pw_properties_get(o->props, s->key)) != NULL &&
+	    spa_streq(str, s->value))
+		goto found;
+	if (s->value != NULL && (uint32_t)atoi(s->value) == o->index)
+		goto found;
+	return 0;
+found:
+	s->best = o;
+	return 1;
+}
+
+struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s)
+{
+	pw_manager_for_each_object(m, select_object_cb, s);
 	return s->best;
 }
 
 uint32_t id_to_index(struct pw_manager *m, uint32_t id)
 {
-	struct pw_manager_object *o;
-	spa_list_for_each(o, &m->object_list, link) {
-		if (o->id == id)
-			return o->index;
-	}
-	return SPA_ID_INVALID;
+	return pw_manager_id_to_index(m, id);
+}
+
+struct collect_linked_data {
+	struct pw_manager *m;
+	uint32_t id;
+	enum pw_direction direction;
+	struct pw_manager_object *object;
+};
+
+static int collect_is_linked_cb(void *data, struct pw_manager_object *o)
+{
+	struct collect_linked_data *d = data;
+	uint32_t in_node, out_node;
+
+	if (o->props == NULL || !pw_manager_object_is_link(o))
+		return 0;
+
+	if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
+	    pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
+		return 0;
+
+	if ((d->direction == PW_DIRECTION_OUTPUT && d->id == out_node) ||
+	    (d->direction == PW_DIRECTION_INPUT && d->id == in_node))
+		return 1;
+
+	return 0;
 }
 
 static bool collect_is_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)
 {
-	struct pw_manager_object *o;
-	uint32_t in_node, out_node;
-
-	spa_list_for_each(o, &m->object_list, link) {
-		if (o->props == NULL || !pw_manager_object_is_link(o))
-			continue;
-
-		if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
-                    pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
-                        continue;
-
-		if ((direction == PW_DIRECTION_OUTPUT && id == out_node) ||
-		    (direction == PW_DIRECTION_INPUT && id == in_node))
-			return true;
-	}
+	struct collect_linked_data d = { m, id, direction };
+	if (pw_manager_for_each_object(m, collect_is_linked_cb, &d) == 1)
+		return true;
 	return false;
 }
 
@@ -111,17 +125,21 @@ struct pw_manager_object *find_peer_for_link(struct pw_manager *m,
 	return NULL;
 }
 
+static int find_linked_cb(void *data, struct pw_manager_object *o)
+{
+	struct collect_linked_data *d = data;
+	if (!pw_manager_object_is_link(o))
+		return 0;
+	if ((d->object = find_peer_for_link(d->m, o, d->id, d->direction)) != NULL)
+		return 1;
+	return 0;
+}
+
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction)
 {
-	struct pw_manager_object *o, *p;
-
-	spa_list_for_each(o, &m->object_list, link) {
-		if (!pw_manager_object_is_link(o))
-			continue;
-		if ((p = find_peer_for_link(m, o, id, direction)) != NULL)
-			return p;
-	}
-	return NULL;
+	struct collect_linked_data d = { m, id, direction, NULL };
+	pw_manager_for_each_object(m, find_linked_cb, &d);
+	return d.object;
 }
 
 void collect_card_info(struct pw_manager_object *card, struct card_info *info)
@@ -641,4 +659,26 @@ void update_object_info(struct pw_manager *manager, struct pw_manager_object *o,
 	if (pw_manager_object_is_sink_input(o)) {
 		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs, true);
 	}
+}
+
+struct message_path_data {
+	const char *path;
+	struct pw_manager_object *object;
+};
+
+static int find_message_path_cb(void *data, struct pw_manager_object *o)
+{
+	struct message_path_data *d = data;
+	if (spa_streq(o->message_object_path, d->path)) {
+		d->object = o;
+		return 1;
+	}
+	return 0;
+}
+
+struct pw_manager_object *find_message_path(struct pw_manager *m, const char *path)
+{
+	struct message_path_data d = { path, NULL };
+	pw_manager_for_each_object(m, find_message_path_cb, &d);
+	return d.object;
 }

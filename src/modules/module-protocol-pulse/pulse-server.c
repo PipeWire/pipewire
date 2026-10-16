@@ -3578,12 +3578,42 @@ static int fill_ext_module_info(struct client *client, struct message *m,
 	return 0;
 }
 
+struct latency_offset_info {
+	uint32_t card_id;
+	uint32_t device_id;
+	int64_t latency;
+};
+
+static int get_port_latency_cb(void *data, struct pw_manager_object *o)
+{
+	struct latency_offset_info *d = data;
+	const char *str;
+	uint32_t card_id = SPA_ID_INVALID;
+	uint32_t device_id = SPA_ID_INVALID;
+	struct pw_node_info *info;
+
+	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source_or_monitor(o))
+		return 0;
+	if ((info = o->info) == NULL || info->props == NULL)
+		return 0;
+	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+		card_id = (uint32_t)atoi(str);
+	if (card_id != d->card_id)
+		return 0;
+
+	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+		device_id = (uint32_t)atoi(str);
+	if (device_id != d->device_id)
+		return 0;
+
+	d->latency = get_node_latency_offset(o);
+	return 1;
+}
+
 static int64_t get_port_latency_offset(struct client *client, struct pw_manager_object *card, struct port_info *pi)
 {
 	struct pw_manager *m = client->manager;
-	struct pw_manager_object *o;
 	size_t j;
-
 	/*
 	 * The latency offset is a property of nodes in PipeWire, so we look it up on the
 	 * nodes. We'll return the latency offset of the first node in the port.
@@ -3593,31 +3623,10 @@ static int64_t get_port_latency_offset(struct client *client, struct pw_manager_
 	 * route data might not be updated yet when these events arrive.
 	 */
 	for (j = 0; j < pi->n_devices; ++j) {
-		spa_list_for_each(o, &m->object_list, link) {
-			const char *str;
-			uint32_t card_id = SPA_ID_INVALID;
-			uint32_t device_id = SPA_ID_INVALID;
-			struct pw_node_info *info;
-
-			if (o->creating || o->removing)
-				continue;
-			if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source_or_monitor(o))
-				continue;
-			if ((info = o->info) == NULL || info->props == NULL)
-				continue;
-			if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
-				card_id = (uint32_t)atoi(str);
-			if (card_id != card->id)
-				continue;
-
-			if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
-				device_id = (uint32_t)atoi(str);
-
-			if (device_id == pi->devices[j])
-				return get_node_latency_offset(o);
-		}
+		struct latency_offset_info d = { card->id, pi->devices[j], 0LL };
+		if (pw_manager_for_each_object(m, get_port_latency_cb, &d) == 1)
+			return d.latency;
 	}
-
 	return 0LL;
 }
 
@@ -5329,11 +5338,7 @@ static int do_send_object_message(struct client *client, uint32_t command, uint3
 	if (path == NULL)
 		return -ENOMEM;
 
-	spa_list_for_each(o, &manager->object_list, link) {
-		if (spa_streq(o->message_object_path, path))
-			break;
-	}
-	if (spa_list_is_end(o, &manager->object_list, link))
+	if ((o = find_message_path(manager, path)) == NULL)
 		return -ENOENT;
 
 	if (o->message_handler == NULL)

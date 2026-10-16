@@ -150,4 +150,6 @@ struct pw_manager_object *find_peer_for_link(struct pw_manager *m,
 		struct pw_manager_object *o, uint32_t id, enum pw_direction direction);
 struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t id, enum pw_direction direction);
 
+struct pw_manager_object *find_message_path(struct pw_manager *m, const char *path);
+
 #endif

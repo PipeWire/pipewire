@@ -34,6 +34,9 @@ struct manager {
 	int sync_seq;
 
 	struct spa_hook_list hooks;
+
+	uint32_t n_objects;
+	struct spa_list object_list;
 };
 
 struct object_info {
@@ -138,7 +141,7 @@ static bool has_param(struct spa_list *param_list, struct pw_manager_param *p)
 static struct object *find_object_by_id(struct manager *m, uint32_t id)
 {
 	struct object *o;
-	spa_list_for_each(o, &m->this.object_list, this.link) {
+	spa_list_for_each(o, &m->object_list, this.link) {
 		if (o->this.id == id)
 			return o;
 	}
@@ -190,7 +193,7 @@ static void object_destroy(struct object *o)
 	struct manager *m = o->manager;
 	struct object_data *d;
 	spa_list_remove(&o->this.link);
-	m->this.n_objects--;
+	m->n_objects--;
 	if (o->this.proxy)
 		pw_proxy_destroy(o->this.proxy);
 	pw_properties_free(o->this.props);
@@ -349,7 +352,7 @@ static struct object *find_device(struct manager *m, uint32_t card_id, uint32_t 
 {
 	struct object *o;
 
-	spa_list_for_each(o, &m->this.object_list, this.link) {
+	spa_list_for_each(o, &m->object_list, this.link) {
 		struct pw_node_info *info;
 		const char *str;
 
@@ -640,8 +643,8 @@ static void registry_event_global(void *data, uint32_t id,
 
 	o->manager = m;
 	o->info = info;
-	spa_list_append(&m->this.object_list, &o->this.link);
-	m->this.n_objects++;
+	spa_list_append(&m->object_list, &o->this.link);
+	m->n_objects++;
 
 	if (info->events)
 		pw_proxy_add_object_listener(proxy,
@@ -699,10 +702,10 @@ static void on_core_done(void *data, uint32_t id, int seq)
 
 		manager_emit_sync(m);
 
-		spa_list_for_each(o, &m->this.object_list, this.link)
+		spa_list_for_each(o, &m->object_list, this.link)
 			object_update_params(o);
 
-		spa_list_for_each(o, &m->this.object_list, this.link) {
+		spa_list_for_each(o, &m->object_list, this.link) {
 			if (o->this.creating) {
 				o->this.creating = false;
 				manager_emit_added(m, &o->this);
@@ -756,7 +759,7 @@ struct pw_manager *pw_manager_new(struct pw_core *core)
 
 	spa_hook_list_init(&m->hooks);
 
-	spa_list_init(&m->this.object_list);
+	spa_list_init(&m->object_list);
 
 	pw_core_add_listener(m->this.core,
 			&m->core_listener,
@@ -823,13 +826,24 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 	struct object *o;
 	int res;
 
-	spa_list_for_each(o, &m->this.object_list, this.link) {
+	spa_list_for_each(o, &m->object_list, this.link) {
 		if (o->this.creating || o->this.removing)
 			continue;
 		if ((res = callback(data, &o->this)) != 0)
 			return res;
 	}
 	return 0;
+}
+
+uint32_t pw_manager_id_to_index(struct pw_manager *manager, uint32_t id)
+{
+	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
+	struct object *o;
+	spa_list_for_each(o, &m->object_list, this.link) {
+		if (o->this.id == id)
+			return o->this.index;
+	}
+	return SPA_ID_INVALID;
 }
 
 void pw_manager_destroy(struct pw_manager *manager)
@@ -841,7 +855,7 @@ void pw_manager_destroy(struct pw_manager *manager)
 
 	spa_hook_remove(&m->core_listener);
 
-	spa_list_consume(o, &m->this.object_list, this.link)
+	spa_list_consume(o, &m->object_list, this.link)
 		object_destroy(o);
 
 	spa_hook_remove(&m->registry_listener);

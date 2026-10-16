@@ -220,6 +220,18 @@ static int core_object_bluetooth_profile_preference(struct client *client, const
 	}
 }
 
+static int list_handler_cb(void *data, struct pw_manager_object *o)
+{
+	struct spa_json_builder *b = data;
+	if (o->message_object_path) {
+		spa_json_builder_array_push(b, "{");
+		spa_json_builder_object_string(b, "name", o->message_object_path);
+		spa_json_builder_object_string(b, "description", o->type);
+		spa_json_builder_pop(b, "}");
+	}
+	return 0;
+}
+
 static int core_object_message_handler(struct client *client, struct pw_manager_object *o, const char *message, const char *params, FILE *response)
 {
 	pw_log_debug(": core %p object message:'%s' params:'%s'", o, message, params);
@@ -244,14 +256,7 @@ static int core_object_message_handler(struct client *client, struct pw_manager_
 
 		spa_json_builder_file(&b, response, 0);
 		spa_json_builder_array_push(&b, "[");
-		spa_list_for_each(o, &client->manager->object_list, link) {
-			if (o->message_object_path) {
-				spa_json_builder_array_push(&b, "{");
-				spa_json_builder_object_string(&b, "name", o->message_object_path);
-				spa_json_builder_object_string(&b, "description", o->type);
-				spa_json_builder_pop(&b, "}");
-			}
-		}
+		pw_manager_for_each_object(client->manager, list_handler_cb, &b);
 		spa_json_builder_pop(&b, "]");
 #ifdef HAVE_MALLOC_INFO
 	} else if (spa_streq(message, "pipewire-pulse:malloc-info")) {

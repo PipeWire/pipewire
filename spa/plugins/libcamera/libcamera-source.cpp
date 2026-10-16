@@ -197,6 +197,25 @@ struct impl {
 		for (auto& p : out_ports)
 			spa_list_init(&p.queue);
 	}
+
+	int queue_request(Request *request)
+	{
+		request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
+		request->controls().merge(ctrls);
+
+		spa_log_trace(log, "%p: queueing request %p[%" PRIu64 "]",
+				this, request, request->cookie());
+
+		int res = camera->queueRequest(request);
+		if (res < 0) {
+			spa_log_warn(log, "%p: cannot queue request %p[%" PRIu64 "]: %s",
+					this, request, request->cookie(), spa_strerror(res));
+			return res == -EACCES ? -EBUSY : res;
+		}
+
+		ctrls.clear();
+		return 0;
+	}
 };
 
 #define CHECK_PORT(impl,direction,port_id)  ((direction) == SPA_DIRECTION_OUTPUT && (port_id) == 0)
@@ -266,7 +285,6 @@ int spa_libcamera_close(struct impl *impl)
 int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t buffer_id)
 {
 	struct buffer *b = &port->buffers[buffer_id];
-	int res;
 
 	if (!SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING))
 		return 0;
@@ -279,15 +297,9 @@ int spa_libcamera_buffer_recycle(struct impl *impl, struct port *port, uint32_t 
 		return -EINVAL;
 	}
 	Request *request = impl->requestPool[buffer_id].get();
-	if (impl->active) {
-		request->controls().merge(impl->ctrls);
-		impl->ctrls.clear();
-		if ((res = impl->camera->queueRequest(request)) < 0) {
-			spa_log_warn(impl->log, "can't queue buffer %u: %s",
-				buffer_id, spa_strerror(res));
-			return res == -EACCES ? -EBUSY : res;
-		}
-	}
+	if (impl->active)
+		return impl->queue_request(request);
+
 	return 0;
 }
 
@@ -1041,9 +1053,7 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 	if (request->status() == libcamera::Request::Status::RequestCancelled) {
 		spa_log_trace(impl->log, "%p: request %p[%" PRIu64 "] cancelled",
 				impl, request, request_id);
-		request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
-		SPA_FLAG_SET(b->flags, BUFFER_FLAG_OUTSTANDING);
-		spa_libcamera_buffer_recycle(impl, port, b->id);
+		impl->queue_request(request);
 		return;
 	}
 
@@ -1089,8 +1099,6 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 		if (fmd.status != libcamera::FrameMetadata::Status::FrameSuccess)
 			d->chunk->flags |= SPA_CHUNK_FLAG_CORRUPTED;
 	}
-
-	request->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
 
 	spa_list_append(&port->queue, &b->link);
 
@@ -1332,9 +1340,7 @@ int spa_libcamera_stream_on(struct impl *impl)
 	impl->source.rmask = 0;
 
 	for (auto& req : impl->requestPool) {
-		req->reuse(libcamera::Request::ReuseFlag::ReuseBuffers);
-
-		if ((res = impl->camera->queueRequest(req.get())) < 0)
+		if ((res = impl->queue_request(req.get())) < 0)
 			goto err_stop;
 	}
 

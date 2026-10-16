@@ -379,48 +379,52 @@ static const struct conv_info *find_conv_info(uint32_t src_fmt, uint32_t dst_fmt
 
 typedef void (*clear_func_t) (struct convert *conv, void * SPA_RESTRICT dst[],
 		uint32_t n_samples);
+typedef void (*empty_func_t) (struct convert *conv, void * SPA_RESTRICT dst,
+		uint32_t n_bytes);
 
 struct clear_info {
 	uint32_t fmt;
 
 	clear_func_t clear;
-	const char *name;
+	const char *clear_name;
+	empty_func_t empty;
+	const char *empty_name;
 
 	uint32_t cpu_flags;
 };
 
-#define MAKE(fmt,func,...) \
-	{  SPA_AUDIO_FORMAT_ ##fmt, func, #func , __VA_ARGS__ }
+#define MAKE(fmt,func,empty,...) \
+	{  SPA_AUDIO_FORMAT_ ##fmt, func, #func, empty, #empty, __VA_ARGS__ }
 
 static struct clear_info clear_table[] =
 {
-	MAKE(U8, conv_clear_u8_c),
-	MAKE(U8P, conv_clear_u8d_c),
-	MAKE(S8, conv_clear_8_c),
-	MAKE(S8P, conv_clear_8d_c),
-	MAKE(U16, conv_clear_u16_c),
-	MAKE(S16, conv_clear_16_c),
-	MAKE(S16_OE, conv_clear_16_c),
-	MAKE(S16P, conv_clear_16d_c),
-	MAKE(U24, conv_clear_u24_c),
-	MAKE(S24, conv_clear_24_c),
-	MAKE(S24_OE, conv_clear_24_c),
-	MAKE(S24P, conv_clear_24d_c),
-	MAKE(U24_32, conv_clear_u24_32_c),
-	MAKE(S24_32, conv_clear_32_c),
-	MAKE(S24_32_OE, conv_clear_32_c),
-	MAKE(U32, conv_clear_u32_c),
-	MAKE(S32, conv_clear_32_c),
-	MAKE(S32_OE, conv_clear_32_c),
-	MAKE(S32P, conv_clear_32d_c),
-	MAKE(F32, conv_clear_32_c),
-	MAKE(F32_OE, conv_clear_32_c),
-	MAKE(F32P, conv_clear_32d_c),
-	MAKE(F64, conv_clear_64_c),
-	MAKE(F64_OE, conv_clear_64_c),
-	MAKE(F64P, conv_clear_64d_c),
-	MAKE(ALAW, conv_clear_alaw_c),
-	MAKE(ULAW, conv_clear_ulaw_c),
+	MAKE(U8, conv_clear_u8_c, conv_empty_u8_c),
+	MAKE(U8P, conv_clear_u8d_c, conv_empty_u8_c),
+	MAKE(S8, conv_clear_8_c, conv_empty_c),
+	MAKE(S8P, conv_clear_8d_c, conv_empty_c,),
+	MAKE(U16, conv_clear_u16_c, conv_empty_c),
+	MAKE(S16, conv_clear_16_c, conv_empty_c),
+	MAKE(S16_OE, conv_clear_16_c, conv_empty_c),
+	MAKE(S16P, conv_clear_16d_c, conv_empty_c),
+	MAKE(U24, conv_clear_u24_c, conv_empty_u24_c,),
+	MAKE(S24, conv_clear_24_c, conv_empty_c),
+	MAKE(S24_OE, conv_clear_24_c, conv_empty_c),
+	MAKE(S24P, conv_clear_24d_c, conv_empty_c),
+	MAKE(U24_32, conv_clear_u24_32_c, conv_empty_u24_32_c),
+	MAKE(S24_32, conv_clear_32_c, conv_empty_c),
+	MAKE(S24_32_OE, conv_clear_32_c, conv_empty_c),
+	MAKE(U32, conv_clear_u32_c, conv_empty_u32_c),
+	MAKE(S32, conv_clear_32_c, conv_empty_c),
+	MAKE(S32_OE, conv_clear_32_c, conv_empty_c),
+	MAKE(S32P, conv_clear_32d_c, conv_empty_c),
+	MAKE(F32, conv_clear_32_c, conv_empty_c),
+	MAKE(F32_OE, conv_clear_32_c, conv_empty_c),
+	MAKE(F32P, conv_clear_32d_c, conv_empty_c),
+	MAKE(F64, conv_clear_64_c, conv_empty_c),
+	MAKE(F64_OE, conv_clear_64_c, conv_empty_c),
+	MAKE(F64P, conv_clear_64d_c, conv_empty_c),
+	MAKE(ALAW, conv_clear_alaw_c, conv_empty_alaw_c),
+	MAKE(ULAW, conv_clear_ulaw_c, conv_empty_ulaw_c),
 };
 #undef MAKE
 
@@ -477,6 +481,7 @@ static const struct noise_info *find_noise_info(uint32_t method,
 static void impl_convert_free(struct convert *conv)
 {
 	conv->process = NULL;
+	conv->clear = NULL;
 	free(conv->data);
 	conv->data = NULL;
 }
@@ -550,7 +555,7 @@ int convert_init(struct convert *conv)
 	const struct conv_info *info;
 	const struct dither_info *dinfo;
 	const struct noise_info *ninfo;
-	const struct clear_info *cinfo;
+	const struct clear_info *cinfo_src, *cinfo_dst;
 	uint32_t i, conv_flags, data_size[4];
 
 	/* we generate int32 bits of random values. With this scale
@@ -608,7 +613,8 @@ int convert_init(struct convert *conv)
 	if (ninfo == NULL)
 		return -ENOTSUP;
 
-	cinfo = find_clear_info(conv->dst_fmt, conv->cpu_flags);
+	cinfo_src = find_clear_info(conv->src_fmt, conv->cpu_flags);
+	cinfo_dst = find_clear_info(conv->dst_fmt, conv->cpu_flags);
 
 	conv->noise_size = NOISE_SIZE;
 
@@ -635,7 +641,8 @@ int convert_init(struct convert *conv)
 	conv->cpu_flags = info->cpu_flags;
 	conv->update_noise = ninfo->noise;
 	conv->process = info->process;
-	conv->clear = cinfo ? cinfo->clear : NULL;
+	conv->clear = cinfo_dst ? cinfo_dst->clear : NULL;
+	conv->empty = cinfo_src ? cinfo_src->empty : NULL;
 	conv->free = impl_convert_free;
 	conv->func_name = info->name;
 

@@ -461,3 +461,25 @@ MAKE_CLEAR_VAL(u24, uint24_t, U32_TO_U24(0x800000));
 MAKE_CLEAR_VAL(u24_32, uint32_t, 0x800000);
 MAKE_CLEAR_VAL(u32, uint32_t, 0x80000000);
 
+void conv_empty_c(struct convert *conv,	void * SPA_RESTRICT dst, uint32_t n_bytes)
+{
+	memset(dst, 0, n_bytes);
+}
+
+#define MAKE_EMPTY_VAL(size,dtype,val)						\
+void conv_empty_ ##size##_c(struct convert *conv,				\
+		void * SPA_RESTRICT dst, uint32_t n_bytes)			\
+{										\
+	uint32_t i, n_samples = n_bytes / sizeof(dtype);			\
+	dtype *d = dst;								\
+	for (i = 0; i < n_samples; i++)						\
+		d[i] = val;							\
+}										\
+
+MAKE_EMPTY_VAL(alaw, uint8_t, 0x55);
+MAKE_EMPTY_VAL(ulaw, uint8_t, 0xff);
+MAKE_EMPTY_VAL(u8, uint8_t, 0x80);
+MAKE_EMPTY_VAL(u16, uint16_t, 0x8000);
+MAKE_EMPTY_VAL(u24, uint24_t, U32_TO_U24(0x800000));
+MAKE_EMPTY_VAL(u24_32, uint32_t, 0x800000);
+MAKE_EMPTY_VAL(u32, uint32_t, 0x80000000);

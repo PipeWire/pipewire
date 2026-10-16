@@ -247,6 +247,7 @@ struct convert {
 	void (*process) (struct convert *conv, void * SPA_RESTRICT dst[], const void * SPA_RESTRICT src[],
 			uint32_t n_samples);
 	void (*clear) (struct convert *conv, void * SPA_RESTRICT dst[], uint32_t n_samples);
+	void (*empty) (struct convert *conv, void * dst, uint32_t n_bytes);
 	void (*free) (struct convert *conv);
 
 	void *data;
@@ -289,6 +290,7 @@ static inline uint32_t dither_method_from_label(const char *label)
 #define convert_update_noise(conv,...)	(conv)->update_noise(conv, __VA_ARGS__)
 #define convert_process(conv,...)	(conv)->process(conv, __VA_ARGS__)
 #define convert_clear(conv,...)		(conv)->clear(conv, __VA_ARGS__)
+#define convert_empty(conv,...)		(conv)->empty(conv, __VA_ARGS__)
 #define convert_free(conv)		(conv)->free(conv)
 
 #define convert_is_passthrough(conv)	SPA_FLAG_IS_SET((conv)->flags, CONVERT_FLAG_PASSTHROUGH)
@@ -533,3 +535,19 @@ DEFINE_CLEAR_FUNCTION(u24_32, c);
 DEFINE_CLEAR_FUNCTION(u32, c);
 
 #undef DEFINE_CLEAR_FUNCTION
+
+void conv_empty_c(struct convert *conv, void * SPA_RESTRICT dst, uint32_t n_bytes);
+
+#define DEFINE_EMPTY_FUNCTION(name,arch)					\
+void conv_empty_##name##_##arch(struct convert *conv, void * SPA_RESTRICT dst,	\
+		uint32_t n_bytes)
+
+DEFINE_EMPTY_FUNCTION(alaw, c);
+DEFINE_EMPTY_FUNCTION(ulaw, c);
+DEFINE_EMPTY_FUNCTION(u8, c);
+DEFINE_EMPTY_FUNCTION(u16, c);
+DEFINE_EMPTY_FUNCTION(u24, c);
+DEFINE_EMPTY_FUNCTION(u24_32, c);
+DEFINE_EMPTY_FUNCTION(u32, c);
+
+#undef DEFINE_EMPTY_FUNCTION

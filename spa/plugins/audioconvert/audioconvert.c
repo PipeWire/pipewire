@@ -1340,6 +1340,8 @@ static int ensure_tmp(struct impl *this)
 		return -ENOMEM;
 
 	if (maxsize > this->scratch_size) {
+		struct dir *in = &this->dir[SPA_DIRECTION_INPUT];
+
 		spa_log_info(this->log, "resize tmp %d -> %d", this->scratch_size, maxsize);
 
 		if ((empty = realloc(this->empty, alloc_size)) != NULL)
@@ -1350,7 +1352,10 @@ static int ensure_tmp(struct impl *this)
 			free_tmp(this);
 			return -ENOMEM;
 		}
-		memset(this->empty, 0, alloc_size);
+		if (in->conv.empty)
+			convert_empty(&in->conv, this->empty, alloc_size);
+		else
+			memset(this->empty, 0, alloc_size);
 
 		for (i = 0; i < this->scratch_ports; i++) {
 			if ((tmp[0] = realloc(this->tmp[0][i], alloc_size)) != NULL)

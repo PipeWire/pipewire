@@ -94,7 +94,7 @@ SPA_API_DEBUG_BUFFER int spa_debugc_buffer(struct spa_debug_context *ctx, int in
 			spa_debugc_mem(ctx, 5, m->data, m->size);
 		}
 	}
-	spa_debugc(ctx, "%*s" " n_datas: \t%u (at %p)", indent, "", buffer->n_datas, buffer->datas);
+	spa_debugc(ctx, "%*s" " n_datas: %u (at %p)", indent, "", buffer->n_datas, buffer->datas);
 	for (i = 0; i < buffer->n_datas; i++) {
 		struct spa_data *d = &buffer->datas[i];
 		spa_debugc(ctx, "%*s" "   type:    %d (%s)", indent, "", d->type,

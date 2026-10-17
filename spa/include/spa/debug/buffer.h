@@ -49,6 +49,9 @@ SPA_API_DEBUG_BUFFER int spa_debugc_buffer(struct spa_debug_context *ctx, int in
 		case SPA_META_Header:
 		{
 			struct spa_meta_header *h = (struct spa_meta_header*)m->data;
+			if (m->size < sizeof(*h))
+				break;
+
 			spa_debugc(ctx, "%*s" "    struct spa_meta_header:", indent, "");
 			spa_debugc(ctx, "%*s" "      flags:      %08x", indent, "", h->flags);
 			spa_debugc(ctx, "%*s" "      offset:     %u", indent, "", h->offset);
@@ -60,6 +63,9 @@ SPA_API_DEBUG_BUFFER int spa_debugc_buffer(struct spa_debug_context *ctx, int in
 		case SPA_META_VideoCrop:
 		{
 			struct spa_meta_region *h = (struct spa_meta_region*)m->data;
+			if (m->size < sizeof(*h))
+				break;
+
 			spa_debugc(ctx, "%*s" "    struct spa_meta_region:", indent, "");
 			spa_debugc(ctx, "%*s" "      x:      %d", indent, "", h->region.position.x);
 			spa_debugc(ctx, "%*s" "      y:      %d", indent, "", h->region.position.y);

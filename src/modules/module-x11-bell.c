@@ -161,8 +161,12 @@ static void x11_io_error_exit_handler(Display *display, void *data)
 
 	pw_log_warn("X11 display (%s) has encountered a fatal I/O error", DisplayString(display));
 
-	pw_loop_destroy_source(impl->loop, impl->source);
-	impl->source = NULL;
+	/* _XIOError() can be entered more than once for the same dead
+	 * connection, so only destroy the source while it is still valid */
+	if (impl->source) {
+		pw_loop_destroy_source(impl->loop, impl->source);
+		impl->source = NULL;
+	}
 
 	pw_impl_module_schedule_destroy(impl->module);
 }

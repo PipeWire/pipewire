@@ -1,3 +1,54 @@
+# PipeWire 1.6.10 (2026-10-22)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Fix some potential crashes in the JACK layer.
+  - Fix a regression in the PSD rear delay upmixing code.
+  - Avoid pops and clicks when playing unsigned formats.
+  - More small fixes and backports.
+
+## PipeWire
+  - Initialize the error location in all cases when parsing properties.
+  - Don't try to unlink ports without a node. (#5540)
+
+## Modules
+  - Fix a potential crash in the X11 module because error handlers can be
+    called twice.
+
+## SPA
+  - Fix a regression in the PSD rear delay upmixing code. A delay of 0
+    was not working and would result in a big delay instead. (#5490)
+  - Use per audio format clear function to avoid pops when draining on
+    unsigned formats. (#5531)
+
+## Pulse-server
+  - Avoid queueing an unlimited amount of REQUEST commands for paused
+    clients in some cases. (#5541)
+
+## Bluetooth
+  - Remove some old deprecated functions.
+  - cancel `RegisterApplication` calls when adapter goes away. (#5096)
+
+## JACK
+  - Add locking around the port array and mixer list. (#5499)
+  - Avoid possible infinite loop.
+  - Free port and buffers before disconnect. (#5455)
+
+## GStreamer
+  - Set the plane strides and offsets correctly.
+  - Avoid setting invalid max resolution values.
+
+## ALSA Plugin
+  - Handle the XRUN case better. (#5524)
+
+## Tools
+  - Support more output formats by letting sndfile choose the byte order.
+
+
+Older versions:
+
 # PipeWire 1.6.9 (2026-09-17)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -55,8 +106,6 @@ This is a bugfix release that is API and ABI compatible with the previous
   - Fix loopback channel and position handling.
   - Fix mp3 encoding in pw-record.
   - Support A-law in pw-record.
-
-Older versions:
 
 # PipeWire 1.6.8 (2026-07-09)
 

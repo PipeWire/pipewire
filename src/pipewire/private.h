@@ -1327,9 +1327,6 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 
 void pw_impl_port_update_state(struct pw_impl_port *port, enum pw_impl_port_state state, int res, char *error);
 
-/** Unlink a port */
-void pw_impl_port_unlink(struct pw_impl_port *port);
-
 /** Destroy a port */
 void pw_impl_port_destroy(struct pw_impl_port *port);
 

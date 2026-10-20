@@ -210,9 +210,45 @@ static void object_destroy(struct object *o)
 }
 
 /* core */
+static void core_event_info(void *data, const struct pw_core_info *info)
+{
+	struct object *o = data;
+	int changed = 0;
+
+	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
+
+	info = o->info = pw_core_info_merge(o->info, info, o->changed == 0);
+	if (info == NULL)
+		return;
+
+	if (info->change_mask & PW_CORE_CHANGE_MASK_PROPS) {
+		pw_properties_update(o->this.props, info->props);
+		changed++;
+	}
+	if (changed) {
+		o->changed += changed;
+		core_sync(o->manager);
+	}
+}
+
+static const struct pw_core_events core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.info = core_event_info,
+};
+
+static void core_destroy(struct object *o)
+{
+	if (o->info) {
+		pw_core_info_free(o->info);
+		o->info = NULL;
+	}
+}
+
 static const struct object_info core_info = {
 	.type = PW_TYPE_INTERFACE_Core,
 	.version = PW_VERSION_CORE,
+	.events = &core_events,
+	.destroy = core_destroy,
 };
 
 /* client */
@@ -709,12 +745,6 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-static void on_core_info(void *data, const struct pw_core_info *info)
-{
-	struct manager *m = data;
-	m->this.info = pw_core_info_merge(m->this.info, info, true);
-}
-
 static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct manager *m = data;
@@ -755,10 +785,9 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 	}
 }
 
-static const struct pw_core_events core_events = {
+static const struct pw_core_events core_manager_events = {
 	PW_VERSION_CORE_EVENTS,
 	.done = on_core_done,
-	.info = on_core_info,
 	.error = on_core_error
 };
 
@@ -789,7 +818,7 @@ struct pw_manager *pw_manager_new(struct pw_core *core)
 
 	pw_core_add_listener(m->this.core,
 			&m->core_listener,
-			&core_events, m);
+			&core_manager_events, m);
 	pw_registry_add_listener(m->this.registry,
 			&m->registry_listener,
 			&registry_events, m);
@@ -887,10 +916,23 @@ void pw_manager_destroy(struct pw_manager *manager)
 	spa_hook_remove(&m->registry_listener);
 	pw_proxy_destroy((struct pw_proxy*)m->this.registry);
 
-	if (m->this.info)
-		pw_core_info_free(m->this.info);
-
 	free(m);
+}
+
+uint32_t pw_manager_core_cookie(struct pw_manager *manager)
+{
+	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
+	struct object *core;
+	struct pw_core_info *info;
+
+	core = find_object_by_id(m, 0);
+	if (core == NULL)
+		return 0;
+
+	if ((info = core->info) == NULL)
+		return 0;
+
+	return info->cookie;
 }
 
 static struct object_data *object_find_data(struct object *o, const char *key)

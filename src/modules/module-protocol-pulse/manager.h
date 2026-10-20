@@ -46,8 +46,6 @@ struct pw_manager_events {
 struct pw_manager {
 	struct pw_core *core;
 	struct pw_registry *registry;
-
-	struct pw_core_info *info;
 };
 
 struct pw_manager_param {
@@ -83,6 +81,7 @@ struct pw_manager_object {
 };
 
 struct pw_manager *pw_manager_new(struct pw_core *core);
+uint32_t pw_manager_core_cookie(struct pw_manager *manager);
 
 void pw_manager_add_listener(struct pw_manager *manager,
 		struct spa_hook *listener,

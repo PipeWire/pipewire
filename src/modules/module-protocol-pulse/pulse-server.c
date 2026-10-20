@@ -824,19 +824,15 @@ static void manager_added(void *data, struct pw_manager_object *o)
 
 	register_object_message_handlers(o);
 
-	if (strcmp(o->type, PW_TYPE_INTERFACE_Core) == 0 && manager->info != NULL) {
-		struct pw_core_info *info = manager->info;
-		if (info->props) {
-			if ((str = spa_dict_lookup(info->props, "default.clock.rate")) != NULL)
-				client->impl->defs.sample_spec.rate = atoi(str);
-			if ((str = spa_dict_lookup(info->props, "default.clock.quantum-limit")) != NULL)
-				client->impl->defs.quantum_limit = atoi(str);
-		}
+	if (spa_streq(o->type, PW_TYPE_INTERFACE_Core)) {
+		if ((str = pw_properties_get(o->props, "default.clock.rate")) != NULL)
+			client->impl->defs.sample_spec.rate = atoi(str);
+		if ((str = pw_properties_get(o->props, "default.clock.quantum-limit")) != NULL)
+			client->impl->defs.quantum_limit = atoi(str);
 	}
 
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Metadata)) {
-		if (o->props != NULL &&
-		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
+		if ((str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
 			handle_metadata(client, NULL, o, str);
 	}
 
@@ -862,8 +858,6 @@ static void manager_added(void *data, struct pw_manager_object *o)
 				s->pending = false;
 			} else {
 				if (s->peer_index == peer->index)
-					continue;
-				if (peer->props == NULL)
 					continue;
 
 				s->peer_index = peer->index;
@@ -924,8 +918,7 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 	send_default_change_subscribe_event(client, pw_manager_object_is_sink(o), pw_manager_object_is_source_or_monitor(o));
 
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Metadata)) {
-		if (o->props != NULL &&
-		    (str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
+		if ((str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
 			handle_metadata(client, o, NULL, str);
 	}
 }
@@ -2557,7 +2550,7 @@ static const char *get_default(struct client *client, bool sink)
 	sel.accumulate = select_best;
 
 	o = select_object(manager, &sel);
-	if (o == NULL || o->props == NULL)
+	if (o == NULL)
 		return def;
 	str = pw_properties_get(o->props, PW_KEY_NODE_NAME);
 	if (str == NULL)
@@ -3398,13 +3391,15 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 {
 	struct impl *impl = client->impl;
 	struct pw_manager *manager = client->manager;
-	struct pw_core_info *info = manager ? manager->info : NULL;
 	char name[256];
 	struct message *reply;
+	uint32_t cookie;
 
 	pw_log_info("[%s] GET_SERVER_INFO tag:%u", client->name, tag);
 
 	snprintf(name, sizeof(name), "PulseAudio (on PipeWire %s)", pw_get_library_version());
+
+	cookie = pw_manager_core_cookie(manager);
 
 	reply = reply_new(client, tag);
 	message_put(reply,
@@ -3415,7 +3410,7 @@ static int do_get_server_info(struct client *client, uint32_t command, uint32_t 
 		TAG_SAMPLE_SPEC, &impl->defs.sample_spec,
 		TAG_STRING, manager ? get_default(client, true) : "",	/* default sink name */
 		TAG_STRING, manager ? get_default(client, false) : "",	/* default source name */
-		TAG_U32, info ? info->cookie : 0,			/* cookie */
+		TAG_U32, cookie,					/* cookie */
 		TAG_INVALID);
 
 	if (client->version >= 15) {
@@ -4851,7 +4846,7 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 		struct pw_manager_object *o;
 		if ((o = find_device(client, SPA_ID_INVALID, name, sink, NULL)) == NULL)
 			return -ENOENT;
-		if (o->props && (str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) != NULL)
+		if ((str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) != NULL)
 			name = str;
 		else if (spa_strendswith(name, ".monitor")) {
 			size_t len = strlen(name) - 8;

@@ -164,16 +164,14 @@ static char* channel_map_snprint(char *s, size_t l, const struct channel_map *ma
 	return s;
 }
 
-static void txt_record_server_data(struct pw_core_info *info, struct pw_properties *props)
+static void txt_record_server_data(struct pw_manager *m, struct pw_properties *props)
 {
 	struct utsname u;
-
-	spa_assert(info);
 
 	pw_properties_set(props, "server-version", PACKAGE_NAME" "PACKAGE_VERSION);
 	pw_properties_set(props, "user-name", pw_get_user_name());
 	pw_properties_set(props, "fqdn", pw_get_host_name());
-	pw_properties_setf(props, "cookie", "0x%08x", info->cookie);
+	pw_properties_setf(props, "cookie", "0x%08x", pw_manager_core_cookie(m));
 	if (uname(&u) >= 0)
 		pw_properties_setf(props, "uname", "%s %s %s", u.sysname, u.machine, u.release);
 }
@@ -241,7 +239,7 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 	if (s->props == NULL)
 		return;
 
-	txt_record_server_data(s->userdata->manager->info, s->props);
+	txt_record_server_data(manager, s->props);
 
 	if (is_sink) {
 		service_type = SERVICE_TYPE_SINK;

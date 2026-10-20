@@ -76,8 +76,6 @@ struct pw_manager_object {
 #define PW_MANAGER_OBJECT_FLAG_SINK	(1<<1)
 	uint64_t change_mask;	/* object specific params change mask */
 	struct spa_list param_list;
-	unsigned int creating:1;
-	unsigned int removing:1;
 };
 
 struct pw_manager *pw_manager_new(struct pw_core *core);

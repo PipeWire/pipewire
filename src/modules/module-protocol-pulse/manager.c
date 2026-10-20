@@ -64,6 +64,8 @@ struct object {
 	const struct object_info *object_info;
 
 	void *info;
+	unsigned int creating:1;
+	unsigned int removing:1;
 
 	int changed;
 	struct spa_list pending_list;
@@ -600,7 +602,7 @@ static void metadata_init(struct object *object)
 {
 	struct object *o = object;
 	struct manager *m = o->manager;
-	o->this.creating = false;
+	o->creating = false;
 	manager_emit_added(m, &o->this);
 }
 
@@ -682,7 +684,7 @@ static struct object *alloc_object(struct manager *m, uint32_t id,
 	o->this.version = version;
 	o->this.index = o->this.serial < (1ULL<<32) ? o->this.serial : SPA_ID_INVALID;
 	o->this.props = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
-	o->this.creating = true;
+	o->creating = true;
 	spa_list_init(&o->this.param_list);
 	spa_list_init(&o->pending_list);
 	spa_list_init(&o->data_list);
@@ -741,9 +743,9 @@ static void registry_event_global_remove(void *data, uint32_t id)
 	if ((o = find_object_by_id(m, id)) == NULL)
 		return;
 
-	o->this.removing = true;
+	o->removing = true;
 
-	if (!o->this.creating) {
+	if (!o->creating) {
 		o->this.change_mask = ~0;
 		manager_emit_removed(m, &o->this);
 	}
@@ -798,8 +800,8 @@ static void on_core_done(void *data, uint32_t id, int seq)
 			object_update_params(o);
 
 		spa_list_for_each(o, &m->object_list, this.link) {
-			if (o->this.creating) {
-				o->this.creating = false;
+			if (o->creating) {
+				o->creating = false;
 				manager_emit_added(m, &o->this);
 				o->changed = 0;
 			} else if (o->changed > 0) {
@@ -918,7 +920,7 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 	int res;
 
 	spa_list_for_each(o, &m->object_list, this.link) {
-		if (o->this.creating || o->this.removing)
+		if (o->creating || o->removing)
 			continue;
 		if ((res = callback(data, &o->this)) != 0)
 			return res;

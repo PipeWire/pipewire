@@ -783,6 +783,18 @@ static int stream_type_from_media_class(const char *media_class)
 		return STREAM_TYPE_NONE;
 }
 
+
+static void manager_emit(struct manager *m, struct object *o)
+{
+	if (o->creating) {
+		o->creating = false;
+		manager_emit_added(m, &o->this);
+	} else if (o->changed > 0) {
+		manager_emit_updated(m, &o->this);
+	}
+	o->changed = 0;
+}
+
 static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct manager *m = data;
@@ -800,14 +812,8 @@ static void on_core_done(void *data, uint32_t id, int seq)
 			object_update_params(o);
 
 		spa_list_for_each(o, &m->object_list, this.link) {
-			if (o->creating) {
-				o->creating = false;
-				manager_emit_added(m, &o->this);
-				o->changed = 0;
-			} else if (o->changed > 0) {
-				manager_emit_updated(m, &o->this);
-				o->changed = 0;
-			}
+			manager_emit(m, o);
+
 			object_reset_params(o);
 		}
 	}

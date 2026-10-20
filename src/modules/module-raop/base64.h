@@ -31,7 +31,7 @@ static inline void pw_base64_encode(const uint8_t *data, size_t len, char *enc, 
 
 static inline size_t pw_base64_decode(const char *data, size_t len, uint8_t *dec)
 {
-	uint8_t tab[] = {
+	static const int8_t tab[] = {
 		62, -1, -1, -1, 63, 52, 53, 54, 55, 56,
 		57, 58, 59, 60, 61, -1, -1, -1, -1, -1,
 		-1, -1,  0,  1,  2,  3,  4,  5,  6,  7,
@@ -41,12 +41,30 @@ static inline size_t pw_base64_decode(const char *data, size_t len, uint8_t *dec
 		32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
 		42, 43, 44, 45, 46, 47, 48, 49, 50, 51 };
 	size_t i, j;
-	for (i = 0, j = 0; i < len; i += 4) {
+	/* Only decode whole 4-char quartets: a truncated tail cannot be decoded,
+	 * and reading data[i+1..3] past it would be out of bounds. */
+	for (i = 0, j = 0; i + 4 <= len; i += 4) {
+		int8_t q[4];
+		int k;
 		uint32_t v;
-		v =                          tab[data[i+0]-43]  << (3*6);
-		v |=                         tab[data[i+1]-43]  << (2*6);
-		v |= (data[i+2] == '=' ? 0 : tab[data[i+2]-43]) << (1*6);
-		v |= (data[i+3] == '=' ? 0 : tab[data[i+3]-43]);
+
+		/* Map each byte through the alphabet, rejecting anything outside
+		 * '+'(43)..'z'(122) or a hole in the table — an unchecked tab[c-43]
+		 * would read outside the array. '=' is padding, decoded as 0. */
+		for (k = 0; k < 4; k++) {
+			unsigned char c = (unsigned char) data[i+k];
+			if (c == '=')
+				q[k] = 0;
+			else if (c >= 43 && c <= 122 && tab[c - 43] >= 0)
+				q[k] = tab[c - 43];
+			else
+				return j;	/* invalid input: stop cleanly */
+		}
+
+		v =  (uint32_t)q[0] << (3*6);
+		v |= (uint32_t)q[1] << (2*6);
+		v |= (uint32_t)q[2] << (1*6);
+		v |= (uint32_t)q[3];
 		                      dec[j++] = (v >> 16) & 0xff;
 		if (data[i+2] != '=') dec[j++] = (v >> 8)  & 0xff;
 		if (data[i+3] != '=') dec[j++] =  v        & 0xff;

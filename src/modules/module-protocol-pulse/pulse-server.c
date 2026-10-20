@@ -4153,10 +4153,11 @@ static int fill_node_info_proplist(struct message *m, const struct spa_dict *nod
 	const struct spa_dict_item *it;
 	struct spa_dict_item *items, *it2;
 
-	client_props = &client->props->dict;
+	client_props = client ? &client->props->dict : NULL;
 
 	n_items = node_props->n_items;
-	n_items += client_props->n_items;
+	if (client_props)
+		n_items += client_props->n_items;
 
 	if ((dict.items = items = spa_alloca(n_items, sizeof(struct spa_dict_item), MAX_ALLOCA_SIZE)) == NULL)
 		return -errno;
@@ -4166,15 +4167,17 @@ static int fill_node_info_proplist(struct message *m, const struct spa_dict *nod
 		items[n++] = *it;
 	dict.n_items = n;
 
-	spa_dict_for_each(it, client_props) {
-		if (spa_streq(it->key, PW_KEY_OBJECT_ID) ||
-		    spa_streq(it->key, PW_KEY_OBJECT_SERIAL))
-			continue;
+	if (client_props) {
+		spa_dict_for_each(it, client_props) {
+			if (spa_streq(it->key, PW_KEY_OBJECT_ID) ||
+			    spa_streq(it->key, PW_KEY_OBJECT_SERIAL))
+				continue;
 
-		if ((it2 = (struct spa_dict_item*)spa_dict_lookup_item(&dict, it->key)))
-			it2->value = it->value;
-		else
-			items[n++] = *it;
+			if ((it2 = (struct spa_dict_item*)spa_dict_lookup_item(&dict, it->key)))
+				it2->value = it->value;
+			else
+				items[n++] = *it;
+		}
 	}
 	dict.n_items = n;
 

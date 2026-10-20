@@ -20,8 +20,7 @@ void select_best(struct selector *s, struct pw_manager_object *o)
 {
 	int32_t prio = 0;
 
-	if (o->props &&
-	    pw_properties_fetch_int32(o->props, PW_KEY_PRIORITY_SESSION, &prio) == 0) {
+	if (pw_properties_fetch_int32(o->props, PW_KEY_PRIORITY_SESSION, &prio) == 0) {
 		if (s->best == NULL || prio > s->score) {
 			s->best = o;
 			s->score = prio;
@@ -42,7 +41,7 @@ static int select_object_cb(void *data, struct pw_manager_object *o)
 		goto found;
 	if (s->accumulate)
 		s->accumulate(s, o);
-	if (o->props && s->key != NULL && s->value != NULL &&
+	if (s->key != NULL && s->value != NULL &&
 	    (str = pw_properties_get(o->props, s->key)) != NULL &&
 	    spa_streq(str, s->value))
 		goto found;
@@ -77,7 +76,7 @@ static int collect_is_linked_cb(void *data, struct pw_manager_object *o)
 	struct collect_linked_data *d = data;
 	uint32_t in_node, out_node;
 
-	if (o->props == NULL || !pw_manager_object_is_link(o))
+	if (!pw_manager_object_is_link(o))
 		return 0;
 
 	if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
@@ -104,9 +103,6 @@ struct pw_manager_object *find_peer_for_link(struct pw_manager *m,
 {
 	struct pw_manager_object *p;
 	uint32_t in_node, out_node;
-
-	if (o->props == NULL)
-		return NULL;
 
 	if (pw_properties_fetch_uint32(o->props, PW_KEY_LINK_OUTPUT_NODE, &out_node) != 0 ||
 	    pw_properties_fetch_uint32(o->props, PW_KEY_LINK_INPUT_NODE, &in_node) != 0)
@@ -329,16 +325,12 @@ static void update_device_info(struct pw_manager *manager, struct pw_manager_obj
 	const char *str;
 	const char *key = monitor ? "device.info.monitor" : "device.info";
 	struct pw_manager_object *card = NULL;
-	struct pw_node_info *info = o->info;
 	struct device_info *dev_info, di;
 
-	if (info == NULL)
-		return;
-
 	di = DEVICE_INFO_INIT(direction);
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_DEVICE_ID)) != NULL)
 		di.card_id = (uint32_t)atoi(str);
-	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+	if ((str = pw_properties_get(o->props, "card.profile.device")) != NULL)
 		di.device = (uint32_t)atoi(str);
 	if (di.card_id != SPA_ID_INVALID) {
 		struct selector sel = { .id = di.card_id, .type = pw_manager_object_is_card, };
@@ -346,7 +338,7 @@ static void update_device_info(struct pw_manager *manager, struct pw_manager_obj
 	}
 	collect_device_info(o, card, &di, monitor, defs);
 
-	di.state = node_state(info->state);
+	di.state = pw_manager_node_state(o);
 	/* running sink/source that is not linked is reported as idle */
 	if (!stream && di.state == STATE_RUNNING &&
 	    !collect_is_linked(manager, o->id, pw_direction_reverse(direction)))

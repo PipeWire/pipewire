@@ -11,6 +11,7 @@
 #include <pipewire/extensions/metadata.h>
 
 #include "log.h"
+#include "defs.h"
 #include "module-protocol-pulse/server.h"
 
 #define manager_emit_sync(m) spa_hook_list_call(&(m)->hooks, struct pw_manager_events, sync, 0)
@@ -60,7 +61,9 @@ struct object {
 
 	struct manager *manager;
 
-	const struct object_info *info;
+	const struct object_info *object_info;
+
+	void *info;
 
 	int changed;
 	struct spa_list pending_list;
@@ -220,12 +223,14 @@ static void client_event_info(void *data, const struct pw_client_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_client_info_merge(o->this.info, info, o->changed == 0);
+	info = o->info = pw_client_info_merge(o->info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
-	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS)
+	if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
+		pw_properties_update(o->this.props, info->props);
 		changed++;
+	}
 
 	if (changed) {
 		o->changed += changed;
@@ -240,9 +245,9 @@ static const struct pw_client_events client_events = {
 
 static void client_destroy(struct object *o)
 {
-	if (o->this.info) {
-		pw_client_info_free(o->this.info);
-		o->this.info = NULL;
+	if (o->info) {
+		pw_client_info_free(o->info);
+		o->info = NULL;
 	}
 }
 
@@ -261,12 +266,14 @@ static void module_event_info(void *data, const struct pw_module_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_module_info_merge(o->this.info, info, o->changed == 0);
+	info = o->info = pw_module_info_merge(o->info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
-	if (info->change_mask & PW_MODULE_CHANGE_MASK_PROPS)
+	if (info->change_mask & PW_MODULE_CHANGE_MASK_PROPS) {
+		pw_properties_update(o->this.props, info->props);
 		changed++;
+	}
 
 	if (changed) {
 		o->changed += changed;
@@ -281,10 +288,21 @@ static const struct pw_module_events module_events = {
 
 static void module_destroy(struct object *o)
 {
-	if (o->this.info) {
-		pw_module_info_free(o->this.info);
-		o->this.info = NULL;
+	if (o->info) {
+		pw_module_info_free(o->info);
+		o->info = NULL;
 	}
+}
+
+const char *pw_manager_module_name(struct pw_manager_object *o)
+{
+	const struct pw_module_info *info = ((struct object*)o)->info;
+	return info->name;
+}
+const char *pw_manager_module_args(struct pw_manager_object *o)
+{
+	const struct pw_module_info *info = ((struct object*)o)->info;
+	return info->args;
 }
 
 static const struct object_info module_info = {
@@ -303,15 +321,17 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_device_info_merge(o->this.info, info, o->changed == 0);
+	info = o->info = pw_device_info_merge(o->info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
 	o->this.n_params = info->n_params;
 	o->this.params = info->params;
 
-	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
+	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
+		pw_properties_update(o->this.props, info->props);
 		changed++;
+	}
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
@@ -353,16 +373,14 @@ static struct object *find_device(struct manager *m, uint32_t card_id, uint32_t 
 	struct object *o;
 
 	spa_list_for_each(o, &m->object_list, this.link) {
-		struct pw_node_info *info;
 		const char *str;
 
 		if (!spa_streq(o->this.type, PW_TYPE_INTERFACE_Node))
 			continue;
 
-		if ((info = o->this.info) != NULL &&
-		    (str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL &&
+		if ((str = pw_properties_get(o->this.props, PW_KEY_DEVICE_ID)) != NULL &&
 		    (uint32_t)atoi(str) == card_id &&
-		    (str = spa_dict_lookup(info->props, "card.profile.device")) != NULL &&
+		    (str = pw_properties_get(o->this.props, "card.profile.device")) != NULL &&
 		    (uint32_t)atoi(str) == device)
 			return o;
 	}
@@ -405,9 +423,9 @@ static const struct pw_device_events device_events = {
 
 static void device_destroy(struct object *o)
 {
-	if (o->this.info) {
-		pw_device_info_free(o->this.info);
-		o->this.info = NULL;
+	if (o->info) {
+		pw_device_info_free(o->info);
+		o->info = NULL;
 	}
 }
 
@@ -427,7 +445,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 
 	pw_log_debug("object %p: id:%d change-mask:%08"PRIx64, o, o->this.id, info->change_mask);
 
-	info = o->this.info = pw_node_info_merge(o->this.info, info, o->changed == 0);
+	info = o->info = pw_node_info_merge(o->info, info, o->changed == 0);
 	if (info == NULL)
 		return;
 
@@ -437,8 +455,10 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
 		changed++;
 
-	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
+	if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+		pw_properties_update(o->this.props, info->props);
 		changed++;
+	}
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS) {
 		for (i = 0; i < info->n_params; i++) {
@@ -497,10 +517,16 @@ static const struct pw_node_events node_events = {
 
 static void node_destroy(struct object *o)
 {
-	if (o->this.info) {
-		pw_node_info_free(o->this.info);
-		o->this.info = NULL;
+	if (o->info) {
+		pw_node_info_free(o->info);
+		o->info = NULL;
 	}
+}
+
+int pw_manager_node_state(struct pw_manager_object *o)
+{
+	const struct pw_node_info *info = ((struct object*)o)->info;
+	return node_state(info->state);
 }
 
 static const struct object_info node_info = {
@@ -582,14 +608,14 @@ destroy_proxy(void *data)
 {
 	struct object *o = data;
 
-	spa_assert(o->info);
+	spa_assert(o->object_info);
 
-	if (o->info->events)
+	if (o->object_info->events)
 		spa_hook_remove(&o->object_listener);
 	spa_hook_remove(&o->proxy_listener);
 
-	if (o->info->destroy)
-                o->info->destroy(o);
+	if (o->object_info->destroy)
+                o->object_info->destroy(o);
 
         o->this.proxy = NULL;
 }
@@ -606,16 +632,16 @@ static void registry_event_global(void *data, uint32_t id,
 {
 	struct manager *m = data;
 	struct object *o;
-	const struct object_info *info;
+	const struct object_info *object_info;
 	const char *str;
 	struct pw_proxy *proxy;
 
-	info = find_info(type, version);
-	if (info == NULL)
+	object_info = find_info(type, version);
+	if (object_info == NULL)
 		return;
 
 	proxy = pw_registry_bind(m->this.registry,
-			id, type, info->version, 0);
+			id, type, object_info->version, 0);
         if (proxy == NULL)
 		return;
 
@@ -631,10 +657,10 @@ static void registry_event_global(void *data, uint32_t id,
 
 	o->this.id = id;
 	o->this.permissions = permissions;
-	o->this.type = info->type;
+	o->this.type = object_info->type;
 	o->this.version = version;
 	o->this.index = o->this.serial < (1ULL<<32) ? o->this.serial : SPA_ID_INVALID;
-	o->this.props = props ? pw_properties_new_dict(props) : NULL;
+	o->this.props = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
 	o->this.proxy = proxy;
 	o->this.creating = true;
 	spa_list_init(&o->this.param_list);
@@ -642,20 +668,20 @@ static void registry_event_global(void *data, uint32_t id,
 	spa_list_init(&o->data_list);
 
 	o->manager = m;
-	o->info = info;
+	o->object_info = object_info;
 	spa_list_append(&m->object_list, &o->this.link);
 	m->n_objects++;
 
-	if (info->events)
+	if (object_info->events)
 		pw_proxy_add_object_listener(proxy,
 				&o->object_listener,
-				o->info->events, o);
+				o->object_info->events, o);
 	pw_proxy_add_listener(proxy,
 			&o->proxy_listener,
 			&proxy_events, o);
 
-	if (info->init)
-		info->init(o);
+	if (object_info->init)
+		object_info->init(o);
 
 	core_sync(m);
 }
@@ -962,7 +988,6 @@ bool pw_manager_object_is_card(struct pw_manager_object *o)
 {
 	const char *str;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Device) &&
-		o->props != NULL &&
 		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
 		spa_streq(str, "Audio/Device");
 }
@@ -971,7 +996,6 @@ bool pw_manager_object_is_sink(struct pw_manager_object *o)
 {
 	const char *str;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		o->props != NULL &&
 		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
 		(spa_streq(str, "Audio/Sink") || spa_streq(str, "Audio/Duplex"));
 }
@@ -980,7 +1004,6 @@ bool pw_manager_object_is_source(struct pw_manager_object *o)
 {
 	const char *str;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		o->props != NULL &&
 		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
 		(spa_streq(str, "Audio/Source") ||
 		 spa_streq(str, "Audio/Duplex") ||
@@ -991,7 +1014,6 @@ bool pw_manager_object_is_monitor(struct pw_manager_object *o)
 {
 	const char *str;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		o->props != NULL &&
 		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
 		(spa_streq(str, "Audio/Sink"));
 }
@@ -999,20 +1021,16 @@ bool pw_manager_object_is_monitor(struct pw_manager_object *o)
 bool pw_manager_object_is_virtual(struct pw_manager_object *o)
 {
 	const char *str;
-	struct pw_node_info *info;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		(info = o->info) != NULL && info->props != NULL &&
-		(str = spa_dict_lookup(info->props, PW_KEY_NODE_VIRTUAL)) != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_NODE_VIRTUAL)) != NULL &&
 		pw_properties_parse_bool(str);
 }
 
 bool pw_manager_object_is_network(struct pw_manager_object *o)
 {
 	const char *str;
-	struct pw_node_info *info;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		(info = o->info) != NULL && info->props != NULL &&
-		(str = spa_dict_lookup(info->props, PW_KEY_NODE_NETWORK)) != NULL &&
+		(str = pw_properties_get(o->props, PW_KEY_NODE_NETWORK)) != NULL &&
 		pw_properties_parse_bool(str);
 }
 
@@ -1025,7 +1043,6 @@ bool pw_manager_object_is_sink_input(struct pw_manager_object *o)
 {
 	const char *str;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		o->props != NULL &&
 		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
 		spa_streq(str, "Stream/Output/Audio");
 }
@@ -1034,7 +1051,6 @@ bool pw_manager_object_is_source_output(struct pw_manager_object *o)
 {
 	const char *str;
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		o->props != NULL &&
 		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
 		spa_streq(str, "Stream/Input/Audio");
 }

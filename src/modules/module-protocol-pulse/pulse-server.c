@@ -334,7 +334,6 @@ static void send_latency_offset_subscribe_event(struct client *client, struct pw
 {
 	struct pw_manager *manager = client->manager;
 	struct latency_offset_data *d;
-	struct pw_node_info *info;
 	const char *str;
 	uint32_t card_id = SPA_ID_INVALID;
 	int64_t latency_offset = 0LL;
@@ -346,9 +345,7 @@ static void send_latency_offset_subscribe_event(struct client *client, struct pw
 	/*
 	 * Pulseaudio sends card change events on latency offset change.
 	 */
-	if ((info = o->info) == NULL || info->props == NULL)
-		return;
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
 	if (card_id == SPA_ID_INVALID)
 		return;
@@ -3019,7 +3016,6 @@ done:
 static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
-	struct pw_node_info *info;
 	uint32_t index;
 	const char *name;
 	struct volume volume;
@@ -3054,7 +3050,7 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	}
 
 	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT, &is_monitor);
-	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
+	if (o == NULL)
 		return -ENOENT;
 
 	get_device_info(o, &dev_info, direction, is_monitor);
@@ -3083,7 +3079,6 @@ done:
 static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
-	struct pw_node_info *info;
 	uint32_t index;
 	const char *name;
 	bool mute;
@@ -3113,7 +3108,7 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 		direction = PW_DIRECTION_INPUT;
 
 	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT, &is_monitor);
-	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
+	if (o == NULL)
 		return -ENOENT;
 
 	get_device_info(o, &dev_info, direction, is_monitor);
@@ -3142,7 +3137,6 @@ done:
 static int do_set_port(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
-	struct pw_node_info *info;
 	uint32_t index, card_id = SPA_ID_INVALID, device_id = SPA_ID_INVALID;
 	uint32_t port_index = SPA_ID_INVALID;
 	const char *name, *str, *port_name;
@@ -3170,12 +3164,12 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 		direction = PW_DIRECTION_INPUT;
 
 	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT, NULL);
-	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
+	if (o == NULL)
 		return -ENOENT;
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
-	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+	if ((str = pw_properties_get(o->props, "card.profile.device")) != NULL)
 		device_id = (uint32_t)atoi(str);
 	if (card_id != SPA_ID_INVALID) {
 		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
@@ -3502,26 +3496,27 @@ static int do_drain_stream(struct client *client, uint32_t command, uint32_t tag
 static int fill_client_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
-	struct pw_client_info *info = o->info;
 	struct pw_manager *manager = client->manager;
-	const char *str;
+	const char *str, *app_name;
 	uint32_t module_id = SPA_ID_INVALID;
 
-	if (!pw_manager_object_is_client(o) || info == NULL || info->props == NULL)
+	if (!pw_manager_object_is_client(o))
 		return -ENOENT;
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
+
+	app_name = pw_properties_get(o->props, PW_KEY_APP_NAME),
 
 	message_put(m,
 		TAG_U32, o->index,				/* client index */
-		TAG_STRING, pw_properties_get(o->props, PW_KEY_APP_NAME),
+		TAG_STRING, app_name,
 		TAG_U32, id_to_index(manager, module_id),	/* module index */
 		TAG_STRING, "PipeWire",				/* driver */
 		TAG_INVALID);
 	if (client->version >= 13) {
 		message_put(m,
-			TAG_PROPLIST, info->props,
+			TAG_PROPLIST, &o->props->dict,
 			TAG_INVALID);
 	}
 	return 0;
@@ -3530,15 +3525,18 @@ static int fill_client_info(struct client *client, struct message *m,
 static int fill_module_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
-	struct pw_module_info *info = o->info;
+	const char *name, *args;
 
-	if (!pw_manager_object_is_module(o) || info == NULL || info->props == NULL)
+	if (!pw_manager_object_is_module(o))
 		return -ENOENT;
+
+	name = pw_manager_module_name(o);
+	args = pw_manager_module_args(o);
 
 	message_put(m,
 		TAG_U32, o->index,			/* module index */
-		TAG_STRING, info->name,
-		TAG_STRING, info->args,
+		TAG_STRING, name,
+		TAG_STRING, args,
 		TAG_U32, -1,				/* n_used */
 		TAG_INVALID);
 
@@ -3549,7 +3547,7 @@ static int fill_module_info(struct client *client, struct message *m,
 	}
 	if (client->version >= 15) {
 		message_put(m,
-			TAG_PROPLIST, info->props,
+			TAG_PROPLIST, &o->props->dict,
 			TAG_INVALID);
 	}
 	return 0;
@@ -3590,18 +3588,15 @@ static int get_port_latency_cb(void *data, struct pw_manager_object *o)
 	const char *str;
 	uint32_t card_id = SPA_ID_INVALID;
 	uint32_t device_id = SPA_ID_INVALID;
-	struct pw_node_info *info;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source_or_monitor(o))
 		return 0;
-	if ((info = o->info) == NULL || info->props == NULL)
-		return 0;
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
 	if (card_id != d->card_id)
 		return 0;
 
-	if ((str = spa_dict_lookup(info->props, "card.profile.device")) != NULL)
+	if ((str = pw_properties_get(o->props, "card.profile.device")) != NULL)
 		device_id = (uint32_t)atoi(str);
 	if (device_id != d->device_id)
 		return 0;
@@ -3634,26 +3629,25 @@ static int fill_card_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_manager *manager = client->manager;
-	struct pw_device_info *info = o->info;
 	const char *str, *drv_name, *card_name;
 	uint32_t module_id = SPA_ID_INVALID, n_profiles, n;
 	struct card_info card_info = CARD_INFO_INIT;
 	struct profile_info *profile_info;
 	char name[128];
 
-	if (!pw_manager_object_is_card(o) || info == NULL || info->props == NULL)
+	if (!pw_manager_object_is_card(o))
 		return -ENOENT;
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = (uint32_t)atoi(str);
 
-	drv_name = spa_dict_lookup(info->props, PW_KEY_DEVICE_API);
+	drv_name = pw_properties_get(o->props, PW_KEY_DEVICE_API);
 	if (drv_name && spa_streq("bluez5", drv_name))
 		drv_name = "module-bluez5-device.c"; /* blueman needs this */
 
-	card_name = spa_dict_lookup(info->props, PW_KEY_DEVICE_NAME);
+	card_name = pw_properties_get(o->props, PW_KEY_DEVICE_NAME);
 	if (card_name == NULL)
-		card_name = spa_dict_lookup(info->props, "api.alsa.card.name");
+		card_name = pw_properties_get(o->props, "api.alsa.card.name");
 	if (card_name == NULL) {
 		snprintf(name, sizeof(name), "card_%u", o->index);
 		card_name = name;
@@ -3695,7 +3689,7 @@ static int fill_card_info(struct client *client, struct message *m,
 	}
 	message_put(m,
 		TAG_STRING, card_info.active_profile_name,	/* active profile name */
-		TAG_PROPLIST, info->props,
+		TAG_PROPLIST, &o->props->dict,
 		TAG_INVALID);
 
 	if (client->version >= 26) {
@@ -3777,15 +3771,14 @@ static int fill_card_info(struct client *client, struct message *m,
 static int fill_sink_info_proplist(struct message *m, const struct spa_dict *sink_props,
 		const struct pw_manager_object *card)
 {
-	struct pw_device_info *card_info = card ? card->info : NULL;
 	spa_autoptr(pw_properties) props = NULL;
 
-	if (card_info && card_info->props) {
+	if (card) {
 		props = pw_properties_new_dict(sink_props);
 		if (props == NULL)
 			return -ENOMEM;
 
-		pw_properties_add(props, card_info->props);
+		pw_properties_add(props, &card->props->dict);
 		sink_props = &props->dict;
 	}
 
@@ -3804,7 +3797,6 @@ static bool validate_device_info(struct device_info *dev_info)
 static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
-	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	const char *name, *desc, *str;
 	char *monitor_name = NULL;
@@ -3815,11 +3807,11 @@ static int fill_sink_info(struct client *client, struct message *m,
 	struct device_info dev_info;
 	size_t size;
 
-	if (!pw_manager_object_is_sink(o) || info == NULL || info->props == NULL)
+	if (!pw_manager_object_is_sink(o))
 		return -ENOENT;
 
-	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
-	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
+	name = pw_properties_get(o->props, PW_KEY_NODE_NAME);
+	if ((desc = pw_properties_get(o->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
 		desc = name ? name : "Unknown";
 	if (name == NULL)
 		name = "unknown";
@@ -3831,10 +3823,10 @@ static int fill_sink_info(struct client *client, struct message *m,
 	else
 		snprintf(monitor_name, size, "%s.monitor", name);
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = id_to_index(manager, (uint32_t)atoi(str));
 	if (module_id == SPA_ID_INVALID &&
-	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
+	    (str = pw_properties_get(o->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 
 	get_device_info(o, &dev_info, PW_DIRECTION_OUTPUT, false);
@@ -3887,7 +3879,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 
 	if (client->version >= 13) {
 		int res;
-		if ((res = fill_sink_info_proplist(m, info->props, card)) < 0)
+		if ((res = fill_sink_info_proplist(m, &o->props->dict, card)) < 0)
 			return res;
 		message_put(m,
 			TAG_USEC, 0LL,			/* requested latency */
@@ -3975,16 +3967,15 @@ static int fill_sink_info(struct client *client, struct message *m,
 static int fill_source_info_proplist(struct message *m, const struct spa_dict *source_props,
 		const struct pw_manager_object *card, const bool is_monitor)
 {
-	struct pw_device_info *card_info = card ? card->info : NULL;
 	spa_autoptr(pw_properties) props = NULL;
 
-	if ((card_info && card_info->props) || is_monitor) {
+	if (card || is_monitor) {
 		props = pw_properties_new_dict(source_props);
 		if (props == NULL)
 			return -ENOMEM;
 
-		if (card_info && card_info->props)
-			pw_properties_add(props, card_info->props);
+		if (card)
+			pw_properties_add(props, &card->props->dict);
 
 		if (is_monitor)
 			pw_properties_set(props, PW_KEY_DEVICE_CLASS, "monitor");
@@ -4000,7 +3991,6 @@ static int fill_source_info_proplist(struct message *m, const struct spa_dict *s
 static int fill_source_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
-	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	bool is_monitor;
 	const char *name, *desc, *str;
@@ -4014,11 +4004,11 @@ static int fill_source_info(struct client *client, struct message *m,
 	size_t size;
 
 	is_monitor = pw_manager_object_is_monitor(o);
-	if ((!pw_manager_object_is_source(o) && !is_monitor) || info == NULL || info->props == NULL)
+	if ((!pw_manager_object_is_source(o) && !is_monitor))
 		return -ENOENT;
 
-	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
-	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
+	name = pw_properties_get(o->props, PW_KEY_NODE_NAME);
+	if ((desc = pw_properties_get(o->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
 		desc = name ? name : "Unknown";
 	if (name == NULL)
 		name = "unknown";
@@ -4031,10 +4021,10 @@ static int fill_source_info(struct client *client, struct message *m,
 	monitor_desc = alloca(size);
 	snprintf(monitor_desc, size, "Monitor of %s", desc);
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = id_to_index(manager, (uint32_t)atoi(str));
 	if (module_id == SPA_ID_INVALID &&
-	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
+	    (str = pw_properties_get(o->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 
 	get_device_info(o, &dev_info, PW_DIRECTION_INPUT, is_monitor);
@@ -4085,7 +4075,7 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	if (client->version >= 13) {
 		int res;
-		if ((res = fill_source_info_proplist(m, info->props, card, is_monitor)) < 0)
+		if ((res = fill_source_info_proplist(m, &o->props->dict, card, is_monitor)) < 0)
 			return res;
 		message_put(m,
 			TAG_USEC, 0LL,			/* requested latency */
@@ -4146,10 +4136,10 @@ static int fill_source_info(struct client *client, struct message *m,
 	return 0;
 }
 
-static const char *get_media_name(struct pw_node_info *info)
+static const char *get_media_name(struct pw_properties *props)
 {
 	const char *media_name;
-	media_name = spa_dict_lookup(info->props, PW_KEY_MEDIA_NAME);
+	media_name = pw_properties_get(props, PW_KEY_MEDIA_NAME);
 	if (media_name == NULL)
 		media_name = "";
 	return media_name;
@@ -4158,17 +4148,15 @@ static const char *get_media_name(struct pw_node_info *info)
 static int fill_node_info_proplist(struct message *m, const struct spa_dict *node_props,
 		const struct pw_manager_object *client)
 {
-	struct pw_client_info *client_info = client ? client->info : NULL;
 	uint32_t n_items, n;
 	struct spa_dict dict = SPA_DICT_INIT(NULL, 0), *client_props = NULL;
 	const struct spa_dict_item *it;
 	struct spa_dict_item *items, *it2;
 
+	client_props = &client->props->dict;
+
 	n_items = node_props->n_items;
-	if (client_info && client_info->props) {
-		client_props = client_info->props;
-		n_items += client_props->n_items;
-	}
+	n_items += client_props->n_items;
 
 	if ((dict.items = items = spa_alloca(n_items, sizeof(struct spa_dict_item), MAX_ALLOCA_SIZE)) == NULL)
 		return -errno;
@@ -4178,19 +4166,18 @@ static int fill_node_info_proplist(struct message *m, const struct spa_dict *nod
 		items[n++] = *it;
 	dict.n_items = n;
 
-	if (client_props) {
-		spa_dict_for_each(it, client_props) {
-			if (spa_streq(it->key, PW_KEY_OBJECT_ID) ||
-			    spa_streq(it->key, PW_KEY_OBJECT_SERIAL))
-				continue;
+	spa_dict_for_each(it, client_props) {
+		if (spa_streq(it->key, PW_KEY_OBJECT_ID) ||
+		    spa_streq(it->key, PW_KEY_OBJECT_SERIAL))
+			continue;
 
-			if ((it2 = (struct spa_dict_item*)spa_dict_lookup_item(&dict, it->key)))
-				it2->value = it->value;
-			else
-				items[n++] = *it;
-		}
-		dict.n_items = n;
+		if ((it2 = (struct spa_dict_item*)spa_dict_lookup_item(&dict, it->key)))
+			it2->value = it->value;
+		else
+			items[n++] = *it;
 	}
+	dict.n_items = n;
+
 	message_put(m, TAG_PROPLIST, &dict, TAG_INVALID);
 	return 0;
 }
@@ -4198,7 +4185,6 @@ static int fill_node_info_proplist(struct message *m, const struct spa_dict *nod
 static int fill_sink_input_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
-	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	const char *str;
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
@@ -4206,17 +4192,17 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	struct device_info dev_info;
 	bool corked;
 
-	if (!pw_manager_object_is_sink_input(o) || info == NULL || info->props == NULL)
+	if (!pw_manager_object_is_sink_input(o))
 		return -ENOENT;
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = id_to_index(manager, (uint32_t)atoi(str));
 	if (module_id == SPA_ID_INVALID &&
-	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
+	    (str = pw_properties_get(o->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 
 	if (!pw_manager_object_is_virtual(o) &&
-	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
+	    (str = pw_properties_get(o->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
 	get_device_info(o, &dev_info, PW_DIRECTION_OUTPUT, false);
@@ -4232,14 +4218,14 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 		else
 			peer_index = SPA_ID_INVALID;
 	}
-	if ((str = spa_dict_lookup(info->props, "pulse.corked")) != NULL)
+	if ((str = pw_properties_get(o->props, "pulse.corked")) != NULL)
 		corked = spa_atob(str);
 	else
 		corked = dev_info.state != STATE_RUNNING;
 
 	message_put(m,
 		TAG_U32, o->index,				/* sink_input index */
-		TAG_STRING, get_media_name(info),
+		TAG_STRING, get_media_name(o->props),
 		TAG_U32, module_id,				/* module index */
 		TAG_U32, id_to_index(manager, client_id),	/* client index */
 		TAG_U32, peer_index,				/* sink index */
@@ -4262,7 +4248,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 			struct selector sel = { .id = client_id, .type = pw_manager_object_is_client, };
 			c = select_object(manager, &sel);
 		}
-		if ((res = fill_node_info_proplist(m, info->props, c)) < 0)
+		if ((res = fill_node_info_proplist(m, &o->props->dict, c)) < 0)
 			return res;
 	}
 	if (client->version >= 19)
@@ -4288,7 +4274,6 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 static int fill_source_output_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
-	struct pw_node_info *info = o->info;
 	struct pw_manager *manager = client->manager;
 	const char *str;
 	uint32_t module_id = SPA_ID_INVALID, client_id = SPA_ID_INVALID;
@@ -4296,17 +4281,17 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	struct device_info dev_info;
 	bool corked;
 
-	if (!pw_manager_object_is_source_output(o) || info == NULL || info->props == NULL)
+	if (!pw_manager_object_is_source_output(o))
 		return -ENOENT;
 
-	if ((str = spa_dict_lookup(info->props, PW_KEY_MODULE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = id_to_index(manager, (uint32_t)atoi(str));
 	if (module_id == SPA_ID_INVALID &&
-	    (str = spa_dict_lookup(info->props, "pulse.module.id")) != NULL)
+	    (str = pw_properties_get(o->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 
 	if (!pw_manager_object_is_virtual(o) &&
-	    (str = spa_dict_lookup(info->props, PW_KEY_CLIENT_ID)) != NULL)
+	    (str = pw_properties_get(o->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
 	get_device_info(o, &dev_info, PW_DIRECTION_INPUT, false);
@@ -4322,14 +4307,14 @@ static int fill_source_output_info(struct client *client, struct message *m,
 		else
 			peer_index = SPA_ID_INVALID;
 	}
-	if ((str = spa_dict_lookup(info->props, "pulse.corked")) != NULL)
+	if ((str = pw_properties_get(o->props, "pulse.corked")) != NULL)
 		corked = spa_atob(str);
 	else
 		corked = dev_info.state != STATE_RUNNING;
 
 	message_put(m,
 		TAG_U32, o->index,				/* source_output index */
-		TAG_STRING, get_media_name(info),
+		TAG_STRING, get_media_name(o->props),
 		TAG_U32, module_id,				/* module index */
 		TAG_U32, id_to_index(manager, client_id),	/* client index */
 		TAG_U32, peer_index,				/* source index */
@@ -4347,7 +4332,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 			struct selector sel = { .id = client_id, .type = pw_manager_object_is_client, };
 			c = select_object(manager, &sel);
 		}
-		if ((res = fill_node_info_proplist(m, info->props, c)) < 0)
+		if ((res = fill_node_info_proplist(m, &o->props->dict, c)) < 0)
 			return res;
 	}
 	if (client->version >= 19)
@@ -4954,7 +4939,6 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	int64_t target_serial;
 	const char *name_device;
 	const char *name;
-	struct pw_node_info *info;
 	struct selector sel;
 	int res;
 	bool sink = command == COMMAND_MOVE_SINK_INPUT;
@@ -4981,10 +4965,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	if (o == NULL)
 		return -ENOENT;
 
-	info = o->info;
-	if (info == NULL || info->props == NULL)
-		return -EINVAL;
-	if (spa_atob(spa_dict_lookup(info->props, PW_KEY_NODE_DONT_RECONNECT)))
+	if (spa_atob(pw_properties_get(o->props, PW_KEY_NODE_DONT_RECONNECT)))
 		return -EINVAL;
 
 	if ((dev = find_device(client, index_device, name_device, sink, NULL)) == NULL)
@@ -5022,7 +5003,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 			SPA_TYPE_INFO_BASE"Id", "%"PRIi64, target_serial)) < 0)
 		return res;
 
-	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+	name = pw_properties_get(o->props, PW_KEY_NODE_NAME);
 	pw_log_debug("[%s] %s done tag:%u index:%u name:%s target:%d target-serial:%"PRIi64, client->name,
 			commands[command].name, tag, index, name ? name : "<null>",
 			target_id, target_serial);

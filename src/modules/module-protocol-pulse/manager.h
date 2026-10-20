@@ -71,7 +71,6 @@ struct pw_manager_object {
 	int (*message_handler)(struct client *client, struct pw_manager_object *o,
 	                       const char *message, const char *params, FILE *response);
 
-	void *info;
 	struct spa_param_info *params;
 	uint32_t n_params;
 
@@ -122,6 +121,10 @@ bool pw_manager_object_is_sink_input(struct pw_manager_object *o);
 bool pw_manager_object_is_source_output(struct pw_manager_object *o);
 bool pw_manager_object_is_recordable(struct pw_manager_object *o);
 bool pw_manager_object_is_link(struct pw_manager_object *o);
+
+const char *pw_manager_module_name(struct pw_manager_object *o);
+const char *pw_manager_module_args(struct pw_manager_object *o);
+int pw_manager_node_state(struct pw_manager_object *o);
 
 #ifdef __cplusplus
 } /* extern "C" */

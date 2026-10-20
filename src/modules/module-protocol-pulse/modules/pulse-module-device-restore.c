@@ -387,7 +387,6 @@ static int do_extension_device_restore_save_formats(struct module *module, struc
 	struct pw_manager *manager = client->manager;
 	struct selector sel;
 	struct pw_manager_object *o, *card = NULL;
-	struct pw_node_info *info;
 	int res;
 	uint32_t type, sink_index;
 	uint8_t i, n_formats;
@@ -428,7 +427,7 @@ static int do_extension_device_restore_save_formats(struct module *module, struc
 	sel.type = pw_manager_object_is_sink;
 
 	o = select_object(manager, &sel);
-	if (o == NULL || (info = o->info) == NULL || info->props == NULL)
+	if (o == NULL)
 		return -ENOENT;
 
 	get_device_info(o, &dev_info, SPA_DIRECTION_INPUT, false);

@@ -202,7 +202,6 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 {
 	bool is_sink = pw_manager_object_is_sink(o);
 	bool is_source = pw_manager_object_is_source(o);
-	struct pw_node_info *info = o->info;
 	const char *name, *desc;
 	struct pw_manager *manager = d->manager;
 	struct pw_manager_object *card = NULL;
@@ -213,12 +212,8 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 	uint32_t n_subtype = 0;
 	char cm[PA_CHANNEL_MAP_SNPRINT_MAX];
 
-
-	if (info == NULL || info->props == NULL)
-		return;
-
-	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
-	if ((desc = spa_dict_lookup(info->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
+	name = pw_properties_get(o->props, PW_KEY_NODE_NAME);
+	if ((desc = pw_properties_get(o->props, PW_KEY_NODE_DESCRIPTION)) == NULL)
 		desc = name ? name : "Unknown";
 	if (name == NULL)
 		name = "unknown";
@@ -386,15 +381,10 @@ static void manager_removed(void *d, struct pw_manager_object *o)
 static void manager_added(void *d, struct pw_manager_object *o)
 {
 	struct service *s;
-	struct pw_node_info *info;
 	struct module_zeroconf_publish_data *data = d;
 	struct impl *impl = data->module->impl;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
-		return;
-
-	info = o->info;
-	if (info == NULL || info->props == NULL)
 		return;
 
 	if (pw_manager_object_is_network(o))

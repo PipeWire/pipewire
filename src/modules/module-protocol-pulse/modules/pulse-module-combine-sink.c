@@ -105,13 +105,11 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	struct module_combine_sink_data *data = d;
 	const char *str;
 	uint32_t val = 0;
-	struct pw_node_info *info;
 
-	if (!spa_streq(o->type, PW_TYPE_INTERFACE_Node) ||
-	    (info = o->info) == NULL || info->props == NULL)
+	if (!spa_streq(o->type, PW_TYPE_INTERFACE_Node))
 		return;
 
-	str = spa_dict_lookup(info->props, "pulse.module.id");
+	str = pw_properties_get(o->props, "pulse.module.id");
 	if (str == NULL || !spa_atou32(str, &val, 0) || val != data->module->index)
 		return;
 

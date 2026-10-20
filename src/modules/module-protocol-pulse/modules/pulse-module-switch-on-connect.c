@@ -73,8 +73,6 @@ static void handle_metadata(struct module_switch_on_connect_data *d, struct pw_m
 static void manager_added(void *data, struct pw_manager_object *o)
 {
 	struct module_switch_on_connect_data *d = data;
-	struct pw_node_info *info = o->info;
-	struct pw_device_info *card_info = NULL;
 	uint32_t card_id = SPA_ID_INVALID;
 	struct pw_manager_object *card = NULL;
 	const char *str, *bus, *name;
@@ -91,15 +89,12 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	if (!(pw_manager_object_is_sink(o) || pw_manager_object_is_source_or_monitor(o)))
 		return;
 
-	if (!info || !info->props)
-		return;
-
-	name = spa_dict_lookup(info->props, PW_KEY_NODE_NAME);
+	name = pw_properties_get(o->props, PW_KEY_NODE_NAME);
 	if (!name)
 		return;
 
 	/* Find card */
-	if ((str = spa_dict_lookup(info->props, PW_KEY_DEVICE_ID)) != NULL)
+	if ((str = pw_properties_get(o->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
 	if (card_id != SPA_ID_INVALID) {
 		struct selector sel = { .id = card_id, .type = pw_manager_object_is_card, };
@@ -107,15 +102,12 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	}
 	if (!card)
 		return;
-	card_info = card->info;
-	if (!card_info || !card_info->props)
-		return;
 
 	pw_log_debug("considering switching to %s", name);
 
 	/* If internal device, only consider hdmi sinks */
-	str = spa_dict_lookup(info->props, "api.alsa.path");
-	bus = spa_dict_lookup(card_info->props, PW_KEY_DEVICE_BUS);
+	str = pw_properties_get(o->props, "api.alsa.path");
+	bus = pw_properties_get(card->props, PW_KEY_DEVICE_BUS);
 	if ((spa_streq(bus, "pci") || spa_streq(bus, "isa")) &&
 			!(pw_manager_object_is_sink(o) && spa_strstartswith(str, "hdmi"))) {
 		pw_log_debug("not switching to internal device");

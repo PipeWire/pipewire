@@ -5355,13 +5355,10 @@ void pa_alsa_profile_set_recheck_hdmi_eld(
     PA_HASHMAP_FOREACH(p, ps->profiles, state) {
         uint32_t idx;
         bool supports_hdmi_output_mapping = false;
+        bool supports_input_mapping = true;
 
         if (p->profile.flags & (ACP_PROFILE_OFF | ACP_PROFILE_PRO))
             continue;
-
-	/* Skip profiles with input mappings as HDMI ELD is only for playback */
-	if (p->input_mappings)
-	    continue;
 
         if (p->output_mappings) {
             PA_IDXSET_FOREACH(m, p->output_mappings, idx) {
@@ -5379,7 +5376,17 @@ void pa_alsa_profile_set_recheck_hdmi_eld(
             }
         }
 
-        if (supports_hdmi_output_mapping) {
+        /* Mappings not affected by the ELD must have been opened during probing */
+        if (p->input_mappings) {
+            PA_IDXSET_FOREACH(m, p->input_mappings, idx) {
+                if (m->supported == 0) {
+                    supports_input_mapping = false;
+                    break;
+                }
+            }
+        }
+
+        if (supports_hdmi_output_mapping && supports_input_mapping) {
             p->supported = true;
             pa_log_debug("HDMI profile %s enabled (ELD channels matched)", p->name);
         }

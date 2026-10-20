@@ -745,6 +745,31 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
+enum {
+	STREAM_TYPE_NONE,
+	STREAM_TYPE_SINK,
+	STREAM_TYPE_SOURCE,
+	STREAM_TYPE_SINK_INPUT,
+	STREAM_TYPE_SOURCE_OUTPUT,
+};
+
+static int stream_type_from_media_class(const char *media_class)
+{
+	if (spa_streq(media_class, "Audio/Sink") ||
+	    spa_streq(media_class, "Audio/Duplex"))
+		return STREAM_TYPE_SINK;
+	if (spa_streq(media_class, "Audio/Source") ||
+	    spa_streq(media_class, "Audio/Duplex") ||
+	    spa_streq(media_class, "Audio/Source/Virtual"))
+		return STREAM_TYPE_SOURCE;
+	if (spa_streq(media_class, "Stream/Output/Audio"))
+		return STREAM_TYPE_SINK_INPUT;
+	if (spa_streq(media_class, "Stream/Input/Audio"))
+		return STREAM_TYPE_SOURCE_OUTPUT;
+	else
+		return STREAM_TYPE_NONE;
+}
+
 static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct manager *m = data;
@@ -1034,30 +1059,28 @@ bool pw_manager_object_is_card(struct pw_manager_object *o)
 		spa_streq(str, "Audio/Device");
 }
 
-bool pw_manager_object_is_sink(struct pw_manager_object *o)
+static int manager_object_stream_type(struct pw_manager_object *o)
 {
 	const char *str;
-	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-		(spa_streq(str, "Audio/Sink") || spa_streq(str, "Audio/Duplex"));
+	if (spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
+	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL)
+		return stream_type_from_media_class(str);
+	return STREAM_TYPE_NONE;
+}
+
+bool pw_manager_object_is_sink(struct pw_manager_object *o)
+{
+	return manager_object_stream_type(o) == STREAM_TYPE_SINK;
 }
 
 bool pw_manager_object_is_source(struct pw_manager_object *o)
 {
-	const char *str;
-	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-		(spa_streq(str, "Audio/Source") ||
-		 spa_streq(str, "Audio/Duplex") ||
-		 spa_streq(str, "Audio/Source/Virtual"));
+	return manager_object_stream_type(o) == STREAM_TYPE_SOURCE;
 }
 
 bool pw_manager_object_is_monitor(struct pw_manager_object *o)
 {
-	const char *str;
-	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-		(spa_streq(str, "Audio/Sink"));
+	return manager_object_stream_type(o) == STREAM_TYPE_SINK;
 }
 
 bool pw_manager_object_is_virtual(struct pw_manager_object *o)
@@ -1083,18 +1106,12 @@ bool pw_manager_object_is_source_or_monitor(struct pw_manager_object *o)
 
 bool pw_manager_object_is_sink_input(struct pw_manager_object *o)
 {
-	const char *str;
-	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-		spa_streq(str, "Stream/Output/Audio");
+	return manager_object_stream_type(o) == STREAM_TYPE_SINK_INPUT;
 }
 
 bool pw_manager_object_is_source_output(struct pw_manager_object *o)
 {
-	const char *str;
-	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
-		(str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL &&
-		spa_streq(str, "Stream/Input/Audio");
+	return manager_object_stream_type(o) == STREAM_TYPE_SOURCE_OUTPUT;
 }
 
 bool pw_manager_object_is_recordable(struct pw_manager_object *o)

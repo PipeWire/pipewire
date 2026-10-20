@@ -219,8 +219,11 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	struct properties changes;
 	const char *value;
 
-	if ((res = spa_json_begin_object_relax(&it[0], str, size)) <= 0)
+	if ((res = spa_json_begin_object_relax(&it[0], str, size)) <= 0) {
+		if (loc)
+			*loc = (struct spa_error_location){ 0, 0, 0, NULL, "Invalid object" };
 		return res;
+	}
 
 	if (props)
 		properties_init(&changes, 16);

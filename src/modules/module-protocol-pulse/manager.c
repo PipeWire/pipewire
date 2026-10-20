@@ -662,6 +662,36 @@ static const struct pw_proxy_events proxy_events = {
         .destroy = destroy_proxy,
 };
 
+static struct object *alloc_object(struct manager *m, uint32_t id,
+		uint32_t permissions, const char *type, uint32_t version,
+		const struct spa_dict *props)
+{
+	struct object *o;
+	const char *str;
+
+	if ((o = calloc(1, sizeof(*o))) == NULL)
+		return NULL;
+
+	str = props ? spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL) : NULL;
+	if (!spa_atou64(str, &o->this.serial, 0))
+		o->this.serial = SPA_ID_INVALID;
+
+	o->this.id = id;
+	o->this.permissions = permissions;
+	o->this.type = type;
+	o->this.version = version;
+	o->this.index = o->this.serial < (1ULL<<32) ? o->this.serial : SPA_ID_INVALID;
+	o->this.props = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
+	o->this.creating = true;
+	spa_list_init(&o->this.param_list);
+	spa_list_init(&o->pending_list);
+	spa_list_init(&o->data_list);
+
+	o->manager = m;
+
+	return o;
+}
+
 static void registry_event_global(void *data, uint32_t id,
 			uint32_t permissions, const char *type, uint32_t version,
 			const struct spa_dict *props)
@@ -669,42 +699,23 @@ static void registry_event_global(void *data, uint32_t id,
 	struct manager *m = data;
 	struct object *o;
 	const struct object_info *object_info;
-	const char *str;
 	struct pw_proxy *proxy;
 
-	object_info = find_info(type, version);
-	if (object_info == NULL)
+	if ((object_info = find_info(type, version)) == NULL)
 		return;
 
-	proxy = pw_registry_bind(m->this.registry,
-			id, type, object_info->version, 0);
-        if (proxy == NULL)
+	if ((proxy = pw_registry_bind(m->this.registry,
+			id, type, object_info->version, 0)) == NULL)
 		return;
 
-	o = calloc(1, sizeof(*o));
-	if (o == NULL) {
+	if ((o = alloc_object(m, id, permissions, object_info->type, version, props)) == NULL) {
 		pw_log_error("can't alloc object for %u %s/%d: %m", id, type, version);
 		pw_proxy_destroy(proxy);
 		return;
 	}
-	str = props ? spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL) : NULL;
-	if (!spa_atou64(str, &o->this.serial, 0))
-		o->this.serial = SPA_ID_INVALID;
-
-	o->this.id = id;
-	o->this.permissions = permissions;
-	o->this.type = object_info->type;
-	o->this.version = version;
-	o->this.index = o->this.serial < (1ULL<<32) ? o->this.serial : SPA_ID_INVALID;
-	o->this.props = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
-	o->this.proxy = proxy;
-	o->this.creating = true;
-	spa_list_init(&o->this.param_list);
-	spa_list_init(&o->pending_list);
-	spa_list_init(&o->data_list);
-
-	o->manager = m;
 	o->object_info = object_info;
+	o->this.proxy = proxy;
+
 	spa_list_append(&m->object_list, &o->this.link);
 	m->n_objects++;
 

@@ -4753,8 +4753,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->headers = pw_properties_new(NULL, NULL);
 
 	impl->rtsp = pw_rtsp_client_new(impl->loop, NULL, 0);
-	if (impl->rtsp == NULL)
+	if (impl->rtsp == NULL) {
+		res = -errno;
 		goto error;
+	}
 
 	pw_rtsp_client_add_listener(impl->rtsp, &impl->rtsp_listener,
 			&rtsp_events, impl);

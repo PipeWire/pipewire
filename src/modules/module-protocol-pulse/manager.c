@@ -60,7 +60,9 @@ struct object {
 	struct pw_manager_object this;
 
 	struct manager *manager;
-	struct spa_list link;           /**< link in manager object_list  */
+	struct object *parent;
+	struct spa_list link;           /**< link in manager object_list or parent child_list  */
+	struct spa_list child_list;
 
 	const struct object_info *object_info;
 
@@ -202,10 +204,12 @@ static void object_destroy(struct object *o)
 {
 	struct manager *m = o->manager;
 	struct object_data *d;
+	struct object *c;
 
 	spa_list_remove(&o->link);
 	m->n_objects--;
-
+	spa_list_consume(c, &o->child_list, link)
+		object_destroy(c);
 	if (o->proxy)
 		pw_proxy_destroy(o->proxy);
 	pw_properties_free(o->this.props);
@@ -695,6 +699,7 @@ static struct object *alloc_object(struct manager *m, uint32_t id,
 	spa_list_init(&o->param_list);
 	spa_list_init(&o->pending_list);
 	spa_list_init(&o->data_list);
+	spa_list_init(&o->child_list);
 
 	o->manager = m;
 
@@ -793,12 +798,16 @@ static int stream_type_from_media_class(const char *media_class)
 
 static void manager_emit(struct manager *m, struct object *o)
 {
+	struct object *c;
+
 	if (o->creating) {
 		o->creating = false;
 		manager_emit_added(m, &o->this);
 	} else if (o->changed > 0) {
 		manager_emit_updated(m, &o->this);
 	}
+	spa_list_for_each(c, &o->child_list, link)
+		manager_emit(m, c);
 	o->changed = 0;
 }
 
@@ -820,7 +829,6 @@ static void on_core_done(void *data, uint32_t id, int seq)
 
 		spa_list_for_each(o, &m->object_list, link) {
 			manager_emit(m, o);
-
 			object_reset_params(o);
 		}
 	}
@@ -925,6 +933,25 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 	return 0;
 }
 
+static int manager_callback(struct manager *m,
+		struct object *o,
+		int (*callback) (void *data, struct pw_manager_object *object),
+		void *data)
+{
+	struct object *c;
+	int res;
+
+	if (o->creating || o->removing)
+		return 0;
+	if ((res = callback(data, &o->this)) != 0)
+		return res;
+
+	spa_list_for_each(c, &o->child_list, link)
+		if ((res = manager_callback(m, c, callback, data)) != 0)
+			return res;
+	return 0;
+}
+
 int pw_manager_for_each_object(struct pw_manager *manager,
 		int (*callback) (void *data, struct pw_manager_object *object),
 		void *data)
@@ -934,9 +961,7 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 	int res;
 
 	spa_list_for_each(o, &m->object_list, link) {
-		if (o->creating || o->removing)
-			continue;
-		if ((res = callback(data, &o->this)) != 0)
+		if ((res = manager_callback(m, o, callback, data)) != 0)
 			return res;
 	}
 	return 0;
@@ -977,7 +1002,7 @@ uint32_t pw_manager_core_cookie(struct pw_manager *manager)
 	struct object *core;
 	struct pw_core_info *info;
 
-	core = find_object_by_id(m, 0);
+	core = find_object_by_id(m, PW_ID_CORE);
 	if (core == NULL)
 		return 0;
 
@@ -1065,11 +1090,15 @@ void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *id)
 struct pw_proxy *pw_manager_object_get_proxy(struct pw_manager_object *obj)
 {
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	if (o->parent)
+		o = o->parent;
 	return o->proxy;
 }
 struct spa_param_info *pw_manager_object_get_param_info(struct pw_manager_object *obj, uint32_t *n_params)
 {
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	if (o->parent)
+		o = o->parent;
 	*n_params = o->n_params;
 	return o->params;
 }
@@ -1077,6 +1106,8 @@ struct spa_param_info *pw_manager_object_get_param_info(struct pw_manager_object
 struct spa_list *pw_manager_object_get_param_list(struct pw_manager_object *obj)
 {
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	if (o->parent)
+		o = o->parent;
 	return &o->param_list;
 }
 

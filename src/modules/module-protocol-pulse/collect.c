@@ -393,13 +393,15 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 			   struct device_info *dev_info, struct port_info *port_info,
 			   const char **active_port_name)
 {
-	struct spa_list *param_list = pw_manager_object_get_param_list(card);
+	struct spa_list *param_list;
 	struct pw_manager_param *p;
 	uint32_t n;
 	const char *aport_name = NULL;
 
 	if (card == NULL)
 		return 0;
+
+	param_list = pw_manager_object_get_param_list(card);
 
 	n = 0;
 	spa_list_for_each(p, param_list, link) {

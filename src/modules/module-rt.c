@@ -914,7 +914,7 @@ static int init_dbus_for_name(struct impl *impl, struct spa_dbus *dbus, enum spa
 		return -errno;
 
 	spa_auto(DBusError) error = DBUS_ERROR_INIT;
-	if (!dbus_bus_name_has_owner(conn, name, &error))
+	if (!dbus_bus_start_service_by_name(conn, name, 0, NULL, &error))
 		return translate_error(error.name);
 
 	impl->dbus_conn = spa_steal_ptr(dbus_conn);

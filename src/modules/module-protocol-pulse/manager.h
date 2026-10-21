@@ -19,6 +19,9 @@ extern "C" {
 struct client;
 struct pw_manager_object;
 
+#define PW_TYPE_INTERFACE_NODE_BASE    PW_TYPE_INTERFACE_Node ":"
+#define PW_TYPE_INTERFACE_NODE_Stream  PW_TYPE_INTERFACE_NODE_BASE "Stream"
+
 struct pw_manager_events {
 #define PW_VERSION_MANAGER_EVENTS	0
 	uint32_t version;

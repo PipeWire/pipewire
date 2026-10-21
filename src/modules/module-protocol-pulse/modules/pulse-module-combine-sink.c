@@ -106,7 +106,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	const char *str;
 	uint32_t val = 0;
 
-	if (!spa_streq(o->type, PW_TYPE_INTERFACE_Node))
+	if (!spa_streq(o->type, PW_TYPE_INTERFACE_NODE_Stream))
 		return;
 
 	str = pw_properties_get(o->props, "pulse.module.id");

@@ -45,6 +45,7 @@ struct object_info {
 	uint32_t version;
 	const void *events;
 	void (*init) (struct object *object);
+	void (*update_children) (struct object *object);
 	void (*destroy) (struct object *object);
 };
 
@@ -82,6 +83,10 @@ struct object {
 
 	struct spa_list data_list;
 };
+
+static struct object *alloc_object(struct manager *m, uint32_t id,
+		uint32_t permissions, const char *type, uint32_t version,
+		const struct spa_dict *props);
 
 static int core_sync(struct manager *m)
 {
@@ -571,10 +576,71 @@ static void node_destroy(struct object *o)
 		o->info = NULL;
 	}
 }
+enum {
+	STREAM_TYPE_NONE,
+	STREAM_TYPE_SINK,
+	STREAM_TYPE_SOURCE,
+	STREAM_TYPE_SINK_INPUT,
+	STREAM_TYPE_SOURCE_OUTPUT,
+};
 
-int pw_manager_node_state(struct pw_manager_object *o)
+static int stream_type_from_media_class(const char *media_class)
 {
-	const struct pw_node_info *info = ((struct object*)o)->info;
+	if (spa_streq(media_class, "Audio/Sink") ||
+	    spa_streq(media_class, "Audio/Duplex"))
+		return STREAM_TYPE_SINK;
+	if (spa_streq(media_class, "Audio/Source") ||
+	    spa_streq(media_class, "Audio/Duplex") ||
+	    spa_streq(media_class, "Audio/Source/Virtual"))
+		return STREAM_TYPE_SOURCE;
+	if (spa_streq(media_class, "Stream/Output/Audio"))
+		return STREAM_TYPE_SINK_INPUT;
+	if (spa_streq(media_class, "Stream/Input/Audio"))
+		return STREAM_TYPE_SOURCE_OUTPUT;
+	else
+		return STREAM_TYPE_NONE;
+}
+
+static void node_update_children(struct object *o)
+{
+	struct manager *m = o->manager;
+	const char *media_class;
+	int stream_type;
+	struct object *c;
+
+	if (!spa_streq(o->this.type, PW_TYPE_INTERFACE_Node) ||
+	    (media_class = pw_properties_get(o->this.props, PW_KEY_MEDIA_CLASS)) == NULL ||
+	    (stream_type = stream_type_from_media_class(media_class)) == STREAM_TYPE_NONE)
+		return;
+
+	if (o->creating) {
+		if ((c = alloc_object(m, o->this.id, o->this.permissions,
+						PW_TYPE_INTERFACE_NODE_Stream, 0,
+						&o->this.props->dict)) == NULL) {
+			pw_log_error("can't alloc object for %u %s/%d: %m",
+					o->this.id, o->this.type, o->this.version);
+			return;
+		}
+		c->parent = o;
+		spa_list_append(&o->child_list, &c->link);
+	} else if (o->changed > 0) {
+		struct pw_node_info *info = o->info;
+
+		spa_list_for_each(c, &o->child_list, link) {
+			if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
+				pw_properties_update(c->this.props, info->props);
+			c->changed++;
+		}
+	}
+}
+
+int pw_manager_node_state(struct pw_manager_object *obj)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	const struct pw_node_info *info;
+	while (o->parent)
+		o = o->parent;
+	info = o->info;
 	return node_state(info->state);
 }
 
@@ -582,6 +648,7 @@ static const struct object_info node_info = {
 	.type = PW_TYPE_INTERFACE_Node,
 	.version = PW_VERSION_NODE,
 	.events = &node_events,
+	.update_children = node_update_children,
 	.destroy = node_destroy,
 };
 
@@ -770,35 +837,12 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-enum {
-	STREAM_TYPE_NONE,
-	STREAM_TYPE_SINK,
-	STREAM_TYPE_SOURCE,
-	STREAM_TYPE_SINK_INPUT,
-	STREAM_TYPE_SOURCE_OUTPUT,
-};
-
-static int stream_type_from_media_class(const char *media_class)
-{
-	if (spa_streq(media_class, "Audio/Sink") ||
-	    spa_streq(media_class, "Audio/Duplex"))
-		return STREAM_TYPE_SINK;
-	if (spa_streq(media_class, "Audio/Source") ||
-	    spa_streq(media_class, "Audio/Duplex") ||
-	    spa_streq(media_class, "Audio/Source/Virtual"))
-		return STREAM_TYPE_SOURCE;
-	if (spa_streq(media_class, "Stream/Output/Audio"))
-		return STREAM_TYPE_SINK_INPUT;
-	if (spa_streq(media_class, "Stream/Input/Audio"))
-		return STREAM_TYPE_SOURCE_OUTPUT;
-	else
-		return STREAM_TYPE_NONE;
-}
-
-
 static void manager_emit(struct manager *m, struct object *o)
 {
 	struct object *c;
+
+	if (o->object_info && o->object_info->update_children)
+		o->object_info->update_children(o);
 
 	if (o->creating) {
 		o->creating = false;
@@ -1090,14 +1134,14 @@ void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *id)
 struct pw_proxy *pw_manager_object_get_proxy(struct pw_manager_object *obj)
 {
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
-	if (o->parent)
+	while (o->parent)
 		o = o->parent;
 	return o->proxy;
 }
 struct spa_param_info *pw_manager_object_get_param_info(struct pw_manager_object *obj, uint32_t *n_params)
 {
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
-	if (o->parent)
+	while (o->parent)
 		o = o->parent;
 	*n_params = o->n_params;
 	return o->params;
@@ -1106,7 +1150,7 @@ struct spa_param_info *pw_manager_object_get_param_info(struct pw_manager_object
 struct spa_list *pw_manager_object_get_param_list(struct pw_manager_object *obj)
 {
 	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
-	if (o->parent)
+	while (o->parent)
 		o = o->parent;
 	return &o->param_list;
 }
@@ -1138,7 +1182,7 @@ bool pw_manager_object_is_card(struct pw_manager_object *o)
 static int manager_object_stream_type(struct pw_manager_object *o)
 {
 	const char *str;
-	if (spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
+	if (spa_streq(o->type, PW_TYPE_INTERFACE_NODE_Stream) &&
 	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL)
 		return stream_type_from_media_class(str);
 	return STREAM_TYPE_NONE;
@@ -1162,7 +1206,7 @@ bool pw_manager_object_is_monitor(struct pw_manager_object *o)
 bool pw_manager_object_is_virtual(struct pw_manager_object *o)
 {
 	const char *str;
-	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
+	return spa_streq(o->type, PW_TYPE_INTERFACE_NODE_Stream) &&
 		(str = pw_properties_get(o->props, PW_KEY_NODE_VIRTUAL)) != NULL &&
 		pw_properties_parse_bool(str);
 }
@@ -1170,7 +1214,7 @@ bool pw_manager_object_is_virtual(struct pw_manager_object *o)
 bool pw_manager_object_is_network(struct pw_manager_object *o)
 {
 	const char *str;
-	return spa_streq(o->type, PW_TYPE_INTERFACE_Node) &&
+	return spa_streq(o->type, PW_TYPE_INTERFACE_NODE_Stream) &&
 		(str = pw_properties_get(o->props, PW_KEY_NODE_NETWORK)) != NULL &&
 		pw_properties_parse_bool(str);
 }

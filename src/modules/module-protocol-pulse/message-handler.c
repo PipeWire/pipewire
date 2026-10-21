@@ -63,7 +63,7 @@ static int bluez_card_object_message_handler(struct client *client, struct pw_ma
 				SPA_PROP_bluetoothAudioCodec, SPA_POD_Id(codec_id), 0);
 		param = spa_pod_builder_pop(&b, &f[0]);
 
-		pw_device_set_param((struct pw_device *)o->proxy,
+		pw_device_set_param((struct pw_device *)pw_manager_object_get_proxy(o),
 				SPA_PARAM_Props, 0, param);
 	} else if (spa_streq(message, "list-codecs")) {
 		uint32_t i;

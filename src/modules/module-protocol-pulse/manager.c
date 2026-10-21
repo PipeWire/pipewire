@@ -60,6 +60,7 @@ struct object {
 	struct pw_manager_object this;
 
 	struct manager *manager;
+	struct spa_list link;           /**< link in manager object_list  */
 
 	const struct object_info *object_info;
 
@@ -67,9 +68,13 @@ struct object {
 	unsigned int creating:1;
 	unsigned int removing:1;
 
-	int changed;
+	struct spa_param_info *params;
+	uint32_t n_params;
+	uint32_t changed;
 	struct spa_list pending_list;
+	struct spa_list param_list;
 
+	struct pw_proxy *proxy;
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
 
@@ -146,7 +151,7 @@ static bool has_param(struct spa_list *param_list, struct pw_manager_param *p)
 static struct object *find_object_by_id(struct manager *m, uint32_t id)
 {
 	struct object *o;
-	spa_list_for_each(o, &m->object_list, this.link) {
+	spa_list_for_each(o, &m->object_list, link) {
 		if (o->this.id == id)
 			return o;
 	}
@@ -158,10 +163,10 @@ static void object_update_params(struct object *o)
 	struct pw_manager_param *p, *t;
 	uint32_t i;
 
-	for (i = 0; i < o->this.n_params; i++) {
+	for (i = 0; i < o->n_params; i++) {
 		spa_list_for_each_safe(p, t, &o->pending_list, link) {
-			if (p->id == o->this.params[i].id &&
-			    p->seq != o->this.params[i].seq &&
+			if (p->id == o->params[i].id &&
+			    p->seq != o->params[i].seq &&
 			    p->param != NULL) {
 				spa_list_remove(&p->link);
 				free(p);
@@ -172,18 +177,18 @@ static void object_update_params(struct object *o)
 	spa_list_consume(p, &o->pending_list, link) {
 		spa_list_remove(&p->link);
 		if (p->param == NULL) {
-			clear_params(&o->this.param_list, p->id);
+			clear_params(&o->param_list, p->id);
 			free(p);
 		} else {
-			spa_list_append(&o->this.param_list, &p->link);
+			spa_list_append(&o->param_list, &p->link);
 		}
 	}
 }
 static void object_reset_params(struct object *o)
 {
 	uint32_t i;
-	for (i = 0; i < o->this.n_params; i++)
-		o->this.params[i].user = 0;
+	for (i = 0; i < o->n_params; i++)
+		o->params[i].user = 0;
 }
 
 static void object_data_free(struct object_data *d)
@@ -197,14 +202,16 @@ static void object_destroy(struct object *o)
 {
 	struct manager *m = o->manager;
 	struct object_data *d;
-	spa_list_remove(&o->this.link);
+
+	spa_list_remove(&o->link);
 	m->n_objects--;
-	if (o->this.proxy)
-		pw_proxy_destroy(o->this.proxy);
+
+	if (o->proxy)
+		pw_proxy_destroy(o->proxy);
 	pw_properties_free(o->this.props);
 	if (o->this.message_object_path)
 		free(o->this.message_object_path);
-	clear_params(&o->this.param_list, SPA_ID_INVALID);
+	clear_params(&o->param_list, SPA_ID_INVALID);
 	clear_params(&o->pending_list, SPA_ID_INVALID);
 	spa_list_consume(d, &o->data_list, link)
 		object_data_free(d);
@@ -363,8 +370,8 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 	if (info == NULL)
 		return;
 
-	o->this.n_params = info->n_params;
-	o->this.params = info->params;
+	o->n_params = info->n_params;
+	o->params = info->params;
 
 	if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
 		pw_properties_update(o->this.props, info->props);
@@ -395,7 +402,7 @@ static void device_event_info(void *data, const struct pw_device_info *info)
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
-			res = pw_device_enum_params((struct pw_device*)o->this.proxy,
+			res = pw_device_enum_params((struct pw_device*)o->proxy,
 					++info->params[i].seq, id, 0, -1, NULL);
 			if (SPA_RESULT_IS_ASYNC(res))
 				info->params[i].seq = res;
@@ -410,7 +417,7 @@ static struct object *find_device(struct manager *m, uint32_t card_id, uint32_t 
 {
 	struct object *o;
 
-	spa_list_for_each(o, &m->object_list, this.link) {
+	spa_list_for_each(o, &m->object_list, link) {
 		const char *str;
 
 		if (!spa_streq(o->this.type, PW_TYPE_INTERFACE_Node))
@@ -438,7 +445,7 @@ static void device_event_param(void *data, int seq,
 		return;
 
 	if ((id == SPA_PARAM_Route || id == SPA_PARAM_EnumRoute) &&
-	    !has_param(&o->this.param_list, p)) {
+	    !has_param(&o->param_list, p)) {
 		uint32_t idx, device;
 		if (spa_pod_parse_object(param,
 				SPA_TYPE_OBJECT_ParamRoute, NULL,
@@ -487,8 +494,8 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 	if (info == NULL)
 		return;
 
-	o->this.n_params = info->n_params;
-	o->this.params = info->params;
+	o->n_params = info->n_params;
+	o->params = info->params;
 
 	if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
 		changed++;
@@ -527,7 +534,7 @@ static void node_event_info(void *data, const struct pw_node_info *info)
 			if (!(info->params[i].flags & SPA_PARAM_INFO_READ))
 				continue;
 
-			res = pw_node_enum_params((struct pw_node*)o->this.proxy,
+			res = pw_node_enum_params((struct pw_node*)o->proxy,
 					++info->params[i].seq, id, 0, -1, NULL);
 			if (SPA_RESULT_IS_ASYNC(res))
 				info->params[i].seq = res;
@@ -638,7 +645,7 @@ static void
 destroy_removed(void *data)
 {
 	struct object *o = data;
-	pw_proxy_destroy(o->this.proxy);
+	pw_proxy_destroy(o->proxy);
 }
 
 static void
@@ -655,7 +662,7 @@ destroy_proxy(void *data)
 	if (o->object_info->destroy)
                 o->object_info->destroy(o);
 
-        o->this.proxy = NULL;
+        o->proxy = NULL;
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -685,7 +692,7 @@ static struct object *alloc_object(struct manager *m, uint32_t id,
 	o->this.index = o->this.serial < (1ULL<<32) ? o->this.serial : SPA_ID_INVALID;
 	o->this.props = props ? pw_properties_new_dict(props) : pw_properties_new(NULL, NULL);
 	o->creating = true;
-	spa_list_init(&o->this.param_list);
+	spa_list_init(&o->param_list);
 	spa_list_init(&o->pending_list);
 	spa_list_init(&o->data_list);
 
@@ -716,9 +723,9 @@ static void registry_event_global(void *data, uint32_t id,
 		return;
 	}
 	o->object_info = object_info;
-	o->this.proxy = proxy;
+	o->proxy = proxy;
 
-	spa_list_append(&m->object_list, &o->this.link);
+	spa_list_append(&m->object_list, &o->link);
 	m->n_objects++;
 
 	if (object_info->events)
@@ -808,10 +815,10 @@ static void on_core_done(void *data, uint32_t id, int seq)
 
 		manager_emit_sync(m);
 
-		spa_list_for_each(o, &m->object_list, this.link)
+		spa_list_for_each(o, &m->object_list, link)
 			object_update_params(o);
 
-		spa_list_for_each(o, &m->object_list, this.link) {
+		spa_list_for_each(o, &m->object_list, link) {
 			manager_emit(m, o);
 
 			object_reset_params(o);
@@ -885,6 +892,7 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 		const char *format, ...)
 {
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
+	struct object *o = SPA_CONTAINER_OF(metadata, struct object, this);
 	struct object *s;
 	va_list args;
 	char buf[1024];
@@ -899,7 +907,7 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 		return -ENOTSUP;
 	if (!SPA_FLAG_IS_SET(metadata->permissions, PW_PERM_W|PW_PERM_X))
 		return -EACCES;
-	if (metadata->proxy == NULL)
+	if (o->proxy == NULL)
 		return -ENOENT;
 
 	if (type != NULL) {
@@ -912,7 +920,7 @@ int pw_manager_set_metadata(struct pw_manager *manager,
 		value = NULL;
 	}
 
-	pw_metadata_set_property((struct pw_metadata*)metadata->proxy,
+	pw_metadata_set_property((struct pw_metadata*)o->proxy,
 			subject, key, type, value);
 	return 0;
 }
@@ -925,7 +933,7 @@ int pw_manager_for_each_object(struct pw_manager *manager,
 	struct object *o;
 	int res;
 
-	spa_list_for_each(o, &m->object_list, this.link) {
+	spa_list_for_each(o, &m->object_list, link) {
 		if (o->creating || o->removing)
 			continue;
 		if ((res = callback(data, &o->this)) != 0)
@@ -938,7 +946,7 @@ uint32_t pw_manager_id_to_index(struct pw_manager *manager, uint32_t id)
 {
 	struct manager *m = SPA_CONTAINER_OF(manager, struct manager, this);
 	struct object *o;
-	spa_list_for_each(o, &m->object_list, this.link) {
+	spa_list_for_each(o, &m->object_list, link) {
 		if (o->this.id == id)
 			return o->this.index;
 	}
@@ -954,7 +962,7 @@ void pw_manager_destroy(struct pw_manager *manager)
 
 	spa_hook_remove(&m->core_listener);
 
-	spa_list_consume(o, &m->object_list, this.link)
+	spa_list_consume(o, &m->object_list, link)
 		object_destroy(o);
 
 	spa_hook_remove(&m->registry_listener);
@@ -1052,6 +1060,24 @@ void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *id)
 	struct object_data *d = object_find_data(o, id);
 
 	return d ? SPA_PTROFF(d, sizeof(*d), void) : NULL;
+}
+
+struct pw_proxy *pw_manager_object_get_proxy(struct pw_manager_object *obj)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	return o->proxy;
+}
+struct spa_param_info *pw_manager_object_get_param_info(struct pw_manager_object *obj, uint32_t *n_params)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	*n_params = o->n_params;
+	return o->params;
+}
+
+struct spa_list *pw_manager_object_get_param_list(struct pw_manager_object *obj)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	return &o->param_list;
 }
 
 int pw_manager_sync(struct pw_manager *manager)

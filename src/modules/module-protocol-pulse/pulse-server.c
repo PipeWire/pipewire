@@ -318,8 +318,9 @@ static int64_t get_node_latency_offset(struct pw_manager_object *o)
 {
 	int64_t latency_offset = 0LL;
 	struct pw_manager_param *p;
+	struct spa_list *param_list = pw_manager_object_get_param_list(o);
 
-	spa_list_for_each(p, &o->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		if (p->id != SPA_PARAM_Props)
 			continue;
 		if (spa_pod_parse_object(p->param,
@@ -2808,10 +2809,11 @@ static int set_node_volume_mute(struct pw_manager_object *o,
 	struct spa_pod_frame f[1];
 	struct spa_pod *param;
 	uint32_t volprop, muteprop;
+	struct pw_proxy *proxy;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
-	if (o->proxy == NULL)
+	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
 	if (is_monitor) {
@@ -2835,7 +2837,7 @@ static int set_node_volume_mute(struct pw_manager_object *o,
 				muteprop, SPA_POD_Bool(*mute), 0);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
-	pw_node_set_param((struct pw_node*)o->proxy,
+	pw_node_set_param((struct pw_node*)proxy,
 		SPA_PARAM_Props, 0, param);
 	return 0;
 }
@@ -2847,11 +2849,11 @@ static int set_card_volume_mute_delay(struct pw_manager_object *o, uint32_t port
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[2];
 	struct spa_pod *param;
+	struct pw_proxy *proxy;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
-
-	if (o->proxy == NULL)
+	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
 	spa_pod_builder_push_object(&b, &f[0],
@@ -2880,7 +2882,7 @@ static int set_card_volume_mute_delay(struct pw_manager_object *o, uint32_t port
 	spa_pod_builder_bool(&b, true);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
-	pw_device_set_param((struct pw_device*)o->proxy,
+	pw_device_set_param((struct pw_device*)proxy,
 			SPA_PARAM_Route, 0, param);
 	return 0;
 }
@@ -2890,14 +2892,14 @@ static int set_card_port(struct pw_manager_object *o, uint32_t device_id,
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct pw_proxy *proxy;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
-
-	if (o->proxy == NULL)
+	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
-	pw_device_set_param((struct pw_device*)o->proxy,
+	pw_device_set_param((struct pw_device*)proxy,
 			SPA_PARAM_Route, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamRoute, SPA_PARAM_Route,
@@ -3927,8 +3929,9 @@ static int fill_sink_info(struct client *client, struct message *m,
 		struct pw_manager_param *p;
 		struct format_info info[32];
 		uint32_t i, n_info = 0;
+		struct spa_list *param_list = pw_manager_object_get_param_list(o);
 
-		spa_list_for_each(p, &o->param_list, link) {
+		spa_list_for_each(p, param_list, link) {
 			uint32_t index = 0;
 
 			if (p->id != SPA_PARAM_EnumFormat)
@@ -4780,6 +4783,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	struct selector sel;
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+	struct pw_proxy *proxy;
 
 	spa_zero(sel);
 	sel.key = PW_KEY_DEVICE_NAME;
@@ -4810,10 +4814,10 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
 
-	if (o->proxy == NULL)
+	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
-	pw_device_set_param((struct pw_device*)o->proxy,
+	pw_device_set_param((struct pw_device*)proxy,
 			SPA_PARAM_Profile, 0,
 			spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
@@ -4904,6 +4908,7 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 	const char *name;
 	uint32_t index, cmd;
 	bool sink = command == COMMAND_SUSPEND_SINK, suspend;
+	struct pw_proxy *proxy;
 
 	if (message_get(m,
 			TAG_U32, &index,
@@ -4918,12 +4923,12 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 	if ((o = find_device(client, index, name, sink, NULL)) == NULL)
 		return -ENOENT;
 
-	if (o->proxy == NULL)
+	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
 	if (suspend) {
 		cmd = SPA_NODE_COMMAND_Suspend;
-		pw_node_send_command((struct pw_node*)o->proxy, &SPA_NODE_COMMAND_INIT(cmd));
+		pw_node_send_command((struct pw_node*)proxy, &SPA_NODE_COMMAND_INIT(cmd));
 	}
 	return operation_new(client, tag);
 }

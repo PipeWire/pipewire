@@ -141,8 +141,9 @@ struct pw_manager_object *find_linked(struct pw_manager *m, uint32_t id, enum pw
 void collect_card_info(struct pw_manager_object *card, struct card_info *info)
 {
 	struct pw_manager_param *p;
+	struct spa_list *param_list = pw_manager_object_get_param_list(card);
 
-	spa_list_for_each(p, &card->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		switch (p->id) {
 		case SPA_PARAM_EnumProfile:
 			info->n_profiles++;
@@ -162,12 +163,13 @@ void collect_card_info(struct pw_manager_object *card, struct card_info *info)
 uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *card_info,
 			      struct profile_info *profile_info)
 {
+	struct spa_list *param_list = pw_manager_object_get_param_list(card);
 	struct pw_manager_param *p;
 	struct profile_info *pi;
 	uint32_t n;
 
 	n = 0;
-	spa_list_for_each(p, &card->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		struct spa_pod *classes = NULL;
 
 		if (p->id != SPA_PARAM_EnumProfile)
@@ -222,8 +224,9 @@ uint32_t collect_profile_info(struct pw_manager_object *card, struct card_info *
 uint32_t find_profile_index(struct pw_manager_object *card, const char *name)
 {
 	struct pw_manager_param *p;
+	struct spa_list *param_list = pw_manager_object_get_param_list(card);
 
-	spa_list_for_each(p, &card->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		uint32_t index;
 		const char *test_name;
 
@@ -248,9 +251,12 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 {
 	struct pw_manager_param *p;
 	uint32_t enum_channels = 0;
+	struct spa_list *device_param_list = pw_manager_object_get_param_list(device);
 
 	if (card) {
-		spa_list_for_each(p, &card->param_list, link) {
+		struct spa_list *card_param_list = pw_manager_object_get_param_list(card);
+
+		spa_list_for_each(p, card_param_list, link) {
 			uint32_t index, dev;
 			struct spa_pod *props;
 
@@ -273,7 +279,7 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 		}
 	}
 
-	spa_list_for_each(p, &device->param_list, link) {
+	spa_list_for_each(p, device_param_list, link) {
 		switch (p->id) {
 		case SPA_PARAM_EnumFormat:
 		{
@@ -387,6 +393,7 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 			   struct device_info *dev_info, struct port_info *port_info,
 			   const char **active_port_name)
 {
+	struct spa_list *param_list = pw_manager_object_get_param_list(card);
 	struct pw_manager_param *p;
 	uint32_t n;
 	const char *aport_name = NULL;
@@ -395,7 +402,7 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 		return 0;
 
 	n = 0;
-	spa_list_for_each(p, &card->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		int32_t *devices = NULL, *profiles = NULL;
 		uint32_t devices_size = 0, devices_type = 0, n_devices = 0;
 		uint32_t profiles_size = 0, profiles_type = 0, n_profiles = 0;
@@ -483,9 +490,10 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 
 uint32_t find_port_index(struct pw_manager_object *card, uint32_t direction, const char *port_name)
 {
+	struct spa_list *param_list = pw_manager_object_get_param_list(card);
 	struct pw_manager_param *p;
 
-	spa_list_for_each(p, &card->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		uint32_t index, dir;
 		const char *name;
 
@@ -538,6 +546,7 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 				      struct transport_codec_info *codecs, uint32_t max_codecs,
 				      uint32_t *active)
 {
+	struct spa_list *param_list = pw_manager_object_get_param_list(card);
 	struct pw_manager_param *p;
 	uint32_t n_codecs = 0;
 
@@ -546,7 +555,7 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 	if (card == NULL)
 		return 0;
 
-	spa_list_for_each(p, &card->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		uint32_t iid;
 		const struct spa_pod_choice *type;
 		const struct spa_pod_struct *labels;
@@ -614,7 +623,7 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 	}
 
 	/* Active codec */
-	spa_list_for_each(p, &card->param_list, link) {
+	spa_list_for_each(p, param_list, link) {
 		uint32_t j;
 		uint32_t id;
 

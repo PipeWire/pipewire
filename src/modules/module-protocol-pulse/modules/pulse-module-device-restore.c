@@ -153,14 +153,16 @@ static const struct client_events module_client_events = {
 static void manager_updated(void *data, struct pw_manager_object *object)
 {
 	struct subscribe *s = data;
-	uint32_t i;
+	struct spa_param_info *params;
+	uint32_t i, n_params;
 
 	if (!pw_manager_object_is_sink(object))
 		return;
 
-	for (i = 0; i < object->n_params; i++) {
-		if (object->params[i].id == SPA_PARAM_EnumFormat &&
-		    object->params[i].user != 0)
+	params = pw_manager_object_get_param_info(object, &n_params);
+
+	for (i = 0; i < n_params; i++) {
+		if (params[i].id == SPA_PARAM_EnumFormat && params[i].user != 0)
 			emit_event(s, DEVICE_TYPE_SINK, object->index);
 	}
 }
@@ -232,12 +234,15 @@ static int do_sink_read_format(void *data, struct pw_manager_object *o)
 	struct format_data *d = data;
 	struct pw_manager_param *p;
 	struct format_info info[32];
+	struct spa_list *param_list;
 	uint32_t i, n_info = 0;
 
 	if (!pw_manager_object_is_sink(o))
 		return 0;
 
-	spa_list_for_each(p, &o->param_list, link) {
+	param_list = pw_manager_object_get_param_list(o);
+
+	spa_list_for_each(p, param_list, link) {
 		uint32_t index = 0;
 
 		if (p->id != SPA_PARAM_EnumFormat)
@@ -328,11 +333,12 @@ static int set_card_codecs(struct pw_manager_object *o, uint32_t port_index,
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 	struct spa_pod_frame f[2];
 	struct spa_pod *param;
+	struct pw_proxy *proxy;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
 
-	if (o->proxy == NULL)
+	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
 	spa_pod_builder_push_object(&b, &f[0],
@@ -352,7 +358,7 @@ static int set_card_codecs(struct pw_manager_object *o, uint32_t port_index,
 	spa_pod_builder_bool(&b, true);
 	param = spa_pod_builder_pop(&b, &f[0]);
 
-	pw_device_set_param((struct pw_device*)o->proxy,
+	pw_device_set_param((struct pw_device*)proxy,
 			SPA_PARAM_Route, 0, param);
 	return 0;
 }
@@ -362,11 +368,12 @@ static int set_node_codecs(struct pw_manager_object *o, uint32_t n_codecs, uint3
 	char buf[1024];
 	struct spa_pod_builder b;
 	struct spa_pod *param;
+	struct pw_proxy *proxy;
 
 	if (!SPA_FLAG_IS_SET(o->permissions, PW_PERM_W | PW_PERM_X))
 		return -EACCES;
 
-	if (o->proxy == NULL)
+	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
 	spa_pod_builder_init(&b, buf, sizeof(buf));
@@ -375,7 +382,7 @@ static int set_node_codecs(struct pw_manager_object *o, uint32_t n_codecs, uint3
 			SPA_PROP_iec958Codecs, SPA_POD_Array(sizeof(uint32_t),
 				SPA_TYPE_Id, n_codecs, codecs));
 
-	pw_node_set_param((struct pw_node*)o->proxy,
+	pw_node_set_param((struct pw_node*)proxy,
 			SPA_PARAM_Props, 0, param);
 
 	return 0;

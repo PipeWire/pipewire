@@ -56,7 +56,6 @@ struct pw_manager_param {
 };
 
 struct pw_manager_object {
-	struct spa_list link;           /**< link in manager object_list */
 	uint64_t serial;
 	uint32_t id;
 	uint32_t permissions;
@@ -64,18 +63,14 @@ struct pw_manager_object {
 	uint32_t version;
 	uint32_t index;
 	struct pw_properties *props;
-	struct pw_proxy *proxy;
+
 	char *message_object_path;
 	int (*message_handler)(struct client *client, struct pw_manager_object *o,
 	                       const char *message, const char *params, FILE *response);
 
-	struct spa_param_info *params;
-	uint32_t n_params;
-
 #define PW_MANAGER_OBJECT_FLAG_SOURCE	(1<<0)
 #define PW_MANAGER_OBJECT_FLAG_SINK	(1<<1)
 	uint64_t change_mask;	/* object specific params change mask */
-	struct spa_list param_list;
 };
 
 struct pw_manager *pw_manager_new(struct pw_core *core);
@@ -104,6 +99,10 @@ void *pw_manager_object_add_data(struct pw_manager_object *o, const char *key, s
 void *pw_manager_object_get_data(struct pw_manager_object *obj, const char *key);
 void *pw_manager_object_add_temporary_data(struct pw_manager_object *o, const char *key,
 		size_t size, uint64_t lifetime_nsec);
+
+struct pw_proxy *pw_manager_object_get_proxy(struct pw_manager_object *obj);
+struct spa_param_info *pw_manager_object_get_param_info(struct pw_manager_object *obj, uint32_t *n_params);
+struct spa_list *pw_manager_object_get_param_list(struct pw_manager_object *obj);
 
 bool pw_manager_object_is_client(struct pw_manager_object *o);
 bool pw_manager_object_is_module(struct pw_manager_object *o);

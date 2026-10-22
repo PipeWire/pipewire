@@ -2020,10 +2020,8 @@ static uint32_t get_index_from_profile(struct impl *this, uint32_t profile, enum
 	case DEVICE_PROFILE_AG:
 	case DEVICE_PROFILE_A2DP_AUTO_PREFER_QUALITY:
 	case DEVICE_PROFILE_A2DP_AUTO_PREFER_LATENCY:
-		return (profile << 16);
-
 	case DEVICE_PROFILE_ASHA:
-		return (profile << 16) | (SPA_BLUETOOTH_AUDIO_CODEC_G722 & 0xffff);
+		return (profile << 16);
 
 	case DEVICE_PROFILE_A2DP:
 	case DEVICE_PROFILE_BAP:

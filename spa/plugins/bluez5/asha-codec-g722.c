@@ -84,7 +84,7 @@ static int codec_enum_config(const struct media_codec *codec, uint32_t flags,
 
 static void codec_deinit(void *data)
 {
-	return;
+	free(data);
 }
 
 static void *codec_init(const struct media_codec *codec, uint32_t flags,

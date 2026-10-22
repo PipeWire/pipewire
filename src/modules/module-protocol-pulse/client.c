@@ -405,9 +405,28 @@ int client_queue_subscribe_event(struct client *client, uint32_t facility, uint3
 
 int client_queue_request_command(struct client *client, uint32_t channel, uint32_t size)
 {
-	struct message *msg;
+	struct message *msg, *m, *t;
+
+	spa_list_for_each_safe(m, t, &client->out_messages, link) {
+		uint32_t s;
+
+		if (m->type != MESSAGE_TYPE_REQUEST_COMMAND)
+			continue;
+		if (m->u.request_command.channel != channel)
+			continue;
+
+		s = m->u.request_command.size;
+
+		if (drop_from_out_queue(client, m)) {
+			size = (size > UINT32_MAX - s) ? UINT32_MAX : size + s;
+			pw_log_info("client %p: merged redundant request command %u to %u",
+				     client, s, size);
+		}
+	}
 
 	msg = message_alloc(client->impl, -1, 0);
+	if (!msg)
+		return -errno;
 
 	msg->type = MESSAGE_TYPE_REQUEST_COMMAND;
 	msg->u.request_command.channel = channel;

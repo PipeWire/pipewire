@@ -32,6 +32,7 @@ PW_LOG_TOPIC_EXTERN(log_port);
 struct impl {
 	struct pw_impl_port this;
 	struct spa_node mix_node;	/**< mix node implementation */
+	struct spa_node_methods mix_methods;
 	struct spa_hook_list mix_hooks;
 
 	struct {
@@ -251,7 +252,7 @@ do_remove_mix(struct spa_loop *loop,
 	return 0;
 }
 
-static int port_set_io(void *object,
+static int mix_port_set_io(void *object,
 		enum spa_direction direction, uint32_t port_id, uint32_t id,
 		void *data, size_t size)
 {
@@ -346,25 +347,7 @@ static int tee_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 	return 0;
 }
 
-static const struct spa_node_methods schedule_tee_node = {
-	SPA_VERSION_NODE_METHODS,
-	.add_listener = mix_add_listener,
-	.port_enum_params = mix_port_enum_params,
-	.port_set_io = port_set_io,
-	.port_reuse_buffer = tee_reuse_buffer,
-	.process = tee_process,
-};
-
-static const struct spa_node_methods schedule_tee_node_reliable = {
-	SPA_VERSION_NODE_METHODS,
-	.add_listener = mix_add_listener,
-	.port_enum_params = mix_port_enum_params,
-	.port_set_io = port_set_io,
-	.port_reuse_buffer = tee_reuse_buffer,
-	.process = tee_process_reliable,
-};
-
-static int schedule_mix_input(void *object)
+static int mix_process(void *object)
 {
 	struct impl *impl = object;
 	struct pw_impl_port *this = &impl->this;
@@ -386,7 +369,7 @@ static int schedule_mix_input(void *object)
         return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
 
-static int schedule_mix_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
+static int mix_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct impl *impl = object;
 	struct pw_impl_port_mix *mix;
@@ -398,15 +381,6 @@ static int schedule_mix_reuse_buffer(void *object, uint32_t port_id, uint32_t bu
 	}
 	return 0;
 }
-
-static const struct spa_node_methods schedule_mix_node = {
-	SPA_VERSION_NODE_METHODS,
-	.add_listener = mix_add_listener,
-	.port_enum_params = mix_port_enum_params,
-	.port_set_io = port_set_io,
-	.port_reuse_buffer = schedule_mix_reuse_buffer,
-	.process = schedule_mix_input,
-};
 
 SPA_EXPORT
 int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mix)
@@ -532,9 +506,9 @@ static int check_properties(struct pw_impl_port *port)
 	if (new_bool != port->reliable && port->direction == PW_DIRECTION_OUTPUT) {
 		pw_log_info("%p: reliable %d->%d", port, port->reliable, new_bool);
 		port->reliable = new_bool;
-		impl->mix_node.iface.cb.funcs = new_bool ?
-			&schedule_tee_node_reliable :
-			&schedule_tee_node;
+		impl->mix_methods.process = new_bool ?
+			tee_process_reliable :
+			tee_process;
 	}
 
 	if ((str = pw_properties_get(port->properties, PW_KEY_PORT_PASSIVE)) == NULL) {
@@ -959,7 +933,6 @@ struct pw_impl_port *pw_context_create_port(
 	struct impl *impl;
 	struct pw_impl_port *this;
 	struct pw_properties *properties;
-	const struct spa_node_methods *mix_methods;
 	int res;
 
 	impl = calloc(1, sizeof(struct impl) + user_data_size);
@@ -1022,15 +995,25 @@ struct pw_impl_port *pw_context_create_port(
 	this->latency[SPA_DIRECTION_INPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_INPUT);
 	this->latency[SPA_DIRECTION_OUTPUT] = SPA_LATENCY_INFO(SPA_DIRECTION_OUTPUT);
 
-	if (this->direction == PW_DIRECTION_INPUT)
-		mix_methods = &schedule_mix_node;
-	else
-		mix_methods = &schedule_tee_node;
+	impl->mix_methods = (struct spa_node_methods) {
+		SPA_VERSION_NODE_METHODS,
+		.add_listener = mix_add_listener,
+		.port_enum_params = mix_port_enum_params,
+		.port_set_io = mix_port_set_io,
+	};
+	if (this->direction == PW_DIRECTION_INPUT) {
+		impl->mix_methods.port_reuse_buffer = mix_reuse_buffer;
+		impl->mix_methods.process = mix_process;
+	}
+	else {
+		impl->mix_methods.port_reuse_buffer = tee_reuse_buffer;
+		impl->mix_methods.process = tee_process;
+	}
 
 	impl->mix_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
 			SPA_VERSION_NODE,
-			mix_methods, impl);
+			&impl->mix_methods, impl);
 
 	pw_impl_port_set_mix(this, NULL, 0);
 

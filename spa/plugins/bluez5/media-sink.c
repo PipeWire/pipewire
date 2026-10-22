@@ -106,8 +106,26 @@ struct port {
 
 #define ASHA_ENCODED_PKT_SZ     161 /* 160 bytes encoded + 1 byte sequence number */
 #define ASHA_CONN_INTERVAL      (20 * SPA_NSEC_PER_MSEC)
+/*
+ * If the device stops granting LE CoC credits, every send fails with EAGAIN
+ * and the stream never recovers on its own. Bound continuous blocked time,
+ * independently of how often the timer callback is dispatched.
+ */
+#define ASHA_STALL_TIMEOUT      (5 * SPA_NSEC_PER_SEC)
+/* Bound retries of the current packet, not the age of upstream queued PCM. */
+#define ASHA_PACKET_HOLD_TIMEOUT (100 * SPA_NSEC_PER_MSEC)
+/* Catch-up allowance and per-callback burst are independent of packet expiry. */
+#define ASHA_MAX_BACKLOG        5
+#define ASHA_MAX_BURST          3
 
 struct spa_bt_asha {
+	struct {
+		uint64_t clock_mono, last_valid, start, resume;
+		int64_t clock_real, completion;
+		double samples[50];
+		unsigned int count;
+		bool active;
+	} feedback;
 	struct spa_source flush_source;
 	struct spa_source timer_source;
 	int timerfd;
@@ -117,8 +135,17 @@ struct spa_bt_asha {
 	uint64_t ref_t0;
 	uint64_t next_time;
 
+	uint64_t blocked_since;
+	uint64_t packet_blocked_at;
+	uint8_t tx_seq;
+	/* Catch-up opportunities, not a retry count or measured PCM queue depth. */
+	uint8_t backlog;
+
 	unsigned int flush_pending:1;
 	unsigned int set_timer:1;
+	unsigned int stalled:1;
+	unsigned int blocked:1;
+	unsigned int packet_blocked:1;
 };
 
 struct impl {
@@ -183,6 +210,10 @@ struct impl {
 
 	uint64_t packet_delay_ns;
 	struct spa_source *update_delay_event;
+	struct spa_source *asha_stall_event;
+	/* Atomic generation tokens bridge the data-loop decision to the main loop. */
+	uint64_t asha_generation;
+	uint64_t asha_stall_generation;
 
 	uint32_t encoder_delay;
 
@@ -471,6 +502,7 @@ static void emit_port_info(struct impl *this, struct port *port, bool full);
 static void set_latency(struct impl *this, bool emit_latency)
 {
 	struct port *port = &this->port;
+	uint64_t packet_delay;
 	int64_t delay;
 
 	/* in main loop */
@@ -488,13 +520,17 @@ static void set_latency(struct impl *this, bool emit_latency)
 	 * hopefully in < 10 ms range.
 	 */
 
-	delay = __atomic_load_n(&this->packet_delay_ns, __ATOMIC_RELAXED);
+	packet_delay = __atomic_load_n(&this->packet_delay_ns, __ATOMIC_RELAXED);
+	delay = packet_delay;
 	delay += (int64_t)this->encoder_delay * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
 	delay += spa_bt_transport_get_delay_nsec(this->transport);
 	delay += SPA_CLAMP(this->props.latency_offset, -delay, INT64_MAX / 2);
 	delay = SPA_MAX(delay, 0);
 
 	port->latency.min_ns = port->latency.max_ns = delay;
+	if (this->codec->kind == MEDIA_CODEC_ASHA)
+		/* Due-slot preparation may send immediately; the allowance is not a minimum. */
+		port->latency.min_ns = SPA_MAX(delay - (int64_t)packet_delay, 0);
 	port->latency.min_rate = port->latency.max_rate = 0;
 
 	if (this->codec->kind == MEDIA_CODEC_BAP) {
@@ -504,7 +540,8 @@ static void set_latency(struct impl *this, bool emit_latency)
 		port->latency.min_quantum = port->latency.max_quantum = 0.0f;
 	}
 
-	spa_log_info(this->log, "%p: total latency:%d ms", this, (int)(delay / SPA_NSEC_PER_MSEC));
+	spa_log_info(this->log, "%p: total latency:%d ms (minimum:%d ms)", this,
+			(int)(delay / SPA_NSEC_PER_MSEC), (int)(port->latency.min_ns / SPA_NSEC_PER_MSEC));
 
 	if (emit_latency) {
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -521,13 +558,61 @@ static void update_delay_event(void *data, uint64_t count)
 	set_latency(this, true);
 }
 
+static void asha_stall_event_handler(void *data, uint64_t count)
+{
+	struct impl *this = data;
+	uint64_t generation;
+
+	/* in main loop */
+	generation = __atomic_exchange_n(&this->asha_stall_generation, 0, __ATOMIC_ACQ_REL);
+	if (generation == 0 || generation != __atomic_load_n(&this->asha_generation, __ATOMIC_ACQUIRE)
+			|| this->transport == NULL)
+		return;
+
+	spa_log_error(this->log, "%p: ASHA transport stalled; setting transport "
+			"to error state to allow the stream to be restarted", this);
+
+	if (this->transport)
+		spa_bt_transport_set_state(this->transport, SPA_BT_TRANSPORT_STATE_ERROR);
+}
+
+static void asha_signal_stall(struct impl *this)
+{
+	struct spa_bt_asha *asha = this->asha;
+
+	if (asha->stalled)
+		return;
+
+	asha->stalled = true;
+	__atomic_store_n(&this->asha_stall_generation,
+			__atomic_load_n(&this->asha_generation, __ATOMIC_RELAXED), __ATOMIC_RELEASE);
+	if (this->asha_stall_event)
+		spa_loop_utils_signal_event(this->loop_utils,
+				this->asha_stall_event);
+}
+
+static void asha_check_blocked(struct impl *this, uint64_t now)
+{
+	struct spa_bt_asha *asha = this->asha;
+	if (!asha->blocked) {
+		asha->blocked = true;
+		asha->blocked_since = now;
+	} else if (now >= asha->blocked_since && now - asha->blocked_since >= ASHA_STALL_TIMEOUT) {
+		asha_signal_stall(this);
+	}
+}
+
 static void update_packet_delay(struct impl *this, uint64_t delay)
 {
-	uint64_t old_delay = this->packet_delay_ns;
+	uint64_t old_delay = __atomic_load_n(&this->packet_delay_ns, __ATOMIC_RELAXED);
 
 	/* in data thread */
 
-	delay = SPA_MAX(delay, old_delay);
+	/* ASHA's exceptional hold allowance clears on progress; other codecs keep
+	 * their existing high-water reporting policy.
+	 */
+	if (this->codec->kind != MEDIA_CODEC_ASHA)
+		delay = SPA_MAX(delay, old_delay);
 	if (delay == old_delay)
 		return;
 
@@ -1062,7 +1147,11 @@ again:
 			 */
 			memcpy(asha->buf, this->buffer, this->buffer_used);
 			asha->flush_pending = true;
+			asha->packet_blocked = false;
 			reset_buffer(this);
+
+			/* The packet waits for the next 20 ms send slot. */
+			update_packet_delay(this, ASHA_CONN_INTERVAL);
 		}
 
 		return 0;
@@ -1443,15 +1532,95 @@ static uint64_t asha_seqnum(struct impl *this)
 	return num_packets % 256;
 }
 
+/* Completion timing is a link-clock proxy, not receiver buffer occupancy.
+ * Median filtering rejects isolated retransmission/reporting delays. Keep the
+ * graph/resampler and ASHA timer on the same correction, and never use credit
+ * pressure as a clock measurement. */
+static void asha_reset_rate(struct impl *this)
+{
+	spa_zero(this->asha->feedback);
+	spa_bt_rate_control_init(&this->port.ratectl, 0);
+	setup_matching(this);
+}
+
+static void asha_update_rate(struct impl *this, uint64_t now, int64_t realtime)
+{
+	struct spa_bt_asha *asha = this->asha;
+	struct spa_bt_latency *lat = &this->tx_latency;
+	double value, duration;
+	unsigned int i, j;
+	int64_t elapsed, wall_elapsed;
+
+	if (!lat->enabled)
+		return;
+	if (asha->feedback.clock_mono != 0) {
+		elapsed = (int64_t)now - (int64_t)asha->feedback.clock_mono;
+		wall_elapsed = realtime - asha->feedback.clock_real;
+		if (elapsed < 0 || llabs(wall_elapsed - elapsed) > SPA_NSEC_PER_MSEC) {
+			asha_reset_rate(this);
+			asha->feedback.resume = now + SPA_NSEC_PER_SEC;
+		}
+	}
+	asha->feedback.clock_mono = now;
+	asha->feedback.clock_real = realtime;
+	if (asha->blocked || asha->backlog ||
+			(asha->feedback.last_valid != 0 &&
+			 now - asha->feedback.last_valid > 2 * SPA_NSEC_PER_SEC)) {
+		asha_reset_rate(this);
+		asha->feedback.resume = now + SPA_NSEC_PER_SEC;
+		return;
+	}
+	if (now < asha->feedback.resume || lat->impl.prev_tx == 0 ||
+			lat->impl.prev_tx == asha->feedback.completion)
+		return;
+	asha->feedback.completion = lat->impl.prev_tx;
+	/* Ignore delayed/batched outliers rather than slowing down for congestion. */
+	if (lat->value < SPA_NSEC_PER_MSEC || lat->value > 25 * SPA_NSEC_PER_MSEC)
+		return;
+	asha->feedback.last_valid = now;
+	if (asha->feedback.start == 0)
+		asha->feedback.start = now;
+	asha->feedback.samples[asha->feedback.count++] = lat->value;
+	if (asha->feedback.count < SPA_N_ELEMENTS(asha->feedback.samples))
+		return;
+	duration = now - asha->feedback.start;
+	asha->feedback.start = now;
+	asha->feedback.count = 0;
+	if (duration < SPA_NSEC_PER_SEC / 2 || duration > 2 * SPA_NSEC_PER_SEC)
+		return;
+	for (i = 1; i < SPA_N_ELEMENTS(asha->feedback.samples); ++i) {
+		value = asha->feedback.samples[i];
+		for (j = i; j > 0 && asha->feedback.samples[j-1] > value; --j)
+			asha->feedback.samples[j] = asha->feedback.samples[j-1];
+		asha->feedback.samples[j] = value;
+	}
+	value = (asha->feedback.samples[24] + asha->feedback.samples[25]) / 2;
+	if (!asha->feedback.active) {
+		spa_bt_rate_control_init(&this->port.ratectl, value);
+		asha->feedback.active = true;
+	}
+	spa_bt_rate_control_update(&this->port.ratectl, value, ASHA_CONN_INTERVAL / 2,
+			duration, 5 * SPA_NSEC_PER_SEC, 0.0002);
+	setup_matching(this);
+	spa_log_debug(this->log, "%p: ASHA clock feedback median:%.3f ms correction:%+.3f ppm",
+			this, value / SPA_NSEC_PER_MSEC, (this->port.ratectl.corr - 1) * 1e6);
+}
+
 static void media_asha_flush_timeout(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct port *port = &this->port;
 	struct spa_bt_asha *asha = this->asha;
-	const char *address = this->transport->device->address;
+	const char *address;
 	struct timespec ts;
 	int res, written;
+	int sends = 0;
 	uint64_t exp, now;
+	if (this->transport == NULL || !this->transport_started || asha->stalled) {
+		set_asha_timeout(this, 0);
+		return;
+	}
+	address = this->transport->device->address;
 
 	if (this->started) {
 		if ((res = spa_system_timerfd_read(this->data_system, asha->timerfd, &exp)) < 0) {
@@ -1465,35 +1634,105 @@ static void media_asha_flush_timeout(struct spa_source *source)
 	spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &ts);
 	now = SPA_TIMESPEC_TO_NSEC(&ts);
 
+	spa_system_clock_gettime(this->data_system, CLOCK_REALTIME, &ts);
+	asha_update_rate(this, now, SPA_TIMESPEC_TO_NSEC(&ts));
+
 	asha->next_time += (uint64_t)(ASHA_CONN_INTERVAL * port->ratectl.corr);
 
-	if (asha->flush_pending) {
-		asha->buf[0] = this->seqnum;
-		written = send(asha->flush_source.fd, asha->buf,
-				ASHA_ENCODED_PKT_SZ, MSG_DONTWAIT | MSG_NOSIGNAL);
+	/* Use this send slot if a complete frame became available since the last one. */
+	if (!asha->flush_pending) {
+		this->seqnum = asha_seqnum(this);
+		flush_data(this, now);
+		if (!asha->flush_pending) {
+			asha->blocked = false;
+			goto skip_flush;
+		}
+	}
+
+	while (asha->flush_pending && sends < ASHA_MAX_BURST) {
+		/* A later packet must not inherit an earlier packet's retry limit.
+		 * Check before send too: a late dispatch must not send an expired hold
+		 * merely because socket credits became available in the meantime.
+		 */
+		if (asha->packet_blocked && now >= asha->packet_blocked_at &&
+				now - asha->packet_blocked_at >= ASHA_PACKET_HOLD_TIMEOUT) {
+			asha->flush_pending = false;
+			asha->packet_blocked = false;
+			asha->backlog = 0;
+			/* Discard is not progress; retain the continuous-stall deadline. */
+			asha_check_blocked(this, now);
+			update_packet_delay(this, ASHA_CONN_INTERVAL);
+			spa_log_warn(this->log, "%p: ASHA staged packet expired; dropping seqnum %u for %s",
+					this, asha->tx_seq, address);
+			goto skip_flush;
+		}
+		asha->buf[0] = asha->tx_seq;
+		spa_system_clock_gettime(this->data_system, CLOCK_REALTIME, &ts);
+		written = spa_bt_send(asha->flush_source.fd, asha->buf,
+				ASHA_ENCODED_PKT_SZ, &this->tx_latency, SPA_TIMESPEC_TO_NSEC(&ts));
 		/*
 		 * For ASHA, when we are out of LE credits and cannot write to
 		 * the socket, return value of `send` will be -EAGAIN.
 		 */
 		if (written < 0) {
-			asha->flush_pending = false;
-			spa_log_warn(this->log, "%p: ASHA failed to flush %d seqnum on timer for %s, written:%d",
-					this, this->seqnum, address, -errno);
+			if (errno == EAGAIN) {
+				asha_check_blocked(this, now);
+				if (!asha->packet_blocked) {
+					asha->packet_blocked = true;
+					asha->packet_blocked_at = now;
+				}
+				/* Nominal slot plus the observed blocked period and next retry.
+				 * This is a host scheduling allowance, not total sample age.
+				 */
+				update_packet_delay(this, 2 * ASHA_CONN_INTERVAL +
+						(now >= asha->packet_blocked_at ? now - asha->packet_blocked_at : 0));
+				if (sends > 0)
+					goto skip_flush;
+
+				if (asha->backlog < ASHA_MAX_BACKLOG)
+					asha->backlog++;
+				spa_log_debug(this->log, "%p: ASHA socket busy, holding seqnum %u (backlog %u) for %s",
+						this, asha->tx_seq, asha->backlog, address);
+			} else {
+				asha->flush_pending = false;
+				asha->backlog = 0;
+				update_packet_delay(this, ASHA_CONN_INTERVAL);
+				spa_log_error(this->log, "%p: ASHA socket error for %s: %m",
+						this, address);
+				asha_signal_stall(this);
+			}
 			goto skip_flush;
 		}
 
-		if (written > 0) {
+		if (written == ASHA_ENCODED_PKT_SZ) {
 			asha->flush_pending = false;
+			asha->tx_seq++;
+			if (sends > 0 && asha->backlog > 0)
+				asha->backlog--;
+			asha->blocked = false;
+			update_packet_delay(this, ASHA_CONN_INTERVAL);
 			spa_log_trace(this->log, "%p: ASHA flush %d seqnum for %s, ts:%u",
-					this, this->seqnum, address, this->timestamp);
+					this, asha->buf[0], address, this->timestamp);
+		} else {
+			asha->flush_pending = false;
+			asha->backlog = 0;
+			update_packet_delay(this, ASHA_CONN_INTERVAL);
+			spa_log_error(this->log, "%p: short ASHA write for %s: %d",
+					this, address, written);
+			asha_signal_stall(this);
+			goto skip_flush;
 		}
+
+		this->seqnum = asha_seqnum(this);
+		flush_data(this, now);
+		sends++;
+
+		if (asha->backlog == 0)
+			break;
 	}
 
-	this->seqnum = asha_seqnum(this);
-	flush_data(this, now);
-
 skip_flush:
-	set_asha_timeout(this, asha->next_time);
+	set_asha_timeout(this, asha->stalled ? 0 : asha->next_time);
 }
 
 
@@ -1501,7 +1740,23 @@ static void media_asha_cb(struct spa_source *source)
 {
 	struct impl *this = source->data;
 	struct spa_bt_asha *asha = this->asha;
-	const char *address = this->transport->device->address;
+	const char *address;
+	if (this->transport == NULL || !this->transport_started)
+		return;
+	address = this->transport->device->address;
+	if ((source->rmask & SPA_IO_ERR) && !(source->rmask & SPA_IO_HUP) && this->tx_latency.enabled) {
+		struct timespec real, mono;
+		int error = 0;
+		socklen_t len = sizeof(error);
+		spa_system_clock_gettime(this->data_system, CLOCK_REALTIME, &real);
+		if (spa_bt_latency_recv_errqueue(&this->tx_latency, asha->flush_source.fd,
+				SPA_TIMESPEC_TO_NSEC(&real), this->log) == 0 &&
+				getsockopt(asha->flush_source.fd, SOL_SOCKET, SO_ERROR, &error, &len) == 0 && error == 0) {
+			spa_system_clock_gettime(this->data_system, CLOCK_MONOTONIC, &mono);
+			asha_update_rate(this, SPA_TIMESPEC_TO_NSEC(&mono), SPA_TIMESPEC_TO_NSEC(&real));
+			return;
+		}
+	}
 
 	if (source->rmask & (SPA_IO_HUP | SPA_IO_ERR)) {
 		spa_log_error(this->log, "%p: ASHA source error %d on %s", this, source->rmask, address);
@@ -1509,6 +1764,7 @@ static void media_asha_cb(struct spa_source *source)
 		if (asha->flush_source.loop)
 			spa_loop_remove_source(this->data_loop, &asha->flush_source);
 
+		asha_signal_stall(this);
 		return;
 	}
 }
@@ -1518,6 +1774,19 @@ static int do_start_transport(struct spa_loop *loop, bool async, uint32_t seq,
 {
 	struct impl *this = user_data;
 
+	if (this->codec->kind == MEDIA_CODEC_ASHA) {
+		struct spa_bt_asha *asha = this->asha;
+		if (__atomic_add_fetch(&this->asha_generation, 1, __ATOMIC_RELEASE) == 0)
+			__atomic_add_fetch(&this->asha_generation, 1, __ATOMIC_RELEASE);
+		__atomic_store_n(&this->asha_stall_generation, 0, __ATOMIC_RELEASE);
+		asha->flush_pending = false;
+		asha->set_timer = false;
+		asha_reset_rate(this);
+		asha->backlog = 0;
+		asha->blocked = false;
+		asha->stalled = false;
+		asha->packet_blocked = false;
+	}
 	this->transport_started = true;
 	if (this->transport->iso_io)
 		spa_bt_iso_io_set_cb(this->transport->iso_io, media_iso_pull, this);
@@ -1621,9 +1890,23 @@ static int transport_start(struct impl *this)
 
 	spa_bt_rate_control_init(&port->ratectl, 0);
 
-	this->update_delay_event = spa_loop_utils_add_event(this->loop_utils, update_delay_event, this);
+	if (this->update_delay_event == NULL)
+		this->update_delay_event = spa_loop_utils_add_event(this->loop_utils, update_delay_event, this);
+
+	if (is_asha && this->asha_stall_event == NULL)
+		this->asha_stall_event = spa_loop_utils_add_event(this->loop_utils,
+				asha_stall_event_handler, this);
+	if (is_asha && (this->update_delay_event == NULL || this->asha_stall_event == NULL))
+		goto fail;
 
 	spa_zero(this->tx_latency);
+	if (is_asha) {
+		/* Also used by the shared transport-stop timestamp cleanup. */
+		this->flush_source.fd = this->transport->fd;
+		spa_bt_latency_init(&this->tx_latency, this->transport, LATENCY_PERIOD, this->log);
+		spa_log_info(this->log, "%p: ASHA completion feedback %s", this,
+				this->tx_latency.enabled ? "enabled" : "unavailable; nominal pacing");
+	}
 
 	if (is_sco) {
 		int res;
@@ -1662,9 +1945,6 @@ static int transport_start(struct impl *this)
 	if (is_asha) {
 		struct spa_bt_asha *asha = this->asha;
 
-		asha->flush_pending = false;
-		asha->set_timer = false;
-
 		asha->timer_source.data = this;
 		asha->timer_source.fd = this->asha->timerfd;
 		asha->timer_source.func = media_asha_flush_timeout;
@@ -1687,6 +1967,10 @@ static int transport_start(struct impl *this)
 	return 0;
 
 fail:
+	if (this->asha_stall_event) {
+		spa_loop_utils_destroy_source(this->loop_utils, this->asha_stall_event);
+		this->asha_stall_event = NULL;
+	}
 	if (this->update_delay_event) {
 		spa_loop_utils_destroy_source(this->loop_utils, this->update_delay_event);
 		this->update_delay_event = NULL;
@@ -1722,7 +2006,7 @@ static int do_start(struct impl *this)
 		return res;
 	}
 
-	this->packet_delay_ns = 0;
+	__atomic_store_n(&this->packet_delay_ns, 0, __ATOMIC_RELAXED);
 
 	this->source.data = this;
 	this->source.fd = this->timerfd;
@@ -1759,6 +2043,11 @@ static int do_remove_source(struct spa_loop *loop,
 		this->update_delay_event = NULL;
 	}
 
+	if (this->asha_stall_event) {
+		spa_loop_utils_destroy_source(this->loop_utils, this->asha_stall_event);
+		this->asha_stall_event = NULL;
+	}
+
 	return 0;
 }
 
@@ -1772,6 +2061,10 @@ static int do_remove_transport_source(struct spa_loop *loop,
 	struct impl *this = user_data;
 
 	this->transport_started = false;
+	if (this->codec->kind == MEDIA_CODEC_ASHA) {
+		__atomic_add_fetch(&this->asha_generation, 1, __ATOMIC_RELEASE);
+		__atomic_store_n(&this->asha_stall_generation, 0, __ATOMIC_RELEASE);
+	}
 
 	if (this->flush_source.loop) {
 		spa_bt_latency_flush(&this->tx_latency, this->flush_source.fd, this->log);
@@ -1789,7 +2082,7 @@ static int do_remove_transport_source(struct spa_loop *loop,
 	}
 	enable_flush_timer(this, false);
 
-	if (this->transport->iso_io)
+	if (this->transport && this->transport->iso_io)
 		spa_bt_iso_io_set_cb(this->transport->iso_io, NULL, NULL);
 
 	/* Drop queued data */
@@ -2000,6 +2293,7 @@ impl_node_port_enum_params(void *object, int seq,
 	uint8_t buffer[1024];
 	struct spa_result_node_params result;
 	uint32_t count = 0;
+	uint32_t min_buffers = MIN_BUFFERS;
 	int res;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
@@ -2045,11 +2339,17 @@ impl_node_port_enum_params(void *object, int seq,
 		if (result.index > 0)
 			return 0;
 
+		/* Reserve capacity for the bounded ASHA backpressure window.
+		 * This changes pool capacity, not the send interval or target delay.
+		 */
+		if (this->codec->kind == MEDIA_CODEC_ASHA)
+			min_buffers += ASHA_MAX_BACKLOG;
+
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_ParamBuffers, id,
 			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(
-							MIN_BUFFERS,
-							MIN_BUFFERS,
+							min_buffers,
+							min_buffers,
 							MAX_BUFFERS),
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,	   SPA_POD_CHOICE_RANGE_Int(
@@ -2400,6 +2700,7 @@ static int impl_node_process(void *object)
 			set_asha_timer(this, NULL);
 		}
 
+		this->asha->tx_seq = this->seqnum;
 		this->asha->set_timer = true;
 	}
 

@@ -1960,7 +1960,7 @@ static uint32_t profile_direction_mask(struct impl *this, uint32_t index, enum s
 		break;
 	case DEVICE_PROFILE_ASHA:
 		if (device->connected_profiles & SPA_BT_PROFILE_ASHA_SINK)
-			have_input = true;
+			have_output = true;
 		break;
 	default:
 		break;

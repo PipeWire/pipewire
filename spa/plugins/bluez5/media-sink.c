@@ -608,7 +608,7 @@ static uint32_t get_queued_frames(struct impl *this)
 	else
 		bytes = 0;
 
-	bytes += this->silence_frames * this->block_size;
+	bytes += this->silence_frames * port->frame_size;
 
 	/* Count (partially) encoded packet */
 	bytes += this->tmp_buffer_used;

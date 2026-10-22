@@ -419,7 +419,7 @@ int client_queue_request_command(struct client *client, uint32_t channel, uint32
 
 		if (drop_from_out_queue(client, m)) {
 			size = (size > UINT32_MAX - s) ? UINT32_MAX : size + s;
-			pw_log_info("client %p: merged redundant request command %u to %u",
+			pw_log_debug("client %p: merged redundant request command %u to %u",
 				     client, s, size);
 		}
 	}

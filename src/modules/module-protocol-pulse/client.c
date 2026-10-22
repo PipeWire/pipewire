@@ -405,3 +405,23 @@ int client_queue_subscribe_event(struct client *client, uint32_t facility, uint3
 
 	return client_queue_message(client, reply);
 }
+
+int client_queue_request_command(struct client *client, uint32_t channel, uint32_t size)
+{
+	struct message *msg;
+
+	msg = message_alloc(client->impl, -1, 0);
+
+	msg->type = MESSAGE_TYPE_REQUEST_COMMAND;
+	msg->u.request_command.channel = channel;
+	msg->u.request_command.size = size;
+
+	message_put(msg,
+		TAG_U32, COMMAND_REQUEST,
+		TAG_U32, -1,
+		TAG_U32, channel,
+		TAG_U32, size,
+		TAG_INVALID);
+
+	return client_queue_message(client, msg);
+}

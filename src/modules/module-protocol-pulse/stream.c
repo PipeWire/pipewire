@@ -380,8 +380,6 @@ int stream_send_suspended(struct stream *stream, bool suspended)
 int stream_send_request(struct stream *stream)
 {
 	struct client *client = stream->client;
-	struct impl *impl = client->impl;
-	struct message *msg;
 	uint32_t size;
 
 	size = stream_pop_missing(stream);
@@ -391,15 +389,7 @@ int stream_send_request(struct stream *stream)
 
 	pw_log_trace("stream %p: REQUEST channel:%d %u", stream, stream->channel, size);
 
-	msg = message_alloc(impl, -1, 0);
-	message_put(msg,
-		TAG_U32, COMMAND_REQUEST,
-		TAG_U32, -1,
-		TAG_U32, stream->channel,
-		TAG_U32, size,
-		TAG_INVALID);
-
-	return client_queue_message(client, msg);
+	return client_queue_request_command(client, stream->channel, size);
 }
 
 int stream_update_minreq(struct stream *stream, uint32_t minreq)

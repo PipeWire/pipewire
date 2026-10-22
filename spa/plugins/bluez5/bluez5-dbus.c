@@ -266,7 +266,7 @@ static void codec_switch_destroy(struct spa_bt_codec_switch *sw);
 #define DEFAULT_RECONNECT_PROFILES SPA_BT_PROFILE_NULL
 #define DEFAULT_HW_VOLUME_PROFILES (SPA_BT_PROFILE_HEADSET_AUDIO_GATEWAY | SPA_BT_PROFILE_HEADSET_HEAD_UNIT | \
 					SPA_BT_PROFILE_A2DP_SOURCE | SPA_BT_PROFILE_A2DP_SINK | \
-					SPA_BT_PROFILE_BAP_AUDIO)
+					SPA_BT_PROFILE_BAP_AUDIO | SPA_BT_PROFILE_ASHA_SINK)
 
 #define BT_DEVICE_DISCONNECTED	0
 #define BT_DEVICE_CONNECTED	1
@@ -4820,6 +4820,8 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 
 	transport->volumes[SPA_BT_VOLUME_ID_TX].active = true;
 	transport->volumes[SPA_BT_VOLUME_ID_TX].volume = DEFAULT_TX_VOLUME;
+	transport->volumes[SPA_BT_VOLUME_ID_TX].hw_volume = SPA_BT_VOLUME_INVALID;
+	transport->volumes[SPA_BT_VOLUME_ID_TX].hw_volume_max = SPA_BT_VOLUME_ASHA_MAX;
 	transport->n_channels = 1;
 	transport->channels[0] = transport->asha_right_side ? SPA_AUDIO_CHANNEL_FR : SPA_AUDIO_CHANNEL_FL;
 

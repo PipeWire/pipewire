@@ -117,7 +117,8 @@ static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t times
 		}
 
 		seq_delta = rtp_seqnum_delta(p->seq, next_seq);
-		if (seq_delta > 0 && prev_p != NULL) {
+		if (seq_delta > 0 && prev_p != NULL &&
+		    impl->rtp_format_info->to_float && impl->rtp_format_info->from_float) {
 			if (audio_packet_repair(impl, prev_p, p, seq_delta, next_timestamp, p->timestamp) < 0) {
 				pw_log_warn("could not repair packets");
 				goto skip;

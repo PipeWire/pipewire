@@ -152,8 +152,8 @@ static struct mix *find_mix(struct node_data *data,
 	spa_list_for_each(mix, &data->mix[direction], link) {
 		if (mix->port->port_id == port_id &&
 		    mix->mix.id == mix_id) {
-			pw_log_debug("port %p: found mix %d:%d.%d", mix->port,
-					direction, port_id, mix_id);
+			pw_log_debug("port %p: found mix %s:%d.%d", mix->port,
+					pw_direction_as_string(direction), port_id, mix_id);
 			return mix;
 		}
 	}
@@ -740,10 +740,10 @@ client_node_port_use_buffers(void *_data,
 error_exit_cleanup:
 	clear_buffers(data, mix);
 error_exit:
-	pw_log_error("port %p: use_buffers(%u:%u:%d): %d %s", mix,
-			direction, port_id, mix_id, res, spa_strerror(res));
-	pw_proxy_errorf(proxy, res, "port_use_buffers(%u:%u:%d) error: %s",
-			direction, port_id, mix_id, spa_strerror(res));
+	pw_log_error("port %p: use_buffers(%s:%u:%d): %d %s", mix,
+			pw_direction_as_string(direction), port_id, mix_id, res, spa_strerror(res));
+	pw_proxy_errorf(proxy, res, "port_use_buffers(%s:%u:%d) error: %s",
+			pw_direction_as_string(direction), port_id, mix_id, spa_strerror(res));
 	return res;
 }
 
@@ -913,7 +913,8 @@ static int client_node_port_set_mix_info(void *_data,
 	struct node_data *data = _data;
 	struct mix *mix;
 
-	pw_log_debug("%p: %d:%d:%d peer:%d", data, direction, port_id, mix_id, peer_id);
+	pw_log_debug("%p: %s:%d:%d peer:%d", data,
+			pw_direction_as_string(direction), port_id, mix_id, peer_id);
 
 	mix = find_mix(data, direction, port_id, mix_id);
 

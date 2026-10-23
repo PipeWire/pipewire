@@ -264,6 +264,9 @@ static int mix_port_set_io(void *object,
 	if (mix == NULL)
 		return -ENOENT;
 
+	pw_log_debug("%p: mix %p %s.%d %p/%zu", this, mix,
+			pw_direction_as_string(direction), port_id, data, size);
+
 	switch (id) {
 	case SPA_IO_Buffers:
 	case SPA_IO_AsyncBuffers:
@@ -428,8 +431,8 @@ int pw_impl_port_init_mix(struct pw_impl_port *port, struct pw_impl_port_mix *mi
 	spa_list_append(&port->mix_list, &mix->link);
 	port->n_mix++;
 
-	pw_log_debug("%p: init mix n_mix:%d %d.%d id:%d peer:%d io:%p: (%s)", port,
-			port->n_mix, port->port_id, mix->port.port_id,
+	pw_log_debug("%p: init mix %p n_mix:%d %d.%s.%d id:%d peer:%d io:%p: (%s)", port, mix,
+			port->n_mix, port->port_id, pw_direction_as_string(mix->port.direction), mix->port.port_id,
 			mix->id, mix->peer_id, mix->io, spa_strerror(res));
 
 	return res;
@@ -451,7 +454,7 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 	spa_list_remove(&mix->link);
 	port->n_mix--;
 
-	pw_log_debug("%p: release mix %d %d.%d", port,
+	pw_log_debug("%p: release mix %p %d %d.%d", port, mix,
 			port->n_mix, port->port_id, mix->port.port_id);
 
 	res = pw_impl_port_call_release_mix(port, mix);
@@ -2117,8 +2120,8 @@ int pw_impl_port_set_param(struct pw_impl_port *port, uint32_t id, uint32_t flag
 			port->direction, port->port_id,
 			id, flags, param);
 
-	pw_log_debug("%p: %d set param on node %d:%d id:%d (%s): %d (%s)", port, port->state,
-			port->direction, port->port_id, id,
+	pw_log_debug("%p: %d set param on node %s.%d id:%d (%s): %d (%s)", port, port->state,
+			pw_direction_as_string(port->direction), port->port_id, id,
 			spa_debug_type_find_name(spa_type_param, id),
 			res, res <= 0 ? spa_strerror(res) : "modified");
 
@@ -2193,9 +2196,9 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 			flags |= SPA_NODE_BUFFERS_FLAG_ALLOC;
 		}
 
-		pw_log_debug("%p: %d.%d negotiate %d buffers on node: %p flags:%08x",
-				port, port->direction, port->port_id, n_buffers, node->node,
-				alloc_flags);
+		pw_log_debug("%p: %s.%d negotiate %d buffers on node: %p flags:%08x",
+				port, pw_direction_as_string(port->direction), port->port_id,
+				n_buffers, node->node, alloc_flags);
 
 		spa_node_port_set_io(node->node,
 				     port->direction, port->port_id,
@@ -2218,14 +2221,18 @@ static int negotiate_mixer_buffers(struct pw_impl_port *port, uint32_t flags,
 		}
 	}
 
-	pw_log_debug("%p: %d.%d use %d buffers on node: %p",
-			port, port->direction, port->port_id, n_buffers, node->node);
+	pw_log_debug("%p: %s.%d use %d buffers on node: %p",
+			port, pw_direction_as_string(port->direction), port->port_id,
+			n_buffers, node->node);
 
 	res = spa_node_port_use_buffers(node->node,
 			port->direction, port->port_id,
 			flags, buffers, n_buffers);
 
 	if (SPA_RESULT_IS_OK(res)) {
+		pw_log_debug("%p mix %s.0 %p/%d", port,
+				pw_direction_as_string(pw_direction_reverse(port->direction)),
+				buffers, n_buffers);
 		res2 = spa_node_port_use_buffers(port->mix,
 			     pw_direction_reverse(port->direction), 0,
 			     0, buffers, n_buffers);
@@ -2265,8 +2272,8 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 {
 	int res = 0, res2;
 
-	pw_log_debug("%p: %d:%d.%d: %d buffers flags:%d state:%d n_mix:%d", port,
-			port->direction, port->port_id, mix->port.port_id,
+	pw_log_debug("%p: mix %p %s:%d.%d: %d buffers flags:%d state:%d n_mix:%d", port, mix,
+			pw_direction_as_string(port->direction), port->port_id, mix->port.port_id,
 			n_buffers, flags, port->state, port->n_mix);
 
 	if (n_buffers == 0 && port->state <= PW_IMPL_PORT_STATE_READY)
@@ -2303,6 +2310,10 @@ int pw_impl_port_use_buffers(struct pw_impl_port *port, struct pw_impl_port_mix 
 	/* then use the buffers on the mixer */
 	if (!SPA_FLAG_IS_SET(port->mix_flags, PW_IMPL_PORT_MIX_FLAG_MIX_ONLY))
 		flags &= ~SPA_NODE_BUFFERS_FLAG_ALLOC;
+
+	pw_log_debug("%p mix %p %s.%d %p/%d", port, mix,
+			pw_direction_as_string(mix->port.direction), mix->port.port_id,
+			buffers, n_buffers);
 
 	res2 = spa_node_port_use_buffers(port->mix,
 			mix->port.direction, mix->port.port_id, flags,

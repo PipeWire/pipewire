@@ -296,6 +296,9 @@ get_nth_int (const GValue *val, int idx, int *res)
     } else if (idx == 2) {
       *res = gst_value_get_int_range_max (val);
       return true;
+    } else if (idx == 3 && gst_value_get_int_range_step (val) > 1) {
+      *res = gst_value_get_int_range_step (val);
+      return true;
     }
   } else if (type == GST_TYPE_LIST) {
     GArray *array = g_value_peek_pointer (val);
@@ -341,44 +344,26 @@ get_nth_fraction (const GValue *val, int idx, struct spa_fraction *f)
 static gboolean
 get_nth_rectangle (const GValue *width, const GValue *height, int idx, struct spa_rectangle *r)
 {
-  const GValue *w = NULL, *h = NULL;
-  GType wt = G_VALUE_TYPE (width);
-  GType ht = G_VALUE_TYPE (height);
+  gboolean wrange = GST_VALUE_HOLDS_INT_RANGE (width);
+  gboolean hrange = GST_VALUE_HOLDS_INT_RANGE (height);
+  int w, h;
 
-  if (wt == G_TYPE_INT && ht == G_TYPE_INT && idx == 0) {
-    w = width;
-    h = height;
-  } else if (wt == GST_TYPE_INT_RANGE && ht == GST_TYPE_INT_RANGE) {
-    if (idx == 0 || idx == 1) {
-      r->width = gst_value_get_int_range_min (width);
-      r->height = gst_value_get_int_range_min (height);
-      return true;
-    } else if (idx == 2) {
-      r->width = gst_value_get_int_range_max (width);
-      r->height = gst_value_get_int_range_max (height);
-      return true;
-    } else if (idx == 3) {
-      r->width = gst_value_get_int_range_step (width);
-      r->height = gst_value_get_int_range_step (height);
-      if (r->width > 1 || r->height > 1)
-        return true;
-      else
-        return false;
-    }
-  } else if (wt == GST_TYPE_LIST && ht == GST_TYPE_LIST) {
-    GArray *wa = g_value_peek_pointer (width);
-    GArray *ha = g_value_peek_pointer (height);
-    if (idx < (int)(wa->len + 1))
-      w = &g_array_index (wa, GValue, SPA_MAX (idx-1, 0));
-    if (idx < (int)(ha->len + 1))
-      h = &g_array_index (ha, GValue, SPA_MAX (idx-1, 0));
+  if ((wrange || hrange) && idx == 3) {
+    w = wrange ? gst_value_get_int_range_step (width) : 1;
+    h = hrange ? gst_value_get_int_range_step (height) : 1;
+    if (w == 1 && h == 1)
+      return false;
+  } else {
+    int wi = (wrange || hrange) && G_VALUE_HOLDS_INT (width) ? 0 : idx;
+    int hi = (wrange || hrange) && G_VALUE_HOLDS_INT (height) ? 0 : idx;
+
+    if (idx > 2 || !get_nth_int (width, wi, &w) ||
+        !get_nth_int (height, hi, &h))
+      return false;
   }
-  if (w && h) {
-    r->width = g_value_get_int (w);
-    r->height = g_value_get_int (h);
-    return true;
-  }
-  return false;
+  r->width = w;
+  r->height = h;
+  return true;
 }
 
 static uint32_t
@@ -916,8 +901,12 @@ gst_caps_to_format_all (GstCaps *caps)
 
   d.array = g_ptr_array_new_full (gst_caps_get_size (caps), (GDestroyNotify)g_free);
 
+  /* SPA choices cannot nest a range inside an enum. Split list alternatives
+   * into separate structures, preserving their preference order. */
+  caps = gst_caps_normalize (gst_caps_copy (caps));
   gst_caps_foreach (caps, (GstCapsForeachFunc) foreach_func_dmabuf, &d);
   gst_caps_foreach (caps, (GstCapsForeachFunc) foreach_func_no_dmabuf, &d);
+  gst_caps_unref (caps);
 
   return d.array;
 }
@@ -1215,6 +1204,11 @@ set_pref_int_range (GstCaps *res, const char *key, int pref, int min, int max)
 {
   GValue list = { 0 }, v = { 0 };
 
+  if (min == max) {
+    gst_caps_set_simple (res, key, G_TYPE_INT, min, NULL);
+    return;
+  }
+
   if (pref <= min || pref > max) {
     gst_caps_set_simple (res, key, GST_TYPE_INT_RANGE, min, max, NULL);
     return;
@@ -1346,23 +1340,22 @@ handle_rect_prop (const struct spa_pod_prop *prop, const char *width, const char
     }
     case SPA_CHOICE_Enum:
     {
-      GValue l1 = { 0 }, l2 = { 0 }, v1 = { 0 }, v2 = { 0 };
+      GstCaps *templates = gst_caps_copy (res);
+      uint32_t j;
 
-      g_value_init (&l1, GST_TYPE_LIST);
-      g_value_init (&l2, GST_TYPE_LIST);
+      while (gst_caps_get_size (res) > 0)
+        gst_caps_remove_structure (res, 0);
       for (i = 1; i < n_items; i++) {
-        g_value_init (&v1, G_TYPE_INT);
-        g_value_set_int (&v1, rect[i].width);
-        gst_value_list_append_and_take_value (&l1, &v1);
+        for (j = 0; j < gst_caps_get_size (templates); j++) {
+          GstStructure *s = gst_structure_copy (gst_caps_get_structure (templates, j));
+          GstCapsFeatures *f = gst_caps_features_copy (gst_caps_get_features (templates, j));
 
-        g_value_init (&v2, G_TYPE_INT);
-        g_value_set_int (&v2, rect[i].height);
-        gst_value_list_append_and_take_value (&l2, &v2);
+          gst_structure_set (s, width, G_TYPE_INT, rect[i].width,
+              height, G_TYPE_INT, rect[i].height, NULL);
+          gst_caps_append_structure_full (res, s, f);
+        }
       }
-      gst_caps_set_value (res, width, &l1);
-      gst_caps_set_value (res, height, &l2);
-      g_value_unset (&l1);
-      g_value_unset (&l2);
+      gst_caps_unref (templates);
       break;
     }
     default:

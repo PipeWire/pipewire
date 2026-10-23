@@ -59,8 +59,11 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 	}
 
 	for (i = 0; i < num; i++) {
-		if ((p = rtp_stream_get_free_packet(impl)) == NULL || p == next)
-			return -ENOSPC;
+		if (spa_list_is_empty(&impl->free) &&
+		    spa_list_first(&impl->queued, struct rtp_packet, link) == last)
+			break;
+		if ((p = rtp_stream_get_free_packet(impl)) == NULL)
+			break;
 
 		spa_list_remove(&p->link);
 		spa_list_append(&next->link, &p->link);
@@ -91,7 +94,7 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 		pw_log_info("repaired seq %d", p->seq);
 		audio_packet_decode(impl, p);
 	}
-	return 0;
+	return i > 0 ? 0 : -ENOSPC;
 }
 
 /* read wanted samples from the packet buffer at timestamp. Fill the gaps with

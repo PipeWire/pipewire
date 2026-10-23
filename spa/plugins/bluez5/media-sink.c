@@ -2790,7 +2790,7 @@ static void transport_state_changed(void *data,
 	spa_log_debug(this->log, "%p: transport %p state %d->%d", this, this->transport, old, state);
 
 	if (state == SPA_BT_TRANSPORT_STATE_ACTIVE) {
-		if (transport_start(this) < 0) {
+		if (this->start_ready && transport_start(this) < 0) {
 			spa_bt_transport_set_state(this->transport, SPA_BT_TRANSPORT_STATE_ERROR);
 			return;
 		}

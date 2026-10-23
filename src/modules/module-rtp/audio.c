@@ -64,6 +64,7 @@ static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
 
 		spa_list_remove(&p->link);
 		spa_list_append(&next->link, &p->link);
+		impl->num_queued++;
 
 		p->seq = last->seq + i + 1;
 		p->timestamp = ts_start + i * duration;

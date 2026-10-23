@@ -793,6 +793,7 @@ struct pw_impl_node {
 	int passive_mode[2];		/**< node links should be passive */
 #define OUTPUT_MODE_FAST		0
 #define OUTPUT_MODE_RELIABLE		1
+#define OUTPUT_MODE_REFCOUNTED		2
 	int output_mode;		/**< node output tee mode */
 
 	uint32_t transport;		/**< latest transport request */
@@ -876,6 +877,7 @@ struct pw_impl_port_mix {
 		bool active;
 		struct spa_list link;
 	} rt;
+	uint8_t *buffer_out;
 };
 
 struct pw_impl_port_implementation {
@@ -1028,6 +1030,8 @@ static inline const char *output_mode_to_string(uint32_t mode)
 		return "fast";
 	case OUTPUT_MODE_RELIABLE:
 		return "reliable";
+	case OUTPUT_MODE_REFCOUNTED:
+		return "refcounted";
 	}
 	return "unknown";
 }
@@ -1038,6 +1042,8 @@ static inline uint32_t output_mode_from_string(const char *str)
 		return OUTPUT_MODE_FAST;
 	else if (spa_streq(str, "reliable"))
 		return OUTPUT_MODE_RELIABLE;
+	else if (spa_streq(str, "refcounted"))
+		return OUTPUT_MODE_REFCOUNTED;
 	return OUTPUT_MODE_FAST;
 }
 

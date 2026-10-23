@@ -45,6 +45,9 @@ struct impl {
 	struct spa_hook node_listener;
 
 	unsigned int cache_params:1;
+
+	uint32_t buffers_used;
+	int *refcounts;
 };
 
 static const char * const global_keys[] = {
@@ -238,16 +241,60 @@ do_add_mix(struct spa_loop *loop,
 	return 0;
 }
 
+static void mix_recycle_all(struct impl *impl, struct pw_impl_port_mix *mix)
+{
+	uint32_t i;
+	struct pw_impl_port *this = &impl->this;
+
+	if (mix->buffer_out == NULL)
+		return;
+
+	for (i = 0; i < this->buffers.n_buffers; i++) {
+		if (mix->buffer_out[i] == 1 && --impl->refcounts[i] == 0) {
+			impl->buffers_used--;
+			spa_node_port_reuse_buffer(this->node->node,
+					this->port_id, i);
+		}
+	}
+}
+
 static int
 do_remove_mix(struct spa_loop *loop,
 		 bool async, uint32_t seq, const void *data, size_t size, void *user_data)
 {
 	struct pw_impl_port_mix *mix = user_data;
 	struct pw_impl_port *this = mix->p;
+	struct impl *impl = SPA_CONTAINER_OF(this, struct impl, this);
+
 	pw_log_trace("%p: remove mix %p", this, mix);
 	if (mix->rt.active) {
 		spa_list_remove(&mix->rt.link);
 		mix->rt.active = false;
+		if (impl->this.output_mode == OUTPUT_MODE_REFCOUNTED)
+			mix_recycle_all(impl, mix);
+	}
+	return 0;
+}
+
+static int mix_port_use_buffers(void *object,
+		enum spa_direction direction, uint32_t port_id, uint32_t flags,
+		struct spa_buffer **buffers, uint32_t n_buffers)
+{
+	struct impl *impl = object;
+	struct pw_impl_port *this = &impl->this;
+	struct pw_impl_port_mix *mix = NULL;
+	bool refcounted = this->output_mode == OUTPUT_MODE_REFCOUNTED;
+
+	if (direction == this->direction || port_id != 0)
+		return 0;
+
+	pw_log_debug("%p: mix %p %s.%d %p/%u", this, mix,
+			pw_direction_as_string(direction), port_id, buffers, n_buffers);
+
+	if (refcounted) {
+		free(impl->refcounts);
+		impl->refcounts = calloc(n_buffers, sizeof(int));
+		impl->buffers_used = 0;
 	}
 	return 0;
 }
@@ -259,6 +306,7 @@ static int mix_port_set_io(void *object,
 	struct impl *impl = object;
 	struct pw_impl_port *this = &impl->this;
 	struct pw_impl_port_mix *mix;
+	bool refcounted = this->output_mode == OUTPUT_MODE_REFCOUNTED;
 
 	mix = find_mix(this, direction, port_id);
 	if (mix == NULL)
@@ -274,6 +322,11 @@ static int mix_port_set_io(void *object,
 			pw_loop_locked(this->node->data_loop,
 			       do_remove_mix, SPA_ID_INVALID, NULL, 0, mix);
 			mix->io_data = mix->io[0] = mix->io[1] = NULL;
+
+			if (refcounted && mix->buffer_out) {
+				free(mix->buffer_out);
+				mix->buffer_out = NULL;
+			}
 		} else if (data != NULL && size >= sizeof(struct spa_io_buffers)) {
 			if (size >= sizeof(struct spa_io_async_buffers)) {
 				struct spa_io_async_buffers *ab = data;
@@ -283,6 +336,8 @@ static int mix_port_set_io(void *object,
 			} else {
 				mix->io_data = mix->io[0] = mix->io[1] = data;
 			}
+			if (refcounted && mix->buffer_out == NULL)
+				mix->buffer_out = calloc(this->buffers.n_buffers, sizeof(uint8_t));
 			pw_loop_locked(this->node->data_loop,
 			       do_add_mix, SPA_ID_INVALID, NULL, 0, mix);
 		}
@@ -340,6 +395,80 @@ static int tee_process_reliable(void *object)
 				break;
 			}
 		}
+	}
+        return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
+}
+
+static int tee_process_refcount(void *object)
+{
+	struct impl *impl = object;
+	struct pw_impl_port *this = &impl->this;
+	struct pw_impl_port_mix *mix;
+	struct spa_io_buffers *io = &this->rt.io;
+	uint32_t cycle = this->node->rt.position->clock.cycle & 1;
+	uint32_t n_buffers = this->buffers.n_buffers;
+
+	if (io->status == SPA_STATUS_HAVE_DATA) {
+		uint32_t buffer_id = io->buffer_id;
+
+		pw_log_trace_fp("%p: output %u/%u %u", this, buffer_id, n_buffers, impl->buffers_used);
+
+		if (buffer_id >= n_buffers)
+			return io->status;
+
+		impl->refcounts[buffer_id]++;
+		impl->buffers_used++;
+
+		spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
+			struct spa_io_buffers *mio = mix->io[cycle];
+
+			pw_log_trace_fp("%p: port %d %p->%p status:%d id:%d", this,
+					mix->port.port_id, io, mio, mio->status, mio->buffer_id);
+
+			if (mio->status != SPA_STATUS_HAVE_DATA) {
+				if (mio->buffer_id < n_buffers) {
+					if (mix->buffer_out[mio->buffer_id] == 1) {
+						mix->buffer_out[mio->buffer_id] = 0;
+						if (--impl->refcounts[mio->buffer_id] == 0) {
+							impl->buffers_used--;
+							pw_log_trace_fp("%p: recycle %u", this, mio->buffer_id);
+							spa_node_port_reuse_buffer(this->node->node,
+								this->port_id, mio->buffer_id);
+						}
+					}
+				}
+			}
+		}
+
+		if (impl->buffers_used == n_buffers) {
+			pw_log_warn("%p: no buffers available for recycling, dropping %u", this, buffer_id);
+		} else {
+			spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
+				struct spa_io_buffers *mio = mix->io[cycle];
+
+				if (mio->status == SPA_STATUS_HAVE_DATA)
+					continue;
+
+				if (mix->buffer_out[buffer_id] == 0) {
+					pw_log_trace_fp("%p: ref %u", this, buffer_id);
+					impl->refcounts[buffer_id]++;
+					mix->buffer_out[buffer_id] = 1;
+					mio->buffer_id = buffer_id;
+				} else {
+					mio->buffer_id = SPA_ID_INVALID;
+				}
+				mio->status = SPA_STATUS_HAVE_DATA;
+			}
+		}
+		if (--impl->refcounts[buffer_id] == 0) {
+			impl->buffers_used--;
+			pw_log_trace_fp("%p: recycle %u", this, buffer_id);
+			spa_node_port_reuse_buffer(this->node->node,
+					this->port_id, buffer_id);
+		}
+
+		io->buffer_id = SPA_ID_INVALID;
+		io->status = SPA_STATUS_NEED_DATA;
 	}
         return SPA_STATUS_HAVE_DATA | SPA_STATUS_NEED_DATA;
 }
@@ -479,6 +608,10 @@ int pw_impl_port_release_mix(struct pw_impl_port *port, struct pw_impl_port_mix 
 		pw_log_debug("%p: clearing port io", port);
 		pw_impl_port_set_param(port, SPA_PARAM_Format, 0, NULL);
 	}
+	if (mix->buffer_out) {
+		free(mix->buffer_out);
+		mix->buffer_out = NULL;
+	}
 	return res;
 }
 
@@ -529,6 +662,9 @@ static int check_properties(struct pw_impl_port *port)
 			break;
 		case OUTPUT_MODE_RELIABLE:
 			impl->mix_methods.process = tee_process_reliable;
+			break;
+		case OUTPUT_MODE_REFCOUNTED:
+			impl->mix_methods.process = tee_process_refcount;
 			break;
 		}
 		pw_properties_set(port->properties, PW_KEY_PORT_OUTPUT_MODE,
@@ -1024,6 +1160,7 @@ struct pw_impl_port *pw_context_create_port(
 		.add_listener = mix_add_listener,
 		.port_enum_params = mix_port_enum_params,
 		.port_set_io = mix_port_set_io,
+		.port_use_buffers = mix_port_use_buffers,
 	};
 	if (this->direction == PW_DIRECTION_INPUT) {
 		impl->mix_methods.port_reuse_buffer = mix_reuse_buffer;
@@ -1623,6 +1760,7 @@ void pw_impl_port_destroy(struct pw_impl_port *port)
 	free(port->tag[SPA_DIRECTION_OUTPUT]);
 	free(port->cap[SPA_DIRECTION_INPUT]);
 	free(port->cap[SPA_DIRECTION_OUTPUT]);
+	free(impl->refcounts);
 
 	pw_map_clear(&port->mix_port_map);
 

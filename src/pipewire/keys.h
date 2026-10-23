@@ -239,7 +239,7 @@ extern "C" {
 #define PW_KEY_NODE_RELIABLE		"node.reliable"		/**< node uses reliable transport 1.6.0,
 								  *  use "node.output-mode" instead.*/
 #define PW_KEY_NODE_OUTPUT_MODE		"node.output-mode"	/**< node tee recycle mode, one of "fast",
-								  *  "reliable". 1.8.0 */
+								  *  "reliable", "refcounted". 1.8.0 */
 
 /** Port keys */
 #define PW_KEY_PORT_ID			"port.id"		/**< port id */
@@ -263,7 +263,7 @@ extern "C" {
 #define PW_KEY_PORT_RELIABLE		"port.reliable"		/**< port uses reliable transport 1.6.0,
 								  *  use "port.output-mode" instead. */
 #define PW_KEY_PORT_OUTPUT_MODE		"port.output-mode"	/**< Port tee recycle mode, one of "fast",
-								  *  "reliable". 1.8.0 */
+								  *  "reliable", "refcounted". 1.8.0 */
 
 /** link properties */
 #define PW_KEY_LINK_ID			"link.id"		/**< a link id */

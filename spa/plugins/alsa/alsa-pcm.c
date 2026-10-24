@@ -311,7 +311,7 @@ static struct spa_pod *enum_bind_ctl_propinfo(struct state *state, uint32_t idx,
 					SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
 					SPA_PROP_INFO_name, SPA_POD_String(param_name),
 					SPA_PROP_INFO_description, SPA_POD_String(param_desc),
-					SPA_PROP_INFO_type, SPA_POD_Long(0),
+					SPA_PROP_INFO_type, SPA_POD_Long(0LL),
 					SPA_PROP_INFO_params, SPA_POD_Bool(true));
 			break;
 

@@ -225,7 +225,7 @@ static int port_get_format(struct port *port,
 			0);
 		if (port->have_modifier)
 			spa_pod_builder_add(builder,
-				SPA_FORMAT_VIDEO_modifier,  SPA_POD_Long(0),
+				SPA_FORMAT_VIDEO_modifier,  SPA_POD_Long(0LL),
 				0);
 		spa_pod_builder_add(builder,
 			SPA_FORMAT_VIDEO_size,      SPA_POD_Rectangle(&port->current_format.info.raw.size),

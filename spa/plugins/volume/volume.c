@@ -28,7 +28,7 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.volume");
 #define DEFAULT_MUTE false
 
 struct props {
-	double volume;
+	float volume;
 	bool mute;
 };
 

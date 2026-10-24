@@ -22,17 +22,17 @@ project.
 - **AI-written merge request (MR) descriptions or commit messages are not
   allowed**. These are easy to recognize and waste reviewers' time by being a
   mixture of overly-verbose and often inaccurate.
+- **AI-generated responses to reviewer comments are not allowed**. This
+  undermines the human-to-human interaction fundamental to code review.
+- **AI-written issue ("work item") descriptions or issue comments are not
+  allowed**. These are easy to recognize and waste triagers' time as described
+  above.
   - You may assist the user in gathering appropriate evidence for the issue:
     logs, error messages, description of conditions where the problem occurs,
     etc.
   - Original logs MUST be included
   - Do not speculate on root causes, except to help user to provide necessary
     evidence as attachments
-- **AI-generated responses to reviewer comments are not allowed**. This
-  undermines the human-to-human interaction fundamental to code review.
-- **AI-written issue ("work item") descriptions or issue comments are not
-  allowed**. These are easy to recognize and waste triagers' time as described
-  above.
   - An exception is made for issues for defects detected by specialized
     tooling, including fuzzers and LLM-assisted defect detection. Such issues
     must be reviewed by a human before creation, must be created by a human and

@@ -502,7 +502,6 @@ static void emit_port_info(struct impl *this, struct port *port, bool full);
 static void set_latency(struct impl *this, bool emit_latency)
 {
 	struct port *port = &this->port;
-	uint64_t packet_delay;
 	int64_t delay;
 
 	/* in main loop */
@@ -520,17 +519,21 @@ static void set_latency(struct impl *this, bool emit_latency)
 	 * hopefully in < 10 ms range.
 	 */
 
-	packet_delay = __atomic_load_n(&this->packet_delay_ns, __ATOMIC_RELAXED);
-	delay = packet_delay;
+	if (this->codec->kind == MEDIA_CODEC_ASHA) {
+		/* One frame of host packetization/scheduling, followed by the
+		 * device's RenderDelay from frame reception to output. Credit
+		 * retries do not change this nominal presentation delay.
+		 */
+		delay = ASHA_CONN_INTERVAL;
+	} else {
+		delay = __atomic_load_n(&this->packet_delay_ns, __ATOMIC_RELAXED);
+	}
 	delay += (int64_t)this->encoder_delay * SPA_NSEC_PER_SEC / port->current_format.info.raw.rate;
 	delay += spa_bt_transport_get_delay_nsec(this->transport);
 	delay += SPA_CLAMP(this->props.latency_offset, -delay, INT64_MAX / 2);
 	delay = SPA_MAX(delay, 0);
 
 	port->latency.min_ns = port->latency.max_ns = delay;
-	if (this->codec->kind == MEDIA_CODEC_ASHA)
-		/* Due-slot preparation may send immediately; the allowance is not a minimum. */
-		port->latency.min_ns = SPA_MAX(delay - (int64_t)packet_delay, 0);
 	port->latency.min_rate = port->latency.max_rate = 0;
 
 	if (this->codec->kind == MEDIA_CODEC_BAP) {
@@ -540,8 +543,7 @@ static void set_latency(struct impl *this, bool emit_latency)
 		port->latency.min_quantum = port->latency.max_quantum = 0.0f;
 	}
 
-	spa_log_info(this->log, "%p: total latency:%d ms (minimum:%d ms)", this,
-			(int)(delay / SPA_NSEC_PER_MSEC), (int)(port->latency.min_ns / SPA_NSEC_PER_MSEC));
+	spa_log_info(this->log, "%p: total latency:%d ms", this, (int)(delay / SPA_NSEC_PER_MSEC));
 
 	if (emit_latency) {
 		port->info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
@@ -608,11 +610,7 @@ static void update_packet_delay(struct impl *this, uint64_t delay)
 
 	/* in data thread */
 
-	/* ASHA's exceptional hold allowance clears on progress; other codecs keep
-	 * their existing high-water reporting policy.
-	 */
-	if (this->codec->kind != MEDIA_CODEC_ASHA)
-		delay = SPA_MAX(delay, old_delay);
+	delay = SPA_MAX(delay, old_delay);
 	if (delay == old_delay)
 		return;
 
@@ -1149,9 +1147,6 @@ again:
 			asha->flush_pending = true;
 			asha->packet_blocked = false;
 			reset_buffer(this);
-
-			/* The packet waits for the next 20 ms send slot. */
-			update_packet_delay(this, ASHA_CONN_INTERVAL);
 		}
 
 		return 0;
@@ -1661,7 +1656,6 @@ static void media_asha_flush_timeout(struct spa_source *source)
 			asha->backlog = 0;
 			/* Discard is not progress; retain the continuous-stall deadline. */
 			asha_check_blocked(this, now);
-			update_packet_delay(this, ASHA_CONN_INTERVAL);
 			spa_log_warn(this->log, "%p: ASHA staged packet expired; dropping seqnum %u for %s",
 					this, asha->tx_seq, address);
 			goto skip_flush;
@@ -1683,11 +1677,6 @@ static void media_asha_flush_timeout(struct spa_source *source)
 					asha->packet_blocked = true;
 					asha->packet_blocked_at = now;
 				}
-				/* Nominal slot plus the observed blocked period and next retry.
-				 * This is a host scheduling allowance, not total sample age.
-				 */
-				update_packet_delay(this, 2 * ASHA_CONN_INTERVAL +
-						(now >= asha->packet_blocked_at ? now - asha->packet_blocked_at : 0));
 				if (sends > 0)
 					goto skip_flush;
 
@@ -1698,7 +1687,6 @@ static void media_asha_flush_timeout(struct spa_source *source)
 			} else {
 				asha->flush_pending = false;
 				asha->backlog = 0;
-				update_packet_delay(this, ASHA_CONN_INTERVAL);
 				spa_log_error(this->log, "%p: ASHA socket error for %s: %m",
 						this, address);
 				asha_signal_stall(this);
@@ -1712,13 +1700,11 @@ static void media_asha_flush_timeout(struct spa_source *source)
 			if (sends > 0 && asha->backlog > 0)
 				asha->backlog--;
 			asha->blocked = false;
-			update_packet_delay(this, ASHA_CONN_INTERVAL);
 			spa_log_trace(this->log, "%p: ASHA flush %d seqnum for %s, ts:%u",
 					this, asha->buf[0], address, this->timestamp);
 		} else {
 			asha->flush_pending = false;
 			asha->backlog = 0;
-			update_packet_delay(this, ASHA_CONN_INTERVAL);
 			spa_log_error(this->log, "%p: short ASHA write for %s: %d",
 					this, address, written);
 			asha_signal_stall(this);

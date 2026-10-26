@@ -817,7 +817,7 @@ static void registry_event_global(void *data, uint32_t id,
 static void registry_event_global_remove(void *data, uint32_t id)
 {
 	struct manager *m = data;
-	struct object *o;
+	struct object *o, *c;
 
 	if ((o = find_object_by_id(m, id)) == NULL)
 		return;
@@ -826,6 +826,10 @@ static void registry_event_global_remove(void *data, uint32_t id)
 
 	if (!o->creating) {
 		o->this.change_mask = ~0;
+		spa_list_for_each(c, &o->child_list, link) {
+			c->removing = true;
+			manager_emit_removed(m, &c->this);
+		}
 		manager_emit_removed(m, &o->this);
 	}
 	object_destroy(o);

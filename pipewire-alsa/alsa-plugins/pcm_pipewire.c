@@ -326,8 +326,7 @@ snd_pcm_pipewire_process(snd_pcm_pipewire_t *pw, struct pw_buffer *b,
 							  frames, io->format);
 			xfer += frames;
 		}
-		if (io->state == SND_PCM_STATE_RUNNING ||
-			io->state == SND_PCM_STATE_DRAINING) {
+		if (io->state == SND_PCM_STATE_RUNNING) {
 			/* report Xrun to user application */
 			snd_pcm_ioplug_set_state(io, SND_PCM_STATE_XRUN);
 		}

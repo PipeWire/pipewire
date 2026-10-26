@@ -667,15 +667,13 @@ again:
 
 		driver = NULL;
 		spa_list_for_each(t, &collect, sort_link) {
-			/* is any active and want a driver */
-			if ((t->want_driver && t->active && t->runnable) ||
-			    t->always_process) {
+			/* if any want a driver, take the first one */
+			if (t->want_driver || t->always_process) {
 				driver = target;
 				break;
 			}
 		}
 		if (driver != NULL) {
-			driver->runnable = true;
 			/* driver needed for this group */
 			move_to_driver(context, &collect, driver);
 		} else {

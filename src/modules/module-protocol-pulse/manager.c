@@ -814,24 +814,31 @@ static void registry_event_global(void *data, uint32_t id,
 	core_sync(m);
 }
 
+static void manager_do_emit_removed(struct manager *m, struct object *o)
+{
+	struct object *c;
+
+	o->this.change_mask = ~0;
+	o->removing = true;
+	spa_list_for_each(c, &o->child_list, link) {
+		c->this.change_mask = ~0;
+		c->removing = true;
+		manager_do_emit_removed(m, c);
+	}
+	manager_emit_removed(m, &o->this);
+}
+
 static void registry_event_global_remove(void *data, uint32_t id)
 {
 	struct manager *m = data;
-	struct object *o, *c;
+	struct object *o;
 
 	if ((o = find_object_by_id(m, id)) == NULL)
 		return;
 
-	o->removing = true;
+	if (!o->creating)
+		manager_do_emit_removed(m, o);
 
-	if (!o->creating) {
-		o->this.change_mask = ~0;
-		spa_list_for_each(c, &o->child_list, link) {
-			c->removing = true;
-			manager_emit_removed(m, &c->this);
-		}
-		manager_emit_removed(m, &o->this);
-	}
 	object_destroy(o);
 }
 
@@ -841,7 +848,7 @@ static const struct pw_registry_events registry_events = {
 	.global_remove = registry_event_global_remove,
 };
 
-static void manager_emit(struct manager *m, struct object *o)
+static void manager_do_emit(struct manager *m, struct object *o)
 {
 	struct object *c;
 
@@ -855,7 +862,7 @@ static void manager_emit(struct manager *m, struct object *o)
 		manager_emit_updated(m, &o->this);
 	}
 	spa_list_for_each(c, &o->child_list, link)
-		manager_emit(m, c);
+		manager_do_emit(m, c);
 	o->changed = 0;
 }
 
@@ -876,7 +883,7 @@ static void on_core_done(void *data, uint32_t id, int seq)
 			object_update_params(o);
 
 		spa_list_for_each(o, &m->object_list, link) {
-			manager_emit(m, o);
+			manager_do_emit(m, o);
 			object_reset_params(o);
 		}
 	}

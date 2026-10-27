@@ -114,7 +114,8 @@ static void info_event(void *data, const struct spa_node_info *info)
 {
 	struct info_data *d = data;
 
-	pw_properties_update(d->props, info->props);
+	if (info->change_mask & SPA_NODE_CHANGE_MASK_PROPS)
+		pw_properties_update(d->props, info->props);
 
 	d->max_input_ports = info->max_input_ports;
 	d->max_output_ports = info->max_output_ports;

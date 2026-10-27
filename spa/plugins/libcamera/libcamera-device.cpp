@@ -78,12 +78,21 @@ const char *cameraLoc(const Camera& camera)
 {
 	if (auto location = camera.properties().get(properties::Location)) {
 		switch (location.value()) {
+#if LIBCAMERA_VERSION_MAJOR > 0 || (LIBCAMERA_VERSION_MAJOR == 0 && LIBCAMERA_VERSION_MINOR >= 8)
+		case properties::LocationFront:
+			return "front";
+		case properties::LocationBack:
+			return "back";
+		case properties::LocationExternal:
+			return "external";
+#else
 		case properties::CameraLocationFront:
 			return "front";
 		case properties::CameraLocationBack:
 			return "back";
 		case properties::CameraLocationExternal:
 			return "external";
+#endif
 		}
 	}
 

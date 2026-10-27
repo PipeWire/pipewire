@@ -2277,7 +2277,8 @@ static int impl_node_port_reuse_buffer(void *object, uint32_t port_id, uint32_t 
 	spa_return_val_if_fail(CHECK_PORT(this, SPA_DIRECTION_OUTPUT, port_id), -EINVAL);
 
 	port = GET_OUT_PORT(this, port_id);
-	queue_buffer(this, port, buffer_id);
+	if (buffer_id < port->n_buffers)
+		queue_buffer(this, port, buffer_id);
 
 	return 0;
 }

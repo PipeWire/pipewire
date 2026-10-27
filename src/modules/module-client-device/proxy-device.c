@@ -41,6 +41,7 @@ struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,
 	struct spa_interface *iface, *diface;
 	struct pw_proxy *proxy;
 	struct device_data *data;
+	int res;
 
 	proxy = pw_core_create_object(core,
 				    "client-device",
@@ -63,8 +64,13 @@ struct pw_proxy *pw_core_spa_device_export(struct pw_core *core,
 
 	pw_proxy_add_object_listener(proxy, &data->device_methods,
 			diface->cb.funcs, diface->cb.data);
-	spa_device_add_listener(device, &data->device_listener,
+	res = spa_device_add_listener(device, &data->device_listener,
 			iface->cb.funcs, iface->cb.data);
+	if (res < 0) {
+		pw_proxy_destroy(proxy);
+		errno = -res;
+		return NULL;
+	}
 
 	return proxy;
 }

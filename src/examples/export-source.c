@@ -349,7 +349,8 @@ static inline void reuse_buffer(struct data *d, uint32_t id)
 static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 {
 	struct data *d = object;
-	reuse_buffer(d, buffer_id);
+	if (buffer_id < d->n_buffers)
+		reuse_buffer(d, buffer_id);
 	return 0;
 }
 

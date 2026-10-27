@@ -76,6 +76,17 @@ enum rtp_stream_internal_state {
 	RTP_STREAM_INTERNAL_STATE_STARTED
 };
 
+/* PCM concealment state */
+struct rtp_plc {
+	uint32_t next_ts;
+	bool fitted;
+	struct {
+		struct spa_burg_pred pred;
+		double coef[16];
+		double state[16];
+	} ch[];
+};
+
 struct rtp_stream {
 	/* This audio info's content originates from the props that
 	 * are passed to rtp_stream_new(). */
@@ -141,6 +152,7 @@ struct rtp_stream {
 	double corr;
 	uint32_t target_buffer;
 	double max_error;
+	struct rtp_plc *plc;
 
 	uint32_t delay;
 
@@ -977,7 +989,8 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		params[n_params++] = spa_format_audio_build(&b,
 				SPA_PARAM_EnumFormat, &impl->stream_info);
 		flags |= PW_STREAM_FLAG_AUTOCONNECT;
-		rtp_audio_init(impl, core, direction, aes67_driver);
+		if ((res = rtp_audio_init(impl, core, direction, aes67_driver)) < 0)
+			goto out;
 		break;
 	case SPA_MEDIA_SUBTYPE_control:
 		params[n_params++] = spa_pod_builder_add_object(&b,
@@ -1052,6 +1065,7 @@ out:
 			pw_stream_destroy(impl->stream);
 		if (impl->data_loop)
 			pw_context_release_loop(impl->context, impl->data_loop);
+		free(impl->plc);
 		free(impl);
 	}
 	errno = -res;
@@ -1078,6 +1092,7 @@ void rtp_stream_destroy(struct rtp_stream *s)
 		pw_context_release_loop(s->context, s->data_loop);
 
 	spa_hook_list_clean(&s->listener_list);
+	free(s->plc);
 	free(s);
 }
 

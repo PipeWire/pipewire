@@ -11,6 +11,11 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 #endif
 }
 
+static uint32_t audio_packet_duration(struct rtp_stream *impl, const struct rtp_packet *p)
+{
+	return (p->size - p->hlen) / impl->stride;
+}
+
 static int audio_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
 {
 	p->decoded = SPA_PTROFF(p->data, p->hlen, void);
@@ -19,122 +24,74 @@ static int audio_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
 	return 0;
 }
 
-static int audio_packet_repair(struct rtp_stream *impl, struct rtp_packet *last,
-		struct rtp_packet *next, uint32_t num, uint32_t ts_start, uint32_t ts_end)
+static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet *last,
+		const struct rtp_packet *next, uint32_t timestamp, void *dst, uint32_t num)
 {
-	struct rtp_packet *p;
-	uint32_t c, i, j, k, duration, n_samp;
-	int32_t span;
-	uint16_t *d;
-	uint32_t channels = impl->stream_info.info.raw.channels;
-	struct spa_burg_pred pred[channels];
-	double state[channels][16];
-	double coef[channels][16];
+	const struct rtp_format_info *fmt = impl->rtp_format_info;
+	const uint32_t channels = impl->stream_info.info.raw.channels;
 	float tmp[512];
 
-	span = rtp_timestamp_delta(ts_end, ts_start);
-	if (span < 0)
-		return -EINVAL;
+	if (fmt->to_float == NULL || fmt->from_float == NULL)
+		return -ENOTSUP;
 
-	duration = span / num;
-	if (duration > impl->mtu / impl->stride)
-		return -EINVAL;
+	if (!impl->plc->fitted || impl->plc->next_ts != timestamp) {
+		const uint32_t duration = audio_packet_duration(impl, last);
+		const int32_t lost_packets = rtp_seqnum_delta(next->seq, last->seq) - 1;
+		const int32_t span = rtp_timestamp_delta(next->timestamp, last->timestamp + duration);
 
-	pw_log_info("missing seq %d %d  %u %u %u", num, last->seq, ts_start, duration, impl->stride);
+		/* more samples missing than would fit into the number of missing packets means the sender
+		 * likely paused or jumped */
+		if (lost_packets <= 0 || span <= 0 || (uint32_t)(span / lost_packets) > impl->mtu / impl->stride)
+			return -EINVAL;
 
-	n_samp = SPA_MIN(512u, last->duration);
-	for (c = 0; c < channels; c++) {
-		uint16_t *s = last->decoded;
-		uint32_t order;
+		pw_log_info("conceal seq %u-%u from %u", (uint16_t)(last->seq + 1),
+				(uint16_t)(next->seq - 1), timestamp);
 
-		if (impl->rtp_format_info->to_float)
-			impl->rtp_format_info->to_float(&s[(last->duration - n_samp) * channels + c],
+		for (uint32_t c = 0; c < channels; c++) {
+			const uint8_t *s = SPA_PTROFF(last->data, last->hlen, uint8_t);
+			const uint32_t n_samp = SPA_MIN(512u, duration);
+			fmt->to_float(&s[((duration - n_samp) * channels + c) * fmt->size],
 					channels, tmp, n_samp);
-		else
-			memset(tmp, 0, sizeof(tmp));
+			spa_burg_pred_fit(&impl->plc->ch[c].pred, tmp, n_samp, 0.98,
+					impl->plc->ch[c].state, impl->plc->ch[c].coef,
+					SPA_MIN(n_samp / 4, SPA_N_ELEMENTS(impl->plc->ch[c].coef)));
 
-		order = SPA_MIN(n_samp / 4, SPA_N_ELEMENTS(coef[c]));
-
-		spa_burg_pred_fit(&pred[c], tmp, n_samp, 0.98, state[c], coef[c], order);
-	}
-
-	for (i = 0; i < num; i++) {
-		if (spa_list_is_empty(&impl->free) &&
-		    spa_list_first(&impl->queued, struct rtp_packet, link) == last)
-			break;
-		if ((p = rtp_stream_get_free_packet(impl)) == NULL)
-			break;
-
-		spa_list_remove(&p->link);
-		spa_list_append(&next->link, &p->link);
-		impl->num_queued++;
-
-		p->seq = last->seq + i + 1;
-		p->timestamp = ts_start + i * duration;
-
-		p->size = duration * impl->stride;
-		p->hlen = 0;
-
-		d = p->data;
-		for (c = 0; c < channels; c++) {
-			j = 0;
-			while (j < duration) {
-				uint32_t to_process = SPA_MIN(SPA_N_ELEMENTS(tmp), duration - j);
-
-				for (k = 0; k < to_process; k++)
-					tmp[k] = spa_burg_pred_next(&pred[c]);
-
-				if (impl->rtp_format_info->from_float)
-					impl->rtp_format_info->from_float(tmp, channels,
-							&d[j*channels+c], n_samp);
-
-				j += to_process;
-			}
+			const uint32_t skip = SPA_MAX(rtp_timestamp_delta(timestamp, last->timestamp + duration), 0);
+			for (uint32_t i = 0; i < skip; i++)
+				spa_burg_pred_next(&impl->plc->ch[c].pred);
 		}
-		pw_log_info("repaired seq %d", p->seq);
-		audio_packet_decode(impl, p);
 	}
-	return i > 0 ? 0 : -ENOSPC;
+	for (uint32_t c = 0; c < channels; c++) {
+		for (uint32_t n, j = 0; j < num; j += n) {
+			n = SPA_MIN(num - j, SPA_N_ELEMENTS(tmp));
+			for (uint32_t i = 0; i < n; i++)
+				tmp[i] = spa_burg_pred_next(&impl->plc->ch[c].pred);
+			fmt->from_float(tmp, channels,
+					SPA_PTROFF(dst, (j * channels + c) * fmt->size, void), n);
+		}
+	}
+	impl->plc->next_ts = timestamp + num;
+	impl->plc->fitted = impl->plc->next_ts != next->timestamp;
+	return 0;
 }
 
-/* read wanted samples from the packet buffer at timestamp. Fill the gaps with
- * 0 bytes. Returns the number of samples at the end that were not available
- * in the packet buffer yet. */
+/* read wanted samples from the packet buffer at timestamp. Lost packets are
+ * concealed and other gaps are filled with silence. Returns the number of
+ * samples at the end that were not available in the packet buffer yet. */
 static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t timestamp,
 		void *dst, uint32_t wanted, uint32_t stride)
 {
 	struct rtp_packet *p, *prev_p = NULL;
-	uint16_t next_seq;
-	uint32_t next_timestamp;
 
 	spa_list_for_each(p, &impl->queued, link) {
 		uint32_t samples, skip, ts, ts_end;
 		int32_t ts_delta;
-		int16_t seq_delta;
 
 		if (wanted == 0)
 			break;
 
-		if (prev_p == NULL) {
-			next_seq = p->seq;
-			next_timestamp = p->timestamp;
-		}
-
-		seq_delta = rtp_seqnum_delta(p->seq, next_seq);
-		if (seq_delta > 0 && prev_p != NULL &&
-		    impl->rtp_format_info->to_float && impl->rtp_format_info->from_float) {
-			if (audio_packet_repair(impl, prev_p, p, seq_delta, next_timestamp, p->timestamp) < 0) {
-				pw_log_warn("could not repair packets");
-				goto skip;
-			}
-			p = spa_list_next(prev_p, link);
-		} else if (p->decoded == NULL) {
-			if (audio_packet_decode(impl, p) < 0)
-				goto skip;
-		}
-
 		ts = p->timestamp;
-		samples = p->duration;
+		samples = audio_packet_duration(impl, p);
 		ts_end = ts + samples;
 		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
 			goto next;
@@ -143,7 +100,9 @@ static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t times
 		if (ts_delta < 0) {
 			skip = -ts_delta;
 			skip = SPA_MIN(skip, wanted);
-			memset(dst, 0, skip * stride);
+			if (prev_p == NULL || rtp_seqnum_delta(p->seq, prev_p->seq) <= 1 ||
+			    audio_packet_conceal(impl, prev_p, p, timestamp, dst, skip) < 0)
+				memset(dst, 0, skip * stride);
 			dst = SPA_PTROFF(dst, skip * stride, void);
 			wanted -= skip;
 			timestamp += skip;
@@ -154,15 +113,14 @@ static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t times
 		}
 		samples = SPA_MIN(samples, wanted);
 		if (samples > 0) {
+			if (p->decoded == NULL)
+				audio_packet_decode(impl, p);
 			memcpy(dst, SPA_PTROFF(p->decoded, skip*stride, void), samples * stride);
 			dst = SPA_PTROFF(dst, samples * stride, void);
 			wanted -= samples;
 			timestamp += samples;
 		}
 next:
-		next_timestamp = ts_end;
-skip:
-		next_seq = (p->seq + 1) & 0xffff;
 		prev_p = p;
 	}
 	if (wanted > 0)
@@ -779,10 +737,17 @@ static int setup_ptp_sender(struct rtp_stream *impl, struct pw_core *core, enum 
 
 static int rtp_audio_init(struct rtp_stream *impl, struct pw_core *core, enum spa_direction direction, const char *ptp_driver)
 {
-	if (direction == SPA_DIRECTION_INPUT)
+	if (direction == SPA_DIRECTION_INPUT) {
 		impl->stream_events.process = rtp_audio_process_capture;
-	else
+	} else {
+		uint32_t channels = impl->stream_info.info.raw.channels;
+
 		impl->stream_events.process = rtp_audio_process_playback;
+
+		impl->plc = calloc(1, sizeof(*impl->plc) + channels * sizeof(impl->plc->ch[0]));
+		if (impl->plc == NULL)
+			return -errno;
+	}
 
 	impl->stop_timer = rtp_audio_stop_timer;
 	impl->flush_timeout = rtp_audio_flush_timeout;

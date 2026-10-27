@@ -247,11 +247,12 @@ uint32_t find_profile_index(struct pw_manager_object *card, const char *name)
 }
 
 static void collect_device_info(struct pw_manager_object *device, struct pw_manager_object *card,
-			 struct device_info *dev_info, bool monitor, struct defs *defs)
+			 struct device_info *dev_info, struct defs *defs)
 {
 	struct pw_manager_param *p;
 	uint32_t enum_channels = 0;
 	struct spa_list *device_param_list = pw_manager_object_get_param_list(device);
+	bool monitor = device->u.stream.monitor;
 
 	if (card) {
 		struct spa_list *card_param_list = pw_manager_object_get_param_list(card);
@@ -295,7 +296,8 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 				c = to_free;
 			}
 			if (format_parse_param(c, true, &ss, &map,
-					&defs->sample_spec, &defs->channel_map) >= 0 &&
+					defs ? &defs->sample_spec : NULL,
+					defs ? &defs->channel_map : NULL) >= 0 &&
 			    ss.channels > enum_channels) {
 				dev_info->ss = ss;
 				dev_info->map = map;
@@ -325,13 +327,28 @@ static void collect_device_info(struct pw_manager_object *device, struct pw_mana
 		dev_info->volume_info.volume.channels = dev_info->map.channels;
 }
 
-static void update_device_info(struct pw_manager *manager, struct pw_manager_object *o,
-		enum pw_direction direction, bool monitor, struct defs *defs, bool stream)
+static void get_info(struct pw_manager_object *o, enum pw_direction *dir, bool *stream)
+{
+	if (dir)
+		*dir = (o->u.stream.type == PW_MANAGER_STREAM_TYPE_SINK_INPUT ||
+			o->u.stream.type == PW_MANAGER_STREAM_TYPE_SOURCE) ?
+			PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+	if (stream)
+		*stream = o->u.stream.type == PW_MANAGER_STREAM_TYPE_SINK_INPUT ||
+			o->u.stream.type == PW_MANAGER_STREAM_TYPE_SOURCE_OUTPUT;
+}
+
+int update_device_info(struct pw_manager *manager, struct pw_manager_object *o,
+		struct defs *defs)
 {
 	const char *str;
-	const char *key = monitor ? "device.info.monitor" : "device.info";
 	struct pw_manager_object *card = NULL;
 	struct device_info *dev_info, di;
+	int changed = 0;
+	enum pw_direction direction;
+	bool stream;
+
+	get_info(o, &direction, &stream);
 
 	di = DEVICE_INFO_INIT(direction);
 	if ((str = pw_properties_get(o->props, PW_KEY_DEVICE_ID)) != NULL)
@@ -342,7 +359,7 @@ static void update_device_info(struct pw_manager *manager, struct pw_manager_obj
 		struct selector sel = { .id = di.card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
-	collect_device_info(o, card, &di, monitor, defs);
+	collect_device_info(o, card, &di, defs);
 
 	di.state = pw_manager_node_state(o);
 	/* running sink/source that is not linked is reported as idle */
@@ -350,32 +367,29 @@ static void update_device_info(struct pw_manager *manager, struct pw_manager_obj
 	    !collect_is_linked(manager, o->id, pw_direction_reverse(direction)))
 		di.state = STATE_IDLE;
 
-	dev_info = pw_manager_object_get_data(o, key);
-	if (dev_info) {
-		if (memcmp(dev_info, &di, sizeof(di)) != 0) {
-			if (monitor || direction == PW_DIRECTION_INPUT)
-				o->change_mask |= PW_MANAGER_OBJECT_FLAG_SOURCE;
-			else
-				o->change_mask |= PW_MANAGER_OBJECT_FLAG_SINK;
-		}
-	} else {
-		o->change_mask = ~0;
-		dev_info = pw_manager_object_add_data(o, key, sizeof(*dev_info));
-	}
+	dev_info = pw_manager_object_get_data(o, "device.info");
+	if (dev_info == NULL)
+		dev_info = pw_manager_object_add_data(o, "device.info", sizeof(*dev_info));
+	else
+		changed = memcmp(dev_info, &di, sizeof(di)) != 0;
 	if (dev_info != NULL)
 		*dev_info = di;
+
+	return changed;
 }
 
-void get_device_info(struct pw_manager_object *o, struct device_info *info,
-		enum pw_direction direction, bool monitor)
+void get_device_info(struct pw_manager_object *o, struct device_info *info)
 {
-	const char *key = monitor ? "device.info.monitor" : "device.info";
 	struct device_info *di;
-	di = pw_manager_object_get_data(o, key);
-	if (di != NULL)
+	di = pw_manager_object_get_data(o, "device.info");
+	if (di != NULL) {
 		*info = *di;
-	else
+	}
+	else {
+		enum pw_direction direction;
+		get_info(o, &direction, NULL);
 		*info = DEVICE_INFO_INIT(direction);
+	}
 }
 
 static bool array_contains(uint32_t *vals, uint32_t n_vals, uint32_t val)
@@ -644,24 +658,6 @@ uint32_t collect_transport_codec_info(struct pw_manager_object *card,
 	}
 
 	return n_codecs;
-}
-
-void update_object_info(struct pw_manager *manager, struct pw_manager_object *o,
-		struct defs *defs)
-{
-	if (pw_manager_object_is_sink(o)) {
-		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs, false);
-		update_device_info(manager, o, PW_DIRECTION_OUTPUT, true, defs, false);
-	}
-	if (pw_manager_object_is_source(o)) {
-		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs, false);
-	}
-	if (pw_manager_object_is_source_output(o)) {
-		update_device_info(manager, o, PW_DIRECTION_INPUT, false, defs, true);
-	}
-	if (pw_manager_object_is_sink_input(o)) {
-		update_device_info(manager, o, PW_DIRECTION_OUTPUT, false, defs, true);
-	}
 }
 
 struct message_path_data {

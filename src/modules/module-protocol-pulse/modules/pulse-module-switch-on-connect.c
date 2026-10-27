@@ -86,7 +86,7 @@ static void manager_added(void *data, struct pw_manager_object *o)
 	if (!d->metadata_default || !d->started)
 		return;
 
-	if (!(pw_manager_object_is_sink(o) || pw_manager_object_is_source_or_monitor(o)))
+	if (!(pw_manager_object_is_sink(o) || pw_manager_object_is_source(o)))
 		return;
 
 	name = pw_properties_get(o->props, PW_KEY_NODE_NAME);

@@ -71,9 +71,17 @@ struct pw_manager_object {
 	int (*message_handler)(struct client *client, struct pw_manager_object *o,
 	                       const char *message, const char *params, FILE *response);
 
-#define PW_MANAGER_OBJECT_FLAG_SOURCE	(1<<0)
-#define PW_MANAGER_OBJECT_FLAG_SINK	(1<<1)
-	uint64_t change_mask;	/* object specific params change mask */
+	union {
+		struct {
+#define PW_MANAGER_STREAM_TYPE_NONE		(0)
+#define PW_MANAGER_STREAM_TYPE_SINK		(1)
+#define PW_MANAGER_STREAM_TYPE_SOURCE		(2)
+#define PW_MANAGER_STREAM_TYPE_SINK_INPUT	(3)
+#define PW_MANAGER_STREAM_TYPE_SOURCE_OUTPUT	(4)
+			uint32_t type;
+			bool monitor;
+		} stream;
+	} u;
 };
 
 struct pw_manager *pw_manager_new(struct pw_core *core);
@@ -112,14 +120,15 @@ bool pw_manager_object_is_module(struct pw_manager_object *o);
 bool pw_manager_object_is_card(struct pw_manager_object *o);
 bool pw_manager_object_is_sink(struct pw_manager_object *o);
 bool pw_manager_object_is_source(struct pw_manager_object *o);
-bool pw_manager_object_is_monitor(struct pw_manager_object *o);
 bool pw_manager_object_is_virtual(struct pw_manager_object *o);
 bool pw_manager_object_is_network(struct pw_manager_object *o);
-bool pw_manager_object_is_source_or_monitor(struct pw_manager_object *o);
 bool pw_manager_object_is_sink_input(struct pw_manager_object *o);
 bool pw_manager_object_is_source_output(struct pw_manager_object *o);
 bool pw_manager_object_is_recordable(struct pw_manager_object *o);
 bool pw_manager_object_is_link(struct pw_manager_object *o);
+
+struct pw_manager_object *pw_manager_sink_get_monitor(struct pw_manager_object *o);
+struct pw_manager_object *pw_manager_monitor_get_sink(struct pw_manager_object *o);
 
 const char *pw_manager_module_name(struct pw_manager_object *o);
 const char *pw_manager_module_args(struct pw_manager_object *o);

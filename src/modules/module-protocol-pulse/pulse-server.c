@@ -210,16 +210,11 @@ static int send_object_event(struct client *client, struct pw_manager_object *o,
 {
 	uint32_t event = 0, res_index = o->index;
 
-	pw_log_debug("index:%d id:%d %08" PRIx64 " type:%u", o->index, o->id, o->change_mask, type);
+	pw_log_debug("index:%d id:%d type:%u", o->index, o->id, type);
 
-	if (pw_manager_object_is_sink(o) && o->change_mask & PW_MANAGER_OBJECT_FLAG_SINK) {
-		client_queue_subscribe_event(client,
-				SUBSCRIPTION_EVENT_SINK,
-				type,
-				res_index);
-	}
-
-	if (pw_manager_object_is_source_or_monitor(o) && o->change_mask & PW_MANAGER_OBJECT_FLAG_SOURCE)
+	if (pw_manager_object_is_sink(o))
+		event = SUBSCRIPTION_EVENT_SINK;
+	else if (pw_manager_object_is_source(o))
 		event = SUBSCRIPTION_EVENT_SOURCE;
 	else if (pw_manager_object_is_sink_input(o))
 		event = SUBSCRIPTION_EVENT_SINK_INPUT;
@@ -312,7 +307,7 @@ done:
 }
 
 static struct pw_manager_object *find_device(struct client *client,
-		uint32_t index, const char *name, bool sink, bool *is_monitor);
+		uint32_t index, const char *name, bool sink);
 
 static int64_t get_node_latency_offset(struct pw_manager_object *o)
 {
@@ -340,7 +335,7 @@ static void send_latency_offset_subscribe_event(struct client *client, struct pw
 	int64_t latency_offset = 0LL;
 	bool changed = false;
 
-	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source_or_monitor(o))
+	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return;
 
 	/*
@@ -374,7 +369,7 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 	bool changed = false;
 
 	if (sink) {
-		def = find_device(client, SPA_ID_INVALID, NULL, true, NULL);
+		def = find_device(client, SPA_ID_INVALID, NULL, true);
 		if (client->prev_default_sink != def) {
 			client->prev_default_sink = def;
 			changed = true;
@@ -382,7 +377,7 @@ static void send_default_change_subscribe_event(struct client *client, bool sink
 	}
 
 	if (source) {
-		def = find_device(client, SPA_ID_INVALID, NULL, false, NULL);
+		def = find_device(client, SPA_ID_INVALID, NULL, false);
 		if (client->prev_default_source != def) {
 			client->prev_default_source = def;
 			changed = true;
@@ -725,7 +720,6 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 {
 	struct client *client = stream->client;
 	struct pw_manager *manager = client->manager;
-	char *tmp;
 	struct message *reply;
 	const char *peer_name, *name;
 	uint32_t peer_index;
@@ -752,23 +746,17 @@ static int reply_create_record_stream(struct stream *stream, struct pw_manager_o
 		TAG_U32, stream->index,		/* source_output/stream index */
 		TAG_INVALID);
 
-	if (peer && pw_manager_object_is_sink_input(peer))
+	if (peer && pw_manager_object_is_sink_input(peer)) {
 		peer = find_linked(manager, peer->id, PW_DIRECTION_OUTPUT);
-	if (peer && pw_manager_object_is_source_or_monitor(peer)) {
+		if (peer && pw_manager_object_is_sink(peer))
+			peer = pw_manager_sink_get_monitor(peer);
+	}
+	if (peer && pw_manager_object_is_source(peer)) {
 		name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
 		if (name == NULL)
 			name = "unknown";
 		peer_index = peer->index;
-		if (!pw_manager_object_is_source(peer)) {
-			size_t len = (name ? strlen(name) : 5) + 10;
-			if (len <= MAX_NAME) {
-				peer_name = tmp = alloca(len);
-				spa_scnprintf(tmp, len, "%s.monitor", name ? name : "sink");
-			} else
-				peer_name = NULL;
-		} else {
-			peer_name = name;
-		}
+		peer_name = name;
 	} else {
 		peer_index = SPA_ID_INVALID;
 		peer_name = NULL;
@@ -820,7 +808,6 @@ static void manager_added(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
 	struct pw_manager *manager = client->manager;
-	struct impl *impl = client->impl;
 	const char *str;
 
 	register_object_message_handlers(o);
@@ -866,47 +853,27 @@ static void manager_added(void *data, struct pw_manager_object *o)
 				peer_name = pw_properties_get(peer->props, PW_KEY_NODE_NAME);
 				if (peer_name == NULL)
 					peer_name = "unknown";
-				if (peer_name && s->direction == PW_DIRECTION_INPUT &&
-				    pw_manager_object_is_monitor(peer)) {
-					size_t len = strlen(peer_name) + 10;
-					if (len <= 1024) {
-						char *tmp = alloca(len);
-						spa_scnprintf(tmp, len, "%s.monitor", peer_name);
-						peer_name = tmp;
-					}
-				}
-				if (peer_name != NULL)
-					stream_send_moved(s, peer->index, peer_name);
+				stream_send_moved(s, peer->index, peer_name);
 			}
 		}
 	}
 
-	update_object_info(manager, o, &impl->defs);
-
 	send_object_event(client, o, SUBSCRIPTION_EVENT_NEW);
 
-	o->change_mask = 0;
-
 	/* Adding sinks etc. may also change defaults */
-	send_default_change_subscribe_event(client, pw_manager_object_is_sink(o), pw_manager_object_is_source_or_monitor(o));
+	send_default_change_subscribe_event(client, pw_manager_object_is_sink(o), pw_manager_object_is_source(o));
 }
 
 static void manager_updated(void *data, struct pw_manager_object *o)
 {
 	struct client *client = data;
-	struct pw_manager *manager = client->manager;
-	struct impl *impl = client->impl;
-
-	update_object_info(manager, o, &impl->defs);
 
 	send_object_event(client, o, SUBSCRIPTION_EVENT_CHANGE);
-
-	o->change_mask = 0;
 
 	set_temporary_move_target(client, o, SPA_ID_INVALID);
 
 	send_latency_offset_subscribe_event(client, o);
-	send_default_change_subscribe_event(client, pw_manager_object_is_sink(o), pw_manager_object_is_source_or_monitor(o));
+	send_default_change_subscribe_event(client, pw_manager_object_is_sink(o), pw_manager_object_is_source(o));
 }
 
 static void manager_removed(void *data, struct pw_manager_object *o)
@@ -916,7 +883,7 @@ static void manager_removed(void *data, struct pw_manager_object *o)
 
 	send_object_event(client, o, SUBSCRIPTION_EVENT_REMOVE);
 
-	send_default_change_subscribe_event(client, pw_manager_object_is_sink(o), pw_manager_object_is_source_or_monitor(o));
+	send_default_change_subscribe_event(client, pw_manager_object_is_sink(o), pw_manager_object_is_source(o));
 
 	if (spa_streq(o->type, PW_TYPE_INTERFACE_Metadata)) {
 		if ((str = pw_properties_get(o->props, PW_KEY_METADATA_NAME)) != NULL)
@@ -1656,7 +1623,6 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_manager_object *o;
-	bool is_monitor;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
@@ -1703,13 +1669,13 @@ static int do_create_playback_stream(struct client *client, uint32_t command, ui
 				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
-	o = find_device(client, sink_index, sink_name, true, &is_monitor);
+	o = find_device(client, sink_index, sink_name, true);
 
 	spa_zero(fix_ss);
 	spa_zero(fix_map);
 	if ((fix_format || fix_rate || fix_channels) && o != NULL) {
 		struct device_info dev_info;
-		get_device_info(o, &dev_info, PW_DIRECTION_OUTPUT, is_monitor);
+		get_device_info(o, &dev_info);
 		fix_ss.format = fix_format ? dev_info.ss.format : 0;
 		fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
 		fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
@@ -1947,7 +1913,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	struct pw_manager_object *o;
-	bool is_monitor = false;
 
 	props = pw_properties_new(NULL, NULL);
 	if (props == NULL)
@@ -2012,13 +1977,13 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 				TAG_INVALID) < 0)
 			goto error_protocol;
 	}
-	o = find_device(client, source_index, source_name, false, &is_monitor);
+	o = find_device(client, source_index, source_name, false);
 
 	spa_zero(fix_ss);
 	spa_zero(fix_map);
 	if ((fix_format || fix_rate || fix_channels) && o != NULL) {
 		struct device_info dev_info;
-		get_device_info(o, &dev_info, PW_DIRECTION_INPUT, is_monitor);
+		get_device_info(o, &dev_info);
 		fix_ss.format = fix_format ? dev_info.ss.format : 0;
 		fix_ss.rate = fix_rate ? dev_info.ss.rate : 0;
 		fix_ss.channels = fix_channels ? dev_info.ss.channels : 0;
@@ -2148,7 +2113,6 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 			source_name = pw_properties_get(o->props,
 					PW_KEY_NODE_NAME);
 		if (spa_strendswith(source_name, ".monitor")) {
-			is_monitor = true;
 			pw_properties_setf(props,
 					PW_KEY_TARGET_OBJECT,
 					"%.*s", (int)strlen(source_name)-8, source_name);
@@ -2157,7 +2121,7 @@ static int do_create_record_stream(struct client *client, uint32_t command, uint
 					PW_KEY_TARGET_OBJECT, source_name);
 		}
 	}
-	if (is_monitor)
+	if (o != NULL && o->u.stream.monitor)
 		pw_properties_set(props,
 				PW_KEY_STREAM_CAPTURE_SINK, "true");
 	if (dont_inhibit_auto_suspend)
@@ -2560,25 +2524,21 @@ static const char *get_default(struct client *client, bool sink)
 }
 
 static struct pw_manager_object *find_device(struct client *client,
-		uint32_t index, const char *name, bool sink, bool *is_monitor)
+		uint32_t index, const char *name, bool sink)
 {
 	struct selector sel;
-	bool monitor = false, find_default = false, allow_monitor = false;
+	bool find_default = false;
 	struct pw_manager_object *o;
 
 	if (name != NULL) {
 		if (spa_streq(name, DEFAULT_MONITOR)) {
 			if (sink)
 				return NULL;
-			sink = true;
 			find_default = true;
-			monitor = true;
-			allow_monitor = true;
 		} else if (spa_streq(name, DEFAULT_SOURCE)) {
 			if (sink)
 				return NULL;
 			find_default = true;
-			allow_monitor = true;
 		} else if (spa_streq(name, DEFAULT_SINK)) {
 			if (!sink)
 				return NULL;
@@ -2595,50 +2555,19 @@ static struct pw_manager_object *find_device(struct client *client,
 		index = SPA_ID_INVALID;
 	}
 
-	if (name != NULL) {
-		if (spa_strendswith(name, ".monitor")) {
-			if (!sink) {
-				size_t len = strlen(name) - 8;
-				if (len > MAX_NAME)
-					return NULL;
-				name = strndupa(name, len);
-				allow_monitor = true;
-			}
-		}
-	} else if (index != SPA_ID_INVALID) {
-		if (!sink)
-			allow_monitor = true;
-	} else {
-		return NULL;
-	}
-
-
 	spa_zero(sel);
 	sel.type = sink ?
 		pw_manager_object_is_sink :
-		pw_manager_object_is_source_or_monitor;
+		pw_manager_object_is_source;
 	sel.index = index;
 	sel.key = PW_KEY_NODE_NAME;
 	sel.value = name;
 
 	o = select_object(client->manager, &sel);
 	if (o != NULL) {
-		if (!sink) {
-			if (pw_manager_object_is_monitor(o)) {
-				if (!allow_monitor)
-					return NULL;
-				monitor = true;
-			}
-			else if (!pw_manager_object_is_source(o))
-				return NULL;
-		} else {
-			if (!pw_manager_object_is_sink(o))
-				return NULL;
-		}
+		if (sink != pw_manager_object_is_sink(o))
+			return NULL;
 	}
-	if (is_monitor)
-		*is_monitor = monitor;
-
 	return o;
 }
 
@@ -2679,7 +2608,7 @@ static int do_play_sample(struct client *client, uint32_t command, uint32_t tag,
 	if (sink_index != SPA_ID_INVALID && sink_name != NULL)
 		return -EINVAL;
 
-	o = find_device(client, sink_index, sink_name, PW_DIRECTION_OUTPUT, NULL);
+	o = find_device(client, sink_index, sink_name, PW_DIRECTION_OUTPUT);
 	if (o == NULL)
 		return -ENOENT;
 
@@ -2802,7 +2731,7 @@ static int do_flush_trigger_prebuf_stream(struct client *client, uint32_t comman
 }
 
 static int set_node_volume_mute(struct pw_manager_object *o,
-		struct volume *vol, bool *mute, bool is_monitor)
+		struct volume *vol, bool *mute)
 {
 	char buf[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
@@ -2816,7 +2745,7 @@ static int set_node_volume_mute(struct pw_manager_object *o,
 	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
 		return -ENOENT;
 
-	if (is_monitor) {
+	if (o->u.stream.monitor) {
 		volprop = SPA_PROP_monitorVolumes;
 		muteprop = SPA_PROP_monitorMute;
 	} else {
@@ -2951,7 +2880,7 @@ static int do_set_stream_volume(struct client *client, uint32_t command, uint32_
 		if (o == NULL)
 			return -ENOENT;
 
-		if ((res = set_node_volume_mute(o, &volume, NULL, false)) < 0)
+		if ((res = set_node_volume_mute(o, &volume, NULL)) < 0)
 			return res;
 	}
 done:
@@ -3001,7 +2930,7 @@ static int do_set_stream_mute(struct client *client, uint32_t command, uint32_t 
 		if (o == NULL)
 			return -ENOENT;
 
-		if ((res = set_node_volume_mute(o, NULL, &mute, false)) < 0)
+		if ((res = set_node_volume_mute(o, NULL, &mute)) < 0)
 			return res;
 	}
 done:
@@ -3018,7 +2947,6 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 	int res;
 	struct device_info dev_info;
 	enum pw_direction direction;
-	bool is_monitor;
 
 	if ((res = message_get(m,
 			TAG_U32, &index,
@@ -3044,11 +2972,11 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 		direction = PW_DIRECTION_INPUT;
 	}
 
-	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT, &is_monitor);
+	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT);
 	if (o == NULL)
 		return -ENOENT;
 
-	get_device_info(o, &dev_info, direction, is_monitor);
+	get_device_info(o, &dev_info);
 
 	if (dev_info.have_volume &&
 	    volume_compare(&dev_info.volume_info.volume, &volume) == 0)
@@ -3058,11 +2986,11 @@ static int do_set_volume(struct client *client, uint32_t command, uint32_t tag, 
 		struct selector sel = { .id = dev_info.card_id, .type = pw_manager_object_is_card, };
 		card = select_object(manager, &sel);
 	}
-	if (card != NULL && !is_monitor && dev_info.active_port != SPA_ID_INVALID)
+	if (card != NULL && !o->u.stream.monitor && dev_info.active_port != SPA_ID_INVALID)
 		res = set_card_volume_mute_delay(card, dev_info.active_port,
 				dev_info.device, &volume, NULL, NULL);
 	else
-		res = set_node_volume_mute(o, &volume, NULL, is_monitor);
+		res = set_node_volume_mute(o, &volume, NULL);
 
 	if (res < 0)
 		return res;
@@ -3081,7 +3009,6 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 	int res;
 	struct device_info dev_info;
 	enum pw_direction direction;
-	bool is_monitor;
 
 	if ((res = message_get(m,
 			TAG_U32, &index,
@@ -3102,11 +3029,11 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 	else
 		direction = PW_DIRECTION_INPUT;
 
-	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT, &is_monitor);
+	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT);
 	if (o == NULL)
 		return -ENOENT;
 
-	get_device_info(o, &dev_info, direction, is_monitor);
+	get_device_info(o, &dev_info);
 
 	if (dev_info.have_volume &&
 	    dev_info.volume_info.mute == mute)
@@ -3117,11 +3044,11 @@ static int do_set_mute(struct client *client, uint32_t command, uint32_t tag, st
 		card = select_object(manager, &sel);
 	}
 
-	if (card != NULL && !is_monitor && dev_info.active_port != SPA_ID_INVALID)
+	if (card != NULL && !o->u.stream.monitor && dev_info.active_port != SPA_ID_INVALID)
 		res = set_card_volume_mute_delay(card, dev_info.active_port,
 				dev_info.device, NULL, &mute, NULL);
 	else
-		res = set_node_volume_mute(o, NULL, &mute, is_monitor);
+		res = set_node_volume_mute(o, NULL, &mute);
 
 	if (res < 0)
 		return res;
@@ -3158,7 +3085,7 @@ static int do_set_port(struct client *client, uint32_t command, uint32_t tag, st
 	else
 		direction = PW_DIRECTION_INPUT;
 
-	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT, NULL);
+	o = find_device(client, index, name, direction == PW_DIRECTION_OUTPUT);
 	if (o == NULL)
 		return -ENOENT;
 
@@ -3448,7 +3375,6 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 	struct pw_manager_object *o;
 	const char *name;
 	bool is_sink = command == COMMAND_LOOKUP_SINK;
-	bool is_monitor;
 
 	if (message_get(m,
 			TAG_STRING, &name,
@@ -3457,7 +3383,7 @@ static int do_lookup(struct client *client, uint32_t command, uint32_t tag, stru
 
 	pw_log_info("[%s] LOOKUP tag:%u name:'%s'", client->name, tag, name);
 
-	if ((o = find_device(client, SPA_ID_INVALID, name, is_sink, &is_monitor)) == NULL)
+	if ((o = find_device(client, SPA_ID_INVALID, name, is_sink)) == NULL)
 		return -ENOENT;
 
 	reply = reply_new(client, tag);
@@ -3586,7 +3512,7 @@ static int get_port_latency_cb(void *data, struct pw_manager_object *o)
 	uint32_t card_id = SPA_ID_INVALID;
 	uint32_t device_id = SPA_ID_INVALID;
 
-	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source_or_monitor(o))
+	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return 0;
 	if ((str = pw_properties_get(o->props, PW_KEY_DEVICE_ID)) != NULL)
 		card_id = (uint32_t)atoi(str);
@@ -3796,13 +3722,12 @@ static int fill_sink_info(struct client *client, struct message *m,
 {
 	struct pw_manager *manager = client->manager;
 	const char *name, *desc, *str;
-	char *monitor_name = NULL;
-	uint32_t module_id = SPA_ID_INVALID;
-	struct pw_manager_object *card = NULL;
+	const char *monitor_name = NULL;
+	uint32_t module_id = SPA_ID_INVALID, monitor_index = SPA_ID_INVALID;
+	struct pw_manager_object *card = NULL, *monitor;
 	uint32_t flags;
 	struct card_info card_info = CARD_INFO_INIT;
 	struct device_info dev_info;
-	size_t size;
 
 	if (!pw_manager_object_is_sink(o))
 		return -ENOENT;
@@ -3813,12 +3738,11 @@ static int fill_sink_info(struct client *client, struct message *m,
 	if (name == NULL)
 		name = "unknown";
 
-	size = SPA_MIN(strlen(name) + 10, MAX_NAME);
-	monitor_name = alloca(size);
-	if (pw_manager_object_is_source(o))
-		snprintf(monitor_name, size, "%s", name);
-	else
-		snprintf(monitor_name, size, "%s.monitor", name);
+	if ((monitor = pw_manager_sink_get_monitor(o)) != NULL) {
+		if ((monitor_name = pw_properties_get(monitor->props, PW_KEY_NODE_NAME)) == NULL)
+			monitor_name = "unknown";
+		monitor_index = monitor->index;
+	}
 
 	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = id_to_index(manager, (uint32_t)atoi(str));
@@ -3826,7 +3750,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 	    (str = pw_properties_get(o->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 
-	get_device_info(o, &dev_info, PW_DIRECTION_OUTPUT, false);
+	get_device_info(o, &dev_info);
 	if (!validate_device_info(&dev_info)) {
 		pw_log_warn("%d: sink not ready: sample:%d map:%d volume:%d",
 				o->id, sample_spec_valid(&dev_info.ss),
@@ -3867,7 +3791,7 @@ static int fill_sink_info(struct client *client, struct message *m,
 		TAG_U32, module_id,			/* module index */
 		TAG_CVOLUME, &dev_info.volume_info.volume,
 		TAG_BOOLEAN, dev_info.volume_info.mute,
-		TAG_U32, o->index,			/* monitor source index */
+		TAG_U32, monitor_index,			/* monitor source index */
 		TAG_STRING, monitor_name,		/* monitor source name */
 		TAG_USEC, 0LL,				/* latency */
 		TAG_STRING, "PipeWire",			/* driver */
@@ -3963,21 +3887,16 @@ static int fill_sink_info(struct client *client, struct message *m,
 }
 
 static int fill_source_info_proplist(struct message *m, const struct spa_dict *source_props,
-		const struct pw_manager_object *card, const bool is_monitor)
+		const struct pw_manager_object *card)
 {
 	spa_autoptr(pw_properties) props = NULL;
 
-	if (card || is_monitor) {
+	if (card) {
 		props = pw_properties_new_dict(source_props);
 		if (props == NULL)
 			return -ENOMEM;
 
-		if (card)
-			pw_properties_add(props, &card->props->dict);
-
-		if (is_monitor)
-			pw_properties_set(props, PW_KEY_DEVICE_CLASS, "monitor");
-
+		pw_properties_add(props, &card->props->dict);
 		source_props = &props->dict;
 	}
 
@@ -3990,19 +3909,15 @@ static int fill_source_info(struct client *client, struct message *m,
 		struct pw_manager_object *o)
 {
 	struct pw_manager *manager = client->manager;
-	bool is_monitor;
 	const char *name, *desc, *str;
-	char *monitor_name = NULL;
-	char *monitor_desc = NULL;
-	uint32_t module_id = SPA_ID_INVALID;
-	struct pw_manager_object *card = NULL;
+	const char *sink_name = NULL;
+	uint32_t module_id = SPA_ID_INVALID, sink_index = SPA_ID_INVALID;
+	struct pw_manager_object *card = NULL, *sink;
 	uint32_t flags;
 	struct card_info card_info = CARD_INFO_INIT;
 	struct device_info dev_info;
-	size_t size;
 
-	is_monitor = pw_manager_object_is_monitor(o);
-	if ((!pw_manager_object_is_source(o) && !is_monitor))
+	if ((!pw_manager_object_is_source(o)))
 		return -ENOENT;
 
 	name = pw_properties_get(o->props, PW_KEY_NODE_NAME);
@@ -4011,13 +3926,11 @@ static int fill_source_info(struct client *client, struct message *m,
 	if (name == NULL)
 		name = "unknown";
 
-	size = SPA_MIN(strlen(name) + 10, MAX_NAME);
-	monitor_name = alloca(size);
-	snprintf(monitor_name, size, "%s.monitor", name);
-
-	size = SPA_MIN(strlen(desc) + 20, MAX_NAME);
-	monitor_desc = alloca(size);
-	snprintf(monitor_desc, size, "Monitor of %s", desc);
+	if (o->u.stream.monitor && (sink = pw_manager_monitor_get_sink(o)) != NULL) {
+		if ((sink_name = pw_properties_get(sink->props, PW_KEY_NODE_NAME)) == NULL)
+			sink_name = "unknown";
+		sink_index = sink->index;
+	}
 
 	if ((str = pw_properties_get(o->props, PW_KEY_MODULE_ID)) != NULL)
 		module_id = id_to_index(manager, (uint32_t)atoi(str));
@@ -4025,7 +3938,7 @@ static int fill_source_info(struct client *client, struct message *m,
 	    (str = pw_properties_get(o->props, "pulse.module.id")) != NULL)
 		module_id = (uint32_t)atoi(str);
 
-	get_device_info(o, &dev_info, PW_DIRECTION_INPUT, is_monitor);
+	get_device_info(o, &dev_info);
 	if (!validate_device_info(&dev_info)) {
 		pw_log_warn("%d: source not ready: sample:%d map:%d volume:%d",
 				o->id, sample_spec_valid(&dev_info.ss),
@@ -4057,15 +3970,15 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	message_put(m,
 		TAG_U32, o->index,				/* source index */
-		TAG_STRING, is_monitor ? monitor_name : name,
-		TAG_STRING, is_monitor ? monitor_desc : desc,
+		TAG_STRING, name,
+		TAG_STRING, desc,
 		TAG_SAMPLE_SPEC, &dev_info.ss,
 		TAG_CHANNEL_MAP, &dev_info.map,
 		TAG_U32, module_id,				/* module index */
 		TAG_CVOLUME, &dev_info.volume_info.volume,
 		TAG_BOOLEAN, dev_info.volume_info.mute,
-		TAG_U32, is_monitor ? o->index : SPA_ID_INVALID,/* monitor of sink */
-		TAG_STRING, is_monitor ? name : NULL,		/* monitor of sink name */
+		TAG_U32, sink_index,				/* monitor of sink */
+		TAG_STRING, sink_name,				/* monitor of sink name */
 		TAG_USEC, 0LL,					/* latency */
 		TAG_STRING, "PipeWire",				/* driver */
 		TAG_U32, flags,					/* flags */
@@ -4073,7 +3986,7 @@ static int fill_source_info(struct client *client, struct message *m,
 
 	if (client->version >= 13) {
 		int res;
-		if ((res = fill_source_info_proplist(m, &o->props->dict, card, is_monitor)) < 0)
+		if ((res = fill_source_info_proplist(m, &o->props->dict, card)) < 0)
 			return res;
 		message_put(m,
 			TAG_USEC, 0LL,			/* requested latency */
@@ -4206,7 +4119,7 @@ static int fill_sink_input_info(struct client *client, struct message *m,
 	    (str = pw_properties_get(o->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
-	get_device_info(o, &dev_info, PW_DIRECTION_OUTPUT, false);
+	get_device_info(o, &dev_info);
 	if (!validate_device_info(&dev_info))
 		return -ENOENT;
 
@@ -4295,7 +4208,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	    (str = pw_properties_get(o->props, PW_KEY_CLIENT_ID)) != NULL)
 		client_id = (uint32_t)atoi(str);
 
-	get_device_info(o, &dev_info, PW_DIRECTION_INPUT, false);
+	get_device_info(o, &dev_info);
 	if (!validate_device_info(&dev_info))
 		return -ENOENT;
 
@@ -4303,7 +4216,7 @@ static int fill_source_output_info(struct client *client, struct message *m,
 	if (peer_index == SPA_ID_INVALID) {
 		struct pw_manager_object *peer;
 		peer = find_linked(manager, o->id, PW_DIRECTION_INPUT);
-		if (peer && pw_manager_object_is_source_or_monitor(peer))
+		if (peer && pw_manager_object_is_source(peer))
 			peer_index = peer->index;
 		else
 			peer_index = SPA_ID_INVALID;
@@ -4403,7 +4316,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 		fill_func = fill_sink_info;
 		break;
 	case COMMAND_GET_SOURCE_INFO:
-		sel.type = pw_manager_object_is_source_or_monitor;
+		sel.type = pw_manager_object_is_source;
 		sel.key = PW_KEY_NODE_NAME;
 		fill_func = fill_source_info;
 		break;
@@ -4433,7 +4346,7 @@ static int do_get_info(struct client *client, uint32_t command, uint32_t tag, st
 
 	if (command == COMMAND_GET_SINK_INFO || command == COMMAND_GET_SOURCE_INFO) {
 		o = find_device(client, sel.index, sel.value,
-				command == COMMAND_GET_SINK_INFO, NULL);
+				command == COMMAND_GET_SINK_INFO);
 	} else {
 		if (sel.value == NULL && sel.index == SPA_ID_INVALID)
 			goto error_invalid;
@@ -4830,7 +4743,7 @@ static int do_set_profile(struct client *client, uint32_t command, uint32_t tag,
 static int do_set_default(struct client *client, uint32_t command, uint32_t tag, struct message *m)
 {
 	struct pw_manager *manager = client->manager;
-	const char *name, *str;
+	const char *name;
 	int res;
 	bool sink = command == COMMAND_SET_DEFAULT_SINK;
 
@@ -4848,11 +4761,9 @@ static int do_set_default(struct client *client, uint32_t command, uint32_t tag,
 
 	if (name != NULL) {
 		struct pw_manager_object *o;
-		if ((o = find_device(client, SPA_ID_INVALID, name, sink, NULL)) == NULL)
+		if ((o = find_device(client, SPA_ID_INVALID, name, sink)) == NULL)
 			return -ENOENT;
-		if ((str = pw_properties_get(o->props, PW_KEY_NODE_NAME)) != NULL)
-			name = str;
-		else if (spa_strendswith(name, ".monitor")) {
+		if (spa_strendswith(name, ".monitor")) {
 			size_t len = strlen(name) - 8;
 			if (len > MAX_NAME)
 				return -ENAMETOOLONG;
@@ -4920,7 +4831,7 @@ static int do_suspend(struct client *client, uint32_t command, uint32_t tag, str
 	pw_log_info("[%s] %s tag:%u index:%u name:%s", client->name,
 			commands[command].name, tag, index, name);
 
-	if ((o = find_device(client, index, name, sink, NULL)) == NULL)
+	if ((o = find_device(client, index, name, sink)) == NULL)
 		return -ENOENT;
 
 	if ((proxy = pw_manager_object_get_proxy(o)) == NULL)
@@ -4971,7 +4882,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	if (spa_atob(pw_properties_get(o->props, PW_KEY_NODE_DONT_RECONNECT)))
 		return -EINVAL;
 
-	if ((dev = find_device(client, index_device, name_device, sink, NULL)) == NULL)
+	if ((dev = find_device(client, index_device, name_device, sink)) == NULL)
 		return -ENOENT;
 
 	/*
@@ -4979,7 +4890,7 @@ static int do_move_stream(struct client *client, uint32_t command, uint32_t tag,
 	 * so use the temporary values if they are still set.
 	 */
 	name = sink ? client->temporary_default_sink : client->temporary_default_source;
-	dev_default = find_device(client, SPA_ID_INVALID, name, sink, NULL);
+	dev_default = find_device(client, SPA_ID_INVALID, name, sink);
 
 	if (dev == dev_default) {
 		/*

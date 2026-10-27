@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include "manager.h"
+#include "collect.h"
 
 #include <spa/pod/iter.h>
 #include <spa/pod/parser.h>
@@ -576,29 +577,40 @@ static void node_destroy(struct object *o)
 		o->info = NULL;
 	}
 }
-enum {
-	STREAM_TYPE_NONE,
-	STREAM_TYPE_SINK,
-	STREAM_TYPE_SOURCE,
-	STREAM_TYPE_SINK_INPUT,
-	STREAM_TYPE_SOURCE_OUTPUT,
-};
 
 static int stream_type_from_media_class(const char *media_class)
 {
 	if (spa_streq(media_class, "Audio/Sink") ||
 	    spa_streq(media_class, "Audio/Duplex"))
-		return STREAM_TYPE_SINK;
+		return PW_MANAGER_STREAM_TYPE_SINK;
 	if (spa_streq(media_class, "Audio/Source") ||
 	    spa_streq(media_class, "Audio/Duplex") ||
 	    spa_streq(media_class, "Audio/Source/Virtual"))
-		return STREAM_TYPE_SOURCE;
+		return PW_MANAGER_STREAM_TYPE_SOURCE;
 	if (spa_streq(media_class, "Stream/Output/Audio"))
-		return STREAM_TYPE_SINK_INPUT;
+		return PW_MANAGER_STREAM_TYPE_SINK_INPUT;
 	if (spa_streq(media_class, "Stream/Input/Audio"))
-		return STREAM_TYPE_SOURCE_OUTPUT;
+		return PW_MANAGER_STREAM_TYPE_SOURCE_OUTPUT;
 	else
-		return STREAM_TYPE_NONE;
+		return PW_MANAGER_STREAM_TYPE_NONE;
+}
+
+static int update_sink_monitor_props(struct object *o, const struct spa_dict *props)
+{
+	const char *str;
+
+	pw_properties_update(o->this.props, props);
+
+	pw_properties_set(o->this.props, PW_KEY_MEDIA_CLASS, "Audio/Source");
+	pw_properties_set(o->this.props, PW_KEY_DEVICE_CLASS, "monitor");
+
+	if ((str = pw_properties_get(o->this.props, PW_KEY_NODE_NAME)) == NULL)
+		str = "unknown";
+	pw_properties_setf(o->this.props, PW_KEY_NODE_NAME, "%s.monitor", str);
+	if ((str = pw_properties_get(o->this.props, PW_KEY_NODE_DESCRIPTION)) == NULL)
+		str = "Unknown";
+	pw_properties_setf(o->this.props, PW_KEY_NODE_DESCRIPTION, "Monitor of %s", str);
+	return 1;
 }
 
 static void node_update_children(struct object *o)
@@ -610,7 +622,7 @@ static void node_update_children(struct object *o)
 
 	if (!spa_streq(o->this.type, PW_TYPE_INTERFACE_Node) ||
 	    (media_class = pw_properties_get(o->this.props, PW_KEY_MEDIA_CLASS)) == NULL ||
-	    (stream_type = stream_type_from_media_class(media_class)) == STREAM_TYPE_NONE)
+	    (stream_type = stream_type_from_media_class(media_class)) == PW_MANAGER_STREAM_TYPE_NONE)
 		return;
 
 	if (o->creating) {
@@ -622,14 +634,40 @@ static void node_update_children(struct object *o)
 			return;
 		}
 		c->parent = o;
+		c->this.u.stream.type = stream_type;
+		c->this.u.stream.monitor = false;
 		spa_list_append(&o->child_list, &c->link);
+		update_device_info(&m->this, &c->this, NULL);
+
+		if (stream_type == PW_MANAGER_STREAM_TYPE_SINK) {
+			if ((c = alloc_object(m, o->this.id, o->this.permissions,
+							PW_TYPE_INTERFACE_NODE_Stream, 0,
+							&o->this.props->dict)) == NULL) {
+				pw_log_error("can't alloc object for %u %s/%d: %m",
+						o->this.id, o->this.type, o->this.version);
+				return;
+			}
+			c->parent = o;
+			c->this.u.stream.type = PW_MANAGER_STREAM_TYPE_SOURCE;
+			c->this.u.stream.monitor = true;
+			spa_list_append(&o->child_list, &c->link);
+
+			update_sink_monitor_props(c, &o->this.props->dict);
+			update_device_info(&m->this, &c->this, NULL);
+		}
 	} else if (o->changed > 0) {
 		struct pw_node_info *info = o->info;
 
 		spa_list_for_each(c, &o->child_list, link) {
-			if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
-				pw_properties_update(c->this.props, info->props);
-			c->changed++;
+			int changed = 0;
+			if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
+				if (c->this.u.stream.monitor)
+					changed += update_sink_monitor_props(c, info->props);
+				else
+					changed += pw_properties_update(c->this.props, info->props);
+			}
+			changed += update_device_info(&m->this, &c->this, NULL);
+			c->changed = changed;
 		}
 	}
 }
@@ -818,10 +856,8 @@ static void manager_do_emit_removed(struct manager *m, struct object *o)
 {
 	struct object *c;
 
-	o->this.change_mask = ~0;
 	o->removing = true;
 	spa_list_for_each(c, &o->child_list, link) {
-		c->this.change_mask = ~0;
 		c->removing = true;
 		manager_do_emit_removed(m, c);
 	}
@@ -1192,26 +1228,19 @@ bool pw_manager_object_is_card(struct pw_manager_object *o)
 
 static int manager_object_stream_type(struct pw_manager_object *o)
 {
-	const char *str;
-	if (spa_streq(o->type, PW_TYPE_INTERFACE_NODE_Stream) &&
-	    (str = pw_properties_get(o->props, PW_KEY_MEDIA_CLASS)) != NULL)
-		return stream_type_from_media_class(str);
-	return STREAM_TYPE_NONE;
+	if (spa_streq(o->type, PW_TYPE_INTERFACE_NODE_Stream))
+		return o->u.stream.type;
+	return PW_MANAGER_STREAM_TYPE_NONE;
 }
 
 bool pw_manager_object_is_sink(struct pw_manager_object *o)
 {
-	return manager_object_stream_type(o) == STREAM_TYPE_SINK;
+	return manager_object_stream_type(o) == PW_MANAGER_STREAM_TYPE_SINK;
 }
 
 bool pw_manager_object_is_source(struct pw_manager_object *o)
 {
-	return manager_object_stream_type(o) == STREAM_TYPE_SOURCE;
-}
-
-bool pw_manager_object_is_monitor(struct pw_manager_object *o)
-{
-	return manager_object_stream_type(o) == STREAM_TYPE_SINK;
+	return manager_object_stream_type(o) == PW_MANAGER_STREAM_TYPE_SOURCE;
 }
 
 bool pw_manager_object_is_virtual(struct pw_manager_object *o)
@@ -1230,27 +1259,47 @@ bool pw_manager_object_is_network(struct pw_manager_object *o)
 		pw_properties_parse_bool(str);
 }
 
-bool pw_manager_object_is_source_or_monitor(struct pw_manager_object *o)
-{
-	return pw_manager_object_is_source(o) || pw_manager_object_is_monitor(o);
-}
-
 bool pw_manager_object_is_sink_input(struct pw_manager_object *o)
 {
-	return manager_object_stream_type(o) == STREAM_TYPE_SINK_INPUT;
+	return manager_object_stream_type(o) == PW_MANAGER_STREAM_TYPE_SINK_INPUT;
 }
 
 bool pw_manager_object_is_source_output(struct pw_manager_object *o)
 {
-	return manager_object_stream_type(o) == STREAM_TYPE_SOURCE_OUTPUT;
+	return manager_object_stream_type(o) == PW_MANAGER_STREAM_TYPE_SOURCE_OUTPUT;
 }
 
 bool pw_manager_object_is_recordable(struct pw_manager_object *o)
 {
-	return pw_manager_object_is_source(o) || pw_manager_object_is_sink(o) || pw_manager_object_is_sink_input(o);
+	return pw_manager_object_is_source(o) || pw_manager_object_is_sink_input(o);
 }
 
 bool pw_manager_object_is_link(struct pw_manager_object *o)
 {
 	return spa_streq(o->type, PW_TYPE_INTERFACE_Link);
+}
+
+struct pw_manager_object *pw_manager_sink_get_monitor(struct pw_manager_object *obj)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	struct object *p, *c;
+	if ((p = o->parent) != NULL) {
+		spa_list_for_each(c, &p->child_list, link) {
+			if (pw_manager_object_is_source(&c->this))
+				return &c->this;
+		}
+	}
+	return NULL;
+}
+struct pw_manager_object *pw_manager_monitor_get_sink(struct pw_manager_object *obj)
+{
+	struct object *o = SPA_CONTAINER_OF(obj, struct object, this);
+	struct object *p, *c;
+	if ((p = o->parent) != NULL) {
+		spa_list_for_each(c, &p->child_list, link) {
+			if (pw_manager_object_is_sink(&c->this))
+				return &c->this;
+		}
+	}
+	return NULL;
 }

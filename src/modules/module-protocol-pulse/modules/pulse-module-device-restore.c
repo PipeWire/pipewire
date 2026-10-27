@@ -437,7 +437,7 @@ static int do_extension_device_restore_save_formats(struct module *module, struc
 	if (o == NULL)
 		return -ENOENT;
 
-	get_device_info(o, &dev_info, SPA_DIRECTION_INPUT, false);
+	get_device_info(o, &dev_info);
 
 	if (dev_info.card_id != SPA_ID_INVALID) {
 		struct selector sel = { .id = dev_info.card_id, .type = pw_manager_object_is_card, };

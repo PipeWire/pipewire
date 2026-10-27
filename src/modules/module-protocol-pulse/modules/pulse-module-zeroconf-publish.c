@@ -216,7 +216,7 @@ static void fill_service_data(struct module_zeroconf_publish_data *d, struct ser
 	if (name == NULL)
 		name = "unknown";
 
-	get_device_info(o, &dev_info, is_sink ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT, false);
+	get_device_info(o, &dev_info);
 
 	if (dev_info.card_id != SPA_ID_INVALID) {
 		struct selector sel = { .id = dev_info.card_id, .type = pw_manager_object_is_card, };
@@ -380,15 +380,12 @@ static void manager_added(void *d, struct pw_manager_object *o)
 {
 	struct service *s;
 	struct module_zeroconf_publish_data *data = d;
-	struct impl *impl = data->module->impl;
 
 	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
 		return;
 
 	if (pw_manager_object_is_network(o))
 		return;
-
-	update_object_info(data->manager, o, &impl->defs);
 
 	s = create_service(data, o);
 	if (s == NULL)

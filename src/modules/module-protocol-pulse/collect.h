@@ -35,8 +35,6 @@ struct selector {
 struct pw_manager_object *select_object(struct pw_manager *m, struct selector *s);
 uint32_t id_to_index(struct pw_manager *m, uint32_t id);
 void select_best(struct selector *s, struct pw_manager_object *o);
-void update_object_info(struct pw_manager *manager, struct pw_manager_object *o,
-		struct defs *defs);
 
 /* ========================================================================== */
 
@@ -68,8 +66,9 @@ struct device_info {
 		.active_port = SPA_ID_INVALID,		\
 	}
 
-void get_device_info(struct pw_manager_object *device, struct device_info *info,
-		enum pw_direction direction, bool monitor);
+int update_device_info(struct pw_manager *manager, struct pw_manager_object *o,
+		struct defs *defs);
+void get_device_info(struct pw_manager_object *device, struct device_info *info);
 
 /* ========================================================================== */
 

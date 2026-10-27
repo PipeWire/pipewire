@@ -715,6 +715,9 @@ static int do_allocation(struct pw_impl_link *this)
 		/* always enable async mode */
 		alloc_flags = PW_BUFFERS_FLAG_ASYNC;
 
+		if (output->reliable)
+			alloc_flags |= PW_BUFFERS_FLAG_DELAYED;
+
 		/* shared mem can only be used if both nodes are in the same process
 		 * and we are sure that the buffers are never going to be shared
 		 * because of the exclusive flag */

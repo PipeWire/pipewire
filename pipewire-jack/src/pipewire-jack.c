@@ -4412,6 +4412,8 @@ jack_client_t * jack_client_open (const char *client_name,
 	pw_context_set_object(client->context.context,
 			SPA_TYPE_INTERFACE_ThreadUtils,
 			&client->context.thread_utils);
+	pw_thread_loop_set_thread_utils(client->context.notify,
+			&client->context.thread_utils);
 
 	pw_thread_loop_start(client->context.loop);
 

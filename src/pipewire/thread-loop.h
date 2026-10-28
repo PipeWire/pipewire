@@ -6,6 +6,7 @@
 #define PIPEWIRE_THREAD_LOOP_H
 
 #include <pipewire/loop.h>
+#include <spa/support/thread.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -156,6 +157,11 @@ void pw_thread_loop_accept(struct pw_thread_loop *loop);
 
 /** Check if inside the thread. This can be called from any thread. */
 bool pw_thread_loop_in_thread(struct pw_thread_loop *loop);
+
+/** Set a custom spa_thread_utils for this loop. Setting NULL restores the
+ * system default implementation. Since 1.7.0 */
+void pw_thread_loop_set_thread_utils(struct pw_thread_loop *loop,
+		struct spa_thread_utils *impl);
 
 /**
  * \}

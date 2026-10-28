@@ -75,6 +75,12 @@ static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet
 	return 0;
 }
 
+static const struct rtp_codec rtp_pcm_codec = {
+	.duration = audio_packet_duration,
+	.decode = audio_packet_decode,
+	.conceal = audio_packet_conceal,
+};
+
 /* read wanted samples from the packet buffer at timestamp. Lost packets are
  * concealed and other gaps are filled with silence. Returns the number of
  * samples at the end that were not available in the packet buffer yet. */
@@ -91,7 +97,7 @@ static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t times
 			break;
 
 		ts = p->timestamp;
-		samples = audio_packet_duration(impl, p);
+		samples = impl->codec->duration(impl, p);
 		ts_end = ts + samples;
 		if (rtp_timestamp_delta(ts_end, timestamp) <= 0)
 			goto next;
@@ -101,7 +107,7 @@ static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t times
 			skip = -ts_delta;
 			skip = SPA_MIN(skip, wanted);
 			if (prev_p == NULL || rtp_seqnum_delta(p->seq, prev_p->seq) <= 1 ||
-			    audio_packet_conceal(impl, prev_p, p, timestamp, dst, skip) < 0)
+			    impl->codec->conceal(impl, prev_p, p, timestamp, dst, skip) < 0)
 				memset(dst, 0, skip * stride);
 			dst = SPA_PTROFF(dst, skip * stride, void);
 			wanted -= skip;
@@ -114,7 +120,7 @@ static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t times
 		samples = SPA_MIN(samples, wanted);
 		if (samples > 0) {
 			if (p->decoded == NULL)
-				audio_packet_decode(impl, p);
+				impl->codec->decode(impl, p);
 			memcpy(dst, SPA_PTROFF(p->decoded, skip*stride, void), samples * stride);
 			dst = SPA_PTROFF(dst, samples * stride, void);
 			wanted -= samples;

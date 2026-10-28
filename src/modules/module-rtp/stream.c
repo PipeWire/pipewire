@@ -114,6 +114,7 @@ struct rtp_stream {
 	 * media type to use in the rtp.media and rtp.mime properties,
 	 * which are used in SDP announcements. */
 	const struct rtp_format_info *rtp_format_info;
+	const struct rtp_codec *codec;
 
 	enum spa_direction direction;
 	void *stream_data;
@@ -320,6 +321,18 @@ struct rtp_format_info {
 	const char *media_type;
 	void (*to_float) (const void *src, int stride, float *dst, uint32_t n_samples);
 	void (*from_float) (const float *src, int stride, void *dst, uint32_t n_samples);
+};
+
+/* codec abstraction layer */
+struct rtp_codec {
+	/* return the number of samples in p without changing the codecs state */
+	uint32_t (*duration)(struct rtp_stream *s, const struct rtp_packet *p);
+	/* decode a received packet into p->decoded */
+	int (*decode)(struct rtp_stream *s, struct rtp_packet *p);
+	/* generate concealment for num lost samples starting at timestamp, in the gap between last
+	 * and next (possibly reaching into next) and write them to dst */
+	int (*conceal)(struct rtp_stream *s, const struct rtp_packet *last, const struct rtp_packet *next,
+			uint32_t timestamp, void *dst, uint32_t num);
 };
 
 #include "module-rtp/audio.c"
@@ -750,6 +763,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 			res = -EINVAL;
 			goto out;
 		}
+		impl->codec = &rtp_pcm_codec;
 		impl->stride = impl->rtp_format_info->size * impl->stream_info.info.raw.channels;
 		impl->rate = impl->stream_info.info.raw.rate;
 		break;

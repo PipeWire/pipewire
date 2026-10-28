@@ -27,6 +27,8 @@ struct pw_thread_loop {
 
 	struct spa_hook_list listener_list;
 
+	struct spa_thread_utils *thread_utils;
+
 	pthread_t thread;
 
 	struct spa_hook hook;
@@ -199,13 +201,17 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 	int err;
 
 	if (!loop->running) {
+		struct spa_thread_utils *utils;
 		struct spa_thread *thr;
 		struct spa_dict_item items[1];
 
 		loop->running = true;
 
+		if ((utils = loop->thread_utils) == NULL)
+			utils = pw_thread_utils_get();
+
 		items[0] = SPA_DICT_ITEM_INIT(SPA_KEY_THREAD_NAME, loop->loop->name);
-		thr = pw_thread_utils_create(&SPA_DICT_INIT_ARRAY(items), do_loop, loop);
+		thr = spa_thread_utils_create(utils, &SPA_DICT_INIT_ARRAY(items), do_loop, loop);
 		if (thr == NULL)
 			goto error;
 
@@ -240,10 +246,13 @@ void pw_thread_loop_stop(struct pw_thread_loop *loop)
 {
 	pw_log_debug("%p stopping %d", loop, loop->running);
 	if (loop->running) {
+		struct spa_thread_utils *utils;
 		pw_log_debug("%p signal", loop);
 		pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
 		pw_log_debug("%p join", loop);
-		pthread_join(loop->thread, NULL);
+		if ((utils = loop->thread_utils) == NULL)
+			utils = pw_thread_utils_get();
+		spa_thread_utils_join(utils, (struct spa_thread*)loop->thread, NULL);
 		pw_log_debug("%p joined", loop);
 		loop->running = false;
 	}
@@ -371,4 +380,18 @@ SPA_EXPORT
 bool pw_thread_loop_in_thread(struct pw_thread_loop *loop)
 {
 	return loop->running && pthread_equal(loop->thread, pthread_self());
+}
+
+/** Set a thread utils implementation.
+ * \param loop the thread loop to set the thread utils on
+ * \param impl the thread utils implementation
+ *
+ * This configures a custom spa_thread_utils implementation for this thread
+ * loop. Use NULL to restore the system default implementation.
+ */
+SPA_EXPORT
+void pw_thread_loop_set_thread_utils(struct pw_thread_loop *loop,
+		struct spa_thread_utils *impl)
+{
+	loop->thread_utils = impl;
 }

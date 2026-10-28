@@ -1,3 +1,42 @@
+# PipeWire 1.6.11 (2026-10-29)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Backported a lot of bluetooth fixes.
+  - Fix an issue with draining in the ALSA plugin that could cause lockups in
+    applications.
+  - Some smaller bugfixes and improvements.
+
+## PipeWire
+  - Use extra buffer in reliable mode.
+
+## Modules
+  - Fail client device export when device can't be started. Together with
+    Wireplumber changes this avoids non-functioning devices in case of
+    errors.
+  - Fix potential crash in adapter. (#5549)
+
+## SPA
+  - Clean up some SPA_POD_Long arguments to make things work on 32bits.
+
+## Bluetooth
+  - Backport some security fixes.
+  - Handle some allocation errors better.
+  - Fix handling of multiple concurrent profile registrations.
+  - Fix BIS latency range checks.
+  - Improve ofono compatibility.
+  - Handle async device and node removal.
+  - Avoid using stale transport or device pointers by using a unique
+    serial instead.
+
+## ALSA plugin
+  - Avoid going into XRUN when draining. (#5544)
+
+
+Older versions:
+
 # PipeWire 1.6.10 (2026-10-22)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -45,9 +84,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## Tools
   - Support more output formats by letting sndfile choose the byte order.
-
-
-Older versions:
 
 # PipeWire 1.6.9 (2026-09-17)
 

@@ -298,10 +298,12 @@ static int tee_process(void *object)
 	struct spa_io_buffers *io = &this->rt.io;
 	uint32_t cycle = this->node->rt.position->clock.cycle & 1;
 
-	pw_log_trace_fp("%p: tee input status:%d id:%d cycle:%d", this, io->status, io->buffer_id, cycle);
+	pw_log_trace_fp("%p: tee input status:%d id:%d/%d cycle:%d",
+			this, io->status, io->buffer_id, this->buffers.n_buffers, cycle);
 	spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
-		pw_log_trace_fp("%p: port %d %p->%p id:%d", this,
-				mix->port.port_id, io, mix->io[cycle], mix->io[cycle]->buffer_id);
+		pw_log_trace_fp("%p: port %d %p->%p id:%d/%d", this,
+				mix->port.port_id, io, mix->io[cycle],
+				mix->io[cycle]->buffer_id, this->buffers.n_buffers);
 		*mix->io[cycle] = *io;
 	}
 	io->status = SPA_STATUS_NEED_DATA;
@@ -320,13 +322,15 @@ static int tee_process_reliable(void *object)
 	if (io->status == SPA_STATUS_HAVE_DATA) {
 		uint32_t buffer_id = io->buffer_id;
 
-		pw_log_trace_fp("%p: tee input status:%d id:%d cycle:%d", this, io->status, buffer_id, cycle);
+		pw_log_trace_fp("%p: tee input status:%d id:%d/%d cycle:%d",
+				this, io->status, buffer_id, this->buffers.n_buffers, cycle);
 
 		spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
 			struct spa_io_buffers *mio = mix->io[cycle];
 
-			pw_log_trace_fp("%p: port %d %p->%p status:%d id:%d", this,
-					mix->port.port_id, io, mio, mio->status, mio->buffer_id);
+			pw_log_trace_fp("%p: port %d %p->%p status:%d id:%d/%d", this,
+					mix->port.port_id, io, mio, mio->status,
+					mio->buffer_id, this->buffers.n_buffers);
 
 			if (mio->status != SPA_STATUS_HAVE_DATA) {
 				io->buffer_id = mio->buffer_id;
@@ -345,7 +349,8 @@ static int tee_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 	struct impl *impl = object;
 	struct pw_impl_port *this = &impl->this;
 
-	pw_log_trace_fp("%p: tee reuse buffer %d %d", this, port_id, buffer_id);
+	pw_log_trace_fp("%p: tee reuse port %d buffer id:%d/%d",
+			this, port_id, buffer_id, this->buffers.n_buffers);
 	spa_node_port_reuse_buffer(this->node->node, this->port_id, buffer_id);
 	return 0;
 }
@@ -363,9 +368,10 @@ static int mix_process(void *object)
 
 	spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
 		uint32_t buffer_id = io->buffer_id;
-		pw_log_trace_fp("%p: mix input %d %p->%p status:%d id:%d cycle:%d", this,
+		pw_log_trace_fp("%p: mix input %d %p->%p status:%d id:%d/%d cycle:%d", this,
 				mix->port.port_id, mix->io[cycle], io,
-				mix->io[cycle]->status, mix->io[cycle]->buffer_id, cycle);
+				mix->io[cycle]->status, mix->io[cycle]->buffer_id,
+				this->buffers.n_buffers, cycle);
 		*io = *mix->io[cycle];
 		mix->io[cycle]->buffer_id = buffer_id;
 		mix->io[cycle]->status = SPA_STATUS_NEED_DATA;
@@ -380,7 +386,8 @@ static int mix_reuse_buffer(void *object, uint32_t port_id, uint32_t buffer_id)
 	struct pw_impl_port_mix *mix;
 
 	spa_list_for_each(mix, &impl->rt.mix_list, rt.link) {
-		pw_log_trace_fp("%p: reuse buffer %d %d", impl, port_id, buffer_id);
+		pw_log_trace_fp("%p: reuse port %d buffer id:%d/%d",
+				impl, port_id, buffer_id, impl->this.buffers.n_buffers);
 		/* FIXME send reuse buffer to peer */
 		break;
 	}

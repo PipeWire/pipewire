@@ -119,9 +119,13 @@ static uint32_t audio_packet_buffer_read(struct rtp_stream *impl, uint32_t times
 		}
 		samples = SPA_MIN(samples, wanted);
 		if (samples > 0) {
-			if (p->decoded == NULL)
-				impl->codec->decode(impl, p);
-			memcpy(dst, SPA_PTROFF(p->decoded, skip*stride, void), samples * stride);
+			if (p->decoded == NULL && impl->codec->decode(impl, p) < 0) {
+				if (prev_p == NULL ||
+				    impl->codec->conceal(impl, prev_p, p, timestamp, dst, samples) < 0)
+					memset(dst, 0, samples * stride);
+			} else {
+				memcpy(dst, SPA_PTROFF(p->decoded, skip*stride, void), samples * stride);
+			}
 			dst = SPA_PTROFF(dst, samples * stride, void);
 			wanted -= samples;
 			timestamp += samples;
@@ -144,6 +148,7 @@ static void rtp_audio_process_playback(void *data)
 	uint32_t device_delay;
 	int32_t avail, flags = 0;
 	struct spa_io_position *pos = impl->io_position;
+	bool discont = false;
 
 	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
 		pw_log_info("Out of stream buffers: %m");
@@ -176,6 +181,9 @@ static void rtp_audio_process_playback(void *data)
 			 * pwt.buffered is expressed in stream time. */
 			timestamp = scale_u64(pos->clock.position + device_delay,
 					      impl->rate, clock_rate) + pwt.buffered;
+
+			discont = (uint64_t)SPA_ABS((int64_t)rtp_timestamp_delta(timestamp, impl->expected_timestamp)) >
+				scale_u64(pos->clock.duration, impl->rate, clock_rate);
 		} else {
 			/* In the unlikely case that no spa_io_position pointer
 			 * was passed yet by PipeWire to this node, resort to a
@@ -238,6 +246,7 @@ static void rtp_audio_process_playback(void *data)
 			impl->expected_timestamp = timestamp;
 			impl->have_sync = impl->num_queued != 0;
 			error = 0.0;
+			discont = true;
 
 			pw_log(impl->have_sync ? SPA_LOG_LEVEL_INFO : SPA_LOG_LEVEL_DEBUG,
 				"sync:%d %08x %08x target:%u synced:%u", avail,
@@ -265,8 +274,10 @@ static void rtp_audio_process_playback(void *data)
 		pw_stream_set_rate(impl->stream, 1.0 / corr);
 
 	}
-	/* read samples from the received packets. Missing packets are filled
-	 * with silence */
+
+	if (discont && impl->codec->reset)
+		impl->codec->reset(impl);
+
 	missing = audio_packet_buffer_read(impl, timestamp, d[0].data, wanted, stride);
 
 	if (!impl->direct_timestamp && impl->have_sync && missing > 0) {

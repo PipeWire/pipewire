@@ -333,6 +333,8 @@ struct rtp_codec {
 	 * and next (possibly reaching into next) and write them to dst */
 	int (*conceal)(struct rtp_stream *s, const struct rtp_packet *last, const struct rtp_packet *next,
 			uint32_t timestamp, void *dst, uint32_t num);
+	/* reset the internal state of the codec */
+	void (*reset)(struct rtp_stream *s);
 };
 
 #include "module-rtp/audio.c"
@@ -789,6 +791,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		impl->info.info.opus.channels = impl->stream_info.info.raw.channels;
 
 		impl->rtp_format_info = &rtp_opus_format_info;
+		impl->codec = &rtp_opus_codec;
 		impl->stride = impl->rtp_format_info->size * impl->stream_info.info.raw.channels;
 		impl->rate = impl->stream_info.info.raw.rate;
 		min_packets = 128;
@@ -962,7 +965,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		p->data = SPA_PTROFF(p, sizeof(*p), void);
 		p->maxsize = impl->mtu;
 		p->size = 0;
-		p->tmp_size = 2880 * 4;
+		p->tmp_size = 2880 * impl->stride;
 		p->tmp = SPA_PTROFF(p->data, p->maxsize, void);
 		spa_list_append(&impl->free, &p->link);
 	}

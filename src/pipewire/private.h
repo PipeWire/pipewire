@@ -784,14 +784,16 @@ struct pw_impl_node {
 	unsigned int async:1;		/**< async processing, one cycle latency */
 	unsigned int lazy:1;		/**< the graph is lazy scheduling */
 	unsigned int exclusive:1;	/**< ports can only be linked once */
-	unsigned int reliable:1;	/**< ports need reliable tee */
 	unsigned int can_suspend:1;	/**< node can suspend */
 
 #define PASSIVE_MODE_FALSE		0
 #define PASSIVE_MODE_TRUE		1
 #define PASSIVE_MODE_FOLLOW		2
 #define PASSIVE_MODE_FOLLOW_SUSPEND	3
-	int passive_mode[2];		/**< node input links should be passive */
+	int passive_mode[2];		/**< node links should be passive */
+#define OUTPUT_MODE_FAST		0
+#define OUTPUT_MODE_RELIABLE		1
+	int output_mode;		/**< node output tee mode */
 
 	uint32_t transport;		/**< latest transport request */
 
@@ -969,6 +971,7 @@ struct pw_impl_port {
 		bool added;
 	} rt;					/**< data only accessed from the data thread */
 	int passive_mode;
+	int output_mode;
 
 	unsigned int destroying:1;
 	unsigned int auto_path:1;		/* path was automatically generated */
@@ -981,7 +984,6 @@ struct pw_impl_port {
 	unsigned int ignore_latency:1;
 	unsigned int have_latency:1;
 	unsigned int exclusive:1;		/**< port can only be linked once */
-	unsigned int reliable:1;		/**< port needs reliable tee */
 
 	unsigned int have_tag_param:1;
 	struct spa_pod *tag[2];			/**< tags */
@@ -1018,6 +1020,27 @@ static inline uint32_t passive_mode_from_string(const char *str)
 		return PASSIVE_MODE_TRUE;
 	return PASSIVE_MODE_FALSE;
 }
+
+static inline const char *output_mode_to_string(uint32_t mode)
+{
+	switch (mode) {
+	case OUTPUT_MODE_FAST:
+		return "fast";
+	case OUTPUT_MODE_RELIABLE:
+		return "reliable";
+	}
+	return "unknown";
+}
+
+static inline uint32_t output_mode_from_string(const char *str)
+{
+	if (spa_streq(str, "fast"))
+		return OUTPUT_MODE_FAST;
+	else if (spa_streq(str, "reliable"))
+		return OUTPUT_MODE_RELIABLE;
+	return OUTPUT_MODE_FAST;
+}
+
 
 struct pw_control_link {
 	struct spa_list out_link;

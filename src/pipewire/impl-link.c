@@ -715,7 +715,7 @@ static int do_allocation(struct pw_impl_link *this)
 		/* always enable async mode */
 		alloc_flags = PW_BUFFERS_FLAG_ASYNC;
 
-		if (output->reliable)
+		if (output->output_mode == OUTPUT_MODE_RELIABLE)
 			alloc_flags |= PW_BUFFERS_FLAG_DELAYED;
 
 		/* shared mem can only be used if both nodes are in the same process
@@ -819,7 +819,7 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 	 * to the io, so we don't need async IO, even when the input is async. This
 	 * avoid the problem of out-of-order buffers after a stall. */
 	reliable_driver = (impl->output.node == impl->input.node->driver_node) &&
-		impl->output.node->reliable;
+		impl->output.node->output_mode == OUTPUT_MODE_RELIABLE;
 
 	if (this->async && !reliable_driver) {
 		io_type = SPA_IO_AsyncBuffers;

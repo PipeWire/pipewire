@@ -514,13 +514,25 @@ static int check_properties(struct pw_impl_port *port)
 		port->exclusive = new_bool;
 	}
 
-	new_bool = pw_properties_get_bool(port->properties, PW_KEY_PORT_RELIABLE, node->reliable);
-	if (new_bool != port->reliable && port->direction == PW_DIRECTION_OUTPUT) {
-		pw_log_info("%p: reliable %d->%d", port, port->reliable, new_bool);
-		port->reliable = new_bool;
-		impl->mix_methods.process = new_bool ?
-			tee_process_reliable :
-			tee_process;
+	if (port->direction == PW_DIRECTION_OUTPUT) {
+		if ((str = pw_properties_get(port->properties, PW_KEY_PORT_OUTPUT_MODE)) != NULL) {
+			port->output_mode = output_mode_from_string(str);
+		} else {
+			if (pw_properties_get_bool(port->properties, PW_KEY_PORT_RELIABLE, false))
+				port->output_mode = OUTPUT_MODE_RELIABLE;
+			else
+				port->output_mode = node->output_mode;
+		}
+		switch (port->output_mode) {
+		case OUTPUT_MODE_FAST:
+			impl->mix_methods.process = tee_process;
+			break;
+		case OUTPUT_MODE_RELIABLE:
+			impl->mix_methods.process = tee_process_reliable;
+			break;
+		}
+		pw_properties_set(port->properties, PW_KEY_PORT_OUTPUT_MODE,
+				output_mode_to_string(port->output_mode));
 	}
 
 	if ((str = pw_properties_get(port->properties, PW_KEY_PORT_PASSIVE)) == NULL) {

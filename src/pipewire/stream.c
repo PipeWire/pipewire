@@ -2555,7 +2555,8 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	int res;
 
 	/* For reliable output streams, only give buffers when both queue AND output IO are clear */
-	if (impl->direction == SPA_DIRECTION_OUTPUT && stream->node->reliable) {
+	if (impl->direction == SPA_DIRECTION_OUTPUT &&
+	    stream->node->output_mode == OUTPUT_MODE_RELIABLE) {
 		struct spa_io_buffers *io = impl->io;
 
 		if (!queue_is_empty(impl, &impl->queued) || io->status == SPA_STATUS_HAVE_DATA) {

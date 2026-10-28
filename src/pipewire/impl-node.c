@@ -1163,7 +1163,15 @@ static void check_properties(struct pw_impl_node *node)
 	impl->cache_params =  pw_properties_get_bool(node->properties, PW_KEY_NODE_CACHE_PARAMS, true);
 	driver = pw_properties_get_bool(node->properties, PW_KEY_NODE_DRIVER, false);
 	node->exclusive = pw_properties_get_bool(node->properties, PW_KEY_NODE_EXCLUSIVE, false);
-	node->reliable = pw_properties_get_bool(node->properties, PW_KEY_NODE_RELIABLE, false);
+
+	if ((str = pw_properties_get(node->properties, PW_KEY_NODE_OUTPUT_MODE)) != NULL) {
+		node->output_mode = output_mode_from_string(str);
+	} else {
+		if (pw_properties_get_bool(node->properties, PW_KEY_NODE_RELIABLE, false))
+			node->output_mode = OUTPUT_MODE_RELIABLE;
+		else
+			node->output_mode = OUTPUT_MODE_FAST;
+	}
 
 	if (node->driver != driver) {
 		pw_log_debug("%p: driver %d -> %d", node, node->driver, driver);

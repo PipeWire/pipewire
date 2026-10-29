@@ -7,6 +7,12 @@
 #include <opus/opus.h>
 #include <opus/opus_multistream.h>
 
+/* Opus send state */
+struct rtp_opus_tx {
+	OpusMSEncoder *enc;
+	float stage[];
+};
+
 /* Opus receive state */
 struct rtp_opus_rx {
 	OpusMSDecoder *dec;
@@ -103,124 +109,40 @@ static void opus_reset(struct rtp_stream *impl)
 	rx->plc_len = 0;
 }
 
-static const struct rtp_codec rtp_opus_codec = {
-	.duration = opus_packet_duration,
-	.decode = opus_packet_decode,
-	.conceal = opus_packet_conceal,
-	.reset = opus_reset,
-};
-
-static void rtp_opus_process_capture(void *data)
+static int opus_packet_encode(struct rtp_stream *impl, struct rtp_packet *p, const void *src,
+		uint32_t *num)
 {
-	struct rtp_stream *impl = data;
-	struct pw_buffer *buf;
-	struct spa_data *d;
-	uint32_t offs, size, timestamp, expected_timestamp, stride;
-	uint32_t wanted;
-	void *src, *dst;
-	struct rtp_packet *p, *t;
+	struct rtp_opus_tx *tx = impl->stream_data;
+	int res;
 
-	if ((buf = pw_stream_dequeue_buffer(impl->stream)) == NULL) {
-		pw_log_info("Out of stream buffers: %m");
-		return;
+	*num = SPA_MIN(impl->psamples - p->duration, *num);
+	/* collect a packet that spans cycles in the stage */
+	if (*num < impl->psamples) {
+		spa_memcpy(SPA_PTROFF(tx->stage, p->duration * impl->stride, void), src,
+				*num * impl->stride);
+		src = tx->stage;
 	}
-	d = buf->buffer->datas;
+	p->duration += *num;
+	if (p->duration < impl->psamples)
+		return 0;
 
-	offs = SPA_MIN(d[0].chunk->offset, d[0].maxsize);
-	size = SPA_MIN(d[0].chunk->size, d[0].maxsize - offs);
-	stride = impl->stride;
-	wanted = size / stride;
-
-	expected_timestamp = impl->expected_timestamp;
-
-	if (SPA_LIKELY(impl->io_position)) {
-		uint32_t rate = impl->io_position->clock.rate.denom;
-		timestamp = impl->io_position->clock.position * impl->rate / rate;
-	} else
-		timestamp = expected_timestamp;
-
-	if (!impl->have_sync) {
-		pw_log_info("sync to timestamp:%u seq:%u ts_offset:%u SSRC:%u",
-				timestamp, impl->seq, impl->ts_offset, impl->ssrc);
-		impl->expected_timestamp = expected_timestamp = timestamp;
-		impl->have_sync = true;
-	} else {
-		if (SPA_ABS((int32_t)expected_timestamp - (int32_t)timestamp) > 32) {
-			pw_log_warn("expected %u != timestamp %u", expected_timestamp, timestamp);
-			impl->have_sync = false;
-		}
+	res = opus_multistream_encode_float(tx->enc, src, impl->psamples,
+			SPA_PTROFF(p->data, p->size, void), impl->payload_size);
+	if (res < 0) {
+		pw_log_error("opus encode error %d (%s)", res, opus_strerror(res));
+		return res;
 	}
-
-	src = SPA_PTROFF(d[0].data, offs, void);
-	while (wanted > 0) {
-		p = rtp_stream_peek_pending_packet(impl);
-
-		if (p->size < sizeof(struct rtp_header)) {
-			struct rtp_header *header;
-
-			header = p->data;
-			header->v = 2;
-			header->pt = impl->payload;
-			header->ssrc = htonl(impl->ssrc);
-			if (impl->marker_on_first && impl->first)
-				header->m = 1;
-			else
-				header->m = 0;
-			header->sequence_number = htons(impl->seq);
-
-			p->timestamp = impl->ts_offset + impl->ts_align + expected_timestamp;
-			header->timestamp = htonl(p->timestamp);
-
-			p->size = sizeof(struct rtp_header);
-			p->decoded = p->tmp;
-			p->decoded_len = 0;
-		}
-		uint32_t prepared = p->decoded_len / stride;
-		uint32_t to_send = SPA_MIN(impl->psamples - prepared, wanted);
-
-		dst = SPA_PTROFF(p->decoded, p->decoded_len, void);
-
-		spa_memcpy(dst, src, to_send * stride);
-
-		p->decoded_len += to_send * stride;
-		prepared += to_send;
-		wanted -= to_send;
-
-		src = SPA_PTROFF(src, to_send * stride, void);
-
-		if (prepared >= impl->psamples) {
-			OpusMSEncoder *enc = impl->stream_data;
-
-			int res = opus_multistream_encode_float(enc,
-					(const float*)p->decoded, p->decoded_len / stride,
-					SPA_PTROFF(p->data, p->size, uint8_t), p->maxsize - p->size);
-			if (res > 0) {
-				p->size += res;
-
-				rtp_stream_queue_packet(impl, p);
-
-				impl->seq++;
-			} else {
-				pw_log_error("opus encoder error %d", res);
-			}
-			rtp_stream_clear_pending_packet(impl);
-		}
-		impl->first = false;
-		expected_timestamp += to_send;
-	}
-	impl->expected_timestamp = expected_timestamp;
-
-	pw_stream_queue_buffer(impl->stream, buf);
-
-	spa_list_for_each_safe(p, t, &impl->queued, link)
-		rtp_stream_send_packet(impl, p);
+	p->size += res;
+	return 1;
 }
 
 static void rtp_opus_deinit(struct rtp_stream *impl, enum spa_direction direction)
 {
 	if (impl->stream_data) {
 		if (direction == SPA_DIRECTION_INPUT) {
-			opus_multistream_encoder_destroy(impl->stream_data);
+			struct rtp_opus_tx *tx = impl->stream_data;
+			opus_multistream_encoder_destroy(tx->enc);
+			free(tx);
 		} else {
 			struct rtp_opus_rx *rx = impl->stream_data;
 			opus_multistream_decoder_destroy(rx->dec);
@@ -254,22 +176,27 @@ static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 	for (i = 0; i < impl->info.info.opus.channels; i++)
 		mapping[i] = i;
 
-	impl->deinit = rtp_opus_deinit;
 	if (direction == SPA_DIRECTION_INPUT) {
-		impl->stream_events.process = rtp_opus_process_capture;
+		struct rtp_opus_tx *tx;
 
-		impl->stream_data = opus_multistream_encoder_create(
+		tx = calloc(1, sizeof(*tx) + impl->psamples * impl->stride);
+		if (tx == NULL)
+			return -errno;
+
+		tx->enc = opus_multistream_encoder_create(
 			impl->info.info.opus.rate,
 			impl->info.info.opus.channels,
 			impl->info.info.opus.channels, 0,
 			mapping,
 			OPUS_APPLICATION_AUDIO,
 			&err);
+		if (tx->enc != NULL)
+			impl->stream_data = tx;
+		else
+			free(tx);
 	}
 	else {
 		struct rtp_opus_rx *rx;
-
-		impl->stream_events.process = rtp_audio_process_playback;
 
 		rx = calloc(1, sizeof(*rx) + 2880 * impl->stride);
 		if (rx == NULL)
@@ -288,15 +215,22 @@ static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 			free(rx);
 		}
 	}
-	if (!impl->stream_data)
+	if (impl->stream_data == NULL) {
 		pw_log_error("opus error: %d (%s)", err, opus_strerror(err));
-	return impl->stream_data ? 0 : err;
+		return -EINVAL;
+	}
+	return 0;
 }
+
+static const struct rtp_codec rtp_opus_codec = {
+	.init = rtp_opus_init,
+	.deinit = rtp_opus_deinit,
+	.duration = opus_packet_duration,
+	.decode = opus_packet_decode,
+	.conceal = opus_packet_conceal,
+	.reset = opus_reset,
+	.encode = opus_packet_encode,
+};
 #else
 static const struct rtp_codec rtp_opus_codec;
-
-static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
-{
-	return -ENOTSUP;
-}
 #endif

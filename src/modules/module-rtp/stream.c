@@ -190,7 +190,6 @@ struct rtp_stream {
 	 * buffered data is stale, and the timer would keep sending it out. */
 	void (*stop_timer)(struct rtp_stream *impl);
 	void (*flush_timeout)(struct rtp_stream *impl, uint64_t expirations);
-	void (*deinit)(struct rtp_stream *impl, enum spa_direction direction);
 
 	/*
 	 * pw_filter where the filter would be driven at the PTP clock
@@ -325,6 +324,10 @@ struct rtp_format_info {
 
 /* codec abstraction layer */
 struct rtp_codec {
+	/* create the codec state for a stream in direction */
+	int (*init)(struct rtp_stream *s, enum spa_direction direction);
+	/* free the codec state */
+	void (*deinit)(struct rtp_stream *s, enum spa_direction direction);
 	/* return the number of samples in p without changing the codecs state */
 	uint32_t (*duration)(struct rtp_stream *s, const struct rtp_packet *p);
 	/* decode a received packet into p->decoded */
@@ -335,6 +338,9 @@ struct rtp_codec {
 			uint32_t timestamp, void *dst, uint32_t num);
 	/* reset the internal state of the codec */
 	void (*reset)(struct rtp_stream *s);
+	/* add up to num samples from src to the packet p and set num to the number taken. Return 1
+	 * when p is complete, 0 when it needs more samples, or a negative error, which drops p */
+	int (*encode)(struct rtp_stream *s, struct rtp_packet *p, const void *src, uint32_t *num);
 };
 
 #include "module-rtp/audio.c"
@@ -1003,6 +1009,7 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 	switch (impl->info.media_subtype) {
 	case SPA_MEDIA_SUBTYPE_raw:
+	case SPA_MEDIA_SUBTYPE_opus:
 		params[n_params++] = spa_format_audio_build(&b,
 				SPA_PARAM_EnumFormat, &impl->stream_info);
 		flags |= PW_STREAM_FLAG_AUTOCONNECT;
@@ -1015,12 +1022,6 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
                                 SPA_FORMAT_mediaType,           SPA_POD_Id(SPA_MEDIA_TYPE_application),
                                 SPA_FORMAT_mediaSubtype,        SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		rtp_midi_init(impl, direction);
-		break;
-	case SPA_MEDIA_SUBTYPE_opus:
-		params[n_params++] = spa_format_audio_build(&b,
-				SPA_PARAM_EnumFormat, &impl->stream_info);
-		flags |= PW_STREAM_FLAG_AUTOCONNECT;
-		rtp_opus_init(impl, direction);
 		break;
 	default:
 		res = -EINVAL;
@@ -1082,6 +1083,8 @@ out:
 			pw_stream_destroy(impl->stream);
 		if (impl->data_loop)
 			pw_context_release_loop(impl->context, impl->data_loop);
+		if (impl->codec && impl->codec->deinit)
+			impl->codec->deinit(impl, direction);
 		free(impl->plc);
 		free(impl);
 	}
@@ -1092,9 +1095,6 @@ out:
 void rtp_stream_destroy(struct rtp_stream *s)
 {
 	rtp_stream_emit_destroy(s);
-
-	if (s->deinit)
-		s->deinit(s, s->direction);
 
 	if (s->ptp_sender)
 		pw_filter_destroy(s->ptp_sender);
@@ -1109,6 +1109,8 @@ void rtp_stream_destroy(struct rtp_stream *s)
 		pw_context_release_loop(s->context, s->data_loop);
 
 	spa_hook_list_clean(&s->listener_list);
+	if (s->codec && s->codec->deinit)
+		s->codec->deinit(s, s->direction);
 	free(s->plc);
 	free(s);
 }
@@ -1180,6 +1182,7 @@ struct rtp_packet *rtp_stream_get_free_packet(struct rtp_stream *s)
 	if (p) {
 		p->size = 0;
 		p->decoded = NULL;
+		p->duration = 0;
 	}
 	return p;
 }

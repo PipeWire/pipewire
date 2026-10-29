@@ -75,10 +75,21 @@ static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet
 	return 0;
 }
 
+static int audio_packet_encode(struct rtp_stream *impl, struct rtp_packet *p, const void *src,
+		uint32_t *num)
+{
+	*num = SPA_MIN(impl->psamples - p->duration, *num);
+	spa_memcpy(SPA_PTROFF(p->data, p->size, void), src, *num * impl->stride);
+	p->size += *num * impl->stride;
+	p->duration += *num;
+	return p->duration == impl->psamples;
+}
+
 static const struct rtp_codec rtp_pcm_codec = {
 	.duration = audio_packet_duration,
 	.decode = audio_packet_decode,
 	.conceal = audio_packet_conceal,
+	.encode = audio_packet_encode,
 };
 
 /* read wanted samples from the packet buffer at timestamp. Lost packets are
@@ -404,7 +415,7 @@ static void rtp_audio_process_capture(void *data)
 	struct spa_io_position *pos;
 	uint64_t next_nsec;
 	struct pw_time pwt;
-	void *src, *dst;
+	void *src;
 	struct rtp_packet *p, *t;
 
 	if (impl->separate_sender) {
@@ -524,24 +535,18 @@ static void rtp_audio_process_capture(void *data)
 
 			p->size = sizeof(struct rtp_header);
 		}
-		uint32_t prepared = (p->size - sizeof(struct rtp_header)) / stride;
-		uint32_t to_send = SPA_MIN(impl->psamples - prepared, wanted);
+		uint32_t to_send = wanted;
+		int res = impl->codec->encode(impl, p, src, &to_send);
 
-		dst = SPA_PTROFF(p->data, p->size, void);
-
-		spa_memcpy(dst, src, to_send * stride);
-
-		p->size += to_send * stride;
-		prepared += to_send;
 		wanted -= to_send;
 
 		src = SPA_PTROFF(src, to_send * stride, void);
 
-		if (prepared >= impl->psamples) {
-			rtp_stream_queue_packet(impl, p);
-
-			impl->seq++;
-
+		if (res != 0) {
+			if (res > 0) {
+				rtp_stream_queue_packet(impl, p);
+				impl->seq++;
+			}
 			rtp_stream_clear_pending_packet(impl);
 		}
 		impl->first = false;
@@ -754,6 +759,10 @@ static int setup_ptp_sender(struct rtp_stream *impl, struct pw_core *core, enum 
 
 static int rtp_audio_init(struct rtp_stream *impl, struct pw_core *core, enum spa_direction direction, const char *ptp_driver)
 {
+	int res;
+	if (impl->codec->init && (res = impl->codec->init(impl, direction)) < 0)
+		return res;
+
 	if (direction == SPA_DIRECTION_INPUT) {
 		impl->stream_events.process = rtp_audio_process_capture;
 	} else {
@@ -769,7 +778,9 @@ static int rtp_audio_init(struct rtp_stream *impl, struct pw_core *core, enum sp
 	impl->stop_timer = rtp_audio_stop_timer;
 	impl->flush_timeout = rtp_audio_flush_timeout;
 
-	setup_ptp_sender(impl, core, direction, ptp_driver);
+	/* idk if that would even make sense for anything else and don't think it would work as is */
+	if (impl->info.media_subtype == SPA_MEDIA_SUBTYPE_raw)
+		setup_ptp_sender(impl, core, direction, ptp_driver);
 
 	return 0;
 }

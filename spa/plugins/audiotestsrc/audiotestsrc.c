@@ -365,7 +365,7 @@ static int make_buffer(struct impl *this)
 
 	if (spa_list_is_empty(&port->empty)) {
 		set_timer(this, false);
-		spa_log_error(this->log, "%p: out of buffers", this);
+		spa_log_warn(this->log, "%p: out of buffers", this);
 		return -EPIPE;
 	}
 	b = spa_list_first(&port->empty, struct buffer, link);

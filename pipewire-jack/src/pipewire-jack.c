@@ -2274,7 +2274,8 @@ static void clean_transport(struct client *c)
 	/* We assume the data-loop is unlocked now and can process our
 	 * clean function. This is reasonable, the cleanup function is run when
 	 * closing the client, which should join the data-thread. */
-	pw_data_loop_invoke(c->loop, do_clean_transport, 1, NULL, 0, true, c);
+	pw_loop_locked(c->loop->loop,
+			do_clean_transport, SPA_ID_INVALID, NULL, 0, c);
 
 	spa_list_consume(l, &c->links, link) {
 		spa_list_remove(&l->link);
@@ -3460,7 +3461,7 @@ static int impl_join(void *object,
 		struct spa_thread *thread, void **retval)
 {
 	struct client *c = (struct client *) object;
-	pw_log_info("join thread");
+	pw_log_info("join thread %p", thread);
 	return spa_thread_utils_join(c->context.old_thread_utils, thread, retval);
 }
 

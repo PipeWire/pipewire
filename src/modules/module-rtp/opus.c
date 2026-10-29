@@ -109,6 +109,22 @@ static void opus_reset(struct rtp_stream *impl)
 	rx->plc_len = 0;
 }
 
+static uint32_t opus_packet_samples(struct rtp_stream *impl, uint32_t num)
+{
+	if (num >= 2880)
+		return 2880;
+	else if (num >= 1920)
+		return 1920;
+	else if (num >= 960)
+		return 960;
+	else if (num >= 480)
+		return 480;
+	else if (num >= 240)
+		return 240;
+	else
+		return 120;
+}
+
 static int opus_packet_encode(struct rtp_stream *impl, struct rtp_packet *p, const void *src,
 		uint32_t *num)
 {
@@ -159,19 +175,6 @@ static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 
 	if (impl->info.info.opus.channels > 255)
 		return -EINVAL;
-
-	if (impl->psamples >= 2880)
-		impl->psamples = 2880;
-	else if (impl->psamples >= 1920)
-		impl->psamples = 1920;
-	else if (impl->psamples >= 960)
-		impl->psamples = 960;
-	else if (impl->psamples >= 480)
-		impl->psamples = 480;
-	else if (impl->psamples >= 240)
-		impl->psamples = 240;
-	else
-		impl->psamples = 120;
 
 	for (i = 0; i < impl->info.info.opus.channels; i++)
 		mapping[i] = i;
@@ -225,6 +228,7 @@ static int rtp_opus_init(struct rtp_stream *impl, enum spa_direction direction)
 static const struct rtp_codec rtp_opus_codec = {
 	.init = rtp_opus_init,
 	.deinit = rtp_opus_deinit,
+	.packet_samples = opus_packet_samples,
 	.duration = opus_packet_duration,
 	.decode = opus_packet_decode,
 	.conceal = opus_packet_conceal,

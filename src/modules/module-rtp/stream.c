@@ -328,6 +328,8 @@ struct rtp_codec {
 	int (*init)(struct rtp_stream *s, enum spa_direction direction);
 	/* free the codec state */
 	void (*deinit)(struct rtp_stream *s, enum spa_direction direction);
+	/* return the number of samples per packet that the codec uses instead of num */
+	uint32_t (*packet_samples)(struct rtp_stream *s, uint32_t num);
 	/* return the number of samples in p without changing the codecs state */
 	uint32_t (*duration)(struct rtp_stream *s, const struct rtp_packet *p);
 	/* decode a received packet into p->decoded */
@@ -889,6 +891,16 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 
 			pw_properties_setf(props, "rtp.framecount", "%u", impl->psamples);
 		}
+	}
+
+	if (impl->codec && impl->codec->packet_samples) {
+		uint32_t psamples = impl->codec->packet_samples(impl, impl->psamples);
+		if (psamples != impl->psamples && direction == PW_DIRECTION_INPUT) {
+			pw_properties_set(props, "rtp.ptime",
+					spa_dtoa(tmp, sizeof(tmp), samples_to_msec(impl, psamples)));
+			pw_properties_setf(props, "rtp.framecount", "%u", psamples);
+		}
+		impl->psamples = psamples;
 	}
 
 	if (impl->psamples == 0) {

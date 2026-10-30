@@ -42,6 +42,7 @@ struct data {
 
 	struct pw_core *core;
 	struct spa_hook core_listener;
+	int sync_seq;
 
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
@@ -81,6 +82,12 @@ struct global {
 	struct spa_hook proxy_listener;
 	struct spa_hook object_listener;
 };
+
+static void core_sync(struct data *d)
+{
+	d->sync_seq = pw_core_sync(d->core, PW_ID_CORE, d->sync_seq);
+	pw_log_debug("sync start %u", d->sync_seq);
+}
 
 static bool dot_data_init(struct dot_data * dd, size_t size)
 {
@@ -962,11 +969,6 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 		client_version = PW_VERSION_MODULE;
 		object_type = INTERFACE_Module;
 	}
-	else if (spa_streq(type, PW_TYPE_INTERFACE_Core)) {
-		/* sync to notify we are done with globals */
-		pw_core_sync(d->core, 0, 0);
-		return;
-	}
 	else {
 		return;
 	}
@@ -997,6 +999,8 @@ static void registry_event_global(void *data, uint32_t id, uint32_t permissions,
 
 	/* add the global to the list */
 	spa_list_insert(&d->globals, &g->link);
+
+	core_sync(d);
 }
 
 static const struct pw_registry_events registry_events = {
@@ -1007,6 +1011,10 @@ static const struct pw_registry_events registry_events = {
 static void on_core_done(void *data, uint32_t id, int seq)
 {
 	struct data *d = data;
+
+	if (d->sync_seq != seq)
+		return;
+
 	pw_main_loop_quit(d->loop);
 }
 
@@ -1082,6 +1090,7 @@ static int get_data_from_pipewire(struct data *data, const char *opt_remote)
 				 &data->registry_listener,
 				 &registry_events, data);
 
+	core_sync(data);
 	pw_main_loop_run(data->loop);
 
 	spa_hook_remove(&data->registry_listener);

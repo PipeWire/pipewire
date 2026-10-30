@@ -971,19 +971,22 @@ struct rtp_stream *rtp_stream_new(struct pw_core *core,
 		}
 	}
 	impl->n_packets = SPA_MAX(impl->n_packets, min_packets);
+
+	const size_t maxsize = RTP_HEADER_SIZE + impl->payload_size;
+	const size_t tmp_size = direction == PW_DIRECTION_INPUT ? 0 : 2880 * impl->stride;
 	for (i = 0; i < impl->n_packets; i++) {
 		struct rtp_packet *p;
 
-		p = calloc(1, sizeof(*p) + impl->mtu + 2880 * impl->stride);
+		p = calloc(1, sizeof(*p) + maxsize + tmp_size);
 		if (p == NULL) {
 			res = -errno;
 			pw_log_error("can't create packet: %m");
 			goto out;
 		}
 		p->data = SPA_PTROFF(p, sizeof(*p), void);
-		p->maxsize = impl->mtu;
+		p->maxsize = maxsize;
 		p->size = 0;
-		p->tmp_size = 2880 * impl->stride;
+		p->tmp_size = tmp_size;
 		p->tmp = SPA_PTROFF(p->data, p->maxsize, void);
 		spa_list_append(&impl->free, &p->link);
 	}

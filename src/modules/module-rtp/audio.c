@@ -11,6 +11,15 @@ static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 #endif
 }
 
+static uint32_t audio_packet_samples(struct rtp_stream *impl, uint32_t num)
+{
+	const uint32_t max = impl->payload_size / impl->stride;
+	if (num <= max)
+		return num;
+	pw_log_warn("%u samples per packet don't fit in net.mtu %u, using %u", num, impl->mtu, max);
+	return max;
+}
+
 static uint32_t audio_packet_duration(struct rtp_stream *impl, const struct rtp_packet *p)
 {
 	return (p->size - p->hlen) / impl->stride;
@@ -86,6 +95,7 @@ static int audio_packet_encode(struct rtp_stream *impl, struct rtp_packet *p, co
 }
 
 static const struct rtp_codec rtp_pcm_codec = {
+	.packet_samples = audio_packet_samples,
 	.duration = audio_packet_duration,
 	.decode = audio_packet_decode,
 	.conceal = audio_packet_conceal,

@@ -41,14 +41,14 @@ if get_option('tests').allowed()
     dependencies : [ spa_dep, gst_dep, pipewire_dep, mathlib ],
     install : false,
   )
-  foreach format_case : [
+  format_cases = [
     'enumeration-dmabuf',
     'enumeration-forward',
     'enumeration-roundtrip',
     'empty',
     'jpeg-preferred',
     'audio-rate-list',
-    'dmabuf-list',
+    'dmabuf-legacy-list',
     'fixed',
     'preferred-size',
     'scalar-range',
@@ -62,6 +62,10 @@ if get_option('tests').allowed()
     'format-list',
     'all-preferences',
   ]
+  if gst_dma_drm_found
+    format_cases += 'dmabuf-list'
+  endif
+  foreach format_case : format_cases
     test('gst-format-' + format_case, format_test,
       args : [format_case],
       env : ['G_DEBUG=fatal-criticals'],

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "config.h"
+
 #include <gst/gst.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/video/format-utils.h>
@@ -17,6 +19,7 @@ struct test
   const char *name, *caps;
   unsigned count;
   int w, h, fps, channels, step;
+  const char *dmabuf_format;
 };
 static const struct test cases[] = {
   { "empty", "EMPTY", 0, 0, 0, 0, 0, 0 },
@@ -26,11 +29,16 @@ static const struct test cases[] = {
   { "audio-rate-list",
     "audio/x-raw,format=S16LE,layout=interleaved,channels=2,rate=(int){48000,[8000,192000]}", 2, 0,
     0, 0, 2, 0 },
+  { "dmabuf-legacy-list",
+    "video/x-raw(memory:DMABuf),format=YUY2,width=(int){640,1280},height=480,framerate=30/1", 2,
+    640, 480, 30, 0, 0, "YUY2" },
+#ifdef HAVE_GSTREAMER_DMA_DRM
   { "dmabuf-list",
     "video/"
     "x-raw(memory:DMABuf),format=DMA_DRM,drm-format=YUYV,width=(int){640,1280},height=480,"
     "framerate=30/1",
-    2, 640, 480, 30, 0, 0 },
+    2, 640, 480, 30, 0, 0, "DMA_DRM" },
+#endif
   { "fixed", "video/x-raw,format=YUY2,width=640,height=480,framerate=30/1", 1, 640, 480, 30, 0, 0 },
   { "preferred-size",
     "video/x-raw,format=YUY2,width=(int){1296,[320,1296]},height=(int){736,[240,736]},framerate=30/"
@@ -133,6 +141,77 @@ enumeration (const char *name)
   gst_caps_unref (caps);
   return 0;
 }
+/* A DMA-BUF format can come back as YUY2 and, when DMA_DRM is supported, also as DMA_DRM with the
+ * linear drm-format, so the caps are not compared as a subset of the input. */
+static void
+check_dmabuf (const struct test *t, GPtrArray *formats)
+{
+  unsigned seen = 0;
+  for (unsigned i = 0; i < formats->len; i++)
+    {
+      struct spa_pod *pod = formats->pdata[i];
+      const struct spa_pod_prop *prop = spa_pod_find_prop (pod, NULL, SPA_FORMAT_VIDEO_size);
+      g_assert_nonnull (prop);
+      uint32_t n, choice;
+      const struct spa_pod *v = spa_pod_get_values (&prop->value, &n, &choice);
+      g_assert_cmpuint (n, ==, 1);
+      const struct spa_rectangle *r = SPA_POD_BODY (v);
+      g_assert_cmpuint (r->height, ==, t->h);
+      if (r->width == 640)
+        {
+          g_assert_false (seen & 1);
+          seen |= 1;
+        }
+      else if (r->width == 1280)
+        {
+          g_assert_false (seen & 2);
+          seen |= 2;
+        }
+      else
+        g_error ("unexpected width %u", r->width);
+      GstCaps *out = gst_caps_from_format (pod);
+      g_assert_nonnull (out);
+      g_assert_cmpuint (gst_caps_get_size (out), >, 0);
+      for (unsigned j = 0; j < gst_caps_get_size (out); j++)
+        {
+          GstStructure *s = gst_caps_get_structure (out, j);
+          int w, h, num, denom;
+          g_assert_true (
+              gst_caps_features_contains (gst_caps_get_features (out, j), "memory:DMABuf"));
+          g_assert_true (gst_structure_get_int (s, "width", &w));
+          g_assert_true (gst_structure_get_int (s, "height", &h));
+          g_assert_cmpint (w, ==, r->width);
+          g_assert_cmpint (h, ==, t->h);
+          g_assert_true (gst_structure_get_fraction (s, "framerate", &num, &denom));
+          g_assert_cmpint (num, ==, t->fps);
+          g_assert_cmpint (denom, ==, 1);
+          const GValue *f = gst_structure_get_value (s, "format");
+          g_assert_nonnull (f);
+          unsigned nf = GST_VALUE_HOLDS_LIST (f) ? gst_value_list_get_size (f) : 1;
+          gboolean drm = FALSE, required = FALSE;
+          for (unsigned k = 0; k < nf; k++)
+            {
+              const GValue *fv = GST_VALUE_HOLDS_LIST (f) ? gst_value_list_get_value (f, k) : f;
+              const char *fs = g_value_get_string (fv);
+              if (!strcmp (fs, "DMA_DRM"))
+                drm = TRUE;
+              else
+                g_assert_cmpstr (fs, ==, "YUY2");
+              if (!strcmp (fs, t->dmabuf_format))
+                required = TRUE;
+            }
+          g_assert_true (required);
+#ifndef HAVE_GSTREAMER_DMA_DRM
+          g_assert_false (drm);
+#endif
+          g_assert_cmpint (drm, ==, gst_structure_has_field (s, "drm-format"));
+          if (drm)
+            g_assert_cmpstr (gst_structure_get_string (s, "drm-format"), ==, "YUYV");
+        }
+      gst_caps_unref (out);
+    }
+  g_assert_cmpuint (seen, ==, 3);
+}
 int
 main (int argc, char **argv)
 {
@@ -195,7 +274,7 @@ main (int argc, char **argv)
               g_assert_cmpuint (ff[0].denom, ==, 1);
             }
         }
-      if (!t->step)
+      if (!t->step && !t->dmabuf_format)
         {
           GstCaps *out = gst_caps_from_format (pod);
           g_assert_nonnull (out);
@@ -203,6 +282,8 @@ main (int argc, char **argv)
           gst_caps_unref (out);
         }
     }
+  if (t->dmabuf_format)
+    check_dmabuf (t, formats);
   printf ("{\"case\":\"%s\",\"formats\":%u,\"caller_caps_unchanged\":true}\n", t->name,
           formats->len);
   g_ptr_array_unref (formats);

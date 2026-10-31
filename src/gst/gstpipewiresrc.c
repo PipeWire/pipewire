@@ -1786,14 +1786,14 @@ gst_pipewire_src_create (GstPushSrc * psrc, GstBuffer ** buffer)
 
     if (GST_CLOCK_TIME_IS_VALID (current_clock_time) &&
         GST_CLOCK_TIME_IS_VALID (pwsrc->last_buffer_clock_time) &&
-        GST_CLOCK_TIME_IS_VALID (GST_BUFFER_PTS (*buffer)) &&
-        GST_CLOCK_TIME_IS_VALID (GST_BUFFER_DTS (*buffer))) {
+        GST_CLOCK_TIME_IS_VALID (GST_BUFFER_PTS (*buffer))) {
       GstClockTime diff;
 
       diff = current_clock_time - pwsrc->last_buffer_clock_time;
 
       GST_BUFFER_PTS (*buffer) += diff;
-      GST_BUFFER_DTS (*buffer) += diff;
+      if (GST_CLOCK_TIME_IS_VALID (GST_BUFFER_DTS (*buffer)))
+        GST_BUFFER_DTS (*buffer) += diff;
     } else {
       GST_BUFFER_PTS (*buffer) = GST_BUFFER_DTS (*buffer) = current_clock_time;
     }

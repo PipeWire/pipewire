@@ -1583,9 +1583,14 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		spa_assert_se(sscanf(impl->aec->latency, "%u/%u", &num, &denom) == 2);
 
 		if ((str = pw_properties_get(props, PW_KEY_NODE_LATENCY)) != NULL) {
-			sscanf(str, "%u/%u", &req_num, &req_denom);
-			factor = (req_num * denom) / (req_denom * num);
-			new_num = req_num / factor * factor;
+			if (sscanf(str, "%u/%u", &req_num, &req_denom) == 2 &&
+			    req_denom != 0) {
+				factor = (req_num * denom) / (req_denom * num);
+				/* snap the requested latency down to a multiple of
+				 * the canceller block size, in req_denom units */
+				if (factor > 0)
+					new_num = factor * num * req_denom / denom;
+			}
 		}
 
 		if (factor == 0 || new_num == 0) {

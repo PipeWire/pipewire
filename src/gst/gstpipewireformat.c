@@ -516,11 +516,11 @@ add_video_format (gpointer format_ptr,
 
     g_hash_table_iter_init (&iter, modifiers);
     g_hash_table_iter_next (&iter, &key, &value);
-    spa_pod_builder_long (&b.b, (uint64_t) key);
+    spa_pod_builder_long (&b.b, *(uint64_t *) key);
 
     if (n_mods > 1) {
       do {
-        spa_pod_builder_long (&b.b, (uint64_t) key);
+        spa_pod_builder_long (&b.b, *(uint64_t *) key);
       } while (g_hash_table_iter_next (&iter, &key, &value));
     }
 
@@ -530,6 +530,21 @@ add_video_format (gpointer format_ptr,
   add_limits (&b, d);
 
   g_ptr_array_add (d->array, spa_pod_builder_pop (&b.b, &f));
+}
+
+static GHashTable *
+new_modifier_set (void)
+{
+  return g_hash_table_new_full (g_int64_hash, g_int64_equal, g_free, NULL);
+}
+
+static void
+add_modifier (GHashTable *modifiers, uint64_t modifier)
+{
+  uint64_t *key = g_new (uint64_t, 1);
+
+  *key = modifier;
+  g_hash_table_add (modifiers, key);
 }
 
 static void
@@ -577,13 +592,13 @@ handle_video_fields (ConvertData *d)
                   g_hash_table_lookup (formats,
                                        GINT_TO_POINTER (video_format_map[idx2]));
               if (!modifiers) {
-                modifiers = g_hash_table_new (NULL, NULL);
+                modifiers = new_modifier_set ();
                 g_hash_table_insert (formats,
                                      GINT_TO_POINTER (video_format_map[idx2]),
                                      modifiers);
               }
 
-              g_hash_table_add (modifiers, GINT_TO_POINTER (mod));
+              add_modifier (modifiers, mod);
             }
           }
         }
@@ -595,15 +610,15 @@ handle_video_fields (ConvertData *d)
               g_hash_table_lookup (formats,
                                    GINT_TO_POINTER (video_format_map[idx]));
           if (!modifiers) {
-            modifiers = g_hash_table_new (NULL, NULL);
+            modifiers = new_modifier_set ();
             g_hash_table_insert (formats,
                                  GINT_TO_POINTER (video_format_map[idx]),
                                  modifiers);
           }
 
           if (dmabuf_caps) {
-            g_hash_table_add (modifiers, GINT_TO_POINTER (DRM_FORMAT_MOD_LINEAR));
-            g_hash_table_add (modifiers, GINT_TO_POINTER (DRM_FORMAT_MOD_INVALID));
+            add_modifier (modifiers, DRM_FORMAT_MOD_LINEAR);
+            add_modifier (modifiers, DRM_FORMAT_MOD_INVALID);
           }
       }
     }

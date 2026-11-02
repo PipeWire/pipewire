@@ -829,6 +829,9 @@ int pw_impl_link_activate(struct pw_impl_link *this)
 		io_size = sizeof(struct spa_io_buffers);
 	}
 
+	this->io[0].status = SPA_STATUS_NEED_DATA;
+	this->io[1].status = SPA_STATUS_NEED_DATA;
+
 	if ((res = port_set_io(this, &impl->input, io_type, this->io, io_size)) < 0)
 		goto error;
 	if ((res = port_set_io(this, &impl->output, io_type, this->io, io_size)) < 0)

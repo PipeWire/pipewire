@@ -85,6 +85,9 @@
  *                    - "pair_homekit" - HomeKit pairing (3rd party with persistent keys)
  *                    - "pair_apple" - Apple pairing (Apple TV, HomePod)
  *                    Default is "none".
+ * - `raop.user-agent`: The User-Agent header to use.
+ *                    Defaults to "AirPlay/<version>" for AirPlay 2
+ *                    and "PipeWire/<version>" for legacy RAOP.
  * - `raop.audio.codec`: The audio codec to use. Needs to be "PCM". Defaults to "PCM".
  * - `raop.password`: The password to use.
  * - `raop.latency.ms`: The playback delay on the receiver in milliseconds, i.e.
@@ -145,6 +148,7 @@
  *         #raop.transport = "udp"
  *         raop.encryption.type = "RSA"
  *         #raop.audio.codec = "PCM"
+ *         #raop.user-agent="AirPlay/999.0.0"
  *         #raop.password = "****"
  *         #raop.latency.ms = 1500
  *         #raop.disable-volume = "true"
@@ -251,6 +255,7 @@ PW_LOG_TOPIC(mod_topic, "mod." NAME);
 			"( raop.hostname=<hostname of host> ) "					\
 			"( raop.transport=<transport, default:udp> ) "				\
 			"( raop.encryption.type=<encryption, default:none> ) "			\
+			"( raop.user-agent=<user agent> ) "			\
 			"( raop.audio.codec=PCM ) "						\
 			"( raop.password=<password for auth> ) "				\
 			"( raop.disable-volume=<disable volume, default:false> ) "		\
@@ -3994,10 +3999,13 @@ static void rtsp_connected(void *data)
 {
 	struct impl *impl = data;
 	uint32_t sci[2];
+	const char *user_agent;
 
 	pw_log_info("connected");
 
 	impl->connected = true;
+
+	user_agent = pw_properties_get(impl->props, "raop.user-agent");
 
 	if (pw_getrandom(sci, sizeof(sci), 0) < 0) {
 		pw_log_error("error generating random data: %m");
@@ -4007,7 +4015,15 @@ static void rtsp_connected(void *data)
 	if (IS_AP2_ENCRYPTION(impl->encryption)) {
 		pw_properties_setf(impl->headers, "DACP-ID",
 			"%08X%08X", sci[0], sci[1]);
-		pw_properties_set(impl->headers, "User-Agent", AP_USER_AGENT);
+
+		if (user_agent == NULL || user_agent[0] == '\0') {
+			user_agent = AP_USER_AGENT;
+		} else if (strpbrk(user_agent, "\r\n") != NULL) {
+			pw_log_error("invalid raop.user-agent: CR/LF is not allowed");
+			pw_impl_module_schedule_destroy(impl->module);
+			return;
+		}
+		pw_properties_set(impl->headers, "User-Agent", user_agent);
 
 		/* AirPlay 2: GET /info first to get device capabilities, then pair-setup or pair-verify */
 		pw_rtsp_client_url_send(impl->rtsp, "/info", "GET", &impl->headers->dict,
@@ -4019,7 +4035,15 @@ static void rtsp_connected(void *data)
 			"%08X%08X", sci[0], sci[1]);
 		pw_properties_setf(impl->headers, "DACP-ID",
 			"%08X%08X", sci[0], sci[1]);
-		pw_properties_set(impl->headers, "User-Agent", DEFAULT_USER_NAME "/" PACKAGE_VERSION);
+
+		if (user_agent == NULL || user_agent[0] == '\0') {
+			user_agent = DEFAULT_USER_NAME "/" PACKAGE_VERSION;
+		} else if (strpbrk(user_agent, "\r\n") != NULL) {
+			pw_log_error("invalid raop.user-agent: CR/LF is not allowed");
+			pw_impl_module_schedule_destroy(impl->module);
+			return;
+		}
+		pw_properties_set(impl->headers, "User-Agent", user_agent);
 		rtsp_do_raop_options(impl);
 	}
 

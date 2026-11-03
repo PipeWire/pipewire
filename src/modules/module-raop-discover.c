@@ -86,6 +86,7 @@
  *                     create-stream = {
  *                         #raop.password = ""
  *                         #raop.latency.ms = 1500
+ *                         #raop.user-agent = "AirPlay/999.0.0"
  *                         stream.props = {
  *                             #target.object = ""
  *                             #media.class = "Audio/Sink"

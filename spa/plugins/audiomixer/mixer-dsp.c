@@ -574,7 +574,7 @@ static int port_set_format(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_return_val_if_fail(!this->started || port->io == NULL, -EIO);
+	spa_return_val_if_fail(!this->started || port->io[0] == NULL, -EIO);
 
 	if (format == NULL) {
 		if (port->have_format) {
@@ -672,7 +672,7 @@ impl_node_port_use_buffers(void *object,
 
 	port = GET_PORT(this, direction, port_id);
 
-	spa_return_val_if_fail(!this->started || port->io == NULL, -EIO);
+	spa_return_val_if_fail(!this->started || port->io[0] == NULL, -EIO);
 
 	if (n_buffers > 0 && !port->have_format) {
 		res = -EIO;

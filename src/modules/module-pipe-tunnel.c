@@ -599,6 +599,21 @@ static void on_pipe_io(void *data, int fd, uint32_t mask)
 		handle_pipe_read(impl);
 }
 
+static int do_remove_sources(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *impl = user_data;
+	if (impl->socket) {
+		pw_loop_destroy_source(impl->data_loop, impl->socket);
+		impl->socket = NULL;
+	}
+	if (impl->timer) {
+		pw_loop_destroy_source(impl->data_loop, impl->timer);
+		impl->timer = NULL;
+	}
+	return 0;
+}
+
 static int create_fifo(struct impl *impl)
 {
 	struct stat st;
@@ -674,10 +689,7 @@ static int create_fifo(struct impl *impl)
 	return 0;
 
 error:
-	if (impl->timer)
-		pw_loop_destroy_source(impl->data_loop, impl->timer);
-	if (impl->socket)
-		pw_loop_destroy_source(impl->data_loop, impl->socket);
+	pw_loop_locked(impl->data_loop, do_remove_sources, 0, NULL, 0, impl);
 	if (do_unlink_fifo)
 		unlink(filename);
 	if (fd >= 0)
@@ -715,6 +727,9 @@ static const struct pw_proxy_events core_proxy_events = {
 
 static void impl_destroy(struct impl *impl)
 {
+	if (impl->data_loop)
+		pw_loop_locked(impl->data_loop, do_remove_sources, 0, NULL, 0, impl);
+
 	if (impl->stream)
 		pw_stream_destroy(impl->stream);
 	if (impl->core && impl->do_disconnect)
@@ -725,10 +740,6 @@ static void impl_destroy(struct impl *impl)
 			unlink(impl->filename);
 		free(impl->filename);
 	}
-	if (impl->socket)
-		pw_loop_destroy_source(impl->data_loop, impl->socket);
-	if (impl->timer)
-		pw_loop_destroy_source(impl->data_loop, impl->timer);
 	if (impl->fd >= 0)
 		close(impl->fd);
 

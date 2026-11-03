@@ -297,10 +297,14 @@ static void node_deactivate(struct pw_impl_node *this)
 	spa_list_for_each(port, &this->input_ports, link) {
 		spa_list_for_each(link, &port->links, input_link)
 			pw_impl_link_deactivate(link);
+		spa_node_send_command(port->mix,
+			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Flush));
 	}
 	spa_list_for_each(port, &this->output_ports, link) {
 		spa_list_for_each(link, &port->links, output_link)
 			pw_impl_link_deactivate(link);
+		spa_node_send_command(port->mix,
+			&SPA_NODE_COMMAND_INIT(SPA_NODE_COMMAND_Flush));
 	}
 	pw_context_thaw_recalc_graph(this->context, "node deactivate");
 }

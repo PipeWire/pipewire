@@ -205,6 +205,7 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
+	struct port *port;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
@@ -215,6 +216,12 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		break;
 	case SPA_NODE_COMMAND_Pause:
 		this->started = false;
+		break;
+	case SPA_NODE_COMMAND_Flush:
+		spa_list_for_each(port, &this->port_list, link) {
+			port->ramp_down = 0;
+			port->ramp_up = this->n_curve;
+		}
 		break;
 	case SPA_NODE_COMMAND_ParamBegin:
 	case SPA_NODE_COMMAND_ParamEnd:

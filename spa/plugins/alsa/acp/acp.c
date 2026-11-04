@@ -1303,7 +1303,7 @@ static int hdmi_eld_changed(snd_mixer_elem_t *melem, unsigned int mask)
 	if (changed && mask != 0 && impl->events && impl->events->props_changed)
 		impl->events->props_changed(impl->user_data);
 
-	if (changed && mask != 0) {
+	if (changed) {
 		pa_alsa_profile_set_recheck_hdmi_eld(impl->profile_set, impl->card.index, device, &eld);
 		update_profile_availabilities(impl);
 	}

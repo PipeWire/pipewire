@@ -459,7 +459,9 @@ uint32_t collect_port_info(struct pw_manager_object *card, struct card_info *car
 		}
 
 		if (dev_info != NULL) {
-			if (pi->direction != dev_info->direction)
+			/* we label devices by the port direction, the routes are labeled
+			 * by the flow direction, so sink is input but has output routes */
+			if (pi->direction == dev_info->direction)
 				continue;
 			if (!array_contains(pi->profiles, pi->n_profiles, card_info->active_profile))
 				continue;

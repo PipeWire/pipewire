@@ -38,6 +38,8 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.videoadapter");
 
 #define MAX_PORTS	(1+1)
 #define MAX_RETRY	64
+#define MAX_METAS	64
+#define MAX_BLOCKS	4096
 
 /** \cond */
 
@@ -427,22 +429,85 @@ static int debug_params(struct impl *this, struct spa_node *node,
 	return 0;
 }
 
+static int
+param_filter(struct impl *this, uint32_t id, uint32_t max, struct spa_pod_builder *result)
+{
+	uint8_t ibuf[4096];
+        struct spa_pod_builder ib = { 0 };
+	struct spa_pod *oparam, *iparam;
+	uint32_t iidx, oidx, num = 0;
+	int in_res = -EIO, out_res = -EIO;
+
+	for (iidx = 0;;) {
+	        spa_pod_builder_init(&ib, ibuf, sizeof(ibuf));
+		spa_log_debug(this->log, "%p: input param %d id:%d", this, iidx, id);
+		in_res = node_port_enum_params_sync(this, this->target,
+				SPA_DIRECTION_REVERSE(this->direction), 0,
+				id, &iidx, NULL, &iparam, &ib);
+
+		if (in_res < 1) {
+			/* in_res == -ENOENT  : unknown parameter, assume NULL and we will
+			 *                      exit the loop below.
+			 * in_res < 1         : some error or no data, exit now
+			 */
+			if (in_res == -ENOENT)
+				iparam = NULL;
+			else
+				break;
+		}
+
+		for (oidx = 0;;) {
+			spa_log_debug(this->log, "%p: output param %d id:%d", this, oidx, id);
+			out_res = node_port_enum_params_sync(this, this->follower,
+						this->direction, 0,
+						id, &oidx, iparam, &oparam, result);
+
+			/* out_res < 1 : no value or error, exit now */
+			if (out_res < 1)
+				break;
+			num++;
+			if (num == max)
+				break;
+		}
+		if (out_res == -ENOENT && iparam) {
+			/* no output param known but we have an input param,
+			 * use that one */
+			spa_pod_builder_raw_padded(result, iparam, SPA_POD_SIZE(iparam));
+			num++;
+			if (num == max)
+				break;
+		}
+		/* no more input values, exit */
+		if (in_res < 1)
+			break;
+	}
+	if (num == 0) {
+		if (out_res == -ENOENT && in_res == -ENOENT)
+			return 0;
+		if (in_res < 0)
+			return in_res;
+		if (out_res < 0)
+			return out_res;
+		return -EINVAL;
+	}
+	return num;
+}
+
 static int negotiate_buffers(struct impl *this)
 {
 	uint8_t buffer[4096];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
-	uint32_t state;
 	struct spa_pod *param;
 	int res;
 	bool follower_alloc, conv_alloc;
-	uint32_t i, size, buffers, blocks, align, flags, stride = 0, types;
+	uint32_t i, offset, size, buffers, blocks, align, flags, stride = 0, types;
 	uint32_t *aligns, data_flags;
 	struct spa_data *datas;
-	struct spa_meta metas[1];
+	struct spa_meta metas[MAX_METAS];
 	uint64_t follower_flags, conv_flags;
 	struct spa_node *alloc_node;
 	enum spa_direction alloc_direction;
-	uint32_t alloc_flags;
+	uint32_t alloc_flags, n_params, n_metas;
 
 	spa_log_debug(this->log, "%p: n_buffers:%d", this, this->n_buffers);
 
@@ -452,39 +517,58 @@ static int negotiate_buffers(struct impl *this)
 	if (this->n_buffers > 0)
 		return 0;
 
-	state = 0;
-	param = NULL;
-	if ((res = node_port_enum_params_sync(this, this->target,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_Buffers, &state,
-				param, &param, &b)) < 0) {
-		if (res == -ENOENT)
-			param = NULL;
-		else {
-			debug_params(this, this->target,
-				SPA_DIRECTION_REVERSE(this->direction), 0,
-				SPA_PARAM_Buffers, param, "target buffers", res);
-			return res;
+	res = param_filter(this, SPA_PARAM_Buffers, 1, &b);
+	if (res <= 0) {
+		debug_params(this, this->target,
+			SPA_DIRECTION_REVERSE(this->direction), 0,
+			SPA_PARAM_Buffers, NULL, "target buffers", res);
+		debug_params(this, this->follower, this->direction, 0,
+			SPA_PARAM_Buffers, NULL, "follower buffers", res);
+		return res < 0 ? res : -ENOTSUP;
+	}
+	n_params = res;
+	if ((res = param_filter(this, SPA_PARAM_Meta, MAX_METAS, &b)) > 0)
+		n_params += res;
+
+	buffers = 0;
+	align = DEFAULT_ALIGN;
+	types = SPA_ID_INVALID;
+
+	n_metas = 0;
+	for (i = 0, offset = 0; i < n_params; i++) {
+		uint32_t meta_type, meta_size;
+
+		param = SPA_PTROFF(buffer, offset, struct spa_pod);
+		spa_pod_fixate(param);
+                offset += SPA_ROUND_UP_N(SPA_POD_SIZE(param), 8);
+
+		if (spa_pod_is_object_type (param, SPA_TYPE_OBJECT_ParamMeta)) {
+	                if (spa_pod_parse_object(param,
+						SPA_TYPE_OBJECT_ParamMeta, NULL,
+						SPA_PARAM_META_type, SPA_POD_Id(&meta_type),
+						SPA_PARAM_META_size, SPA_POD_Int(&meta_size)) < 0) {
+				spa_log_warn(this->log, "%p: invalid Meta param", param);
+				continue;
+	                }
+
+			metas[n_metas].type = meta_type;
+			metas[n_metas].size = meta_size;
+			n_metas++;
+		}
+		else if (spa_pod_is_object_type (param, SPA_TYPE_OBJECT_ParamBuffers)) {
+			if ((res = spa_pod_parse_object(param,
+					SPA_TYPE_OBJECT_ParamBuffers, NULL,
+					SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(&buffers),
+					SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(&blocks),
+					SPA_PARAM_BUFFERS_size,    SPA_POD_Int(&size),
+					SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(&stride),
+					SPA_PARAM_BUFFERS_align,   SPA_POD_OPT_Int(&align),
+					SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&types))) < 0)
+				return res;
 		}
 	}
-
-	state = 0;
-	if ((res = node_port_enum_params_sync(this, this->follower,
-				this->direction, 0,
-				SPA_PARAM_Buffers, &state,
-				param, &param, &b)) != 1) {
-		if (res == -ENOENT)
-			res = 0;
-		else {
-			debug_params(this, this->follower, this->direction, 0,
-				SPA_PARAM_Buffers, param, "follower buffers", res);
-			return res < 0 ? res : -ENOTSUP;
-		}
-	}
-	if (param == NULL)
-		return -ENOTSUP;
-
-	spa_pod_fixate(param);
+	if (buffers == 0)
+		return -EINVAL;
 
 	follower_flags = this->follower_port_flags;
 	conv_flags = this->convert_port_flags;
@@ -498,19 +582,6 @@ static int negotiate_buffers(struct impl *this)
 		alloc_flags = SPA_NODE_BUFFERS_FLAG_ALLOC;
 	}
 
-	align = DEFAULT_ALIGN;
-	types = SPA_ID_INVALID;
-
-	if ((res = spa_pod_parse_object(param,
-			SPA_TYPE_OBJECT_ParamBuffers, NULL,
-			SPA_PARAM_BUFFERS_buffers,  SPA_POD_Int(&buffers),
-			SPA_PARAM_BUFFERS_blocks,   SPA_POD_Int(&blocks),
-			SPA_PARAM_BUFFERS_size,     SPA_POD_Int(&size),
-			SPA_PARAM_BUFFERS_stride,   SPA_POD_Int(&stride),
-			SPA_PARAM_BUFFERS_align,    SPA_POD_OPT_Int(&align),
-			SPA_PARAM_BUFFERS_dataType, SPA_POD_OPT_Int(&types))) < 0)
-		return res;
-
 	if (this->async)
 		buffers = SPA_MAX(2u, buffers);
 
@@ -519,7 +590,7 @@ static int negotiate_buffers(struct impl *this)
 
 	align = SPA_MAX(align, this->max_align);
 
-	if (blocks > 4096)
+	if (blocks > MAX_BLOCKS)
 		return -ENOMEM;
 
 	datas = alloca(sizeof(struct spa_data) * blocks);
@@ -541,11 +612,9 @@ static int negotiate_buffers(struct impl *this)
 		datas[i].maxsize = size;
 		aligns[i] = align;
 	}
-	metas[0].type = SPA_META_Header;
-	metas[0].size = sizeof(struct spa_meta_header);
 
 	free(this->buffers);
-	this->buffers = spa_buffer_alloc_array(buffers, flags, 1, metas, blocks, datas, aligns);
+	this->buffers = spa_buffer_alloc_array(buffers, flags, n_metas, metas, blocks, datas, aligns);
 	if (this->buffers == NULL)
 		return -errno;
 	this->n_buffers = buffers;

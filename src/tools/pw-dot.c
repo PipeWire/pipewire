@@ -175,7 +175,8 @@ static void dot_data_add_string_escaped (struct dot_data * dd, const char *value
 	size_t escaped_size = escape_quotes (dd->data + dd->size,
 			dd->max_size - dd->size, value);
 	if (escaped_size + 1 > dd->max_size - dd->size) {
-		dot_data_ensure_max_size (dd, escaped_size);
+		if (!dot_data_ensure_max_size (dd, escaped_size))
+			return;
 		escaped_size = escape_quotes (dd->data + dd->size,
 				dd->max_size - dd->size, value);
 	}

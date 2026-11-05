@@ -254,6 +254,7 @@ struct server {
 	struct spa_source *resume;
 	struct spa_source *close;
 	unsigned int activated:1;
+	unsigned int bound:1;		/* successfully bound sun_path */
 };
 
 struct client_data {
@@ -999,6 +1000,10 @@ static int add_socket(struct pw_protocol *protocol, struct server *s, struct soc
 			pw_log_error("server %p: bind() failed with error: %m", s);
 			goto error;
 		}
+		/* From here on sun_path is ours.  Set this before the remaining
+		 * fallible steps so that destroy_server() still unlinks it when
+		 * one of them fails. */
+		s->bound = true;
 
 		if ((res = set_socket_permissions(s, info)) < 0) {
 			errno = -res;
@@ -1417,7 +1422,7 @@ static void destroy_server(struct pw_protocol_server *server)
 		pw_loop_destroy_source(s->loop, s->resume);
 	if (s->close)
 		pw_loop_destroy_source(s->loop, s->close);
-	if (s->addr.sun_path[0] && !s->activated)
+	if (s->addr.sun_path[0] && !s->activated && s->bound)
 		unlink(s->addr.sun_path);
 	if (s->lock_addr[0])
 		unlink(s->lock_addr);

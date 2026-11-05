@@ -11,6 +11,7 @@
 #include <spa/utils/defs.h>
 #include <spa/support/log.h>
 #include <spa/debug/context.h>
+#include <spa/debug/buffer.h>
 #include <spa/debug/dict.h>
 #include <spa/debug/format.h>
 #include <spa/debug/mem.h>
@@ -98,6 +99,13 @@ SPA_API_DEBUG_LOG void spa_debug_log_log(struct spa_debug_context *ctx, const ch
 		if (fmt) spa_debugc(&c.ctx, fmt, __VA_ARGS__);				\
 		spa_debugc_error_location(&c.ctx, loc);					\
 	}										\
+})
+
+#define spa_debug_log_buffer(l,lev,indent,buffer)				\
+({										\
+	struct spa_debug_log_ctx c = SPA_LOG_DEBUG_INIT(l,lev);			\
+	if (SPA_UNLIKELY(spa_log_level_topic_enabled(c.log, c.topic, c.level)))	\
+		spa_debugc_buffer(&c.ctx, indent, buffer);			\
 })
 
 /**

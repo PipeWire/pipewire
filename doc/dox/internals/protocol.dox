@@ -125,7 +125,8 @@ version number of the client.
    )
 ```
 
-The version is 3.
+The version of 1.0 was 3 and is currently 4. See the methods and events to see
+what was added in each version.
 
 ### Core::Sync (Opcode 2)
 
@@ -424,7 +425,7 @@ Remove memory for a client with the given id
 
 - id: the id of the memory to remove. This is the Id from AddMem.
 
-### Core::BoundProps (Opcode 8)
+### Core::BoundProps (Opcode 8) Since version 4
 
 This event is emitted when a local object ID is bound to a
 global ID. It is emitted before the global becomes visible in the
@@ -694,6 +695,19 @@ Set a parameter on the Device.
 - id: the param id to set.
 - flags: extra flags
 - param: the param object to set
+
+
+### Device::SendCommand (Opcode 4) Since 4:1
+
+Send a command to the Device.
+
+```
+   Struct(
+      Pod: command
+   )
+```
+
+- command: the command to send. See enum spa_device_command
 
 ## Device events
 

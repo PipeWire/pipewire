@@ -28,7 +28,7 @@ extern "C" {
 
 #define PW_DEVICE_PERM_MASK		PW_PERM_RWXM
 
-#define PW_VERSION_DEVICE		3
+#define PW_VERSION_DEVICE		4
 struct pw_device;
 
 #ifndef PW_API_DEVICE_IMPL
@@ -152,6 +152,8 @@ struct pw_device_methods {
 	 * \param command the command to send
 	 *
 	 * This requires X and W permissions on the device.
+	 *
+	 * Since 4:1
 	 */
 	int (*send_command) (void *object, const struct spa_command *command);
 };

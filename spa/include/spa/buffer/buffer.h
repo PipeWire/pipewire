@@ -100,23 +100,25 @@ struct spa_buffer {
 };
 
 /** Find metadata in a buffer */
-SPA_API_BUFFER struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, uint32_t type)
+SPA_API_BUFFER uint32_t spa_buffer_find_meta_index(const struct spa_buffer *b, uint32_t type, size_t size)
 {
 	uint32_t i;
-
 	for (i = 0; i < b->n_metas; i++)
-		if (b->metas[i].type == type)
-			return &b->metas[i];
+		if (b->metas[i].type == type && b->metas[i].size >= size)
+			return i;
+	return SPA_ID_INVALID;
+}
 
-	return NULL;
+SPA_API_BUFFER struct spa_meta *spa_buffer_find_meta(const struct spa_buffer *b, uint32_t type)
+{
+	uint32_t i = spa_buffer_find_meta_index(b, type, 0);
+	return i == SPA_ID_INVALID ? NULL : &b->metas[i];
 }
 
 SPA_API_BUFFER void *spa_buffer_find_meta_data(const struct spa_buffer *b, uint32_t type, size_t size)
 {
-	struct spa_meta *m;
-	if ((m = spa_buffer_find_meta(b, type)) && m->size >= size)
-		return m->data;
-	return NULL;
+	uint32_t i = spa_buffer_find_meta_index(b, type, size);
+	return i == SPA_ID_INVALID ? NULL : b->metas[i].data;
 }
 
 SPA_API_BUFFER bool spa_buffer_has_meta_features(const struct spa_buffer *b, uint32_t type, uint32_t features)

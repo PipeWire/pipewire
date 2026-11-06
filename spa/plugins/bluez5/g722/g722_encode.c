@@ -116,27 +116,29 @@ static void block4(g722_band_t *band, int d) {
   }
   band->ap[1] = ap1;
 
-  /* Block 4, UPZERO */
-  /* Block 4, FILTEZ */
-  wd1 = (d == 0) ? 0 : 128;
-
-  sg0 = sg[0] = d >> 15;
-  for (i = 1; i < 7; i++) {
-    sgi = band->d[i] >> 15;
-    wd2 = (sgi == sg0) ? wd1 : -wd1;
-    wd3 = (band->b[i] * 32640) >> 15;
-    band->bp[i] = saturate(wd2 + wd3);
-  }
-
-  /* Block 4, DELAYA */
+  /* Update the zero predictor and consume its history in reverse order. */
   sz = 0;
-  for (i = 6; i > 0; i--) {
-    int bi;
-
-    band->d[i] = band->d[i - 1];
-    bi = band->b[i] = band->bp[i];
-    wd1 = saturate(band->d[i] + band->d[i]);
-    sz += (bi * wd1) >> 15;
+  if (d == 0) {
+    for (i = 6; i > 0; i--) {
+      int bi = band->bp[i] = saturate((band->b[i] * 32640) >> 15);
+      band->b[i] = bi;
+      band->d[i] = band->d[i - 1];
+      wd1 = saturate(band->d[i] + band->d[i]);
+      sz += (bi * wd1) >> 15;
+    }
+  } else {
+    sg0 = sg[0] = d >> 15;
+    for (i = 6; i > 0; i--) {
+      int bi;
+      sgi = band->d[i] >> 15;
+      wd2 = (sgi == sg0) ? 128 : -128;
+      wd3 = (band->b[i] * 32640) >> 15;
+      bi = band->bp[i] = saturate(wd2 + wd3);
+      band->b[i] = bi;
+      band->d[i] = band->d[i - 1];
+      wd1 = saturate(band->d[i] + band->d[i]);
+      sz += (bi * wd1) >> 15;
+    }
   }
   band->sz = sz;
 
@@ -260,6 +262,9 @@ int g722_encode(g722_encode_state_t *s, uint8_t g722_data[], const int16_t amp[]
       xlow = xhigh = amp[j++] >> 1;
     } else {
       {
+        /* Keep the independent FIR loop available for vectorization when
+         * native 32-bit SIMD multiplication is available. */
+#if defined(__ARM_NEON) || defined(__SSE4_1__)
         /* Apply the transmit QMF */
         /* Shuffle the buffer down */
         for (i = 0; i < 22; i++) {
@@ -275,6 +280,24 @@ int g722_encode(g722_encode_state_t *s, uint8_t g722_data[], const int16_t amp[]
           sumodd += s->x[2 * i] * qmf_coeffs[i];
           sumeven += s->x[2 * i + 1] * qmf_coeffs[11 - i];
         }
+#else
+        /* Shift the QMF history while consuming it, avoiding a second load
+         * of each history sample during the filter accumulation. */
+        sumeven = 0;
+        sumodd = 0;
+        for (i = 0; i < 11; i++) {
+          int x0 = s->x[2 * i + 2];
+          int x1 = s->x[2 * i + 3];
+          s->x[2 * i] = x0;
+          s->x[2 * i + 1] = x1;
+          sumodd += x0 * qmf_coeffs[i];
+          sumeven += x1 * qmf_coeffs[11 - i];
+        }
+        s->x[22] = amp[j++];
+        s->x[23] = amp[j++];
+        sumodd += s->x[22] * qmf_coeffs[11];
+        sumeven += s->x[23] * qmf_coeffs[0];
+#endif
         /* We shift by 12 to allow for the QMF filters (DC gain = 4096), plus 1
            to allow for us summing two filters, plus 1 to allow for the 15 bit
            input to the G.722 algorithm. */

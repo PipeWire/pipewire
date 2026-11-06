@@ -230,8 +230,13 @@ endif
 test_apps = [
   'test-midi',
 ]
+bluez5_test_sources = [ 'midi-parser.c' ]
+if get_option('bluez5-codec-g722').allowed()
+  test_apps += [ 'test-g722' ]
+  bluez5_test_sources += [ 'g722/g722_encode.c' ]
+endif
 bluez5_test_lib = static_library('bluez5_test_lib',
-  [ 'midi-parser.c' ],
+  bluez5_test_sources,
   include_directories : [ configinc ],
   dependencies : [ spa_dep, bluez5_deps ],
   install : false

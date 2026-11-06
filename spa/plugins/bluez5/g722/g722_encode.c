@@ -31,6 +31,14 @@
 
 #include "g722_enc_dec.h"
 
+/* SSE2 is baseline on x86-64; SSE4.1 showed weaker or neutral gains. */
+#if defined(__x86_64__) && defined(__SSE2__) && !defined(__SSE4_1__)
+#define G722_SSE2_QUANT 1
+#include <emmintrin.h>
+#else
+#define G722_SSE2_QUANT 0
+#endif
+
 #if !defined(FALSE)
 #define FALSE 0
 #endif
@@ -203,7 +211,7 @@ int16_t limitValues(int16_t rl) {
 /*- End of function --------------------------------------------------------*/
 #endif
 
-static int16_t q6[32] = {0,    35,   72,   110,  150,  190,  233,  276,  323,  370,  422,
+static const int16_t q6[32] = {0,    35,   72,   110,  150,  190,  233,  276,  323,  370,  422,
                          473,  530,  587,  650,  714,  786,  858,  940,  1023, 1121, 1219,
                          1339, 1458, 1612, 1765, 1980, 2195, 2557, 2919, 0,    0};
 static int16_t iln[32] = {0,  63, 62, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19,
@@ -225,6 +233,36 @@ static int16_t ihn[3] = {0, 1, 0};
 static int16_t ihp[3] = {0, 3, 2};
 static int16_t wh[3] = {0, -214, 798};
 static int16_t rh2[4] = {2, 1, 2, 1};
+
+#if G722_SSE2_QUANT
+static int quantize_low(int wd, int det)
+{
+  __m128i scale = _mm_set1_epi16((int16_t)det);
+  __m128i value = _mm_set1_epi16((int16_t)wd);
+  /* Initial det is 32. The nb clamp to 0..18432 and SCALEL's ilb
+   * lookup yield det <= 16384; wd comes from a saturated int16 el.
+   * Combine product halves to preserve scalar >> 12 rounding. */
+  uint64_t mask = 0;
+  for (int k = 0; k < 32; k += 8) {
+    __m128i q = _mm_loadu_si128((const __m128i *)(q6 + k));
+    __m128i lo = _mm_mullo_epi16(q, scale);
+    __m128i hi = _mm_mulhi_epi16(q, scale);
+    __m128i threshold = _mm_or_si128(_mm_slli_epi16(hi, 4), _mm_srli_epi16(lo, 12));
+    mask |= (uint64_t)(unsigned int)_mm_movemask_epi8(_mm_cmpgt_epi16(threshold, value)) << (2 * k);
+  }
+  /* Two mask bits represent one threshold. Zero padding cannot exceed wd. */
+  return mask ? __builtin_ctzll(mask) / 2 : 30;
+}
+#else
+static inline int quantize_low(int wd, int det)
+{
+  int i;
+  for (i = 1; i < 30; i++)
+    if (wd < ((q6[i] * det) >> 12))
+      break;
+  return i;
+}
+#endif
 
 int g722_encode(g722_encode_state_t *s, uint8_t g722_data[], const int16_t amp[], int len) {
   int dlow;
@@ -320,12 +358,7 @@ int g722_encode(g722_encode_state_t *s, uint8_t g722_data[], const int16_t amp[]
     /* Block 1L, QUANTL */
     wd = (el >= 0) ? el : -(el + 1);
 
-    for (i = 1; i < 30; i++) {
-      wd1 = (q6[i] * s->band[0].det) >> 12;
-      if (wd < wd1) {
-        break;
-      }
-    }
+    i = quantize_low(wd, s->band[0].det);
     ilow = (el < 0) ? iln[i] : ilp[i];
 
     /* Block 2L, INVQAL */

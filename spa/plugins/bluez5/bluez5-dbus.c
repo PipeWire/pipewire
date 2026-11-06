@@ -3341,8 +3341,11 @@ next:
 			spa_bt_device_add_profile(remote_endpoint->device, profile);
 
 		if (spa_streq(remote_endpoint->uuid, SPA_BT_UUID_ASHA_SINK)) {
-			if (profile & SPA_BT_PROFILE_ASHA_SINK)
-				setup_asha_transport(remote_endpoint, monitor);
+			if (profile & SPA_BT_PROFILE_ASHA_SINK) {
+				int res = setup_asha_transport(remote_endpoint, monitor);
+				if (res < 0)
+					spa_log_warn(monitor->log, "ASHA transport setup failed: %s", spa_strerror(res));
+			}
 		}
 	}
 
@@ -4768,6 +4771,19 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 		return -EINVAL;
 	}
 
+	for (int i = 0; media_codecs[i]; i++) {
+		const struct media_codec *mcodec = media_codecs[i];
+		if (mcodec->kind != MEDIA_CODEC_ASHA)
+			continue;
+		if (!spa_streq(mcodec->name, "g722"))
+			continue;
+		codec = mcodec;
+		spa_log_debug(monitor->log, "Setting ASHA codec: %s", mcodec->name);
+	}
+
+	if (codec == NULL)
+		return -ENOTSUP;
+
 	transport = spa_bt_transport_find(monitor, remote_endpoint->transport_path);
 	if (transport != NULL) {
 		spa_log_debug(monitor->log, "transport %p: free %s",
@@ -4787,16 +4803,6 @@ static int setup_asha_transport(struct spa_bt_remote_endpoint *remote_endpoint, 
 	spa_bt_transport_set_implementation(transport, &transport_impl, transport);
 
 	spa_log_debug(monitor->log, "Created ASHA transport for %s", remote_endpoint->transport_path);
-
-	for (int i = 0; media_codecs[i]; i++) {
-		const struct media_codec *mcodec = media_codecs[i];
-		if (mcodec->kind != MEDIA_CODEC_ASHA)
-			continue;
-		if (!spa_streq(mcodec->name, "g722"))
-			continue;
-		codec = mcodec;
-		spa_log_debug(monitor->log, "Setting ASHA codec: %s", mcodec->name);
-	}
 
 	free(transport->remote_endpoint_path);
 	free(transport->endpoint_path);

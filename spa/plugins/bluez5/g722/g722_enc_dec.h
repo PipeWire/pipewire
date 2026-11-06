@@ -134,6 +134,8 @@ extern "C" {
 
 g722_encode_state_t *g722_encode_init(g722_encode_state_t *s, unsigned int rate, int options);
 int g722_encode_release(g722_encode_state_t *s);
+/* len counts samples and must be even unless itu_test_mode is enabled.
+ * Returns bytes written, or -EINVAL for an invalid sample count. */
 int g722_encode(g722_encode_state_t *s, uint8_t g722_data[], const int16_t amp[], int len);
 
 g722_decode_state_t *g722_decode_init(g722_decode_state_t *s, unsigned int rate, int options);

@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2026 cochcoder */
 /* SPDX-License-Identifier: MIT */
 
+#include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -109,6 +111,40 @@ static void test_qmf_history(void)
 	spa_assert_se(memcmp(&whole, &chunked, sizeof(whole)) == 0);
 }
 
+static void test_sample_counts(void)
+{
+	static const int invalid[] = { INT_MIN, INT_MIN + 1, -2, -1, 1, 319, 321, INT_MAX };
+	int16_t pcm[SAMPLES];
+	uint8_t out[SAMPLES], expected[320];
+	g722_encode_state_t state, before;
+
+	fill_samples(pcm, 2);
+	/* Exercise rejection after the predictor and QMF have acquired history. */
+	for (int itu = 0; itu < 2; itu++) {
+		int count = itu ? 320 : 160;
+
+		g722_encode_init(&state, 64000, G722_PACKED);
+		state.itu_test_mode = itu;
+		spa_assert_se(g722_encode(&state, out, pcm, 320) == count);
+		before = state;
+		for (unsigned int i = 0; i < SPA_N_ELEMENTS(invalid); i++) {
+			if (itu && invalid[i] > 0)
+				continue;
+			memset(out, 0xa5, sizeof(out));
+			spa_assert_se(g722_encode(&state, out, pcm, invalid[i]) == -EINVAL);
+			spa_assert_se(memcmp(&state, &before, sizeof(state)) == 0);
+			for (unsigned int j = 0; j < sizeof(out); j++)
+				spa_assert_se(out[j] == 0xa5);
+		}
+		spa_assert_se(g722_encode(&state, NULL, NULL, 0) == 0);
+		spa_assert_se(memcmp(&state, &before, sizeof(state)) == 0);
+		spa_assert_se(g722_encode(&before, expected, pcm, 320) == count);
+		spa_assert_se(g722_encode(&state, out, pcm, 320) == count);
+		spa_assert_se(memcmp(out, expected, count) == 0);
+		spa_assert_se(memcmp(&state, &before, sizeof(state)) == 0);
+	}
+}
+
 static void test_itu_mode(void)
 {
 	int16_t pcm[SAMPLES];
@@ -132,6 +168,7 @@ static void test_itu_mode(void)
 int main(void)
 {
 	test_vectors();
+	test_sample_counts();
 	test_qmf_history();
 	test_itu_mode();
 	return 0;

@@ -25,6 +25,7 @@
 
 /*! \file */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -84,7 +85,7 @@ static void block4(g722_band_t *band, int d) {
   for (i = 0; i < 3; i++) {
     sg[i] = band->p[i] >> 15;
   }
-  wd1 = saturate(band->a[1] << 2);
+  wd1 = saturate(band->a[1] * 4);
 
   wd2 = (sg[0] == sg[1]) ? -wd1 : wd1;
   if (wd2 > 32767) {
@@ -249,6 +250,9 @@ int g722_encode(g722_encode_state_t *s, uint8_t g722_data[], const int16_t amp[]
   int ilow;
   int code;
 
+  if (len < 0 || ((len & 1) && !s->itu_test_mode))
+    return -EINVAL;
+
   g722_bytes = 0;
   xhigh = 0;
   for (j = 0; j < len;) {
@@ -261,7 +265,6 @@ int g722_encode(g722_encode_state_t *s, uint8_t g722_data[], const int16_t amp[]
         for (i = 0; i < 22; i++) {
           s->x[i] = s->x[i + 2];
         }
-        // TODO: if len is odd, then this can be a buffer overrun
         s->x[22] = amp[j++];
         s->x[23] = amp[j++];
 

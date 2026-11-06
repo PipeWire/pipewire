@@ -914,6 +914,9 @@ input_port_found:
 		/* If hardware re-probe found this profile unsupported, force unavailable */
 		if (!(profile->profile.flags & ACP_PROFILE_PRO) && !profile->supported)
 			available = ACP_AVAILABLE_NO;
+		/* Mark as unknown if the LPCM channels are unconfirmed */
+		else if (profile->lpcm_channels_unconfirmed && available == ACP_AVAILABLE_YES)
+			available = ACP_AVAILABLE_UNKNOWN;
 
 		if (profile->profile.index == impl->card.active_profile_index)
 			active_available = available;

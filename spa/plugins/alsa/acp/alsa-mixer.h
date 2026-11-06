@@ -379,6 +379,8 @@ struct pa_alsa_profile {
     bool supported:1;
     bool fallback_input:1;
     bool fallback_output:1;
+    /* ELD LPCM channels are too few, but other SADs have enough */
+    bool lpcm_channels_unconfirmed:1;
 
     char **input_mapping_names;
     char **output_mapping_names;

@@ -2051,18 +2051,20 @@ int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld) {
     eld->speakers = elddata[7] & 0x7f;
 
     eld->lpcm_channels = 0;
+    eld->hbr_channels = 0;
     eld->iec958_codecs = 0;
 
     for (unsigned i = 0; i < sad_count; i++) {
         uint8_t *sad = &elddata[20 + mnl + 3 * i];
 	uint8_t lpcm_channels;
+	/* Lowest 3 bits are channel count - 1 */
+	uint8_t channels = (sad[0] & 0x07) + 1;
 
         /* https://en.wikipedia.org/wiki/Extended_Display_Identification_Data#Audio_Data_Blocks */
         switch ((sad[0] & 0x78) >> 3) {
             case 1:
                 eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_PCM;
-		/* Lowest 3 bits are channel count - 1 */
-		lpcm_channels = (sad[0] & 0x07) + 1;
+		lpcm_channels = channels;
 		if (lpcm_channels > eld->lpcm_channels)
 			eld->lpcm_channels = lpcm_channels;
                 break;
@@ -2089,9 +2091,13 @@ int pa_alsa_get_hdmi_eld(snd_hctl_elem_t *elem, pa_hdmi_eld *eld) {
                 break;
             case 11:
                 eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_DTSHD;
+		if (channels > eld->hbr_channels)
+			eld->hbr_channels = channels;
                 break;
             case 12:
                 eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_TRUEHD;
+		if (channels > eld->hbr_channels)
+			eld->hbr_channels = channels;
                 break;
             default:
                 eld->iec958_codecs |= 1ULL << SPA_AUDIO_IEC958_CODEC_UNKNOWN;

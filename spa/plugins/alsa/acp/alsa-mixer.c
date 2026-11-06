@@ -5354,8 +5354,10 @@ void pa_alsa_profile_set_recheck_hdmi_eld(
      * Other profiles are left untouched. */
     PA_HASHMAP_FOREACH(p, ps->profiles, state) {
         uint32_t idx;
+        bool has_hdmi_output_mapping = false;
         bool supports_hdmi_output_mapping = false;
         bool supports_input_mapping = true;
+        bool lpcm_channels_unconfirmed = false;
 
         if (p->profile.flags & (ACP_PROFILE_OFF | ACP_PROFILE_PRO))
             continue;
@@ -5366,15 +5368,27 @@ void pa_alsa_profile_set_recheck_hdmi_eld(
                 if (!pa_streq(m->device_strings[0], device_string))
                     continue;
 
+                has_hdmi_output_mapping = true;
+
                 if (eld->lpcm_channels < (int)m->channel_map.channels) {
-                    p->supported = false;
-                    pa_log_debug("HDMI profile %s disabled (ELD channels did not match)", p->name);
-                    break;
+                    if (eld->hbr_channels < (int)m->channel_map.channels) {
+                        p->supported = false;
+                        pa_log_debug("HDMI profile %s disabled (ELD channels did not match)", p->name);
+                        break;
+                    }
+
+                    /* High bitrate formats need eARC, which also carries
+                     * multichannel LPCM, so keep the profile as unknown */
+                    lpcm_channels_unconfirmed = true;
+                    pa_log_debug("HDMI profile %s availability unknown (only HBR ELD channels matched)", p->name);
                 }
 
                 supports_hdmi_output_mapping = true;
             }
         }
+
+        if (has_hdmi_output_mapping)
+            p->lpcm_channels_unconfirmed = lpcm_channels_unconfirmed;
 
         /* Mappings not affected by the ELD must have been opened during probing */
         if (p->input_mappings) {

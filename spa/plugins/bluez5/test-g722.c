@@ -12,10 +12,36 @@
 
 #define SAMPLES 8192
 
-/* Whole-state comparisons below require no padding in either structure. */
-_Static_assert(sizeof(unsigned int) == sizeof(int), "integer sizes differ");
-_Static_assert(sizeof(g722_band_t) == 38 * sizeof(int), "band has padding");
-_Static_assert(sizeof(g722_encode_state_t) == 108 * sizeof(int), "state has padding");
+static void assert_band_equal(const g722_band_t *a, const g722_band_t *b)
+{
+	spa_assert_se(a->s == b->s);
+	spa_assert_se(a->sp == b->sp);
+	spa_assert_se(a->sz == b->sz);
+	spa_assert_se(memcmp(a->r, b->r, sizeof(a->r)) == 0);
+	spa_assert_se(memcmp(a->a, b->a, sizeof(a->a)) == 0);
+	spa_assert_se(memcmp(a->ap, b->ap, sizeof(a->ap)) == 0);
+	spa_assert_se(memcmp(a->p, b->p, sizeof(a->p)) == 0);
+	spa_assert_se(memcmp(a->d, b->d, sizeof(a->d)) == 0);
+	spa_assert_se(memcmp(a->b, b->b, sizeof(a->b)) == 0);
+	spa_assert_se(memcmp(a->bp, b->bp, sizeof(a->bp)) == 0);
+	spa_assert_se(a->nb == b->nb);
+	spa_assert_se(a->det == b->det);
+}
+
+static void assert_state_equal(const g722_encode_state_t *a, const g722_encode_state_t *b)
+{
+	spa_assert_se(a->itu_test_mode == b->itu_test_mode);
+	spa_assert_se(a->packed == b->packed);
+	spa_assert_se(a->eight_k == b->eight_k);
+	spa_assert_se(a->bits_per_sample == b->bits_per_sample);
+	spa_assert_se(memcmp(a->x, b->x, sizeof(a->x)) == 0);
+	for (unsigned int i = 0; i < SPA_N_ELEMENTS(a->band); i++)
+		assert_band_equal(&a->band[i], &b->band[i]);
+	spa_assert_se(a->in_buffer == b->in_buffer);
+	spa_assert_se(a->in_bits == b->in_bits);
+	spa_assert_se(a->out_buffer == b->out_buffer);
+	spa_assert_se(a->out_bits == b->out_bits);
+}
 
 static uint32_t random_sample(uint32_t *seed)
 {
@@ -65,7 +91,7 @@ static void test_vectors(void)
 
 	for (unsigned int pattern = 0; pattern < SPA_N_ELEMENTS(expected_hash); pattern++) {
 		fill_samples(pcm, pattern);
-		spa_assert_se(g722_encode_init(&state, 64000, G722_PACKED) == &state);
+		spa_assert_se(g722_encode_init(&state, 64000, 0) == &state);
 		spa_assert_se(g722_encode(&state, expected, pcm, SAMPLES) == SAMPLES / 2);
 		spa_assert_se(hash_bytes(expected, sizeof(expected)) == expected_hash[pattern]);
 		whole = state;
@@ -73,7 +99,7 @@ static void test_vectors(void)
 		for (unsigned int chunk = 0; chunk < SPA_N_ELEMENTS(chunks); chunk++) {
 			unsigned int pos = 0, out = 0;
 
-			g722_encode_init(&state, 64000, G722_PACKED);
+			g722_encode_init(&state, 64000, 0);
 			while (pos < SAMPLES) {
 				unsigned int count = SPA_MIN(chunks[chunk], SAMPLES - pos);
 				int written = g722_encode(&state, actual + out, pcm + pos, count);
@@ -84,7 +110,7 @@ static void test_vectors(void)
 			}
 			spa_assert_se(out == sizeof(expected));
 			spa_assert_se(memcmp(actual, expected, sizeof(expected)) == 0);
-			spa_assert_se(memcmp(&state, &whole, sizeof(state)) == 0);
+			assert_state_equal(&state, &whole);
 		}
 	}
 }
@@ -97,8 +123,8 @@ static void test_qmf_history(void)
 
 	for (unsigned int i = 0; i < SPA_N_ELEMENTS(pcm); i++)
 		pcm[i] = (int)(i * 977u % 65536u) - 32768;
-	g722_encode_init(&whole, 64000, G722_PACKED);
-	g722_encode_init(&chunked, 64000, G722_PACKED);
+	g722_encode_init(&whole, 64000, 0);
+	g722_encode_init(&chunked, 64000, 0);
 	spa_assert_se(g722_encode(&whole, expected, pcm, SPA_N_ELEMENTS(pcm)) == 32);
 	for (int offset = 0; offset < 64; offset += 2) {
 		spa_assert_se(g722_encode(&chunked, actual + offset / 2, pcm + offset, 2) == 1);
@@ -108,7 +134,7 @@ static void test_qmf_history(void)
 		}
 	}
 	spa_assert_se(memcmp(expected, actual, sizeof(expected)) == 0);
-	spa_assert_se(memcmp(&whole, &chunked, sizeof(whole)) == 0);
+	assert_state_equal(&whole, &chunked);
 }
 
 static void test_sample_counts(void)
@@ -123,7 +149,7 @@ static void test_sample_counts(void)
 	for (int itu = 0; itu < 2; itu++) {
 		int count = itu ? 320 : 160;
 
-		g722_encode_init(&state, 64000, G722_PACKED);
+		g722_encode_init(&state, 64000, 0);
 		state.itu_test_mode = itu;
 		spa_assert_se(g722_encode(&state, out, pcm, 320) == count);
 		before = state;
@@ -132,16 +158,16 @@ static void test_sample_counts(void)
 				continue;
 			memset(out, 0xa5, sizeof(out));
 			spa_assert_se(g722_encode(&state, out, pcm, invalid[i]) == -EINVAL);
-			spa_assert_se(memcmp(&state, &before, sizeof(state)) == 0);
+			assert_state_equal(&state, &before);
 			for (unsigned int j = 0; j < sizeof(out); j++)
 				spa_assert_se(out[j] == 0xa5);
 		}
 		spa_assert_se(g722_encode(&state, NULL, NULL, 0) == 0);
-		spa_assert_se(memcmp(&state, &before, sizeof(state)) == 0);
+		assert_state_equal(&state, &before);
 		spa_assert_se(g722_encode(&before, expected, pcm, 320) == count);
 		spa_assert_se(g722_encode(&state, out, pcm, 320) == count);
 		spa_assert_se(memcmp(out, expected, count) == 0);
-		spa_assert_se(memcmp(&state, &before, sizeof(state)) == 0);
+		assert_state_equal(&state, &before);
 	}
 }
 
@@ -152,17 +178,17 @@ static void test_itu_mode(void)
 	g722_encode_state_t state, whole;
 
 	fill_samples(pcm, 2);
-	g722_encode_init(&state, 64000, G722_PACKED);
+	g722_encode_init(&state, 64000, 0);
 	state.itu_test_mode = 1;
 	spa_assert_se(g722_encode(&state, expected, pcm, 319) == 319);
 	spa_assert_se(hash_bytes(expected, sizeof(expected)) == UINT64_C(0x799042c09eb61ff2));
 	whole = state;
-	g722_encode_init(&state, 64000, G722_PACKED);
+	g722_encode_init(&state, 64000, 0);
 	state.itu_test_mode = 1;
 	for (unsigned int i = 0; i < 319; i++)
 		spa_assert_se(g722_encode(&state, actual + i, pcm + i, 1) == 1);
 	spa_assert_se(memcmp(actual, expected, 319) == 0);
-	spa_assert_se(memcmp(&state, &whole, sizeof(state)) == 0);
+	assert_state_equal(&state, &whole);
 }
 
 int main(void)

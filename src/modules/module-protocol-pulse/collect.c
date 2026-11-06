@@ -364,7 +364,7 @@ int update_device_info(struct pw_manager *manager, struct pw_manager_object *o,
 	di.state = pw_manager_node_state(o);
 	/* running sink/source that is not linked is reported as idle */
 	if (!stream && di.state == STATE_RUNNING &&
-	    !collect_is_linked(manager, o->id, pw_direction_reverse(direction)))
+	    !collect_is_linked(manager, o->id, direction))
 		di.state = STATE_IDLE;
 
 	dev_info = pw_manager_object_get_data(o, "device.info");

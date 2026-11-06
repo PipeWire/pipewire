@@ -691,9 +691,18 @@ static const struct object_info node_info = {
 };
 
 /* link */
+static void link_init(struct object *object)
+{
+	struct object *o = object;
+	struct manager *m = o->manager;
+	o->creating = false;
+	manager_emit_added(m, &o->this);
+}
+
 static const struct object_info link_info = {
 	.type = PW_TYPE_INTERFACE_Link,
 	.version = PW_VERSION_LINK,
+	.init = link_init,
 };
 
 /* metadata */

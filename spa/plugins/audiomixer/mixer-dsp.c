@@ -202,10 +202,32 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
+static void mix_port_deactivate(struct port *port)
+{
+	if (port->active) {
+		spa_list_remove(&port->mix_link);
+		port->active = false;
+	}
+}
+
+static int do_flush(struct spa_loop *loop, bool async, uint32_t seq,
+		const void *data, size_t size, void *user_data)
+{
+	struct impl *this = user_data;
+	struct port *port, *t;
+
+	spa_list_for_each_safe(port, t, &this->mix_list, mix_link) {
+		port->ramp_down = 0;
+		port->ramp_up = this->n_curve;
+		if (port->removing)
+			mix_port_deactivate(port);
+	}
+	return 0;
+}
+
 static int impl_node_send_command(void *object, const struct spa_command *command)
 {
 	struct impl *this = object;
-	struct port *port;
 
 	spa_return_val_if_fail(this != NULL, -EINVAL);
 	spa_return_val_if_fail(command != NULL, -EINVAL);
@@ -218,10 +240,7 @@ static int impl_node_send_command(void *object, const struct spa_command *comman
 		this->started = false;
 		break;
 	case SPA_NODE_COMMAND_Flush:
-		spa_list_for_each(port, &this->port_list, link) {
-			port->ramp_down = 0;
-			port->ramp_up = this->n_curve;
-		}
+		spa_loop_locked(this->data_loop, do_flush, 0, NULL, 0, this);
 		break;
 	case SPA_NODE_COMMAND_ParamBegin:
 	case SPA_NODE_COMMAND_ParamEnd:
@@ -838,6 +857,8 @@ static int do_port_set_io(struct spa_loop *loop, bool async, uint32_t seq,
 		} else {
 			port->ramp_down = 0;
 		}
+		if (port->ramp_down == 0)
+			mix_port_deactivate(port);
 	} else {
 		if (info->size >= sizeof(struct spa_io_async_buffers)) {
 			struct spa_io_async_buffers *ab = info->data;
@@ -959,10 +980,8 @@ static void ramp_down(struct impl *this, float *dst, uint32_t size, struct ramp_
 		dst[i] += spa_burg_pred_next(&port->pred) * this->curve[c-1];
 
 	port->ramp_down = c;
-	if (c == 0 && port->active && port->removing) {
-		spa_list_remove(&port->mix_link);
-		port->active = false;
-	}
+	if (c == 0 && port->removing)
+		mix_port_deactivate(port);
 }
 
 static int impl_node_process(void *object)

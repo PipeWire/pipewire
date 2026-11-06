@@ -3309,7 +3309,7 @@ static int remote_endpoint_update_props(struct spa_bt_remote_endpoint *remote_en
 			if (len != 8 /* HiSyncId will always be 8 bytes */)
 				goto next;
 
-			remote_endpoint->hisyncid = *(uint64_t *)value;
+			memcpy(&remote_endpoint->hisyncid, value, sizeof(remote_endpoint->hisyncid));
 
 			spa_log_debug(monitor->log, "remote_endpoint %p: %s=%"PRIu64, remote_endpoint, key, remote_endpoint->hisyncid);
 		} else if (spa_streq(key, "SupportedFeatures")) {

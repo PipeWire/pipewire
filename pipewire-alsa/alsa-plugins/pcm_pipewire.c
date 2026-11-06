@@ -95,7 +95,7 @@ static int update_active(snd_pcm_ioplug_t *io, bool force_wakeup)
 
 	avail = snd_pcm_ioplug_avail(io, pw->hw_ptr, io->appl_ptr);
 
-	if (pw->error > 0 || force_wakeup ||
+	if (pw->error < 0 || force_wakeup ||
 	    io->state == SND_PCM_STATE_SETUP ||
 	    io->state == SND_PCM_STATE_XRUN) {
 		active = true;

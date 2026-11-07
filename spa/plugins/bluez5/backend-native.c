@@ -1267,8 +1267,17 @@ static bool rfcomm_hfp_ag(struct rfcomm *rfcomm, char* buf)
 		if (was_switching_codec)
 			spa_bt_device_emit_codec_switched(rfcomm->device, 0);
 	} else if (spa_strstartswith(buf, "AT+BCC")) {
+		struct spa_bt_transport *t = rfcomm->transport;
+		struct transport_data *td = t ? t->user_data : NULL;
+
 		if (!rfcomm->codec_negotiation_supported)
 			return false;
+		if (rfcomm->hfp_ag_switching_codec ||
+				rfcomm->hfp_ag_initial_codec_setup != HFP_AG_INITIAL_CODEC_SETUP_NONE ||
+				(t && (t->fd >= 0 || (td && td->requesting)))) {
+			rfcomm_send_error(rfcomm, CMEE_OPERATION_NOT_ALLOWED);
+			return true;
+		}
 
 		rfcomm_send_reply(rfcomm, "OK");
 		rfcomm_send_reply(rfcomm, "+BCS: %u", rfcomm->codec);

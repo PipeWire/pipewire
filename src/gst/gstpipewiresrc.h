@@ -83,6 +83,7 @@ struct _GstPipeWireSrc {
 
   gboolean is_live;
   int64_t delay;
+  int64_t delay_ns;
   GstClockTime min_latency;
   GstClockTime max_latency;
 

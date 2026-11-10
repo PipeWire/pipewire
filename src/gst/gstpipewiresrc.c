@@ -862,8 +862,14 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   pwsrc->n_outstanding++;
   pts = dts = GST_CLOCK_TIME_NONE;
 
-  /* our clock is in ticks */
-  ticks = gst_util_uint64_scale (time.ticks, GST_SECOND * time.rate.num, time.rate.denom);
+  if (GST_ELEMENT_CLOCK(pwsrc) != pwsrc->stream->clock) {
+	  /* snapshot pipeline clock and our MONOTONIC time */
+	  ticks = gst_element_get_current_clock_time(GST_ELEMENT_CAST(pwsrc));
+	  time.now = pw_stream_get_nsec(pwsrc->stream->pwstream);
+  } else {
+	  /* our clock is in ticks */
+	  ticks = gst_util_uint64_scale (time.ticks, GST_SECOND * time.rate.num, time.rate.denom);
+  }
   delay = gst_element_get_base_time(GST_ELEMENT_CAST(pwsrc));
 
   h = data->header;

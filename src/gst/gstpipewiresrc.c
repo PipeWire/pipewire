@@ -794,6 +794,8 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
   struct pw_time time;
   gboolean use_pool;
   guint i;
+  guint64 pts, dts, ticks, delay;
+  gint64 dts_offset;
 
   b = pw_stream_dequeue_buffer (pwsrc->stream->pwstream);
   if (b == NULL)
@@ -858,31 +860,32 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
 
   data->queued = FALSE;
   pwsrc->n_outstanding++;
-  GST_BUFFER_PTS (buf) = GST_CLOCK_TIME_NONE;
-  GST_BUFFER_DTS (buf) = GST_CLOCK_TIME_NONE;
+  pts = dts = GST_CLOCK_TIME_NONE;
+
+  /* our clock is in ticks */
+  ticks = gst_util_uint64_scale (time.ticks, GST_SECOND * time.rate.num, time.rate.denom);
+  delay = gst_element_get_base_time(GST_ELEMENT_CAST(pwsrc));
 
   h = data->header;
-  if (h) {
+  if (h && GST_CLOCK_TIME_IS_VALID (h->pts)) {
+    /* with the header we get the real PTS MONOTONIC time when the
+     * buffer was captured */
     GST_LOG_OBJECT (pwsrc, "pts %" G_GUINT64_FORMAT ", dts_offset %" G_GUINT64_FORMAT, h->pts, h->dts_offset);
-
-    if (GST_CLOCK_TIME_IS_VALID (h->pts)) {
-      GST_BUFFER_PTS (buf) = h->pts;
-      if (GST_BUFFER_PTS (buf) + h->dts_offset > 0)
-        GST_BUFFER_DTS (buf) = GST_BUFFER_PTS (buf) + h->dts_offset;
-    }
-    GST_BUFFER_OFFSET (buf) = h->seq;
+    delay += time.now - h->pts;
   } else {
-    guint64 delay, pts;
-    pts = gst_util_uint64_scale (time.ticks, GST_SECOND * time.rate.num, time.rate.denom);
-    delay = time.now - b->time;
-    delay += gst_element_get_base_time(GST_ELEMENT_CAST(pwsrc));
+    /* without a header, we need to guess based on the graph cycle and
+     * the upstream delay. */
+    delay += time.now - b->time;
     delay += pwsrc->delay_ns;
-
-    pts = pts > delay ? pts - delay : 0;
-
-    GST_BUFFER_PTS (buf) = pts;
-    GST_BUFFER_DTS (buf) = pts;
   }
+  dts_offset = h ? h->dts_offset : 0;
+  pts = ticks > delay ? ticks - delay : 0;
+  if (pts + dts_offset > 0)
+     dts = pts + dts_offset;
+
+  GST_BUFFER_OFFSET (buf) = h ? h->seq : GST_BUFFER_OFFSET_NONE;
+  GST_BUFFER_PTS (buf) = pts;
+  GST_BUFFER_DTS (buf) = dts;
 
   if (pwsrc->media_type == SPA_MEDIA_TYPE_video) {
     if (pwsrc->video_info.fps_n) {

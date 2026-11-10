@@ -51,6 +51,7 @@ GST_DEBUG_CATEGORY_STATIC (pipewire_src_debug);
 #define DEFAULT_USE_BUFFERPOOL  USE_BUFFERPOOL_AUTO
 #define DEFAULT_ON_DISCONNECT   GST_PIPEWIRE_SRC_ON_DISCONNECT_NONE
 #define DEFAULT_PROVIDE_CLOCK   TRUE
+#define DEFAULT_SYNC            FALSE
 
 enum
 {
@@ -71,6 +72,7 @@ enum
   PROP_USE_BUFFERPOOL,
   PROP_ON_DISCONNECT,
   PROP_PROVIDE_CLOCK,
+  PROP_SYNC,
 };
 
 GType
@@ -214,6 +216,10 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       GST_OBJECT_UNLOCK (pwsrc);
       break;
 
+    case PROP_SYNC:
+      pwsrc->sync = g_value_get_boolean (value);
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -293,6 +299,10 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
       result = GST_OBJECT_FLAG_IS_SET (pwsrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
       GST_OBJECT_UNLOCK (pwsrc);
       g_value_set_boolean (value, result);
+      break;
+
+    case PROP_SYNC:
+      g_value_set_boolean (value, !!pwsrc->sync);
       break;
 
     default:
@@ -502,6 +512,15 @@ gst_pipewire_src_class_init (GstPipeWireSrcClass * klass)
                                                          G_PARAM_READWRITE |
                                                          G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (gobject_class,
+                                   PROP_SYNC,
+                                   g_param_spec_boolean ("sync",
+                                                         "Sync",
+                                                         "Sync to the clock",
+                                                         DEFAULT_SYNC,
+                                                         G_PARAM_READWRITE |
+                                                         G_PARAM_STATIC_STRINGS));
+
   gstelement_class->provide_clock = gst_pipewire_src_provide_clock;
   gstelement_class->change_state = gst_pipewire_src_change_state;
   gstelement_class->send_event = gst_pipewire_src_send_event;
@@ -555,6 +574,7 @@ gst_pipewire_src_init (GstPipeWireSrc * src)
   src->n_buffers = 0;
   src->flushing_on_remove_buffer = FALSE;
   src->on_disconnect = DEFAULT_ON_DISCONNECT;
+  src->sync = DEFAULT_SYNC;
 
   src->transform_value = UINT32_MAX;
 }
@@ -1644,7 +1664,7 @@ gst_pipewire_src_get_times (GstBaseSrc * basesrc, GstBuffer * buffer,
   GstPipeWireSrc *pwsrc = GST_PIPEWIRE_SRC (basesrc);
 
   /* for live sources, sync on the timestamp of the buffer */
-  if (gst_base_src_is_live (basesrc)) {
+  if (pwsrc->sync) {
     GstClockTime timestamp = GST_BUFFER_PTS (buffer);
 
     if (GST_CLOCK_TIME_IS_VALID (timestamp)) {

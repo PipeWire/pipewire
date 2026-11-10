@@ -877,13 +877,18 @@ static GstBuffer *dequeue_buffer(GstPipeWireSrc *pwsrc)
     /* with the header we get the real PTS MONOTONIC time when the
      * buffer was captured */
     GST_LOG_OBJECT (pwsrc, "pts %" G_GUINT64_FORMAT ", dts_offset %" G_GUINT64_FORMAT, h->pts, h->dts_offset);
-    delay += time.now - h->pts;
+    pts = h->pts;
   } else {
     /* without a header, we need to guess based on the graph cycle and
      * the upstream delay. */
-    delay += time.now - b->time;
+    pts = b->time;
     delay += pwsrc->delay_ns;
   }
+  if ((guint64)time.now > pts)
+    delay += time.now - pts;
+  else
+    ticks += pts - time.now;
+
   dts_offset = h ? h->dts_offset : 0;
   pts = ticks > delay ? ticks - delay : 0;
   if (pts + dts_offset > 0)

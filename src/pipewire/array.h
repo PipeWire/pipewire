@@ -134,9 +134,12 @@ PW_API_ARRAY int pw_array_ensure_size(struct pw_array *arr, size_t size)
 PW_API_ARRAY void *pw_array_add(struct pw_array *arr, size_t size)
 {
 	void *p;
+	int res;
 
-	if (pw_array_ensure_size(arr, size) < 0)
+	if ((res = pw_array_ensure_size(arr, size)) < 0) {
+		errno = -res;
 		return NULL;
+	}
 
 	p = SPA_PTROFF(arr->data, arr->size, void);
 	arr->size += size;

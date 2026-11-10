@@ -1462,12 +1462,15 @@ gst_caps_from_format (const struct spa_pod *format)
       }
     }
     else if (media_subtype == SPA_MEDIA_SUBTYPE_mjpg) {
-      res = gst_caps_new_empty_simple ("image/jpeg");
+      res = gst_caps_new_simple ("image/jpeg",
+          "parsed", G_TYPE_BOOLEAN, TRUE,
+          NULL);
     }
     else if (media_subtype == SPA_MEDIA_SUBTYPE_h264) {
       res = gst_caps_new_simple ("video/x-h264",
           "stream-format", G_TYPE_STRING, "byte-stream",
           "alignment", G_TYPE_STRING, "au",
+          "parsed", G_TYPE_BOOLEAN, TRUE,
           NULL);
     }
     else if (media_subtype == SPA_MEDIA_SUBTYPE_h265) {

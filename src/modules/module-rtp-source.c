@@ -70,6 +70,9 @@
  *                a target latency for the entire graph instead of a fixed network buffer.
  * - `stream.may-pause = <bool>`: pause the stream when no data is reveived, default false
  * - `stream.props = {}`: properties to be passed to the stream
+ *   - `rtp.receiving = <bool>`: initial receiving status, default true. Set false
+ *     to report reception only after the first valid RTP packet. Set
+ *     `node.always-process = true` in `stream.props` to receive before linking.
  *
  * ## General options
  *
@@ -1075,9 +1078,9 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 			"stream.may-pause", false);
 	impl->standby = false;
 	impl->waiting = true;
-	/* Because we don't know the stream receiving state at the start, we try to fake it
-	 * till we make it (or get timed out) */
-	pw_properties_set(stream_props, "rtp.receiving", "true");
+	/* Preserve the default for existing users, but allow an explicit override. */
+	if (pw_properties_get(stream_props, "rtp.receiving") == NULL)
+		pw_properties_set(stream_props, "rtp.receiving", "true");
 
 	impl->cleanup_interval = pw_properties_get_uint32(stream_props,
 			"cleanup.sec", DEFAULT_CLEANUP_SEC);

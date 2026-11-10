@@ -3010,12 +3010,15 @@ static int port_param_meta(struct impl *impl, struct port *port, uint32_t id,
 		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
+#if 0
+		/* disabled for now, only enable if we are actually going to set this */
 	case 0:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamMeta, id,
 			SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 			SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 		break;
+#endif
 	default:
 		return 0;
 	}

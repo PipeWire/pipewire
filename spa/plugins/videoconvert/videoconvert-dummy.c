@@ -464,12 +464,14 @@ impl_node_port_enum_params(void *object, int seq,
 		break;
 	case SPA_PARAM_Meta:
 		switch (result.index) {
+#if 0
 		case 0:
 			param = spa_pod_builder_add_object(&b,
 				SPA_TYPE_OBJECT_ParamMeta, id,
 				SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 				SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 			break;
+#endif
 
 		default:
 			return 0;

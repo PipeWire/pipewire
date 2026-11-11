@@ -248,10 +248,15 @@ void pw_thread_loop_stop(struct pw_thread_loop *loop)
 	if (loop->running) {
 		struct spa_thread_utils *utils;
 		pw_log_debug("%p signal", loop);
+		/* lock here because we need to ensure the loop does not enter
+		 * while we stop it here */
+		pw_loop_lock(loop->loop);
 		pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
-		pw_log_debug("%p join", loop);
+		pw_loop_unlock(loop->loop);
 		if ((utils = loop->thread_utils) == NULL)
 			utils = pw_thread_utils_get();
+
+		pw_log_debug("%p join", loop);
 		spa_thread_utils_join(utils, (struct spa_thread*)loop->thread, NULL);
 		pw_log_debug("%p joined", loop);
 		loop->running = false;

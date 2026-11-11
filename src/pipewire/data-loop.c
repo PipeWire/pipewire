@@ -306,7 +306,10 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 			pthread_cancel(loop->thread);
 		} else {
 			pw_log_debug("%p signal", loop);
+			/* lock here to ensure we don't race with enter() */
+			pw_loop_lock(loop->loop);
 			pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
+			pw_loop_unlock(loop->loop);
 		}
 		if ((utils = loop->thread_utils) == NULL)
 			utils = pw_thread_utils_get();

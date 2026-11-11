@@ -272,16 +272,20 @@ int pw_data_loop_start(struct pw_data_loop *loop)
 				loop->reset_on_fork ? "true" : "false");
 
 		thr = spa_thread_utils_create(utils, &SPA_DICT_INIT(items, n_items), do_loop, loop);
+		if (thr == NULL)
+			goto error;
+
 		loop->thread = (pthread_t)thr;
-		if (thr == NULL) {
-			pw_log_error("%p: can't create thread: %m", loop);
-			loop->running = false;
-			return -errno;
-		}
+
 		if (loop->rt_prio != 0)
 			spa_thread_utils_acquire_rt(utils, thr, loop->rt_prio);
 	}
 	return 0;
+
+error:
+	pw_log_error("%p: can't create thread: %m", loop);
+	loop->running = false;
+	return -errno;
 }
 
 /** Stop a data loop
@@ -304,9 +308,10 @@ int pw_data_loop_stop(struct pw_data_loop *loop)
 			pw_log_debug("%p signal", loop);
 			pw_loop_invoke(loop->loop, do_stop, 1, NULL, 0, false, loop);
 		}
-		pw_log_debug("%p join", loop);
 		if ((utils = loop->thread_utils) == NULL)
 			utils = pw_thread_utils_get();
+
+		pw_log_debug("%p join", loop);
 		spa_thread_utils_join(utils, (struct spa_thread*)loop->thread, NULL);
 		pw_log_debug("%p joined", loop);
 	}

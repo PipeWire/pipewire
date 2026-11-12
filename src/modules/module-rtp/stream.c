@@ -79,6 +79,7 @@ enum rtp_stream_internal_state {
 /* PCM concealment state */
 struct rtp_plc {
 	uint32_t next_ts;
+	uint32_t end_ts;
 	bool fitted;
 	struct {
 		struct spa_burg_pred pred;

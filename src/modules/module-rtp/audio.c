@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #define CONCEAL_FIT_MS		10
+#define CONCEAL_CROSSFADE_MS	1
 
 static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 {
@@ -27,11 +28,48 @@ static uint32_t audio_packet_duration(struct rtp_stream *impl, const struct rtp_
 	return (p->size - p->hlen) / impl->stride;
 }
 
+static void audio_conceal_crossfade(struct rtp_stream *impl, struct rtp_packet *p)
+{
+	const struct rtp_format_info *fmt = impl->rtp_format_info;
+	const uint32_t len = impl->rate * CONCEAL_CROSSFADE_MS / 1000;
+	const uint32_t done = impl->plc->next_ts - impl->plc->end_ts;
+	const int32_t offs = rtp_timestamp_delta(impl->plc->next_ts, p->timestamp);
+
+	if (fmt->to_float == NULL || fmt->from_float == NULL ||
+	    done >= len || offs < 0 || (uint32_t)offs >= p->duration)
+		return;
+
+	if (p->decoded != p->tmp) {
+		if (p->decoded_len > p->tmp_size)
+			return;
+		memcpy(p->tmp, p->decoded, p->decoded_len);
+		p->decoded = p->tmp;
+	}
+
+	const uint32_t channels = impl->stream_info.info.raw.channels;
+	const uint32_t num = SPA_MIN(p->duration - offs, len - done);
+	for (uint32_t c = 0; c < channels; c++) {
+		for (uint32_t n, j = 0; j < num; j += n) {
+			float tmp[512];
+			n = SPA_MIN(num - j, SPA_N_ELEMENTS(tmp));
+			void *chunk = SPA_PTROFF(p->decoded, ((offs + j) * channels + c) * fmt->size, void);
+			fmt->to_float(chunk, channels, tmp, n);
+			for (uint32_t i = 0; i < n; i++) {
+				const float w = (float)(done + j + i + 1) / (len + 1);
+				tmp[i] = tmp[i] * w + spa_burg_pred_next(&impl->plc->ch[c].pred) * (1.0f - w);
+			}
+			fmt->from_float(tmp, channels, chunk, n);
+		}
+	}
+	impl->plc->next_ts += num;
+}
+
 static int audio_packet_decode(struct rtp_stream *impl, struct rtp_packet *p)
 {
 	p->decoded = SPA_PTROFF(p->data, p->hlen, void);
 	p->decoded_len = p->size - p->hlen;
 	p->duration = p->decoded_len / impl->stride;
+	audio_conceal_crossfade(impl, p);
 	return 0;
 }
 
@@ -100,7 +138,7 @@ static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet
 					SPA_PTROFF(dst, (j * channels + c) * fmt->size, void), n);
 		}
 	}
-	impl->plc->next_ts = timestamp + num;
+	impl->plc->end_ts = impl->plc->next_ts = timestamp + num;
 	impl->plc->fitted = impl->plc->next_ts != next->timestamp;
 	return 0;
 }

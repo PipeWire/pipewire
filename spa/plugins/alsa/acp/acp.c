@@ -1950,7 +1950,7 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 	uint32_t old_index = impl->card.active_profile_index;
 	struct acp_card_profile **profiles = card->profiles;
 	pa_alsa_profile *op, *np;
-	uint32_t idx;
+	uint32_t idx, new_flags;
 	int res;
 
 	if (new_index >= card->n_profiles)
@@ -1960,9 +1960,14 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 	if (SPA_FLAG_IS_SET(np->profile.flags, ACP_PROFILE_HIDDEN))
 		return -EINVAL;
 
+	new_flags = (np->profile.flags & ~(ACP_PROFILE_SAVE)) | ACP_PROFILE_ACTIVE | flags;
+
 	op = old_index != ACP_INVALID_INDEX ? (pa_alsa_profile*)profiles[old_index] : NULL;
-	if (op == np)
-		return 0;
+	if (op == np) {
+		if (np->profile.flags == new_flags)
+			return 0;
+		goto done;
+	}
 
 	pa_log_info("activate profile: %s (%d)", np->profile.name, new_index);
 
@@ -2030,9 +2035,9 @@ int acp_card_set_profile(struct acp_card *card, uint32_t new_index, uint32_t fla
 	}
 	if (op)
 		op->profile.flags &= ~(ACP_PROFILE_ACTIVE | ACP_PROFILE_SAVE);
-	np->profile.flags |= ACP_PROFILE_ACTIVE | flags;
 	impl->card.active_profile_index = new_index;
-
+done:
+	np->profile.flags = new_flags;
 	if (impl->events && impl->events->profile_changed)
 		impl->events->profile_changed(impl->user_data, old_index,
 				new_index);
@@ -2404,7 +2409,8 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 	pa_alsa_device *d = (pa_alsa_device*)dev;
 	pa_card *impl = d->card;
 	pa_device_port *p, *old = d->active_port;
-	int res;
+	uint32_t new_flags;
+	int res = 0;
 
 	if (port_index >= impl->card.n_ports)
 		return -EINVAL;
@@ -2415,9 +2421,15 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 	if (SPA_FLAG_IS_SET(p->port.flags, ACP_PORT_HIDDEN))
 		return -EINVAL;
 
-	p->port.flags = ACP_PORT_ACTIVE | flags;
-	if (p == old)
-		return 0;
+	new_flags = ACP_PORT_ACTIVE | flags;
+	if (p == old) {
+		if (new_flags == p->port.flags)
+			return 0;
+
+		/* if just the flags changed, emit changed event but don't do
+		 * anything else */
+		goto done;
+	}
 	if (old)
 		old->port.flags &= ~(ACP_PORT_ACTIVE | ACP_PORT_SAVE);
 	d->active_port = p;
@@ -2439,7 +2451,6 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 		mixer_volume_init(impl, d);
 
 		sync_mixer(d, p);
-		res = 0;
 #if 0
 		if (data->suspend_when_unavailable && p->available == PA_AVAILABLE_NO)
 			pa_sink_suspend(s, true, PA_SUSPEND_UNAVAILABLE);
@@ -2447,6 +2458,8 @@ int acp_device_set_port(struct acp_device *dev, uint32_t port_index, uint32_t fl
 			pa_sink_suspend(s, false, PA_SUSPEND_UNAVAILABLE);
 #endif
 	}
+done:
+	p->port.flags = new_flags;
 	if (impl->events && impl->events->port_changed)
 		impl->events->port_changed(impl->user_data,
 				old ? old->port.index : 0, p->port.index);

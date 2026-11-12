@@ -961,21 +961,24 @@ static void card_profile_changed(void *data, uint32_t old_index, uint32_t new_in
 	spa_log_info(this->log, "card profile changed from %s to %s",
 			op->name, np->name);
 
-	for (i = 0; i < op->n_devices; i++) {
-		uint32_t index = op->devices[i]->index;
-		if (has_device(np, index))
-			continue;
-		spa_device_emit_object_info(&this->hooks, index, NULL);
-	}
-	for (i = 0; i < np->n_devices; i++) {
-		emit_node(this, np->devices[i]);
-	}
-	setup_sources(this);
-
 	this->info.change_mask |= SPA_DEVICE_CHANGE_MASK_PARAMS;
+
+	if (old_index != new_index) {
+		for (i = 0; i < op->n_devices; i++) {
+			uint32_t index = op->devices[i]->index;
+			if (has_device(np, index))
+				continue;
+			spa_device_emit_object_info(&this->hooks, index, NULL);
+		}
+		for (i = 0; i < np->n_devices; i++) {
+			emit_node(this, np->devices[i]);
+		}
+		setup_sources(this);
+
+		this->params[IDX_Route].user++;
+		this->params[IDX_EnumRoute].user++;
+	}
 	this->params[IDX_Profile].user++;
-	this->params[IDX_Route].user++;
-	this->params[IDX_EnumRoute].user++;
 }
 
 static void card_profile_available(void *data, uint32_t index,

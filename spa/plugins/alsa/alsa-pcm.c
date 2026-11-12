@@ -3682,6 +3682,12 @@ int spa_alsa_skip(struct state *state)
 	b = spa_list_first(&state->free, struct buffer, link);
 	spa_list_remove(&b->link);
 
+	if (b->h) {
+		b->h->seq = state->sample_count;
+		b->h->pts = -1;
+		b->h->dts_offset = 0;
+	}
+
 	d = b->buf->datas;
 
 	avail = d[0].maxsize / state->frame_size;

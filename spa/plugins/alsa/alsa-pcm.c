@@ -3471,7 +3471,13 @@ push_frames(struct state *state,
 
 		if (b->h) {
 			b->h->seq = state->sample_count;
-			b->h->pts = state->next_time;
+			if (state->clock)
+				b->h->pts = state->clock->nsec -
+					SPA_SCALE32(state->clock->delay,
+						SPA_NSEC_PER_SEC * state->clock->rate.num,
+						state->clock->rate.denom);
+			else
+				b->h->pts = state->next_time;
 			b->h->dts_offset = 0;
 		}
 

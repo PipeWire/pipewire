@@ -369,13 +369,39 @@ static void s16be_from_float(const float *src, int stride, void *dst, uint32_t n
 	}
 }
 
+static void s24be_to_float(const void *src, int stride, float *dst, uint32_t n_samples)
+{
+	uint32_t i;
+	const uint8_t *s = src;
+
+	for (i = 0; i < n_samples; i++) {
+		const uint8_t *v = &s[i*stride*3];
+		int32_t vs = (int32_t)((uint32_t)v[0] << 24 | (uint32_t)v[1] << 16 | (uint32_t)v[2] << 8) >> 8;
+		dst[i] = vs / 8388608.0f;
+	}
+}
+
+static void s24be_from_float(const float *src, int stride, void *dst, uint32_t n_samples)
+{
+	uint32_t i;
+	uint8_t *d = dst;
+
+	for (i = 0; i < n_samples; i++) {
+		int32_t vs = (int32_t)lrintf(SPA_CLAMPF(src[i] * 8388608.0f, -8388608, 8388607));
+		uint8_t *v = &d[i*stride*3];
+		v[0] = (uint8_t)(vs >> 16);
+		v[1] = (uint8_t)(vs >> 8);
+		v[2] = (uint8_t)vs;
+	}
+}
+
 static const struct rtp_format_info rtp_pcm_audio_format_info[] = {
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_U8, 1, "L8", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ALAW, 1, "PCMA", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_ULAW, 1, "PCMU", "audio" },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_BE, 2, "L16", "audio", s16be_to_float, s16be_from_float },
 	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S16_LE, 2, "L16", "audio" },
-	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio" },
+	{ SPA_MEDIA_SUBTYPE_raw, SPA_AUDIO_FORMAT_S24_BE, 3, "L24", "audio", s24be_to_float, s24be_from_float },
 };
 
 static const struct rtp_format_info rtp_midi_format_info = {

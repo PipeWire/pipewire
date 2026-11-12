@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2022 Wim Taymans <wim.taymans@gmail.com> */
 /* SPDX-License-Identifier: MIT */
 
+#define CONCEAL_FIT_MS		10
+
 static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 {
 #if 0
@@ -56,14 +58,33 @@ static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet
 		pw_log_info("conceal seq %u-%u from %u", (uint16_t)(last->seq + 1),
 				(uint16_t)(next->seq - 1), timestamp);
 
+		const uint32_t max = SPA_MAX(impl->rate * CONCEAL_FIT_MS / 1000, 256u);
+		/* walk backwards from last until we have `max` samples or encounter a discontinuity */
+		uint32_t len = duration;
+		const struct rtp_packet *p = last;
+		while (len < max && p->link.prev != &impl->queued) {
+			const struct rtp_packet *prev = spa_list_prev(p, link);
+			const uint32_t d = audio_packet_duration(impl, prev);
+			if (rtp_seqnum_delta(p->seq, prev->seq) != 1 || prev->timestamp + d != p->timestamp)
+				break;
+			len += d;
+			p = prev;
+		}
+		len = SPA_MIN(len, max);
+
+		float hist[SPA_MAX(len, 1u)];
 		for (uint32_t c = 0; c < channels; c++) {
-			const uint8_t *s = SPA_PTROFF(last->data, last->hlen, uint8_t);
-			const uint32_t n_samp = SPA_MIN(512u, duration);
-			fmt->to_float(&s[((duration - n_samp) * channels + c) * fmt->size],
-					channels, tmp, n_samp);
-			spa_burg_pred_fit(&impl->plc->ch[c].pred, tmp, n_samp, 0.98,
+			p = last;
+			for (uint32_t pos = len; pos > 0; p = spa_list_prev(p, link)) {
+				const uint8_t *s = SPA_PTROFF(p->data, p->hlen, uint8_t);
+				const uint32_t d = audio_packet_duration(impl, p);
+				const uint32_t n = SPA_MIN(d, pos);
+				pos -= n;
+				fmt->to_float(&s[((d - n) * channels + c) * fmt->size], channels, &hist[pos], n);
+			}
+			spa_burg_pred_fit(&impl->plc->ch[c].pred, hist, len, 0.98,
 					impl->plc->ch[c].state, impl->plc->ch[c].coef,
-					SPA_MIN(n_samp / 4, SPA_N_ELEMENTS(impl->plc->ch[c].coef)));
+					SPA_MIN(len / 4, SPA_N_ELEMENTS(impl->plc->ch[c].coef)));
 
 			const uint32_t skip = SPA_MAX(rtp_timestamp_delta(timestamp, last->timestamp + duration), 0);
 			for (uint32_t i = 0; i < skip; i++)

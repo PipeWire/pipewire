@@ -4,6 +4,8 @@
 
 #define CONCEAL_FIT_MS		10
 #define CONCEAL_CROSSFADE_MS	1
+#define CONCEAL_FADE_AFTER_MS	10
+#define CONCEAL_MAX_MS		60
 
 static inline uint64_t scale_u64(uint64_t val, uint32_t num, uint32_t denom)
 {
@@ -26,6 +28,18 @@ static uint32_t audio_packet_samples(struct rtp_stream *impl, uint32_t num)
 static uint32_t audio_packet_duration(struct rtp_stream *impl, const struct rtp_packet *p)
 {
 	return (p->size - p->hlen) / impl->stride;
+}
+
+static float audio_conceal_gain(struct rtp_stream *impl, uint32_t pos)
+{
+	const uint32_t fade_after = impl->rate * CONCEAL_FADE_AFTER_MS / 1000;
+	const uint32_t max = impl->rate * CONCEAL_MAX_MS / 1000;
+
+	if (pos < fade_after)
+		return 1.0f;
+	if (pos >= max)
+		return 0.0f;
+	return (float)(max - pos) / (max - fade_after);
 }
 
 static void audio_conceal_crossfade(struct rtp_stream *impl, struct rtp_packet *p)
@@ -56,7 +70,10 @@ static void audio_conceal_crossfade(struct rtp_stream *impl, struct rtp_packet *
 			fmt->to_float(chunk, channels, tmp, n);
 			for (uint32_t i = 0; i < n; i++) {
 				const float w = (float)(done + j + i + 1) / (len + 1);
-				tmp[i] = tmp[i] * w + spa_burg_pred_next(&impl->plc->ch[c].pred) * (1.0f - w);
+				const uint32_t pos = impl->plc->next_ts - impl->plc->start_ts;
+				const float g = audio_conceal_gain(impl, pos + j + i);
+				tmp[i] = tmp[i] * w + (1.0f - w) *
+					(g > 0.0f ? spa_burg_pred_next(&impl->plc->ch[c].pred) * g : 0.0f);
 			}
 			fmt->from_float(tmp, channels, chunk, n);
 		}
@@ -78,6 +95,7 @@ static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet
 {
 	const struct rtp_format_info *fmt = impl->rtp_format_info;
 	const uint32_t channels = impl->stream_info.info.raw.channels;
+	const uint32_t cap = impl->rate * CONCEAL_MAX_MS / 1000;
 	float tmp[512];
 
 	if (fmt->to_float == NULL || fmt->from_float == NULL)
@@ -95,6 +113,7 @@ static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet
 
 		pw_log_info("conceal seq %u-%u from %u", (uint16_t)(last->seq + 1),
 				(uint16_t)(next->seq - 1), timestamp);
+		impl->plc->start_ts = last->timestamp + duration;
 
 		const uint32_t max = SPA_MAX(impl->rate * CONCEAL_FIT_MS / 1000, 256u);
 		/* walk backwards from last until we have `max` samples or encounter a discontinuity */
@@ -125,19 +144,23 @@ static int audio_packet_conceal(struct rtp_stream *impl, const struct rtp_packet
 					SPA_MIN(len / 4, SPA_N_ELEMENTS(impl->plc->ch[c].coef)));
 
 			const uint32_t skip = SPA_MAX(rtp_timestamp_delta(timestamp, last->timestamp + duration), 0);
-			for (uint32_t i = 0; i < skip; i++)
+			for (uint32_t i = 0; i < SPA_MIN(skip, cap); i++)
 				spa_burg_pred_next(&impl->plc->ch[c].pred);
 		}
 	}
+	const uint32_t pos = SPA_MAX(rtp_timestamp_delta(timestamp, impl->plc->start_ts), 0);
+	const uint32_t num_pred = pos < cap ? SPA_MIN(num, cap - pos) : 0;
 	for (uint32_t c = 0; c < channels; c++) {
-		for (uint32_t n, j = 0; j < num; j += n) {
-			n = SPA_MIN(num - j, SPA_N_ELEMENTS(tmp));
+		for (uint32_t n, j = 0; j < num_pred; j += n) {
+			n = SPA_MIN(num_pred - j, SPA_N_ELEMENTS(tmp));
 			for (uint32_t i = 0; i < n; i++)
-				tmp[i] = spa_burg_pred_next(&impl->plc->ch[c].pred);
+				tmp[i] = spa_burg_pred_next(&impl->plc->ch[c].pred) *
+					audio_conceal_gain(impl, pos + j + i);
 			fmt->from_float(tmp, channels,
 					SPA_PTROFF(dst, (j * channels + c) * fmt->size, void), n);
 		}
 	}
+	memset(SPA_PTROFF(dst, num_pred * impl->stride, void), 0, (num - num_pred) * impl->stride);
 	impl->plc->end_ts = impl->plc->next_ts = timestamp + num;
 	impl->plc->fitted = impl->plc->next_ts != next->timestamp;
 	return 0;

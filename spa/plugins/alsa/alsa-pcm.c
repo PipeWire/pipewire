@@ -1260,7 +1260,6 @@ int spa_alsa_open(struct state *state, const char *params)
 
 	state->opened = true;
 	state->sample_count = 0;
-	state->sample_time = 0;
 
 	probe_pitch_ctl(state);
 
@@ -3147,7 +3146,19 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->clock->rate = state->driver_rate;
 		state->clock->position += state->clock->duration;
 		state->clock->duration = state->driver_duration;
-		state->clock->delay = delay + state->delay;
+		if (state->driver_rate.denom != (uint32_t)state->rate) {
+			/* delay is in the rate of the device, state->delay is from the
+			 * resampler input and in graph rate for playback and the device
+			 * rate for capture */
+			if (state->stream == SND_PCM_STREAM_PLAYBACK)
+				state->clock->delay = state->delay + SPA_SCALE32(delay,
+						state->driver_rate.denom, state->rate);
+			else
+				state->clock->delay = SPA_SCALE32(delay + state->delay,
+						state->driver_rate.denom, state->rate);
+		} else {
+			state->clock->delay = delay + state->delay;
+		}
 		state->clock->rate_diff = corr;
 		state->clock->next_nsec = state->next_time;
 	}

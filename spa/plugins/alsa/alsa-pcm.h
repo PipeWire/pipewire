@@ -242,7 +242,6 @@ struct state {
 
 	int64_t sample_count;
 
-	int64_t sample_time;
 	uint64_t next_time;
 	uint64_t base_time;
 

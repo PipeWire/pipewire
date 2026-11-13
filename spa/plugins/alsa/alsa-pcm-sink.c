@@ -209,27 +209,6 @@ static int impl_node_set_io(void *object, uint32_t id, void *data, size_t size)
 	return 0;
 }
 
-static void handle_process_latency(struct state *this,
-		const struct spa_process_latency_info *info)
-{
-	bool ns_changed = this->process_latency.ns != info->ns;
-
-	if (this->process_latency.quantum == info->quantum &&
-	    this->process_latency.rate == info->rate &&
-	    !ns_changed)
-		return;
-
-	this->process_latency = *info;
-
-	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
-	if (ns_changed)
-		this->params[NODE_Props].user++;
-	this->params[NODE_ProcessLatency].user++;
-
-	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
-	this->port_params[PORT_Latency].user++;
-}
-
 static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			       const struct spa_pod *param)
 {
@@ -273,13 +252,16 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 			this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 			this->port_params[PORT_EnumFormat].user++;
 		}
+
 		spa_alsa_parse_prop_params(this, params);
+
 		if (lat_ns != -1) {
 			struct spa_process_latency_info info;
 			info = this->process_latency;
 			info.ns = lat_ns;
-			handle_process_latency(this, &info);
+			spa_alsa_update_process_latency(this, &info);
 		}
+
 		spa_alsa_emit_node_info(this, false);
 		spa_alsa_emit_port_info(this, false);
 		break;
@@ -292,7 +274,7 @@ static int impl_node_set_param(void *object, uint32_t id, uint32_t flags,
 		else if ((res = spa_process_latency_parse(param, &info)) < 0)
 			return res;
 
-		handle_process_latency(this, &info);
+		spa_alsa_update_process_latency(this, &info);
 
 		spa_alsa_emit_node_info(this, false);
 		spa_alsa_emit_port_info(this, false);

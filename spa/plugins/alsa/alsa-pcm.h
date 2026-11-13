@@ -287,6 +287,8 @@ struct spa_pod *spa_alsa_enum_propinfo(struct state *state,
 		uint32_t idx, struct spa_pod_builder *b);
 int spa_alsa_add_prop_params(struct state *state, struct spa_pod_builder *b);
 int spa_alsa_parse_prop_params(struct state *state, struct spa_pod *params);
+int spa_alsa_update_process_latency(struct state *this,
+		const struct spa_process_latency_info *info);
 
 int spa_alsa_enum_format(struct state *state, int seq,
 		     uint32_t start, uint32_t num,

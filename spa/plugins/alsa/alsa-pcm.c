@@ -160,6 +160,28 @@ static int write_bind_ctl_param(struct state *state, const char *name, const cha
 	return 0;
 }
 
+int spa_alsa_update_process_latency(struct state *this,
+		const struct spa_process_latency_info *info)
+{
+	bool ns_changed = this->process_latency.ns != info->ns;
+
+	if (this->process_latency.quantum == info->quantum &&
+	    this->process_latency.rate == info->rate &&
+	    !ns_changed)
+		return 0;
+
+	this->process_latency = *info;
+
+	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PARAMS;
+	if (ns_changed)
+		this->params[NODE_Props].user++;
+	this->params[NODE_ProcessLatency].user++;
+
+	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
+	this->port_params[PORT_Latency].user++;
+	return 1;
+}
+
 static int alsa_set_param(struct state *state, const char *k, const char *s)
 {
 	int fmt_change = 0;
@@ -2151,7 +2173,7 @@ static void recalc_headroom(struct state *state)
 	else
 		state->headroom = 0;
 
-	latency = SPA_MAX(state->min_delay, SPA_MIN(state->max_delay, state->headroom));
+	latency = SPA_CLAMP(state->headroom, state->min_delay, state->max_delay);
 
 	if (state->is_firewire) {
 		/* XXX: For ALSA FireWire drivers, unlike for other ALSA drivers, buffer size

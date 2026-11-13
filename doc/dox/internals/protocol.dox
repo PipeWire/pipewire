@@ -1296,7 +1296,7 @@ Emit an event on the node.
 ### ClientNode::PortBuffers (Opcode 6)
 
 This method is used by the client when it has allocated buffers for a port.
-It is usually called right after the UseBuffers event to let the server know
+It is usually called right after the PortUseBuffers event to let the server know
 about the the newly allocated buffer memory.
 
 ```
@@ -1464,7 +1464,7 @@ Set a parameter on the Port of the node.
 - flags: extra flags
 - param: the param object to set
 
-### ClientNode::UseBuffers (Opcode 8)
+### ClientNode::PortUseBuffers (Opcode 8)
 
 Use a set of buffers on the mixer port
 

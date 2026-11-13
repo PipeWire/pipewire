@@ -160,6 +160,15 @@ static int write_bind_ctl_param(struct state *state, const char *name, const cha
 	return 0;
 }
 
+static void recalc_delay(struct state *this)
+{
+	if (this->driver_duration != 0 && this->driver_rate.denom != 0 && this->rate != 0) {
+		this->delay = (uint32_t)(this->process_latency.quantum * this->driver_duration) +
+			SPA_SCALE32(this->process_latency.rate, this->driver_rate.denom, this->rate) +
+			SPA_SCALE32(this->process_latency.ns, this->driver_rate.denom, SPA_NSEC_PER_SEC);
+	}
+}
+
 int spa_alsa_update_process_latency(struct state *this,
 		const struct spa_process_latency_info *info)
 {
@@ -179,6 +188,9 @@ int spa_alsa_update_process_latency(struct state *this,
 
 	this->port_info.change_mask |= SPA_PORT_CHANGE_MASK_PARAMS;
 	this->port_params[PORT_Latency].user++;
+
+	recalc_delay(this);
+
 	return 1;
 }
 
@@ -2186,6 +2198,8 @@ static void recalc_headroom(struct state *state)
 
 	state->latency[state->port_direction].min_rate =
 		state->latency[state->port_direction].max_rate = latency;
+
+	recalc_delay(state);
 }
 
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
@@ -3043,10 +3057,8 @@ static int get_status(struct state *state, uint64_t current_time, snd_pcm_uframe
 	a = SPA_MIN(res, (int)state->buffer_frames);
 
 	if (state->resample && state->rate_match) {
-		state->delay = state->rate_match->delay;
 		state->read_size = state->rate_match->size;
 	} else {
-		state->delay = 0;
 		state->read_size = state->threshold;
 	}
 	if (state->stream == SND_PCM_STREAM_PLAYBACK) {
@@ -3168,19 +3180,15 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 		state->clock->rate = state->driver_rate;
 		state->clock->position += state->clock->duration;
 		state->clock->duration = state->driver_duration;
-		if (state->driver_rate.denom != (uint32_t)state->rate) {
-			/* delay is in the rate of the device, state->delay is from the
-			 * resampler input and in graph rate for playback and the device
-			 * rate for capture */
-			if (state->stream == SND_PCM_STREAM_PLAYBACK)
-				state->clock->delay = state->delay + SPA_SCALE32(delay,
-						state->driver_rate.denom, state->rate);
-			else
-				state->clock->delay = SPA_SCALE32(delay + state->delay,
-						state->driver_rate.denom, state->rate);
-		} else {
+		if (state->driver_rate.denom != (uint32_t)state->rate)
+			/* state->delay is in graph rate and contains the internal delay
+			 * in the hardware, given with the process_latency.
+			 * delay is in the rate of the device and contains the queued samples
+			 * in the ringbuffer. */
+			state->clock->delay = state->delay + SPA_SCALE32(delay,
+					state->driver_rate.denom, state->rate);
+		else
 			state->clock->delay = delay + state->delay;
-		}
 		state->clock->rate_diff = corr;
 		state->clock->next_nsec = state->next_time;
 	}
@@ -3274,6 +3282,7 @@ static inline int check_position_config(struct state *state, bool starting)
 		state->err_wdw = (double)state->driver_rate.denom/state->driver_duration;
 		state->resample = need_resample(state);
 		state->alsa_sync = true;
+		recalc_delay(state);
 	}
 	return 0;
 }

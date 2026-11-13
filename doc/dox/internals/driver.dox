@@ -13,7 +13,8 @@ by using a timer that periodically invokes a callback, or by an interrupt.
 
 Drivers use the monotonic system clock as the reference for timestamping. Note
 that "monotonic system clock" does not refer to the \c MONOTONIC_RAW clock in
-Linux, but rather, to the regular monotonic clock.
+Linux, but rather, to the regular monotonic clock. The reason is that
+MONOTONIC_RAW clocks can not be used with timerfd.
 
 Drivers may actually be run by a custom internal clock instead of the monotonic
 system clock. One example would be a sound card DAC's clock. Another would be
@@ -57,6 +58,11 @@ updated as follows:
   \ref SPA_IO_CLOCK_FLAG_DISCONT flag in such a case. Just like with nsec, to
   minimize jitter, it is usually a good idea to increment this by a computed amount
   except for when the driver starts and when discontinuities occur in its clock.
+- \ref spa_io_clock::delay : The internal delay of the data expressed in samples.
+  This includes extra headroom and internal latency inside the device.
+  After converting this to time and subtracting from \ref spa_io_clock::nsec one
+  would get the exact absolute time when the data of the current cycle was generated
+  (or in a sink, when it will be played).
 
 The driver node signals the start of the graph cycle by calling \ref spa_node_call_ready
 with the \ref SPA_STATUS_HAVE_DATA and \ref SPA_STATUS_NEED_DATA flags passed

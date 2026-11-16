@@ -2406,9 +2406,7 @@ int pw_stream_set_control(struct pw_stream *stream, uint32_t id, uint32_t n_valu
 
 	va_end(varargs);
 
-	stream_set_param(impl, SPA_PARAM_Props, pod);
-
-	return 0;
+	return stream_set_param(impl, SPA_PARAM_Props, pod);
 }
 
 SPA_EXPORT

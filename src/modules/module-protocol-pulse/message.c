@@ -128,6 +128,13 @@ static int read_props(struct message *m, struct pw_properties *props, bool remap
 		if (strnlen(data, size) != size - 1)
 			continue;
 
+		/* these are internal pipewire properties, a client has no business
+		 * setting or updating this. */
+		if (remap && spa_strstartswith(key, "pipewire.")) {
+			pw_log_warn("ignoring client-supplied property '%s'", key);
+			continue;
+		}
+
 		if (remap && (map = str_map_find(props_key_map, NULL, key)) != NULL) {
 			key = map->pw_str;
 			if (map->child != NULL &&

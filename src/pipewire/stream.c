@@ -158,6 +158,7 @@ struct stream {
 	unsigned int trigger:1;
 	unsigned int early_process:1;
 	unsigned int trigger_done_rt:1;
+	unsigned int report_buffered:1;
 	int in_set_param;
 	int in_emit_param_changed;
 	int pending_drain;
@@ -691,7 +692,7 @@ static inline void copy_position(struct stream *impl, int64_t queued)
 		impl->quantum = p->clock.duration;
 	}
 	if (SPA_LIKELY(impl->rate_match != NULL)) {
-		impl->rate_queued = impl->rate_match->delay;
+		impl->rate_queued = impl->report_buffered ? impl->rate_match->delay : 0;
 		impl->rate_size = impl->rate_match->size;
 		impl->have_requested = impl->rate_size != 0;
 	} else {
@@ -2011,6 +2012,7 @@ pw_stream_connect(struct pw_stream *stream,
 
 	impl->trigger_done_rt = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_RT_TRIGGER_DONE);
 	impl->early_process = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_EARLY_PROCESS);
+	impl->report_buffered = SPA_FLAG_IS_SET(flags, PW_STREAM_FLAG_REPORT_BUFFERED);
 
 	impl->impl_node.iface = SPA_INTERFACE_INIT(
 			SPA_TYPE_INTERFACE_Node,
@@ -2200,6 +2202,9 @@ pw_stream_connect(struct pw_stream *stream,
 	}
 	if (pw_properties_get(props, PW_KEY_PORT_GROUP) == NULL)
 		pw_properties_set(props, PW_KEY_PORT_GROUP, "stream.0");
+
+	if (impl->report_buffered)
+		pw_properties_set(props, "resample.report-latency", false);
 
 	if (impl->media_type == SPA_MEDIA_TYPE_audio ||
 	    impl->media_type == SPA_MEDIA_TYPE_video) {

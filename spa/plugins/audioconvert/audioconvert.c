@@ -277,8 +277,10 @@ struct impl {
 	struct spa_list free_graphs;
 	struct spa_list active_graphs;
 	struct filter_graph graphs[MAX_GRAPH];
-	struct spa_process_latency_info latency;
 	char *graph_descs[MAX_GRAPH];
+
+	struct spa_process_latency_info latency;
+	uint32_t resample_latency;
 
 	int in_filter_props;
 	int filter_props_count;
@@ -330,6 +332,7 @@ struct impl {
 	unsigned int started:1;
 	unsigned int setup:1;
 	unsigned int resample_peaks:1;
+	unsigned int resample_report_latency:1;
 	unsigned int ramp_volume:1;
 	unsigned int drained:1;
 	unsigned int rate_adjust:1;
@@ -1182,7 +1185,7 @@ static void recalc_latencies(struct impl *this, enum spa_direction direction)
 static void recalc_graph_latency(struct impl *impl)
 {
 	struct filter_graph *g;
-	int32_t latency = 0;
+	int32_t latency = impl->resample_report_latency ? impl->resample_latency : 0;
 
 	spa_list_for_each(g, &impl->active_graphs, link)
 		latency += g->latency;
@@ -2627,10 +2630,11 @@ static int setup_out_convert(struct impl *this)
 
 static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, uint32_t size, uint32_t queued)
 {
-	uint32_t delay, match_size;
+	uint32_t delay, match_size, latency;
 	int32_t delay_frac;
 
 	if (passthrough) {
+		latency = 0;
 		delay = 0;
 		delay_frac = 0;
 		match_size = size;
@@ -2645,9 +2649,11 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 		    SPA_FLAG_IS_SET(this->io_rate_match->flags, SPA_IO_RATE_MATCH_FLAG_ACTIVE))
 			rate *= this->io_rate_match->rate;
 		resample_update_rate(&this->resample, rate);
-		fdelay = resample_delay(&this->resample) + resample_phase(&this->resample);
+		latency = resample_delay(&this->resample);
+		fdelay = latency + resample_phase(&this->resample);
 		if (this->direction == SPA_DIRECTION_INPUT) {
 			match_size = resample_in_len(&this->resample, size);
+			latency = SPA_SCALE32(latency, this->resample.o_rate, this->resample.i_rate);
 		} else {
 			fdelay *= rate * this->resample.o_rate / this->resample.i_rate;
 			match_size = resample_out_len(&this->resample, size);
@@ -2657,6 +2663,7 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 		delay_frac = (int32_t)((fdelay - delay) * 1e9);
 	}
 	match_size -= SPA_MIN(match_size, queued);
+	this->resample_latency = latency;
 
 	spa_log_trace_fp(this->log, "%p: next match %u %u %u", this, match_size, size, queued);
 
@@ -2763,6 +2770,10 @@ static int setup_convert(struct impl *this)
 	this->recalc = true;
 
 	sync_filter_graph(this);
+
+	recalc_graph_latency(this);
+
+	emit_info(this, false);
 
 	return 0;
 }
@@ -4666,6 +4677,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->gaps.history = 256;
 	this->gaps.order = 16;
 	this->gaps.threshold = 0.98;
+	this->resample_report_latency = true;
 
 	for (i = 0; info && i < info->n_items; i++) {
 		const char *k = info->items[i].key;
@@ -4674,6 +4686,8 @@ impl_init(const struct spa_handle_factory *factory,
 			spa_atou32(s, &this->quantum_limit, 0);
 		else if (spa_streq(k, "resample.peaks"))
 			this->resample_peaks = spa_atob(s);
+		else if (spa_streq(k, "resample.report-latency"))
+			this->resample_report_latency = spa_atob(s);
 		else if (spa_streq(k, "resample.prefill"))
 			SPA_FLAG_UPDATE(this->resample.options,
 				RESAMPLE_OPTION_PREFILL, spa_atob(s));

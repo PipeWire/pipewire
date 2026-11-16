@@ -336,7 +336,9 @@ struct pw_stream_control {
  * expressed as app.rate).
  *
  * pw_time.buffered is format dependent, for audio/raw it contains the number of frames
- * that are buffered inside the resampler/converter.
+ * that are buffered inside the resampler/converter. Since 1.8.0 this value is only
+ * reported when \ref PW_STREAM_FLAG_DELAY_REPORT is set. The delay caused by the
+ * resampler is otherwise added to the pw_time.delay value.
  *
  * The total delay of data in a stream is the sum of the queued and buffered data
  * (not yet processed data) and the delay to the edge of the graph, usually a
@@ -370,8 +372,8 @@ struct pw_stream_control {
  * dequeue   buffers                \-------------------/\--------/
  *                                     graph              internal
  *                                    latency             latency
- *         \--------/\-------------/\-----------------------------/
- *           queued      buffered            delay
+ *         \--------/\--------/\----------------------------------/
+ *           queued   buffered      delay
  *\endcode
  */
 struct pw_time {
@@ -395,13 +397,18 @@ struct pw_time {
 					  *  delay is normally constant in a graph and can change when
 					  *  the topology of the graph or the quantum changes. This delay
 					  *  does not include the delay caused by queued buffers.
-					  *  The delay can be negative, see \ref pw_time . */
+					  *  When \ref PW_STREAM_FLAG_REPORT_BUFFERED is set, the \a
+					  *  buffered field is non-zero and must be added to the
+					  *  delay manually. The total delay can be negative, see
+					  *  \ref pw_time . */
 	uint64_t queued;		/**< data queued in the stream, this is the sum
 					  *  of the size fields in the pw_buffer that are
 					  *  currently queued */
 	uint64_t buffered;		/**< for audio/raw streams, this contains the extra
 					  *  number of frames buffered in the resampler.
-					  *  Since 0.3.50. */
+					  *  Since 0.3.50. Since 1.8.0 this value is only reported
+					  *  when \ref PW_STREAM_FLAG_REPORT_BUFFERED is set and the
+					  *  amount is then not added to \a delay. */
 	uint32_t queued_buffers;	/**< the number of buffers that are queued. Since 0.3.50 */
 	uint32_t avail_buffers;		/**< the number of buffers that can be dequeued. Since 0.3.50 */
 	uint64_t size;			/**< for audio/raw playback streams, this contains the number of
@@ -501,6 +508,10 @@ enum pw_stream_flags {
 	PW_STREAM_FLAG_RT_TRIGGER_DONE	= (1 << 12),	/**< Call trigger_done from the realtime
 							  *  thread. You MUST use RT safe functions
 							  *  in the trigger_done callback. Since 1.1.0 */
+	PW_STREAM_FLAG_REPORT_BUFFERED	= (1 << 13),	/**< Report the resampler delay in the pw_time
+							  *  buffered field. It will then not be reported
+							  *  in pw_time delay and you must add it yourself
+							  *  to get the complete delay. Since 1.8.0 */
 };
 
 /** Create a new unconnected \ref pw_stream

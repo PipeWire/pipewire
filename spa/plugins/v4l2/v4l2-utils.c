@@ -165,9 +165,9 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 	reqbuf.memory = port->memtype;
 	reqbuf.count = 0;
 
-	if (xioctl(port->dev.fd, VIDIOC_REQBUFS, &reqbuf) < 0) {
+	if (xioctl(port->dev.fd, VIDIOC_REQBUFS, &reqbuf) < 0)
 		spa_log_warn(this->log, "VIDIOC_REQBUFS: %m");
-	}
+
 	port->n_buffers = 0;
 
 	return 0;
@@ -1921,17 +1921,18 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 
 		if (port->memtype == V4L2_MEMORY_USERPTR ||
 		    port->memtype == V4L2_MEMORY_MMAP) {
+			void *data;
 			if (d[0].data == NULL) {
-				void *data;
 
 				data = mmap(NULL,
 					    d[0].maxsize,
 					    PROT_READ | PROT_WRITE, MAP_SHARED,
 					    d[0].fd,
 					    d[0].mapoffset);
-				if (data == MAP_FAILED)
+				if (data == MAP_FAILED) {
+					spa_log_error(this->log, "'%s' mmap: %m", this->props.device);
 					return -errno;
-
+				}
 				b->ptr = data;
 				SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 			}
@@ -1947,14 +1948,15 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 					spa_log_error(this->log, "'%s' VIDIOC_QUERYBUF: %m", this->props.device);
 					return -errno;
 				}
-				b->mmap_ptr = mmap(NULL,
+				data = mmap(NULL,
 						b->v4l2_buffer.length,
-						PROT_READ, MAP_PRIVATE,
+						PROT_READ, MAP_SHARED,
 						dev->fd, b->v4l2_buffer.m.offset);
-				if (b->mmap_ptr == MAP_FAILED) {
+				if (data == MAP_FAILED) {
 					spa_log_error(this->log, "'%s' mmap: %m", this->props.device);
 					return -errno;
 				}
+				b->mmap_ptr = data;
 			}
 		}
 		else if (port->memtype == V4L2_MEMORY_DMABUF) {
@@ -1965,7 +1967,6 @@ static int spa_v4l2_use_buffers(struct impl *this, struct spa_buffer **buffers, 
 					this->props.device, port->memtype);
 			return -EIO;
 		}
-
 		spa_v4l2_buffer_recycle(this, i);
 	}
 	port->n_buffers = n_buffers;
@@ -2006,6 +2007,7 @@ mmap_init(struct impl *this,
 	for (i = 0; i < n_buffers; i++) {
 		struct buffer *b;
 		struct spa_data *d;
+		void *data;
 
 		if (buffers[i]->n_datas < 1) {
 			spa_log_error(this->log, "%s: invalid buffer data",
@@ -2082,16 +2084,16 @@ again:
 			d[0].flags = SPA_DATA_FLAG_READABLE;
 			d[0].fd = -1;
 			d[0].mapoffset = b->v4l2_buffer.m.offset;
-			d[0].data = mmap(NULL,
+			data = mmap(NULL,
 					b->v4l2_buffer.length,
 					PROT_READ, MAP_SHARED,
 					dev->fd,
 					b->v4l2_buffer.m.offset);
-			if (d[0].data == MAP_FAILED) {
+			if (data == MAP_FAILED) {
 				spa_log_error(this->log, "'%s' mmap: %m", this->props.device);
 				return -errno;
 			}
-			b->ptr = d[0].data;
+			b->ptr = d[0].data = data;
 			SPA_FLAG_SET(b->flags, BUFFER_FLAG_MAPPED);
 			spa_log_debug(this->log, "mmap offset:%u data:%p", d[0].mapoffset, b->ptr);
 			use_expbuf = false;

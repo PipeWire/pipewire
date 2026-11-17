@@ -2527,18 +2527,19 @@ static struct pw_manager_object *find_device(struct client *client,
 		uint32_t index, const char *name, bool sink)
 {
 	struct selector sel;
-	bool find_default = false, monitor = false;
+	bool find_default = false, monitor_only = false, source_only = false;
 
 	if (name != NULL) {
 		if (spa_streq(name, DEFAULT_MONITOR)) {
 			if (sink)
 				return NULL;
 			find_default = true;
-			monitor = true;
+			monitor_only = true;
 		} else if (spa_streq(name, DEFAULT_SOURCE)) {
 			if (sink)
 				return NULL;
 			find_default = true;
+			source_only = true;
 		} else if (spa_streq(name, DEFAULT_SINK)) {
 			if (!sink)
 				return NULL;
@@ -2558,8 +2559,9 @@ static struct pw_manager_object *find_device(struct client *client,
 	spa_zero(sel);
 	sel.type = sink ?
 		pw_manager_object_is_sink :
-		monitor ? pw_manager_object_is_monitor :
-		pw_manager_object_is_source_not_monitor;
+		monitor_only ? pw_manager_object_is_monitor :
+		source_only ? pw_manager_object_is_source_not_monitor :
+		pw_manager_object_is_source;
 	sel.index = index;
 	sel.key = PW_KEY_NODE_NAME;
 	sel.value = name;

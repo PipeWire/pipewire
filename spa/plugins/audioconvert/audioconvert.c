@@ -281,6 +281,7 @@ struct impl {
 
 	struct spa_process_latency_info latency;
 	uint32_t resample_latency;
+	uint64_t latency_time;
 
 	int in_filter_props;
 	int filter_props_count;
@@ -1195,6 +1196,10 @@ static void recalc_graph_latency(struct impl *impl)
 
 	if (latency != impl->latency.rate) {
 		impl->latency.rate = latency;
+		impl->latency_time = SPA_SCALE32(latency, SPA_NSEC_PER_SEC,
+				impl->direction == SPA_DIRECTION_INPUT ?
+					impl->resample.o_rate :
+					impl->resample.i_rate);
 		recalc_latencies(impl, SPA_DIRECTION_INPUT);
 		recalc_latencies(impl, SPA_DIRECTION_OUTPUT);
 	}

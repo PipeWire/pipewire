@@ -140,6 +140,9 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 		struct spa_data *d;
 
 		b = &port->buffers[i];
+		if (b->outbuf == NULL)
+			continue;
+
 		d = b->outbuf->datas;
 
 		if (SPA_FLAG_IS_SET(b->flags, BUFFER_FLAG_OUTSTANDING)) {
@@ -156,6 +159,7 @@ static int spa_v4l2_clear_buffers(struct impl *this)
 			close(d[0].fd);
 		}
 		d[0].type = SPA_ID_INVALID;
+		spa_zero(*b);
 	}
 
 	spa_zero(reqbuf);

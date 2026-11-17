@@ -1187,6 +1187,9 @@ static void recalc_graph_latency(struct impl *impl)
 	struct filter_graph *g;
 	int32_t latency = impl->resample_report_latency ? impl->resample_latency : 0;
 
+	if (latency > 0 && impl->direction == SPA_DIRECTION_INPUT && impl->resample.i_rate != 0)
+		latency = SPA_SCALE32(latency, impl->resample.o_rate, impl->resample.i_rate);
+
 	spa_list_for_each(g, &impl->active_graphs, link)
 		latency += g->latency;
 
@@ -2653,7 +2656,6 @@ static uint32_t resample_update_rate_match(struct impl *this, bool passthrough, 
 		fdelay = latency + resample_phase(&this->resample);
 		if (this->direction == SPA_DIRECTION_INPUT) {
 			match_size = resample_in_len(&this->resample, size);
-			latency = SPA_SCALE32(latency, this->resample.o_rate, this->resample.i_rate);
 		} else {
 			fdelay *= rate * this->resample.o_rate / this->resample.i_rate;
 			match_size = resample_out_len(&this->resample, size);

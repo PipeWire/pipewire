@@ -774,7 +774,7 @@ static void snd_ctl_pipewire_free(snd_ctl_pipewire_t *ctl)
 		pw_proxy_destroy((struct pw_proxy*)ctl->registry);
 	if (ctl->context)
 		pw_context_destroy(ctl->context);
-	if (ctl->fd >= 0)
+	if (ctl->fd != -1)
 		spa_system_close(ctl->system, ctl->fd);
 	if (ctl->mainloop)
 		pw_thread_loop_destroy(ctl->mainloop);
@@ -1321,6 +1321,7 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 		return -ENOMEM;
 
 	spa_list_init(&ctl->globals);
+	ctl->fd = -1;
 
 	if (source == NULL)
 		source = device;
@@ -1341,12 +1342,11 @@ SND_CTL_PLUGIN_DEFINE_FUNC(pipewire)
 	loop = pw_thread_loop_get_loop(ctl->mainloop);
 
 	ctl->system = loop->system;
-	ctl->fd = spa_system_eventfd_create(ctl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (ctl->fd < 0) {
-		err = ctl->fd;
+	err = spa_system_eventfd_create(ctl->system, SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (err < 0)
 		goto error;
-	}
 
+	ctl->fd = err;
 	ctl->context = pw_context_new(loop,
 					pw_properties_new(
 						PW_KEY_CLIENT_API, "alsa",

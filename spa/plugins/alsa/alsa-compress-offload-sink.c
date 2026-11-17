@@ -1847,7 +1847,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	device_close(this);
 
-	if (this->driver_timerfd > 0) {
+	if (this->driver_timerfd != -1) {
 		spa_system_close(this->data_system, this->driver_timerfd);
 		this->driver_timerfd = -1;
 	}
@@ -1912,18 +1912,20 @@ impl_init(const struct spa_handle_factory *factory, struct spa_handle *handle,
 	this->started = false;
 
 	this->freewheel = false;
+	this->driver_timerfd = -1;
 
 	this->n_buffers = 0;
 	spa_list_init(&this->queued_output_buffers);
 	this->offset_within_oldest_output_buffer = 0;
 
-	res = this->driver_timerfd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
+	res = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
 	                                                       SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
 	if (SPA_UNLIKELY(res < 0)) {
 		spa_log_error(this->log, "%p: could not create driver timerfd: %s", this, spa_strerror(res));
 		goto error;
 	}
 
+	this->driver_timerfd = res;
 	this->next_driver_time = 0;
 	this->following = false;
 

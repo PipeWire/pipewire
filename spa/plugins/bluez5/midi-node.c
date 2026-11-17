@@ -1887,7 +1887,7 @@ static int impl_clear(struct spa_handle *handle)
 	do_release(this);
 
 	free(this->chr_path);
-	if (this->timerfd > 0)
+	if (this->timerfd != -1)
 		spa_system_close(this->data_system, this->timerfd);
 	if (this->server)
 		spa_bt_midi_server_destroy(this->server);
@@ -1935,6 +1935,7 @@ impl_init(const struct spa_handle_factory *factory,
 	if (this->log == NULL)
 		return -EINVAL;
 
+	this->timerfd = -1;
 	spa_log_topic_init(this->log, &log_topic);
 
 	if (!(info && spa_atob(spa_dict_lookup(info, SPA_KEY_API_GLIB_MAINLOOP)))) {

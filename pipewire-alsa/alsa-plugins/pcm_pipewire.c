@@ -138,7 +138,7 @@ static void snd_pcm_pipewire_free(snd_pcm_pipewire_t *pw)
 		pw_stream_destroy(pw->stream);
 	if (pw->context)
 		pw_context_destroy(pw->context);
-	if (pw->fd >= 0)
+	if (pw->fd != -1)
 		spa_system_close(pw->system, pw->fd);
 	if (pw->main_loop)
 		pw_thread_loop_destroy(pw->main_loop);
@@ -1365,12 +1365,12 @@ static int snd_pcm_pipewire_open(snd_pcm_t **pcmp,
 	pw_core_add_listener(pw->core, &pw->core_listener, &core_events, pw);
 	pw_thread_loop_unlock(pw->main_loop);
 
-	pw->fd = spa_system_eventfd_create(pw->system,
+	err = spa_system_eventfd_create(pw->system,
 			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (pw->fd < 0) {
-		err = pw->fd;
+	if (err < 0)
 		goto error;
-	}
+
+	pw->fd = err;
 
 	pw->io.version = SND_PCM_IOPLUG_VERSION;
 	pw->io.name = "ALSA <-> PipeWire PCM I/O Plugin";

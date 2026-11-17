@@ -851,9 +851,11 @@ static int impl_clear(struct spa_handle *handle)
 
 	spa_vulkan_compute_deinit(&this->state);
 
-	if (this->data_loop)
-		spa_loop_locked(this->data_loop, do_remove_timer, 0, NULL, 0, this);
-	spa_system_close(this->data_system, this->timer_source.fd);
+	if (this->timer_source.fd != -1) {
+		if (this->data_loop)
+			spa_loop_locked(this->data_loop, do_remove_timer, 0, NULL, 0, this);
+		spa_system_close(this->data_system, this->timer_source.fd);
+	}
 
 	return 0;
 }
@@ -874,6 +876,7 @@ impl_init(const struct spa_handle_factory *factory,
 {
 	struct impl *this;
 	struct port *port;
+	int res;
 
 	spa_return_val_if_fail(factory != NULL, -EINVAL);
 	spa_return_val_if_fail(handle != NULL, -EINVAL);
@@ -887,6 +890,7 @@ impl_init(const struct spa_handle_factory *factory,
 	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->data_system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataSystem);
 
+	this->timer_source.fd = -1;
 	spa_hook_list_init(&this->hooks);
 
 	this->node.iface = SPA_INTERFACE_INIT(
@@ -905,12 +909,14 @@ impl_init(const struct spa_handle_factory *factory,
 	this->info.params = this->params;
 	this->info.n_params = N_NODE_PARAMS;
 
+	res = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
+							  SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
+	if (res < 0)
+		return res;
+
+	this->timer_source.fd = res;
 	this->timer_source.func = on_output;
 	this->timer_source.data = this;
-	this->timer_source.fd = spa_system_timerfd_create(this->data_system, CLOCK_MONOTONIC,
-							  SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (this->timer_source.fd < 0)
-		return this->timer_source.fd;
 	this->timer_source.mask = SPA_IO_IN;
 	this->timer_source.rmask = 0;
 

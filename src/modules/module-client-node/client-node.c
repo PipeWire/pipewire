@@ -1389,12 +1389,13 @@ static void node_initialized(void *data)
 	struct pw_impl_client_node *this = &impl->this;
 	struct pw_global *global;
 	struct spa_system *data_system = impl->data_system;
+	int res;
 
-	impl->data_source.fd = spa_system_eventfd_create(data_system,
-			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK);
-	if (impl->data_source.fd < 0)
+	if ((res = spa_system_eventfd_create(data_system,
+			SPA_FD_CLOEXEC | SPA_FD_NONBLOCK)) < 0)
 		return;
 
+	impl->data_source.fd = res;
 	spa_loop_add_source(impl->data_loop, &impl->data_source);
 	pw_log_debug("%p: transport read-fd:%d write-fd:%d", impl,
 			impl->data_source.fd, this->node->source.fd);
@@ -1772,7 +1773,6 @@ struct pw_impl_client_node *pw_impl_client_node_new(struct pw_resource *resource
 
 	impl->context = context;
 	impl->context_pool = pw_context_get_mempool(context);
-	impl->data_source.fd = -1;
 	pw_log_debug("%p: new", &impl->node);
 
 	impl_init(impl, NULL);

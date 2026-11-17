@@ -120,6 +120,8 @@ bool pw_manager_object_is_module(struct pw_manager_object *o);
 bool pw_manager_object_is_card(struct pw_manager_object *o);
 bool pw_manager_object_is_sink(struct pw_manager_object *o);
 bool pw_manager_object_is_source(struct pw_manager_object *o);
+bool pw_manager_object_is_monitor(struct pw_manager_object *o);
+bool pw_manager_object_is_source_not_monitor(struct pw_manager_object *o);
 bool pw_manager_object_is_virtual(struct pw_manager_object *o);
 bool pw_manager_object_is_network(struct pw_manager_object *o);
 bool pw_manager_object_is_sink_input(struct pw_manager_object *o);

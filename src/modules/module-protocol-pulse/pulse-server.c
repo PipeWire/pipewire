@@ -2507,7 +2507,7 @@ static const char *get_default(struct client *client, bool sink)
 		sel.value = client->default_sink;
 		def = DEFAULT_SINK;
 	} else {
-		sel.type = pw_manager_object_is_source;
+		sel.type = pw_manager_object_is_source_not_monitor;
 		sel.key = PW_KEY_NODE_NAME;
 		sel.value = client->default_source;
 		def = DEFAULT_SOURCE;
@@ -2527,14 +2527,14 @@ static struct pw_manager_object *find_device(struct client *client,
 		uint32_t index, const char *name, bool sink)
 {
 	struct selector sel;
-	bool find_default = false;
-	struct pw_manager_object *o;
+	bool find_default = false, monitor = false;
 
 	if (name != NULL) {
 		if (spa_streq(name, DEFAULT_MONITOR)) {
 			if (sink)
 				return NULL;
 			find_default = true;
+			monitor = true;
 		} else if (spa_streq(name, DEFAULT_SOURCE)) {
 			if (sink)
 				return NULL;
@@ -2558,17 +2558,13 @@ static struct pw_manager_object *find_device(struct client *client,
 	spa_zero(sel);
 	sel.type = sink ?
 		pw_manager_object_is_sink :
-		pw_manager_object_is_source;
+		monitor ? pw_manager_object_is_monitor :
+		pw_manager_object_is_source_not_monitor;
 	sel.index = index;
 	sel.key = PW_KEY_NODE_NAME;
 	sel.value = name;
 
-	o = select_object(client->manager, &sel);
-	if (o != NULL) {
-		if (sink != pw_manager_object_is_sink(o))
-			return NULL;
-	}
-	return o;
+	return select_object(client->manager, &sel);
 }
 
 static int do_play_sample(struct client *client, uint32_t command, uint32_t tag, struct message *m)

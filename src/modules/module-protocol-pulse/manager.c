@@ -1252,6 +1252,18 @@ bool pw_manager_object_is_source(struct pw_manager_object *o)
 	return manager_object_stream_type(o) == PW_MANAGER_STREAM_TYPE_SOURCE;
 }
 
+bool pw_manager_object_is_monitor(struct pw_manager_object *o)
+{
+	return manager_object_stream_type(o) == PW_MANAGER_STREAM_TYPE_SOURCE &&
+		o->u.stream.monitor;
+}
+
+bool pw_manager_object_is_source_not_monitor(struct pw_manager_object *o)
+{
+	return manager_object_stream_type(o) == PW_MANAGER_STREAM_TYPE_SOURCE &&
+		!o->u.stream.monitor;
+}
+
 bool pw_manager_object_is_virtual(struct pw_manager_object *o)
 {
 	const char *str;

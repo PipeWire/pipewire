@@ -1514,6 +1514,8 @@ static int mmap_read(struct impl *this)
 	d = b->outbuf->datas;
 	d[0].chunk->offset = 0;
 	d[0].chunk->size = SPA_MIN(buf.bytesused, d[0].maxsize);
+	if (b->v4l2_buffer.length > 0)
+		d[0].chunk->size = SPA_MIN(d[0].chunk->size, b->v4l2_buffer.length);
 	d[0].chunk->stride = port->fmt.fmt.pix.bytesperline;
 	d[0].chunk->flags = 0;
 	if (buf.flags & V4L2_BUF_FLAG_ERROR)

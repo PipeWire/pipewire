@@ -814,6 +814,11 @@ gst_pipewire_device_provider_probe (GstDeviceProvider * provider)
 
   GST_DEBUG_OBJECT (self, "disconnect");
 
+  if (self->metadata) {
+    spa_hook_remove(&self->metadata_listener);
+    pw_proxy_destroy((struct pw_proxy *)self->metadata);
+    self->metadata = NULL;
+  }
   g_clear_pointer ((struct pw_proxy**)&self->registry, pw_proxy_destroy);
   clear_nodes (self);
   spa_hook_remove (&self->core_listener);

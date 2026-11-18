@@ -442,6 +442,7 @@ static int ucm_get_device_property(
     uint32_t ui;
     int n_confdev, n_suppdev;
     pa_alsa_ucm_volume *vol;
+    char *elem;
 
     /* determine the device type */
     device->type = PA_DEVICE_PORT_TYPE_UNKNOWN;
@@ -540,6 +541,13 @@ static int ucm_get_device_property(
                                    PA_ALSA_PROP_UCM_PLAYBACK_MASTER_TYPE);
         if (vol)
             pa_hashmap_put(device->playback_volumes, pa_xstrdup(pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME)), vol);
+
+        elem = ucm_get_mixer_id(device,
+                                 PA_ALSA_PROP_UCM_PLAYBACK_SWITCH,
+                                 "alsa.ucm.playback.ctlswitch",
+                                 "PlaybackSwitch");
+        if (elem)
+            pa_hashmap_put(device->playback_switches, pa_xstrdup(pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME)), elem);
     }
 
     if (device->capture_channels) { /* source device */
@@ -569,6 +577,13 @@ static int ucm_get_device_property(
                                    PA_ALSA_PROP_UCM_CAPTURE_MASTER_TYPE);
         if (vol)
           pa_hashmap_put(device->capture_volumes, pa_xstrdup(pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME)), vol);
+
+        elem = ucm_get_mixer_id(device,
+                                 PA_ALSA_PROP_UCM_CAPTURE_SWITCH,
+                                 "alsa.ucm.capture.ctlswitch",
+                                 "CaptureSwitch");
+        if (elem)
+            pa_hashmap_put(device->capture_switches, pa_xstrdup(pa_proplist_gets(verb->proplist, PA_ALSA_PROP_UCM_NAME)), elem);
     }
 
     device->playback_split = ucm_get_split_channels(device, uc_mgr, "Playback");
@@ -697,6 +712,8 @@ static int ucm_get_devices(pa_alsa_ucm_verb *verb, snd_use_case_mgr_t *uc_mgr) {
                                                   (pa_free_cb_t) ucm_volume_free);
         d->capture_volumes = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, pa_xfree,
                                                  (pa_free_cb_t) ucm_volume_free);
+        d->playback_switches = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, pa_xfree, pa_xfree);
+        d->capture_switches = pa_hashmap_new_full(pa_idxset_string_hash_func, pa_idxset_string_compare_func, pa_xfree, pa_xfree);
 
         PA_LLIST_PREPEND(pa_alsa_ucm_device, verb->devices, d);
     }
@@ -1396,6 +1413,7 @@ void pa_alsa_ucm_add_port(
     pa_alsa_ucm_device *dev;
     pa_alsa_ucm_port_data *data;
     pa_alsa_ucm_volume *vol;
+    char *elem;
     pa_alsa_jack *jack;
     pa_device_port_type_t type;
     void *state;
@@ -1448,6 +1466,13 @@ void pa_alsa_ucm_add_port(
                 pa_alsa_element *e = pa_alsa_element_get(path, vol->master_elem, false);
                 e->switch_use = PA_ALSA_SWITCH_MUTE;
                 e->volume_use = PA_ALSA_VOLUME_MERGE;
+            }
+
+            if ((elem = pa_hashmap_get(is_sink ? dev->playback_switches : dev->capture_switches, verb_name))) {
+                pa_alsa_element *e = pa_alsa_element_get(path, elem, false);
+                e->switch_use = PA_ALSA_SWITCH_MUTE;
+                e->volume_use = PA_ALSA_VOLUME_IGNORE;
+                e->direction_try_other = true;
             }
 
             pa_hashmap_put(data->paths, pa_xstrdup(verb_name), path);
@@ -2667,6 +2692,10 @@ static void free_verb(pa_alsa_ucm_verb *verb) {
             pa_hashmap_free(di->playback_volumes);
         if (di->capture_volumes)
             pa_hashmap_free(di->capture_volumes);
+        if (di->playback_switches)
+            pa_hashmap_free(di->playback_switches);
+        if (di->capture_switches)
+            pa_hashmap_free(di->capture_switches);
 
         pa_proplist_free(di->proplist);
 

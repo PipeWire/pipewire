@@ -209,6 +209,9 @@ struct pa_alsa_ucm_device {
     pa_hashmap *playback_volumes;
     pa_hashmap *capture_volumes;
 
+    pa_hashmap *playback_switches;
+    pa_hashmap *capture_switches;
+
     pa_alsa_mapping *playback_mapping;
     pa_alsa_mapping *capture_mapping;
 

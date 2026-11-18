@@ -1241,15 +1241,17 @@ static const struct pw_core_events core_events = {
 
 static ssize_t log_write(void *cookie, const char *buf, size_t size)
 {
-	int len;
+	for (size_t left = size; left > 0; ) {
+		const char *end = memchr(buf, '\n', left);
+		size_t len = end ? (size_t)(end - buf) : left;
 
-	while (size > 0) {
-		len = strcspn(buf, "\n");
 		if (len > 0)
 			pw_log_debug("%.*s", (int)len, buf);
-		buf += len + 1;
-		size -= len + 1;
+
+		buf += len + !!end;
+		left -= len + !!end;
 	}
+
 	return size;
 }
 

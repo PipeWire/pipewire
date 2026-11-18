@@ -264,7 +264,6 @@ if host_machine.endian() == 'big'
 endif
 
 check_headers = [
-  ['sys/auxv.h', 'HAVE_SYS_AUXV_H'],
   ['sys/mount.h', 'HAVE_SYS_MOUNT_H'],
   ['sys/param.h', 'HAVE_SYS_PARAM_H'],
   ['sys/prctl.h', 'HAVE_SYS_PRCTL_H'],
@@ -568,6 +567,8 @@ check_functions = [
   ['XSetIOErrorExitHandler', '#include <X11/Xlib.h>', [], [x11_dep]],
   ['malloc_trim', '#include <malloc.h>', [], []],
   ['malloc_info', '#include <malloc.h>', [], []],
+  ['getauxval', '#include <sys/auxv.h>', [], []],
+  ['elf_aux_info', '#include <sys/auxv.h>', [], []],
 ]
 
 foreach f : check_functions

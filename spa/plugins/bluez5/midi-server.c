@@ -401,12 +401,19 @@ static void midi_server_manager_proxy_init(MidiServerManagerProxy *manager)
 {
 }
 
-static void midi_server_manager_proxy_finalize(GObject *object)
+static void midi_server_manager_proxy_clear(GObject *object)
 {
 	MidiServerManagerProxy *manager = MIDI_SERVER_MANAGER_PROXY(object);
 
 	g_cancellable_cancel(manager->register_call);
 	g_clear_object(&manager->register_call);
+}
+
+static void midi_server_manager_proxy_finalize(GObject *object)
+{
+	midi_server_manager_proxy_clear(object);
+
+	G_OBJECT_CLASS(midi_server_manager_proxy_parent_class)->finalize(object);
 }
 
 static void midi_server_manager_proxy_class_init(MidiServerManagerProxyClass *klass)
@@ -425,7 +432,7 @@ static void manager_update(struct dbus_monitor *monitor, GDBusInterface *iface)
 
 static void manager_clear(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	midi_server_manager_proxy_finalize(G_OBJECT(iface));
+	midi_server_manager_proxy_clear(G_OBJECT(iface));
 }
 
 static void on_name_owner_change(struct dbus_monitor *monitor)

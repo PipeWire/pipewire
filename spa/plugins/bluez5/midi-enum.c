@@ -524,7 +524,7 @@ static void midi_enum_characteristic_proxy_init(MidiEnumCharacteristicProxy *chr
 {
 }
 
-static void midi_enum_characteristic_proxy_finalize(GObject *object)
+static void midi_enum_characteristic_proxy_clear(GObject *object)
 {
 	MidiEnumCharacteristicProxy *chr = MIDI_ENUM_CHARACTERISTIC_PROXY(object);
 
@@ -543,6 +543,13 @@ static void midi_enum_characteristic_proxy_finalize(GObject *object)
 	chr->description = NULL;
 }
 
+static void midi_enum_characteristic_proxy_finalize(GObject *object)
+{
+	midi_enum_characteristic_proxy_clear(object);
+
+	G_OBJECT_CLASS(midi_enum_characteristic_proxy_parent_class)->finalize(object);
+}
+
 static void midi_enum_characteristic_proxy_class_init(MidiEnumCharacteristicProxyClass *klass)
 {
 	GObjectClass *object_class = (GObjectClass *) klass;
@@ -554,12 +561,19 @@ static void midi_enum_manager_proxy_init(MidiEnumManagerProxy *manager)
 {
 }
 
-static void midi_enum_manager_proxy_finalize(GObject *object)
+static void midi_enum_manager_proxy_clear(GObject *object)
 {
 	MidiEnumManagerProxy *manager = MIDI_ENUM_MANAGER_PROXY(object);
 
 	g_cancellable_cancel(manager->register_call);
 	g_clear_object(&manager->register_call);
+}
+
+static void midi_enum_manager_proxy_finalize(GObject *object)
+{
+	midi_enum_manager_proxy_clear(object);
+
+	G_OBJECT_CLASS(midi_enum_manager_proxy_parent_class)->finalize(object);
 }
 
 static void midi_enum_manager_proxy_class_init(MidiEnumManagerProxyClass *klass)
@@ -578,7 +592,7 @@ static void manager_update(struct dbus_monitor *monitor, GDBusInterface *iface)
 
 static void manager_clear(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	midi_enum_manager_proxy_finalize(G_OBJECT(iface));
+	midi_enum_manager_proxy_clear(G_OBJECT(iface));
 }
 
 static void device_update(struct dbus_monitor *monitor, GDBusInterface *iface)
@@ -618,7 +632,7 @@ static void chr_update(struct dbus_monitor *monitor, GDBusInterface *iface)
 
 static void chr_clear(struct dbus_monitor *monitor, GDBusInterface *iface)
 {
-	midi_enum_characteristic_proxy_finalize(G_OBJECT(iface));
+	midi_enum_characteristic_proxy_clear(G_OBJECT(iface));
 }
 
 static void monitor_start(struct impl *impl)

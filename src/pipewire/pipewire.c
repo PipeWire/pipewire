@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <limits.h>
 #include <stdio.h>
-#if !defined(__FreeBSD__) && !defined(__MidnightBSD__) && !defined(__GNU__)
+#ifdef HAVE_SYS_PRCTL_H
 #include <sys/prctl.h>
 #endif
 #include <pwd.h>
@@ -697,9 +697,19 @@ static void init_prgname(void)
 		}
 	}
 #endif
-#if !defined(__FreeBSD__) && !defined(__MidnightBSD__) && !defined(__GNU__)
+#if defined(HAVE_SYS_PRCTL_H) && defined(PR_GET_NAME)
 	{
 		if (prctl(PR_GET_NAME, (unsigned long) name, 0, 0, 0) == 0) {
+			prgname = name;
+			return;
+		}
+	}
+#elif defined(HAVE_GETPROGNAME)
+	{
+		const char *p = getprogname();
+
+		if (p != NULL) {
+			snprintf(name, sizeof(name), "%s", p);
 			prgname = name;
 			return;
 		}

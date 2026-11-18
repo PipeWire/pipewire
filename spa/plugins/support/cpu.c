@@ -12,10 +12,6 @@
 #include <sched.h>
 #include <fcntl.h>
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__)
-#include <sys/sysctl.h>
-#endif
-
 #include <spa/support/log.h>
 #include <spa/support/cpu.h>
 #include <spa/support/plugin.h>
@@ -92,7 +88,7 @@ impl_cpu_force_flags(void *object, uint32_t flags)
 	return 0;
 }
 
-#ifndef __FreeBSD__
+#ifdef __linux__
 static uint32_t get_count(struct impl *this)
 {
 	cpu_set_t cpuset;
@@ -104,12 +100,9 @@ static uint32_t get_count(struct impl *this)
 #else
 static uint32_t get_count(struct impl *this)
 {
-	static const int mib[] = {CTL_HW, HW_NCPU};
-	int r;
-	size_t rSize = sizeof(r);
-	if(-1 == sysctl(mib, 2, &r, &rSize, 0, 0))
-		return 1;
-	return r;
+	long n = sysconf(_SC_NPROCESSORS_ONLN);
+
+	return n > 0 ? n : 1;
 }
 #endif
 

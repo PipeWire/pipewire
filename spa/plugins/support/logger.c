@@ -24,9 +24,11 @@
 #include <spa/utils/string.h>
 #include <spa/utils/ansi.h>
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__)
+#ifndef CLOCK_MONOTONIC_RAW
 #define CLOCK_MONOTONIC_RAW CLOCK_MONOTONIC
-#elif defined(_MSC_VER)
+#endif
+
+#if defined(_MSC_VER)
 static inline void setlinebuf(FILE* stream) {
 	setvbuf(stream, NULL, _IOLBF, 0);
 }

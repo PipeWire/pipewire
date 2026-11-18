@@ -2,11 +2,14 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <pthread.h>
-#ifdef __FreeBSD__
+#ifdef HAVE_PTHREAD_NP_H
 #include <pthread_np.h>
 #endif
 
@@ -29,6 +32,7 @@ do {									\
 	}								\
 } while(false);
 
+#ifdef HAVE_PTHREAD_SETAFFINITY_NP
 static int parse_affinity(const char *affinity, cpu_set_t *set)
 {
 	struct spa_json it[1];
@@ -44,6 +48,7 @@ static int parse_affinity(const char *affinity, cpu_set_t *set)
         }
 	return 0;
 }
+#endif
 
 SPA_EXPORT
 void *pw_thread_fill_attr(const struct spa_dict *props, void *_attr)
@@ -64,25 +69,27 @@ error:
 	return NULL;
 }
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__)
-#include <sys/param.h>
-#if __FreeBSD_version < 1202000 || defined(__MidnightBSD__)
-int pthread_setname_np(pthread_t thread, const char *name)
+static int thread_setname(pthread_t thread, const char *name)
 {
+#if defined(HAVE_PTHREAD_SET_NAME_NP)
 	pthread_set_name_np(thread, name);
 	return 0;
+#elif defined(HAVE_PTHREAD_SETNAME_NP)
+	return pthread_setname_np(thread, name);
+#else
+	return 0;
+#endif
 }
-#endif
-#endif
-#if defined(__GNU__)
-int pthread_setname_np(pthread_t thread, const char *name) { return 0; }
-#endif
 
 static int thread_setaffinity(pthread_t thread, const char *affinity)
 {
+#ifdef HAVE_PTHREAD_SETAFFINITY_NP
 	cpu_set_t set;
 	parse_affinity(affinity, &set);
 	return -pthread_setaffinity_np(thread, sizeof(set), &set);
+#else
+	return -ENOTSUP;
+#endif
 }
 
 static struct spa_thread *impl_create(void *object,
@@ -114,7 +121,7 @@ static struct spa_thread *impl_create(void *object,
 	}
 	if (props) {
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_NAME)) != NULL &&
-		    (err = pthread_setname_np(pt, str)) != 0)
+		    (err = thread_setname(pt, str)) != 0)
 			pw_log_warn("pthread_setname error: %s", strerror(err));
 		if ((str = spa_dict_lookup(props, SPA_KEY_THREAD_AFFINITY)) != NULL &&
 		    (err = thread_setaffinity(pt, str)) != 0)

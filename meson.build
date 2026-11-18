@@ -271,6 +271,7 @@ check_headers = [
   ['sys/vfs.h', 'HAVE_SYS_VFS_H'],
   ['pwd.h', 'HAVE_PWD_H'],
   ['grp.h', 'HAVE_GRP_H'],
+  ['pthread_np.h', 'HAVE_PTHREAD_NP_H'],
 ]
 
 foreach h : check_headers
@@ -547,6 +548,9 @@ check_functions = [
   ['random_r', '#include <stdlib.h>', ['-D_GNU_SOURCE'], []],
   ['reallocarray', '#include <stdlib.h>', ['-D_GNU_SOURCE'], []],
   ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE'], []],
+  ['pthread_setname_np', '#include <pthread.h>', ['-D_GNU_SOURCE'], [pthread_lib]],
+  ['pthread_set_name_np', '#include <pthread.h>\n#include <pthread_np.h>', [], [pthread_lib]],
+  ['pthread_setaffinity_np', '#include <pthread.h>', ['-D_GNU_SOURCE'], [pthread_lib]],
   ['XSetIOErrorExitHandler', '#include <X11/Xlib.h>', [], [x11_dep]],
   ['malloc_trim', '#include <malloc.h>', [], []],
   ['malloc_info', '#include <malloc.h>', [], []],

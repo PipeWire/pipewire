@@ -27,8 +27,7 @@
 PW_LOG_TOPIC_EXTERN(log_mem);
 #define PW_LOG_TOPIC_DEFAULT log_mem
 
-#if !defined(__FreeBSD__) && !defined(__MidnightBSD__) && !defined(__GNU__) \
-       && !defined(HAVE_MEMFD_CREATE)
+#if !defined(HAVE_MEMFD_CREATE) && defined(SYS_memfd_create)
 /*
  * No glibc wrappers exist for memfd_create(2), so provide our own.
  *
@@ -45,7 +44,7 @@ static inline int memfd_create(const char *name, unsigned int flags)
 #define HAVE_MEMFD_CREATE 1
 #endif
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__) || defined(__GNU__)
+#ifndef MAP_LOCKED
 #define MAP_LOCKED 0
 #endif
 

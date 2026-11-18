@@ -144,6 +144,7 @@ struct buffer {
 	struct spa_list link;
 	struct spa_buffer *buf;
 	void **datas;
+	uint32_t header_index;
 };
 
 struct port {
@@ -328,6 +329,7 @@ struct impl {
 	void *vol_ramp_sequence_data;
 	uint32_t vol_ramp_offset;
 
+	int64_t in_pts;
 	uint32_t in_offset;
 	uint32_t out_offset;
 	unsigned int started:1;
@@ -2801,6 +2803,7 @@ static void reset_node(struct impl *this)
 	if (this->resample.reset)
 		resample_reset(&this->resample);
 	this->in_offset = 0;
+	this->in_pts = -1;
 	this->out_offset = 0;
 	this->setup = false;
 }
@@ -3028,15 +3031,12 @@ static int port_param_meta(struct impl *impl, struct port *port, uint32_t id,
 		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
-#if 0
-		/* disabled for now, only enable if we are actually going to set this */
 	case 0:
 		*param = spa_pod_builder_add_object(b,
 			SPA_TYPE_OBJECT_ParamMeta, id,
 			SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 			SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 		break;
-#endif
 	default:
 		return 0;
 	}
@@ -3511,6 +3511,8 @@ impl_node_port_use_buffers(void *object,
 		b->id = i;
 		b->flags = 0;
 		b->buf = buffers[i];
+		b->header_index = spa_buffer_find_meta_index(b->buf,
+				SPA_META_Header, sizeof(struct spa_meta_header));
 
 		if (n_datas != port->blocks) {
 			spa_log_error(this->log, "%p: invalid blocks %d on buffer %d",
@@ -4142,6 +4144,13 @@ static void recalc_stages(struct impl *this, struct stage_context *ctx)
 	spa_log_debug(this->log, "got %u processing stages", this->n_stages);
 }
 
+static inline struct spa_meta_header *buffer_get_header(struct buffer *b)
+{
+	if (b->header_index != SPA_ID_INVALID)
+		return b->buf->metas[b->header_index].data;
+	return NULL;
+}
+
 static int impl_node_process(void *object)
 {
 	struct impl *this = object;
@@ -4159,6 +4168,7 @@ static int impl_node_process(void *object)
 	struct spa_io_buffers *io;
 	uint64_t current_time;
 	struct stage_context ctx;
+	struct spa_meta_header *h;
 
 	/* calculate quantum scale, this is how many samples we need to produce or
 	 * consume. Also update the rate scale, this is sent to the resampler to adjust
@@ -4196,6 +4206,8 @@ static int impl_node_process(void *object)
 	dir = &this->dir[SPA_DIRECTION_INPUT];
 	max_in = UINT32_MAX;
 
+	this->in_pts = -1;
+
 	/* collect input port data */
 	for (i = 0; i < dir->n_ports; i++) {
 		port = GET_IN_PORT(this, i);
@@ -4228,6 +4240,9 @@ static int impl_node_process(void *object)
 					port->n_buffers);
 			buf = &port->buffers[io->buffer_id];
 			port->last_buffer = io->buffer_id;
+
+			if (i == 0 && !port->is_control && (h = buffer_get_header(buf)) != NULL)
+				this->in_pts = h->pts;
 		}
 
 		if (SPA_UNLIKELY(buf == NULL)) {
@@ -4498,6 +4513,21 @@ static int impl_node_process(void *object)
 				continue;
 
 			dequeue_buffer(this, port, buf);
+
+			if ((h = buffer_get_header(buf)) != NULL) {
+				int64_t out_pts = -1;
+				if (this->in_pts > 0) {
+					out_pts = this->in_pts;
+					if (this->in_offset)
+						out_pts += SPA_SCALE32(this->in_offset,
+								SPA_NSEC_PER_SEC, this->resample.i_rate);
+					out_pts -= this->latency_time;
+				}
+				h->pts = out_pts;
+				h->dts_offset = 0;
+				h->offset = 0;
+				h->flags = 0;
+			}
 
 			for (j = 0; j < port->blocks; j++) {
 				bd = &buf->buf->datas[j];

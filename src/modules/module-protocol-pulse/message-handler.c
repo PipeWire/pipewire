@@ -2,11 +2,15 @@
 /* SPDX-FileCopyrightText: Copyright © 2021 Pauli Virtanen */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <stdint.h>
 #include <stdio.h>
 
 #include <regex.h>
+#if defined(HAVE_MALLOC_INFO) || defined(HAVE_MALLOC_TRIM)
 #include <malloc.h>
+#endif
 
 #include <spa/param/props.h>
 #include <spa/pod/builder.h>

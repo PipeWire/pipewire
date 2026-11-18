@@ -10,7 +10,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#ifdef HAVE_MALLOC_TRIM
 #include <malloc.h>
+#endif
 #include <limits.h>
 
 #include <spa/support/system.h>

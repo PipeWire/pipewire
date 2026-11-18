@@ -1,3 +1,52 @@
+# PipeWire 1.6.12 (2026-11-26)
+
+This is a bugfix release that is API and ABI compatible with the previous
+1.6.x releases.
+
+## Highlights
+  - Improve v4l2 error handling and compatibility.
+  - Fix some thread issues in JACK.
+  - Improve link permission checks.
+  - Various small fixes and improvements.
+
+
+## PipeWire
+  - Fix race in quick start/stop of thread and data loop.
+  - Improve permission checks on links. (#5599)
+  - An empty config file no longer causes a warning. (#5598)
+  - Fix a potential crash when globals are destroyed because of
+    permission changes. (#5607)
+
+## Modules
+  - Avoid potential crash when fd allocation fails in client-node. (#5596)
+
+## SPA
+  - Do some extra checks in v4l2 for buggy drivers.
+  - Fix v4l2 property enumeration. (#5431)
+  - Add libcamera 0.8 compatibility.
+  - Improve v4l2 compatibility and handle errors better. (#5587)
+
+## pulse-server
+  - Don't use monitor nodes as a default source.
+  - Avoid updating private pipewire properties.
+  - Avoid ringbuffer wraparounds. (#5601)
+
+## GStreamer
+  - Improve format parsing and enumeration.
+  - Avoid some deadlocks and add locks where needed. (#5507)
+  - Fixes for 32-bit architectures.
+  - Fix potential crash in device probing. (#5589)
+
+## ALSA
+  - Handle server disconnect errors better and avoid memory leak. (#5597)
+
+## JACK
+  - Avoid deadlock in shutdown.
+  - Respect thread creator for event queues. Fixes crashes in WINE. (#3542)
+
+
+Older versions:
+
 # PipeWire 1.6.11 (2026-10-29)
 
 This is a bugfix release that is API and ABI compatible with the previous
@@ -33,9 +82,6 @@ This is a bugfix release that is API and ABI compatible with the previous
 
 ## ALSA plugin
   - Avoid going into XRUN when draining. (#5544)
-
-
-Older versions:
 
 # PipeWire 1.6.10 (2026-10-22)
 

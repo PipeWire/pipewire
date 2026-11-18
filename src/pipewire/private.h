@@ -7,8 +7,9 @@
 
 /** \privatesection */
 
+#include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/types.h> /* for pthread_t */
+#include <pthread.h>
 
 #include "pipewire/impl.h"
 

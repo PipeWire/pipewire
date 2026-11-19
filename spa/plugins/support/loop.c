@@ -1405,11 +1405,15 @@ impl_init(const struct spa_handle_factory *factory,
 			impl->prio_inherit = spa_atob(str);
 	}
 
+	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
+	spa_log_topic_init(impl->log, &log_topic);
+
 	CHECK(pthread_mutexattr_init(&attr), error_exit);
 	CHECK(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE), error_exit_free_attr);
-	if (impl->prio_inherit)
-		CHECK(pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT),
-					error_exit_free_attr)
+	if (impl->prio_inherit &&
+	    (res = pthread_mutexattr_setprotocol(&attr, PTHREAD_PRIO_INHERIT)) != 0)
+		spa_log_warn(impl->log, "%p: can't enable priority inheritance: %s",
+				impl, spa_strerror(-res));
 	CHECK(pthread_mutex_init(&impl->lock, &attr), error_exit_free_attr);
 	pthread_mutexattr_destroy(&attr);
 
@@ -1420,8 +1424,6 @@ impl_init(const struct spa_handle_factory *factory,
 	CHECK(pthread_cond_init(&impl->accept_cond, &cattr), error_exit_free_mutex);
 	pthread_condattr_destroy(&cattr);
 
-	impl->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	spa_log_topic_init(impl->log, &log_topic);
 	impl->system = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_System);
 
 	if (impl->system == NULL) {

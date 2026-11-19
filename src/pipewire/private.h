@@ -25,11 +25,6 @@
 extern "C" {
 #endif
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__) || defined(__GNU__)
-struct ucred {
-};
-#endif
-
 #define MAX_RATES				32u
 #define CLOCK_QUANTUM_FLOOR			1u
 #define CLOCK_QUANTUM_LIMIT			65536u
@@ -264,9 +259,7 @@ struct pw_impl_client {
 
 	void *user_data;		/**< extra user data */
 
-	struct ucred ucred;		/**< ucred information */
 	unsigned int registered:1;
-	unsigned int ucred_valid:1;	/**< if the ucred member is valid */
 	unsigned int busy:1;
 	unsigned int destroyed:1;
 

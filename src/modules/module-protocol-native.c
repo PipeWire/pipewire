@@ -1153,6 +1153,7 @@ error:
 	if (impl->source) {
 		pw_loop_destroy_source(loop, impl->source);
 		impl->source = NULL;
+		impl->disconnecting = true;
 	}
 	pw_proxy_notify(core_proxy,
 			struct pw_core_events, error, 0, 0,
@@ -1283,6 +1284,8 @@ static void on_client_need_flush(void *data)
 	if (impl->source && !(impl->source->mask & SPA_IO_OUT)) {
 		pw_loop_update_io(impl->context->main_loop,
 				impl->source, impl->source->mask | SPA_IO_OUT);
+	} else if (impl->disconnecting) {
+		pw_protocol_native_connection_clear(impl->connection);
 	}
 }
 

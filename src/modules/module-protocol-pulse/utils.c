@@ -93,6 +93,13 @@ pid_t get_client_pid(struct client *client, int client_fd)
 		return xucred.cr_pid;
 #endif
 	}
+#elif defined(__OpenBSD__)
+	struct sockpeercred cred;
+	len = sizeof(cred);
+	if (getsockopt(client_fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) < 0) {
+		pw_log_warn("client %p: no peercred: %m", client);
+	} else
+		return cred.pid;
 #endif
 	return 0;
 }

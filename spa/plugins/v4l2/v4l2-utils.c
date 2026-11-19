@@ -1100,8 +1100,8 @@ static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *q
 		memcpy(qctrl->name, qc.name, sizeof(qctrl->name));
 		qctrl->minimum = qc.minimum;
 		if (qc.type == V4L2_CTRL_TYPE_BITMASK) {
-			qctrl->maximum = (__u32)qc.maximum;
-			qctrl->default_value = (__u32)qc.default_value;
+			qctrl->maximum = (uint32_t)qc.maximum;
+			qctrl->default_value = (uint32_t)qc.default_value;
 		} else {
 			qctrl->maximum = qc.maximum;
 			qctrl->default_value = qc.default_value;
@@ -1113,13 +1113,13 @@ static int query_ext_ctrl_ioctl(struct port *port, struct v4l2_query_ext_ctrl *q
 		memset(qctrl->dims, 0, sizeof(qctrl->dims));
 		switch (qctrl->type) {
 		case V4L2_CTRL_TYPE_INTEGER64:
-			qctrl->elem_size = sizeof(__s64);
+			qctrl->elem_size = sizeof(int64_t);
 			break;
 		case V4L2_CTRL_TYPE_STRING:
 			qctrl->elem_size = qc.maximum + 1;
 			break;
 		default:
-			qctrl->elem_size = sizeof(__s32);
+			qctrl->elem_size = sizeof(int32_t);
 			break;
 		}
 		memset(qctrl->reserved, 0, sizeof(qctrl->reserved));

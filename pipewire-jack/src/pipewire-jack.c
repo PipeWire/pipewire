@@ -10,7 +10,9 @@
 #include <sys/mman.h>
 #include <regex.h>
 #include <math.h>
-#include <threads.h>
+#if !defined(thread_local) && __STDC_VERSION__ < 202311L
+#define thread_local _Thread_local
+#endif
 
 #include <jack/jack.h>
 #include <jack/intclient.h>

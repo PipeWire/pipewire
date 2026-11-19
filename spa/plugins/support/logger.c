@@ -11,7 +11,9 @@
 #include <errno.h>
 #include <stdio.h>
 #include <time.h>
-#include <threads.h>
+#if !defined(thread_local) && __STDC_VERSION__ < 202311L
+#define thread_local _Thread_local
+#endif
 #include <fnmatch.h>
 
 #include <spa/support/log.h>

@@ -502,10 +502,10 @@ libinotify_dep = (cc.has_function('inotify_init1', prefix: '#include <sys/inotif
     : dependency('libinotify',
           required: get_option('alsa').enabled() or get_option('v4l2').enabled()))
 
-# On FreeBSD and MidnightBSD, libintl library is required for gettext
-libintl_dep = cc.find_library('intl', required: false)
+# gettext may be in libc or in a separate libintl
+libintl_dep = cc.find_library('intl', has_headers: ['libintl.h'], required: false)
 if not libintl_dep.found()
-    libintl_dep = dependency('intl', required: false)
+    libintl_dep = dependency('intl')
 endif
 summary({'intl support': libintl_dep.found()}, bool_yn: true)
 

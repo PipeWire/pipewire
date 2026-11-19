@@ -84,6 +84,16 @@ typedef struct {
 	struct spa_audio_info format;
 } snd_pcm_pipewire_t;
 
+static inline int res_to_error(int res)
+{
+	switch (res) {
+	case -EPIPE:
+		return -EBADF;
+	default:
+		return res;
+	}
+}
+
 static int snd_pcm_pipewire_stop(snd_pcm_ioplug_t *io);
 
 static int update_active(snd_pcm_ioplug_t *io, bool force_wakeup)
@@ -348,7 +358,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 		return;
 
 	if (spa_format_audio_parse(param, &pw->format) < 0) {
-		pw->error = -EINVAL;
+		pw->error = res_to_error(-EINVAL);
 	} else {
 		switch (pw->format.media_subtype) {
 		case SPA_MEDIA_SUBTYPE_raw:
@@ -356,7 +366,7 @@ static void on_stream_param_changed(void *data, uint32_t id, const struct spa_po
 		case SPA_MEDIA_SUBTYPE_dsd:
 			if (pw->format.info.dsd.interleave != pw->requested.info.dsd.interleave ||
 			    pw->format.info.dsd.bitorder != pw->requested.info.dsd.bitorder) {
-				pw->error = -EINVAL;
+				pw->error = res_to_error(-EINVAL);
 			}
 			break;
 		}
@@ -393,7 +403,7 @@ static void on_stream_state_changed(void *data, enum pw_stream_state old, enum p
 
 	if (state == PW_STREAM_STATE_ERROR) {
 		pw_log_warn("%s", error);
-		pw->error = -errno;
+		pw->error = res_to_error(-errno);
 		update_active(&pw->io, false);
 	}
 }
@@ -514,6 +524,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
 	uint32_t min_period;
+	int res;
 
 	pw_thread_loop_lock(pw->main_loop);
 
@@ -563,10 +574,8 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 
 	pw_stream_add_listener(pw->stream, &pw->stream_listener, &stream_events, pw);
 
-	pw->error = 0;
-
 	pw->negotiated = false;
-	pw_stream_connect(pw->stream,
+	if ((res = pw_stream_connect(pw->stream,
 				io->stream == SND_PCM_STREAM_PLAYBACK ?
 				PW_DIRECTION_OUTPUT :
 				PW_DIRECTION_INPUT,
@@ -574,7 +583,8 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 				PW_STREAM_FLAG_AUTOCONNECT |
 				PW_STREAM_FLAG_MAP_BUFFERS |
 				PW_STREAM_FLAG_RT_PROCESS,
-				params, 1);
+				params, 1)) < 0)
+		pw->error = res_to_error(res);
 
 done:
 	pw->hw_ptr = 0;
@@ -1218,7 +1228,7 @@ static void on_core_error(void *data, uint32_t id, int seq, int res, const char 
 			id, seq, res, spa_strerror(res), message);
 
 	if (id == PW_ID_CORE) {
-		pw->error = res;
+		pw->error = res_to_error(res);
 		if (pw->fd != -1)
 			update_active(&pw->io, false);
 	}

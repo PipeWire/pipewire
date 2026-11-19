@@ -2443,10 +2443,10 @@ static int v4l2_ioctl(int fd, unsigned long int request, void *arg)
 	if ((file = find_file(fd, &flags)) == NULL)
 		return globals.old_fops.ioctl(fd, request, arg);
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__)
-	if (arg == NULL && (request & IOC_DIRMASK != IOC_VOID)) {
-#else
+#if defined(_IOC_DIR)
 	if (arg == NULL && (_IOC_DIR(request) & (_IOC_WRITE | _IOC_READ))) {
+#else
+	if (arg == NULL && ((request & IOC_DIRMASK) != IOC_VOID)) {
 #endif
 		res = -EFAULT;
 		goto done;

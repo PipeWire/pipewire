@@ -14,7 +14,11 @@
 #include <signal.h>
 #include <libdrm/drm_fourcc.h>
 #include <sys/mman.h>
+#ifdef __linux__
 #include <sys/sysmacros.h>
+#else
+#include <sys/types.h>
+#endif
 #include <assert.h>
 
 #include <spa/utils/json.h>

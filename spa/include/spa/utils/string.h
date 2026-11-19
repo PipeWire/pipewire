@@ -266,19 +266,20 @@ SPA_API_STRING float spa_strtof(const char *str, char **endptr)
 {
 #ifndef __LOCALE_C_ONLY
 	static locale_t locale = NULL;
-	locale_t prev;
-#endif
-	float v;
-#ifndef __LOCALE_C_ONLY
+
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
-	prev = uselocale(locale);
-#endif
-	v = strtof(str, endptr);
-#ifndef __LOCALE_C_ONLY
+#ifdef __NetBSD__
+	return strtof_l(str, endptr, locale);
+#else
+	locale_t prev = uselocale(locale);
+	float v = strtof(str, endptr);
 	uselocale(prev);
-#endif
 	return v;
+#endif
+#else
+	return strtof(str, endptr);
+#endif
 }
 
 /**
@@ -316,19 +317,20 @@ SPA_API_STRING double spa_strtod(const char *str, char **endptr)
 {
 #ifndef __LOCALE_C_ONLY
 	static locale_t locale = NULL;
-	locale_t prev;
-#endif
-	double v;
-#ifndef __LOCALE_C_ONLY
+
 	if (SPA_UNLIKELY(locale == NULL))
 		locale = newlocale(LC_ALL_MASK, "C", NULL);
-	prev = uselocale(locale);
-#endif
-	v = strtod(str, endptr);
-#ifndef __LOCALE_C_ONLY
+#ifdef __NetBSD__
+	return strtod_l(str, endptr, locale);
+#else
+	locale_t prev = uselocale(locale);
+	double v = strtod(str, endptr);
 	uselocale(prev);
-#endif
 	return v;
+#endif
+#else
+	return strtod(str, endptr);
+#endif
 }
 
 /**

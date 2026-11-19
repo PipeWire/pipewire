@@ -967,7 +967,8 @@ static int spa_v4l2_set_format(struct impl *this, struct spa_video_info *format,
 {
 	struct port *port = &this->out_ports[0];
 	struct spa_v4l2_device *dev = &port->dev;
-	int res, cmd;
+	int res;
+	unsigned long cmd;
 	struct v4l2_format reqfmt, fmt;
 	struct v4l2_streamparm streamparm;
 	const struct format_info *info = NULL;

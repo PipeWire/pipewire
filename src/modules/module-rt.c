@@ -39,6 +39,9 @@
 #if defined(__FreeBSD__) || defined(__MidnightBSD__)
 #include <sys/thr.h>
 #endif
+#if defined(__NetBSD__)
+#include <lwp.h>
+#endif
 #if defined(__GNU__)
 #include <hurd.h>
 #endif
@@ -270,6 +273,8 @@ static pid_t _gettid(void)
 	long pid;
 	thr_self(&pid);
 	return (pid_t)pid;
+#elif defined(__NetBSD__)
+	return (pid_t) _lwp_self();
 #elif defined(__OpenBSD__)
 	return (pid_t) getthrid();
 #elif defined(__GNU__)

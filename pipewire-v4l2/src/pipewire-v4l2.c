@@ -1847,10 +1847,27 @@ static int vidioc_g_parm(struct file *file, struct v4l2_streamparm *arg)
 	int num = 0, denom = 0;
 
 	spa_list_for_each(p, &file->node->param_list, link) {
+		struct spa_pod *copy;
+		struct v4l2_format fmt;
+		int res;
+
 		if (p->id != SPA_PARAM_EnumFormat || p->param == NULL)
 			continue;
 
-		if (param_to_info(p->param, &info) < 0)
+		/* fixate a copy, so a choice of framerates gives the default */
+		copy = spa_pod_copy(p->param);
+		spa_pod_fixate(copy);
+		res = param_to_info(copy, &info);
+		free(copy);
+		if (res < 0)
+			continue;
+
+		/* use the format that was set with S_FMT, if any */
+		if (file->v4l2_format.fmt.pix.pixelformat != 0 &&
+		    (info_to_fmt(&info, &fmt) < 0 ||
+		     fmt.fmt.pix.pixelformat != file->v4l2_format.fmt.pix.pixelformat ||
+		     fmt.fmt.pix.width != file->v4l2_format.fmt.pix.width ||
+		     fmt.fmt.pix.height != file->v4l2_format.fmt.pix.height))
 			continue;
 
 		switch (info.media_subtype) {

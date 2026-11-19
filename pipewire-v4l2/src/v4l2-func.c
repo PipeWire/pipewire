@@ -22,6 +22,10 @@
 
 #include "pipewire-v4l2.h"
 
+#ifndef O_LARGEFILE
+#define O_LARGEFILE 0
+#endif
+
 #define SPA_EXPORT __attribute__((visibility("default")))
 
 #define extract_va_arg(type, arg, last)	\
@@ -34,7 +38,11 @@
 
 static inline bool needs_mode(int flags)
 {
-	return (flags & O_CREAT) || ((flags & O_TMPFILE) == O_TMPFILE);
+#ifdef O_TMPFILE
+	if ((flags & O_TMPFILE) == O_TMPFILE)
+		return true;
+#endif
+	return (flags & O_CREAT) != 0;
 }
 
 SPA_EXPORT int open(const char *path, int oflag, ...)

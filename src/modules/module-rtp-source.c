@@ -613,7 +613,7 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname,
 			*is_multicast = true;
 		} else {
 			struct sockaddr_in6 *ba6 = (struct sockaddr_in6*)&ba;
-			*filter_by_address = !IN6_IS_ADDR_UNSPECIFIED(&(ba6->sin6_addr.s6_addr));
+			*filter_by_address = !IN6_IS_ADDR_UNSPECIFIED(&ba6->sin6_addr);
 			*is_multicast = false;
 			/* Make sure the ANY address is always used. This is important
 			 * for the bind() call below - with unicast, it shall only filter

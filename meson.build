@@ -496,9 +496,11 @@ epoll_shim_dep = (cc.has_function('epoll_create1', prefix: '#include <sys/epoll.
     ? dependency('', required: false)
     : dependency('epoll-shim', required: true))
 
-libinotify_dep = (host_machine.system() == 'freebsd' or host_machine.system() == 'midnightbsd'
-    ? dependency('libinotify', required: true)
-    : dependency('', required: false))
+# libinotify provides inotify where the system lacks it, for the ALSA and V4L2 plugins
+libinotify_dep = (cc.has_function('inotify_init1', prefix: '#include <sys/inotify.h>')
+    ? dependency('', required: false)
+    : dependency('libinotify',
+          required: get_option('alsa').enabled() or get_option('v4l2').enabled()))
 
 # On FreeBSD and MidnightBSD, libintl library is required for gettext
 libintl_dep = cc.find_library('intl', required: false)

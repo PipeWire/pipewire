@@ -273,14 +273,19 @@ include:
     - echo "Building with meson options $MESON_OPTIONS"
     - meson setup "$BUILD_DIR" --prefix="$PREFIX" $MESON_OPTIONS
     - meson compile -C "$BUILD_DIR" $COMPILE_ARGS
-    - echo "Running tests with meson options $MESON_TEST_OPTIONS"
-    - meson test -C "$BUILD_DIR" --no-rebuild $MESON_TEST_OPTIONS
+    - |
+      if [ $MESON_TEST_COND ]; then
+        echo "Running tests with meson options $MESON_TEST_OPTIONS"
+        meson test -C "$BUILD_DIR" --no-rebuild $MESON_TEST_OPTIONS
+      fi
     - meson install -C "$BUILD_DIR" --no-rebuild
   artifacts:
     name: pipewire-$CI_COMMIT_SHA
     when: always
     paths:
       - build-*/meson-logs
+  variables:
+    MESON_TEST_COND: '1'
 
 container_ubuntu:
   extends:

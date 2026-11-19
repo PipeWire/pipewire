@@ -2,12 +2,18 @@
 /* SPDX-FileCopyrightText: Copyright © 2018 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#if defined(HAVE_LINUX_VIDEODEV2_H)
 #include <linux/videodev2.h>
+#elif defined(HAVE_SYS_VIDEOIO_H)
+#include <sys/videoio.h>
+#endif
 
 #include <spa/support/plugin.h>
 #include <spa/support/log.h>

@@ -11,6 +11,8 @@
 #undef _FORTIFY_SOURCE
 #endif
 
+#include "config.h"
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>

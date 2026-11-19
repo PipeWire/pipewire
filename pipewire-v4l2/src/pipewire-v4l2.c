@@ -15,7 +15,15 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include <limits.h>
+#if defined(HAVE_LINUX_VIDEODEV2_H)
 #include <linux/videodev2.h>
+#elif defined(HAVE_SYS_VIDEOIO_H)
+#include <sys/videoio.h>
+#endif
+
+#ifndef _IOC_NR
+#define _IOC_NR(cmd)	((cmd) & 0xff)	/* the command number is the low byte */
+#endif
 
 #include "pipewire-v4l2.h"
 

@@ -4,7 +4,11 @@
 
 #include <errno.h>
 
+#if defined(HAVE_LINUX_VIDEODEV2_H)
 #include <linux/videodev2.h>
+#elif defined(HAVE_SYS_VIDEOIO_H)
+#include <sys/videoio.h>
+#endif
 
 #include <spa/support/log.h>
 

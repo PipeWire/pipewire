@@ -273,11 +273,16 @@ check_headers = [
   ['pwd.h', 'HAVE_PWD_H'],
   ['grp.h', 'HAVE_GRP_H'],
   ['pthread_np.h', 'HAVE_PTHREAD_NP_H'],
+  ['linux/videodev2.h', 'HAVE_LINUX_VIDEODEV2_H'],
+  ['sys/videoio.h', 'HAVE_SYS_VIDEOIO_H'],
 ]
 
 foreach h : check_headers
   cdata.set(h.get(1), cc.has_header(h.get(0)))
 endforeach
+
+cdata.set('HAVE_OFF64_T', cc.has_type('off64_t', prefix: '#include <sys/types.h>',
+    args: ['-D_LARGEFILE64_SOURCE']))
 
 cdata.set('HAVE_PIDFD_OPEN',
           cc.get_define('SYS_pidfd_open', prefix: '#include <sys/syscall.h>') != '')
@@ -594,7 +599,9 @@ configure_file(output : 'config.h',
 if get_option('pipewire-jack').allowed()
   subdir('pipewire-jack')
 endif
-if get_option('pipewire-v4l2').allowed()
+if get_option('pipewire-v4l2').require(
+    cdata.get('HAVE_LINUX_VIDEODEV2_H') or cdata.get('HAVE_SYS_VIDEOIO_H'),
+    error_message: 'pipewire-v4l2 needs linux/videodev2.h or sys/videoio.h').allowed()
   subdir('pipewire-v4l2')
 endif
 

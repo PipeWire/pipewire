@@ -269,6 +269,7 @@ check_headers = [
   ['sys/prctl.h', 'HAVE_SYS_PRCTL_H'],
   ['sys/random.h', 'HAVE_SYS_RANDOM_H'],
   ['sys/vfs.h', 'HAVE_SYS_VFS_H'],
+  ['sys/eventfd.h', 'HAVE_SYS_EVENTFD_H'],
   ['pwd.h', 'HAVE_PWD_H'],
   ['grp.h', 'HAVE_GRP_H'],
   ['pthread_np.h', 'HAVE_PTHREAD_NP_H'],

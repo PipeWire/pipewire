@@ -2,6 +2,8 @@
 /* SPDX-FileCopyrightText: Copyright © 2019 Wim Taymans */
 /* SPDX-License-Identifier: MIT */
 
+#include "config.h"
+
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -33,6 +35,65 @@ SPA_LOG_TOPIC_DEFINE_STATIC(log_topic, "spa.system");
 SPA_STATIC_ASSERT(sizeof(struct spa_poll_event) == sizeof(struct epoll_event));
 SPA_STATIC_ASSERT(offsetof(struct spa_poll_event, events) == offsetof(struct epoll_event, events));
 SPA_STATIC_ASSERT(offsetof(struct spa_poll_event, data) == offsetof(struct epoll_event, data.ptr));
+
+#ifndef HAVE_SYS_EVENTFD_H
+/*
+ * eventfd(2) emulation for systems without a native eventfd.
+ *
+ * There eventfd comes from epoll-shim, which emulates it with a kqueue
+ * descriptor whose state lives in the creating process. Such a
+ * descriptor cannot be passed with SCM_RIGHTS, and it would not work in
+ * the receiving process anyway, which breaks the node transport.
+ *
+ * Instead use a UDP socket on the loopback interface that is connected
+ * to itself. It is a real kernel object that can be passed with
+ * SCM_RIGHTS and that every holder can write to, poll and read. Since
+ * it is connected to its own address, it only accepts the datagrams it
+ * sends itself.
+ *
+ * write sends the count as a datagram and read adds up all queued
+ * datagrams, like the eventfd counter. A full receive queue means a
+ * wakeup is already pending, so that is not an error.
+ *
+ * This needs AF_INET and loopback traffic to be allowed, e.g. on
+ * OpenBSD pledge(2) "inet" and pf(4) passing traffic on lo.
+ *
+ * Semaphore eventfds (SPA_FD_EVENT_SEMAPHORE) still use epoll-shim.
+ * They are only used within a process and a datagram socket cannot
+ * provide their one at a time semantics. read and write tell the two
+ * apart by ENOTSOCK, so the socket case costs a single system call.
+ */
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+static int dgram_eventfd_create(int flags)
+{
+	struct sockaddr_in sin;
+	socklen_t len = sizeof(sin);
+	int fd, res, type = SOCK_DGRAM;
+
+	if (flags & SPA_FD_CLOEXEC)
+		type |= SOCK_CLOEXEC;
+	if (flags & SPA_FD_NONBLOCK)
+		type |= SOCK_NONBLOCK;
+
+	if ((fd = socket(AF_INET, type, 0)) < 0)
+		return -errno;
+
+	spa_zero(sin);
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+	if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0 ||
+	    getsockname(fd, (struct sockaddr *)&sin, &len) < 0 ||
+	    connect(fd, (struct sockaddr *)&sin, len) < 0) {
+		res = -errno;
+		close(fd);
+		return res;
+	}
+	return fd;
+}
+#endif
 
 struct impl {
 	struct spa_handle handle;
@@ -195,6 +256,13 @@ static int impl_eventfd_create(void *object, int flags)
 		fl |= EFD_NONBLOCK;
 	if (flags & SPA_FD_EVENT_SEMAPHORE)
 		fl |= EFD_SEMAPHORE;
+#ifndef HAVE_SYS_EVENTFD_H
+	if (!(flags & SPA_FD_EVENT_SEMAPHORE)) {
+		res = dgram_eventfd_create(flags);
+		spa_log_debug(impl->log, "%p: new dgram eventfd:%d", impl, res);
+		return res;
+	}
+#endif
 	res = eventfd(0, fl);
 	err = -errno; /* save errno in case it is overwritten before return */
 	spa_log_debug(impl->log, "%p: new fd:%d", impl, res);
@@ -203,6 +271,18 @@ static int impl_eventfd_create(void *object, int flags)
 
 static int impl_eventfd_write(void *object, int fd, uint64_t count)
 {
+#ifndef HAVE_SYS_EVENTFD_H
+	if (count == 0)
+		return 0;
+	if (send(fd, &count, sizeof(count), MSG_DONTWAIT) == sizeof(count))
+		return 0;
+	/* a full receive queue means a wakeup is already pending */
+	if (errno == EAGAIN || errno == ENOBUFS)
+		return 0;
+	if (errno != ENOTSOCK)
+		return -errno;
+	/* semaphore eventfd from epoll-shim */
+#endif
 	if (write(fd, &count, sizeof(uint64_t)) != sizeof(uint64_t))
 		return -errno;
 	return 0;
@@ -210,6 +290,21 @@ static int impl_eventfd_write(void *object, int fd, uint64_t count)
 
 static int impl_eventfd_read(void *object, int fd, uint64_t *count)
 {
+#ifndef HAVE_SYS_EVENTFD_H
+	uint64_t v, total;
+
+	if (recv(fd, &v, sizeof(v), 0) == sizeof(v)) {
+		total = v;
+		/* add up all queued wakeups, like the eventfd counter */
+		while (recv(fd, &v, sizeof(v), MSG_DONTWAIT) == sizeof(v))
+			total += v;
+		*count = total;
+		return 0;
+	}
+	if (errno != ENOTSOCK)
+		return -errno;
+	/* semaphore eventfd from epoll-shim */
+#endif
 	if (read(fd, count, sizeof(uint64_t)) != sizeof(uint64_t))
 		return -errno;
 	return 0;

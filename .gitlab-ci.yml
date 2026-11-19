@@ -389,6 +389,9 @@ build_on_debian:
       -D pw-cat-ffmpeg=enabled
     MESON_TEST_OPTIONS: >-
       --timeout-multiplier=2
+    # skip tests on s390x (https://gitlab.com/qemu-project/qemu/-/work_items/4911)
+    MESON_TEST_COND: >-
+      "$ARCH" != "s390x"
 
 .on_fedora:
   extends:

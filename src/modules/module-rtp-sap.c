@@ -398,11 +398,13 @@ static int make_unix_ptp_mgmt_socket(const char *path) {
 		return -1;
 	}
 
+#ifdef SO_PASSCRED
 	int val = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_PASSCRED, &val, sizeof(val)) < 0) {
 		pw_log_warn("Failed to bind PTP management socket");
 		return -1;
 	}
+#endif
 
 	spa_zero(addr);
 	addr.sun_family = AF_UNIX;

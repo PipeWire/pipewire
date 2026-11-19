@@ -3395,7 +3395,7 @@ static void busy_run(void * Instance, unsigned long SampleCount)
 		busy_nsec = (uint64_t)(impl->wait_scale * SampleCount);
 		ts.tv_sec = busy_nsec / SPA_NSEC_PER_SEC;
 		ts.tv_nsec = busy_nsec % SPA_NSEC_PER_SEC;
-		clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, NULL);
+		nanosleep(&ts, NULL);
 	}
 	if (impl->cpu_scale > 0.0f) {
 		clock_gettime(CLOCK_MONOTONIC, &ts);

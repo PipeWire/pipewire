@@ -680,8 +680,10 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	pw_properties_set(props, "local.ifname", ifname);
 
 	struct ifaddrs *if_addr, *ifp;
-	if (getifaddrs(&if_addr) < 0)
-		pw_log_error("error: %m");
+	if (getifaddrs(&if_addr) < 0) {
+		pw_log_error("getifaddrs() failed: %m");
+		if_addr = NULL;
+	}
 
 	for (ifp = if_addr; ifp != NULL; ifp = ifp->ifa_next) {
 		if (ifp->ifa_addr == NULL)
@@ -709,7 +711,8 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 			pw_log_warn("error: %m %d %s", res, gai_strerror(res));
 		}
 	}
-	freeifaddrs(if_addr);
+	if (if_addr != NULL)
+		freeifaddrs(if_addr);
 
 	spa_dict_for_each(it, info)
 		pw_properties_from_zeroconf(it->key, it->value, props);

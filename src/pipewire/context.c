@@ -347,22 +347,40 @@ static int adjust_rlimits(const struct spa_dict *dict)
 {
 	const struct spa_dict_item *it;
 	static const char* rlimit_table[] = {
+#ifdef RLIMIT_AS
 		[RLIMIT_AS]         = "as",
+#endif
 		[RLIMIT_CORE]       = "core",
 		[RLIMIT_CPU]        = "cpu",
 		[RLIMIT_DATA]       = "data",
 		[RLIMIT_FSIZE]      = "fsize",
+#ifdef RLIMIT_MEMLOCK
 		[RLIMIT_MEMLOCK]    = "memlock",
+#endif
 		[RLIMIT_NOFILE]     = "nofile",
+#ifdef RLIMIT_NPROC
 		[RLIMIT_NPROC]      = "nproc",
+#endif
+#ifdef RLIMIT_RSS
 		[RLIMIT_RSS]        = "rss",
+#endif
 		[RLIMIT_STACK]      = "stack",
-#ifdef __linux__
+#ifdef RLIMIT_LOCKS
 		[RLIMIT_LOCKS]      = "locks",
+#endif
+#ifdef RLIMIT_MSGQUEUE
 		[RLIMIT_MSGQUEUE]   = "msgqueue",
+#endif
+#ifdef RLIMIT_NICE
 		[RLIMIT_NICE]       = "nice",
+#endif
+#ifdef RLIMIT_RTPRIO
 		[RLIMIT_RTPRIO]     = "rtprio",
+#endif
+#ifdef RLIMIT_RTTIME
 		[RLIMIT_RTTIME]     = "rttime",
+#endif
+#ifdef RLIMIT_SIGPENDING
 		[RLIMIT_SIGPENDING] = "sigpending",
 #endif
 	};

@@ -640,6 +640,8 @@ static struct client_data *client_new(struct server *s, int fd)
 	socklen_t len;
 #if defined(__FreeBSD__) || defined(__MidnightBSD__)
 	struct xucred xucred;
+#elif defined(__NetBSD__)
+	struct unpcbid unpcbid;
 #elif defined(__OpenBSD__)
 	struct sockpeercred cred;
 #else
@@ -704,6 +706,15 @@ static struct client_data *client_new(struct server *s, int fd)
 		pw_properties_setf(props, PW_KEY_SEC_GID, "%d", xucred.cr_gid);
 		// this is what Linuxulator does at the moment, see sys/compat/linux/linux_socket.c
 		pw_properties_set(props, PW_KEY_SEC_LABEL, "unconfined");
+	}
+#elif defined(__NetBSD__)
+	len = sizeof(unpcbid);
+	if (getsockopt(fd, 0, LOCAL_PEEREID, &unpcbid, &len) < 0) {
+		pw_log_warn("server %p: no peercred: %m", s);
+	} else {
+		pw_properties_setf(props, PW_KEY_SEC_PID, "%d", unpcbid.unp_pid);
+		pw_properties_setf(props, PW_KEY_SEC_UID, "%d", unpcbid.unp_euid);
+		pw_properties_setf(props, PW_KEY_SEC_GID, "%d", unpcbid.unp_egid);
 	}
 #elif defined(__OpenBSD__)
 	len = sizeof(cred);

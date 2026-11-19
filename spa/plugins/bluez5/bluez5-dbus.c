@@ -1250,9 +1250,61 @@ bad_property:
 	return -EINVAL;
 }
 
+struct pending_select {
+	struct spa_list link;
+	DBusMessage *m;
+};
+
+static DBusHandlerResult select_properties(struct spa_bt_monitor *monitor,
+		DBusConnection *conn, DBusMessage *m, bool defer);
+
+static void device_process_pending_select(struct spa_bt_device *device, bool cancel)
+{
+	struct spa_bt_monitor *monitor = device->monitor;
+	struct pending_select *p;
+
+	spa_list_consume(p, &device->pending_select_list, link) {
+		spa_list_remove(&p->link);
+		if (cancel)
+			reply_with_error(monitor->conn, p->m, "org.bluez.Error.Failed",
+					"Device disconnected");
+		else
+			select_properties(monitor, monitor->conn, p->m, false);
+		dbus_message_unref(p->m);
+		free(p);
+	}
+}
+
+static int device_defer_select(struct spa_bt_device *device, DBusMessage *m)
+{
+	struct pending_select *p;
+
+	p = calloc(1, sizeof(*p));
+	if (!p)
+		return -errno;
+	p->m = dbus_message_ref(m);
+	spa_list_append(&device->pending_select_list, &p->link);
+
+	spa_log_debug(device->monitor->log, "device %p: deferring SelectProperties "
+			"until device settings are set", device);
+	return 0;
+}
+
+void spa_bt_device_set_settings(struct spa_bt_device *device, const struct spa_dict *settings)
+{
+	device->settings = settings;
+	if (settings)
+		device_process_pending_select(device, false);
+}
+
 static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMessage *m, void *userdata)
 {
-	struct spa_bt_monitor *monitor = userdata;
+	return select_properties(userdata, conn, m, true);
+}
+
+static DBusHandlerResult select_properties(struct spa_bt_monitor *monitor,
+		DBusConnection *conn, DBusMessage *m, bool defer)
+{
 	const char *path;
 	DBusMessageIter args, props, iter;
 	spa_autoptr(DBusMessage) r = NULL;
@@ -1313,6 +1365,12 @@ static DBusHandlerResult endpoint_select_properties(DBusConnection *conn, DBusMe
 		spa_log_warn(monitor->log, "Unable to find remote endpoint for %s", endpoint_path);
 		goto error_invalid;
 	}
+
+	/* The session manager may create the device, and set its settings, only
+	 * after the device was added, so wait for them before selecting. */
+	if (defer && ep->device->added && !ep->device->settings &&
+			device_defer_select(ep->device, m) == 0)
+		return DBUS_HANDLER_RESULT_HANDLED;
 
 	/* Call of SelectProperties means that local device is BAP Client
 	 * and therefore remote endpoint is BAP Server / acceptor
@@ -1974,6 +2032,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 	spa_list_init(&d->transport_list);
 	spa_list_init(&d->codec_switch_list);
 	spa_list_init(&d->set_membership_list);
+	spa_list_init(&d->pending_select_list);
 
 	spa_hook_list_init(&d->listener_list);
 
@@ -1986,6 +2045,7 @@ static struct spa_bt_device *device_create(struct spa_bt_monitor *monitor, const
 
 static void device_clear_sub(struct spa_bt_device *device)
 {
+	device_process_pending_select(device, true);
 	battery_remove(device);
 	spa_bt_device_release_transports(device);
 	device->preferred_codec = NULL;

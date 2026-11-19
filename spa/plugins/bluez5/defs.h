@@ -585,6 +585,7 @@ struct spa_bt_device {
 	bool added;
 
 	const struct spa_dict *settings;
+	struct spa_list pending_select_list;
 
 	DBusPendingCall *battery_pending_call;
 
@@ -607,6 +608,7 @@ const struct media_codec **spa_bt_device_get_supported_media_codecs(struct spa_b
 int spa_bt_device_release_transports(struct spa_bt_device *device);
 int spa_bt_device_report_battery_level(struct spa_bt_device *device, uint8_t percentage);
 void spa_bt_device_update_last_bluez_action_time(struct spa_bt_device *device);
+void spa_bt_device_set_settings(struct spa_bt_device *device, const struct spa_dict *settings);
 const struct media_codec * const * spa_bt_get_media_codecs(struct spa_bt_monitor *monitor);
 const struct media_codec *spa_bt_get_hfp_codec(struct spa_bt_monitor *monitor, unsigned int hfp_codec_id);
 

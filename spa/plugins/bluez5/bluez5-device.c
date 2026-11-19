@@ -3485,7 +3485,7 @@ static int impl_clear(struct spa_handle *handle)
 
 	free(this->supported_codecs);
 	if (this->bt_dev) {
-		this->bt_dev->settings = NULL;
+		spa_bt_device_set_settings(this->bt_dev, NULL);
 		spa_hook_remove(&this->bt_dev_listener);
 	}
 
@@ -3568,7 +3568,7 @@ impl_init(const struct spa_handle_factory *factory,
 
 	if (info) {
 		int profiles;
-		this->bt_dev->settings = filter_bluez_device_setting(this, info);
+		spa_bt_device_set_settings(this->bt_dev, filter_bluez_device_setting(this, info));
 
 		if ((str = spa_dict_lookup(info, "bluez5.auto-connect")) != NULL) {
 			if ((profiles = spa_bt_profiles_from_json_array(str)) >= 0)

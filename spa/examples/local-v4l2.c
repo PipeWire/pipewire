@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include <spa/support/plugin.h>
 #include <spa/utils/names.h>

@@ -4,8 +4,8 @@
 #include <spa/control/ump-utils.h>
 
 #ifdef HAVE_OPUS_CUSTOM
-#include <opus/opus.h>
-#include <opus/opus_custom.h>
+#include <opus.h>
+#include <opus_custom.h>
 #endif
 
 #define MAX_CHANNELS	SPA_AUDIO_MAX_CHANNELS

@@ -4,8 +4,8 @@
 
 #ifdef HAVE_OPUS
 
-#include <opus/opus.h>
-#include <opus/opus_multistream.h>
+#include <opus.h>
+#include <opus_multistream.h>
 
 /* Opus send state */
 struct rtp_opus_tx {

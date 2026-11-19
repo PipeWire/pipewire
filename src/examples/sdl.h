@@ -8,7 +8,7 @@
  [title]
  */
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include <spa/utils/type.h>
 #include <spa/pod/builder.h>

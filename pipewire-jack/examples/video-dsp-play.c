@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include <jack/jack.h>
 #include <pipewire-jack-extensions.h>

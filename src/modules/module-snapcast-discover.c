@@ -626,7 +626,7 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 	const char *name, *address, *str;
 	struct pw_properties *props = NULL;
 	char hbuf[NI_MAXHOST];
-	struct ifreq ifreq;
+	char ifname[IF_NAMESIZE];
 	int res, family, port = 0, ifindex = 0, protocol = 4;
 	const struct spa_dict_item *it;
 
@@ -674,11 +674,10 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 
 	family = protocol == 4 ? AF_INET : AF_INET6;
 
-	spa_zero(ifreq);
-	ifreq.ifr_ifindex = ifindex;
-	if_indextoname(ifindex, ifreq.ifr_name);
-	pw_properties_set(props, "snapcast.ifname", ifreq.ifr_name);
-	pw_properties_set(props, "local.ifname", ifreq.ifr_name);
+	if (if_indextoname(ifindex, ifname) == NULL)
+		ifname[0] = '\0';
+	pw_properties_set(props, "snapcast.ifname", ifname);
+	pw_properties_set(props, "local.ifname", ifname);
 
 	struct ifaddrs *if_addr, *ifp;
 	if (getifaddrs(&if_addr) < 0)
@@ -688,7 +687,7 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 		if (ifp->ifa_addr == NULL)
 			continue;
 
-		if (spa_streq(ifp->ifa_name, ifreq.ifr_name) &&
+		if (spa_streq(ifp->ifa_name, ifname) &&
 		    ifp->ifa_addr->sa_family == family) {
 			break;
 		}

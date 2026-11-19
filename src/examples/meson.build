@@ -61,7 +61,7 @@ foreach c : examples
       c, c + '.c',
       install : installed_tests_enabled,
       install_dir : installed_tests_execdir / 'examples',
-      dependencies : [pipewire_dep, mathlib] + deps,
+      dependencies : [pipewire_dep, mathlib, epoll_shim_dep] + deps,
     )
   endif
 endforeach

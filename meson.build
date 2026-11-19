@@ -558,6 +558,7 @@ check_functions = [
   ['random_r', '#include <stdlib.h>', ['-D_GNU_SOURCE'], []],
   ['reallocarray', '#include <stdlib.h>', ['-D_GNU_SOURCE'], []],
   ['sched_getcpu', '#include <sched.h>', ['-D_GNU_SOURCE'], []],
+  ['shm_mkstemp', '#include <sys/mman.h>', [], []],
   ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE'], []],
   ['pthread_setname_np', '#include <pthread.h>', ['-D_GNU_SOURCE'], [pthread_lib]],
   ['pthread_set_name_np', '#include <pthread.h>\n#include <pthread_np.h>', [], [pthread_lib]],

@@ -561,13 +561,24 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 		pw_log_error("%p: Failed to create memfd: %m", pool);
 		goto error_free;
 	}
-#elif defined(__FreeBSD__) || defined(__MidnightBSD__)
+#elif defined(SHM_ANON)
 	b->this.fd = shm_open(SHM_ANON, O_CREAT | O_RDWR | O_CLOEXEC, 0);
 	if (b->this.fd == -1) {
 		res = -errno;
 		pw_log_error("%p: Failed to create SHM_ANON fd: %m", pool);
 		goto error_free;
 	}
+#elif defined(HAVE_SHM_MKSTEMP)
+	char filename[] = "/tmp/pipewire-shm.XXXXXXXXXX";
+
+	b->this.fd = shm_mkstemp(filename);
+	if (b->this.fd == -1) {
+		res = -errno;
+		pw_log_error("%p: Failed to create shm fd: %m", pool);
+		goto error_free;
+	}
+	shm_unlink(filename);
+	fcntl(b->this.fd, F_SETFD, FD_CLOEXEC);
 #else
 	char filename[128];
 	snprintf(filename, sizeof(filename),

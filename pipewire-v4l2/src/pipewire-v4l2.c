@@ -2659,10 +2659,14 @@ const struct fops fops = {
 static void initialize(void)
 {
 	globals.old_fops.openat = dlsym(RTLD_NEXT, "openat64");
+	if (globals.old_fops.openat == NULL)	/* no LFS variant, off_t is 64 bits */
+		globals.old_fops.openat = dlsym(RTLD_NEXT, "openat");
 	globals.old_fops.dup = dlsym(RTLD_NEXT, "dup");
 	globals.old_fops.close = dlsym(RTLD_NEXT, "close");
 	globals.old_fops.ioctl = dlsym(RTLD_NEXT, "ioctl");
 	globals.old_fops.mmap = dlsym(RTLD_NEXT, "mmap64");
+	if (globals.old_fops.mmap == NULL)
+		globals.old_fops.mmap = dlsym(RTLD_NEXT, "mmap");
 	globals.old_fops.munmap = dlsym(RTLD_NEXT, "munmap");
 	/* NOTE:
 	 * We avoid calling pw_init() here (constructor/early init path) because

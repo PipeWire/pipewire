@@ -23,11 +23,11 @@
 #include <spa/utils/result.h>
 #include <spa/debug/pod.h>
 
-static int xioctl(struct spa_v4l2_device *dev, int request, void *arg)
+static int xioctl(struct spa_v4l2_device *dev, unsigned long request, void *arg)
 {
 	int err;
 
-	spa_log_trace_fp(dev->log, "ioctl %d %p", request, arg);
+	spa_log_trace_fp(dev->log, "ioctl %#lx %p", request, arg);
 	do {
 		err = ioctl(dev->fd, request, arg);
 	} while (err == -1 && errno == EINTR);

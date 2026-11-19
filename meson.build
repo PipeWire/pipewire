@@ -576,6 +576,13 @@ foreach f : check_functions
                             dependencies: f.get(3)))
 endforeach
 
+# pthread_setaffinity_np() is only usable with cpu_set_t, e.g. NetBSD
+# has it but takes its own cpuset_t
+if cdata.get('HAVE_PTHREAD_SETAFFINITY_NP') and not cc.has_type('cpu_set_t',
+    prefix: '#include <sched.h>\n#include <pthread.h>', args: ['-D_GNU_SOURCE'])
+  cdata.set('HAVE_PTHREAD_SETAFFINITY_NP', false)
+endif
+
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name
 installed_tests_execdir = pipewire_libexecdir / 'installed-tests' / pipewire_name
 installed_tests_enabled = get_option('installed_tests').allowed()

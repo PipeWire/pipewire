@@ -75,7 +75,11 @@ static int thread_setname(pthread_t thread, const char *name)
 	pthread_set_name_np(thread, name);
 	return 0;
 #elif defined(HAVE_PTHREAD_SETNAME_NP)
+#if defined(__NetBSD__)
+	return pthread_setname_np(thread, "%s", (void *)name);
+#else
 	return pthread_setname_np(thread, name);
+#endif
 #else
 	return 0;
 #endif

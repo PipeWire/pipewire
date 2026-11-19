@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <unistd.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -11,13 +13,8 @@
 #define ARRAY_SIZE 63
 #define MAX_VALUE 0x10000
 
-#if defined(__FreeBSD__) || defined(__MidnightBSD__) || defined (__GNU__)
-#include <sys/param.h>
-#if (__FreeBSD_version >= 1400000 && __FreeBSD_version < 1400043) \
-    || (__FreeBSD_version < 1300523) || defined(__MidnightBSD__) \
-    || defined (__GNU__)
+#ifndef HAVE_SCHED_GETCPU
 static int sched_getcpu(void) { return -1; };
-#endif
 #endif
 
 static struct spa_ringbuffer rb;

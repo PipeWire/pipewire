@@ -1113,7 +1113,7 @@ static int make_socket(const struct sockaddr_storage* sa, socklen_t salen,
 		bool loop, int ttl, char *ifname)
 {
 	int af, fd, val, res;
-	struct ifreq req;
+	unsigned int ifindex = 0;
 	struct sockaddr_storage src = *sa;
 	bool is_multicast = false;
 
@@ -1137,12 +1137,10 @@ static int make_socket(const struct sockaddr_storage* sa, socklen_t salen,
 		goto error;
 	}
 
-	spa_zero(req);
 	if (ifname) {
-		snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", ifname);
-		res = ioctl(fd, SIOCGIFINDEX, &req);
-	        if (res < 0)
-	                pw_log_warn("SIOCGIFINDEX %s failed: %m", ifname);
+		ifindex = if_nametoindex(ifname);
+		if (ifindex == 0)
+			pw_log_warn("if_nametoindex %s failed: %m", ifname);
 	}
 	res = 0;
 	if (af == AF_INET) {
@@ -1152,7 +1150,7 @@ static int make_socket(const struct sockaddr_storage* sa, socklen_t salen,
 			struct ip_mreqn mr4;
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
-			mr4.imr_ifindex = req.ifr_ifindex;
+			mr4.imr_ifindex = ifindex;
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 			is_multicast = true;
 		} else {
@@ -1164,7 +1162,7 @@ static int make_socket(const struct sockaddr_storage* sa, socklen_t salen,
 			struct ipv6_mreq mr6;
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
-			mr6.ipv6mr_interface = req.ifr_ifindex;
+			mr6.ipv6mr_interface = ifindex;
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 			is_multicast = true;
 		} else {

@@ -472,7 +472,7 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 		char *ifname, struct igmp_recovery *igmp_recovery)
 {
 	int af, fd, val, res;
-	struct ifreq req;
+	unsigned int ifindex = 0;
 	struct sockaddr_storage ba = *sa;
 	bool do_connect = false;
 	char addr[128];
@@ -488,12 +488,10 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 		pw_log_error("setsockopt() failed: %m");
 		goto error;
 	}
-	spa_zero(req);
 	if (ifname) {
-		snprintf(req.ifr_name, sizeof(req.ifr_name), "%s", ifname);
-		res = ioctl(fd, SIOCGIFINDEX, &req);
-	        if (res < 0)
-	                pw_log_warn("SIOCGIFINDEX %s failed: %m", ifname);
+		ifindex = if_nametoindex(ifname);
+		if (ifindex == 0)
+			pw_log_warn("if_nametoindex %s failed: %m", ifname);
 	}
 	res = 0;
 	if (af == AF_INET) {
@@ -503,9 +501,9 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			struct ip_mreqn mr4;
 			memset(&mr4, 0, sizeof(mr4));
 			mr4.imr_multiaddr = sa4->sin_addr;
-			mr4.imr_ifindex = req.ifr_ifindex;
+			mr4.imr_ifindex = ifindex;
 			pw_net_get_ip(sa, addr, sizeof(addr), NULL, NULL);
-			pw_log_info("join IPv4 group: %s iface:%d", addr, req.ifr_ifindex);
+			pw_log_info("join IPv4 group: %s iface:%u", addr, ifindex);
 			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
 		} else {
 			struct sockaddr_in *ba4 = (struct sockaddr_in*)&ba;
@@ -520,9 +518,9 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 			struct ipv6_mreq mr6;
 			memset(&mr6, 0, sizeof(mr6));
 			mr6.ipv6mr_multiaddr = sa6->sin6_addr;
-			mr6.ipv6mr_interface = req.ifr_ifindex;
+			mr6.ipv6mr_interface = ifindex;
 			pw_net_get_ip(sa, addr, sizeof(addr), NULL, NULL);
-			pw_log_info("join IPv6 group: %s iface:%d", addr, req.ifr_ifindex);
+			pw_log_info("join IPv6 group: %s iface:%u", addr, ifindex);
 			res = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mr6, sizeof(mr6));
 		} else {
 			struct sockaddr_in6 *ba6 = (struct sockaddr_in6*)&ba;
@@ -543,11 +541,11 @@ static int make_recv_socket(struct sockaddr_storage *sa, socklen_t salen,
 	igmp_recovery->socket_fd = fd;
 	igmp_recovery->mcast_addr = ba;
 	igmp_recovery->mcast_len = salen;
-	igmp_recovery->if_index = req.ifr_ifindex;
+	igmp_recovery->if_index = ifindex;
 	igmp_recovery->is_ipv6 = (af == AF_INET6);
 	pw_log_debug("stored %s multicast info: socket_fd=%d, "
-			"if_index=%d", igmp_recovery->is_ipv6 ?
-			"IPv6" : "IPv4", fd, req.ifr_ifindex);
+			"if_index=%u", igmp_recovery->is_ipv6 ?
+			"IPv6" : "IPv4", fd, ifindex);
 
 	if (bind(fd, (struct sockaddr*)&ba, salen) < 0) {
 		res = -errno;

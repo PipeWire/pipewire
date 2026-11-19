@@ -12,9 +12,49 @@
 #include <limits.h>
 #include <sys/un.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
+#include <ifaddrs.h>
 
 #include <spa/utils/string.h>
 #include <spa/utils/json-core.h>
+
+/*
+ * Join or leave (op is IP_ADD_MEMBERSHIP or IP_DROP_MEMBERSHIP) the IPv4
+ * multicast group on the interface with index ifindex, or on the default
+ * interface when ifindex is 0.
+ */
+static inline int pw_net_ipv4_membership(int fd, int op, struct in_addr group,
+		unsigned int ifindex)
+{
+#ifdef HAVE_STRUCT_IP_MREQN
+	struct ip_mreqn mr;
+
+	spa_zero(mr);
+	mr.imr_multiaddr = group;
+	mr.imr_ifindex = ifindex;
+#else
+	/* without ip_mreqn the interface is given by its IPv4 address */
+	struct ip_mreq mr;
+	char name[IF_NAMESIZE];
+	struct ifaddrs *ifa, *i;
+
+	spa_zero(mr);
+	mr.imr_multiaddr = group;
+	mr.imr_interface.s_addr = htonl(INADDR_ANY);
+	if (ifindex != 0 && if_indextoname(ifindex, name) != NULL &&
+	    getifaddrs(&ifa) == 0) {
+		for (i = ifa; i != NULL; i = i->ifa_next) {
+			if (i->ifa_addr != NULL && i->ifa_addr->sa_family == AF_INET &&
+			    spa_streq(i->ifa_name, name)) {
+				mr.imr_interface = ((struct sockaddr_in *)i->ifa_addr)->sin_addr;
+				break;
+			}
+		}
+		freeifaddrs(ifa);
+	}
+#endif
+	return setsockopt(fd, IPPROTO_IP, op, &mr, sizeof(mr));
+}
 
 static inline int pw_net_parse_address(const char *address, uint16_t port,
 		struct sockaddr_storage *addr, socklen_t *len)

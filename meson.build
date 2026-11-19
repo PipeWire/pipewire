@@ -284,6 +284,8 @@ endforeach
 cdata.set('HAVE_OFF64_T', cc.has_type('off64_t', prefix: '#include <sys/types.h>',
     args: ['-D_LARGEFILE64_SOURCE']))
 
+cdata.set('HAVE_STRUCT_IP_MREQN', cc.has_type('struct ip_mreqn', prefix: '#include <netinet/in.h>'))
+
 cdata.set('HAVE_PIDFD_OPEN',
           cc.get_define('SYS_pidfd_open', prefix: '#include <sys/syscall.h>') != '')
 

@@ -447,14 +447,11 @@ static int rejoin_igmp_group(struct spa_loop *loop, bool async, uint32_t seq,
 			pw_log_debug("re-joined IPv6 multicast group successfully");
 		}
 	} else {
-		struct ip_mreqn mr4;
-		memset(&mr4, 0, sizeof(mr4));
-		mr4.imr_multiaddr = ((struct sockaddr_in*)&impl->igmp_recovery.mcast_addr)->sin_addr;
-		mr4.imr_ifindex = impl->igmp_recovery.if_index;
+		struct in_addr group = ((struct sockaddr_in*)&impl->igmp_recovery.mcast_addr)->sin_addr;
 
 		/* Leave the group first */
-		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IP, IP_DROP_MEMBERSHIP,
-					&mr4, sizeof(mr4));
+		res = pw_net_ipv4_membership(impl->igmp_recovery.socket_fd, IP_DROP_MEMBERSHIP,
+					group, impl->igmp_recovery.if_index);
 		if (SPA_LIKELY(res == 0)) {
 			pw_log_debug("left IPv4 multicast group");
 		} else {
@@ -466,8 +463,8 @@ static int rejoin_igmp_group(struct spa_loop *loop, bool async, uint32_t seq,
 			}
 		}
 
-		res = setsockopt(impl->igmp_recovery.socket_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-				&mr4, sizeof(mr4));
+		res = pw_net_ipv4_membership(impl->igmp_recovery.socket_fd, IP_ADD_MEMBERSHIP,
+				group, impl->igmp_recovery.if_index);
 		if (res < 0) {
 			pw_log_warn("failed to re-join IPv4 multicast group: %m");
 		} else {
@@ -579,13 +576,9 @@ static int make_socket(const struct sockaddr* sa, socklen_t salen, char *ifname,
 		static const uint32_t ipv4_mcast_mask = 0xe0000000;
 		struct sockaddr_in *sa4 = (struct sockaddr_in*)sa;
 		if ((ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask) {
-			struct ip_mreqn mr4;
-			memset(&mr4, 0, sizeof(mr4));
-			mr4.imr_multiaddr = sa4->sin_addr;
-			mr4.imr_ifindex = ifindex;
 			pw_net_get_ip((struct sockaddr_storage*)sa, addr, sizeof(addr), NULL, NULL);
 			pw_log_info("join IPv4 group: %s", addr);
-			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
+			res = pw_net_ipv4_membership(fd, IP_ADD_MEMBERSHIP, sa4->sin_addr, ifindex);
 			*filter_by_address = false;
 			*is_multicast = true;
 		} else {

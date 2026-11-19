@@ -708,7 +708,7 @@ static void on_zeroconf_added(void *data, const void *user, const struct spa_dic
 					hbuf,
 					family == AF_INET ? "" : "]");
 		} else {
-			pw_log_warn("error: %m %d %s", res, gai_strerror(res));
+			pw_log_warn("getnameinfo() failed: %s", gai_strerror(res));
 		}
 	}
 	if (if_addr != NULL)

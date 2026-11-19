@@ -83,6 +83,7 @@ context.spa-libs = {
     api.v4l2.*      = v4l2/libspa-v4l2
     api.libcamera.* = libcamera/libspa-libcamera
     api.bluez5.*    = bluez5/libspa-bluez5
+    api.sndio.*     = sndio/libspa-sndio
     #api.vulkan.*    = vulkan/libspa-vulkan
     video.convert.* = videoconvert/libspa-videoconvert
     video.adapt     = videoconvert/libspa-videoconvert
@@ -286,6 +287,7 @@ context.objects = [
     #{ factory = spa-node-factory   args = { factory.name = videotestsrc node.name = videotestsrc node.description = videotestsrc node.param.Props = { patternType = 1 } } }
     #{ factory = spa-device-factory args = { factory.name = api.jack.device foo=bar } flags = [ nofail ] }
     #{ factory = spa-device-factory args = { factory.name = api.alsa.enum.udev } }
+    #{ factory = spa-device-factory args = { factory.name = api.sndio.device } flags = [ nofail ] }
     #{ factory = spa-node-factory   args = { factory.name = api.alsa.seq.bridge node.name = Internal-MIDI-Bridge } }
     #{ factory = adapter            args = { factory.name = audiotestsrc node.name = my-test node.description = audiotestsrc node.param.Props = { live = false }} }
     #{ factory = spa-node-factory   args = { factory.name = api.vulkan.compute.source node.name = my-compute-source } }

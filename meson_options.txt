@@ -177,6 +177,10 @@ option('jack',
        description: 'Enable jack spa plugin integration',
        type: 'feature',
        value: 'auto')
+option('sndio',
+       description: 'Enable sndio spa plugin integration',
+       type: 'feature',
+       value: 'auto')
 option('support',
        description: 'Enable support spa plugin integration',
        type: 'feature',

@@ -373,6 +373,7 @@ build_on_debian:
       -D bluez5-codec-ldac=disabled
       -D bluez5-codec-ldac-dec=disabled
       -D libcamera=disabled
+      -D sndio=disabled
       -D roc=disabled
       -D snap=disabled
       -D systemd-user-service=disabled
@@ -540,7 +541,7 @@ build_all:
   extends:
     - .build_on_fedora
   variables:
-    # Fedora doesn't have libfreeaptx, lc3plus, or roc
+    # Fedora doesn't have libfreeaptx, lc3plus, roc, or sndio
     # libcamera has no stable API, so let's not chase that target
     MESON_OPTIONS: >-
         -Dauto_features=enabled
@@ -550,6 +551,7 @@ build_all:
         -Dbluez5-codec-ldac-dec=disabled
         -Droc=disabled
         -Dlibcamera=disabled
+        -Dsndio=disabled
         -Dsession-managers=[]
         -Dc_args=['-UFASTPATH']
         -Dcpp_args=['-UFASTPATH']

@@ -131,6 +131,11 @@ extern "C" {
 #define SPA_NAME_API_JACK_SOURCE	"api.jack.source"		/**< a jack source */
 #define SPA_NAME_API_JACK_SINK		"api.jack.sink"			/**< a jack sink */
 
+/** keys for sndio factory names */
+#define SPA_NAME_API_SNDIO_PCM_SINK	"api.sndio.pcm.sink"		/**< a sndio pcm sink */
+#define SPA_NAME_API_SNDIO_PCM_SOURCE	"api.sndio.pcm.source"		/**< a sndio pcm source */
+#define SPA_NAME_API_SNDIO_DEVICE	"api.sndio.device"		/**< a sndio device */
+
 /** keys for vulkan factory names */
 #define SPA_NAME_API_VULKAN_COMPUTE_SOURCE	\
 					"api.vulkan.compute.source"	/**< a vulkan compute source. */

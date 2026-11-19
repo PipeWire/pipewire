@@ -57,6 +57,10 @@ if get_option('spa-plugins').allowed()
     cdata.set('HAVE_ALSA_UMP', true)
   endif
 
+  # sio_flush() and control display names need 1.9.0
+  sndio_dep = dependency('sndio', version: '>= 1.9.0', required: get_option('sndio'))
+  summary({'sndio': sndio_dep.found()}, bool_yn: true, section: 'Backend')
+
   bluez_dep = dependency('bluez', version : '>= 4.101', required: get_option('bluez5'))
   bluez_gio_dep = dependency('gio-2.0', required : get_option('bluez5'))
   bluez_gio_unix_dep = dependency('gio-unix-2.0', required : get_option('bluez5'))

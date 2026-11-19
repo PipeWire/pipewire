@@ -129,6 +129,14 @@ extern "C" {
 #define SPA_KEY_API_JACK_SERVER		"api.jack.server"		/**< a jack server name */
 #define SPA_KEY_API_JACK_CLIENT		"api.jack.client"		/**< an internal jack client */
 
+/** keys for sndio api */
+#define SPA_KEY_API_SNDIO_PATH		"api.sndio.path"		/**< sndio device name as used by
+									  *  sio_open(3); empty or "default"
+									  *  selects $AUDIODEVICE or the
+									  *  system default */
+#define SPA_KEY_API_SNDIO_BUFFER_MSEC	"api.sndio.buffer-msec"		/**< device buffer size, in
+									  *  milliseconds */
+
 /** keys for glib api */
 #define SPA_KEY_API_GLIB_MAINLOOP	"api.glib.mainloop"		/**< whether glib mainloop runs
 									 * in same thread as PW loop */

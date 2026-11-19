@@ -25,6 +25,9 @@ endif
 if jack_dep.found()
   subdir('jack')
 endif
+if sndio_dep.found()
+  subdir('sndio')
+endif
 if get_option('support').allowed()
   subdir('support')
 endif

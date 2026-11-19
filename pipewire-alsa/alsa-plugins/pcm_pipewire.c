@@ -553,7 +553,6 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 		pw_stream_set_active(pw->stream, false);
 		pw_stream_update_properties(pw->stream, &pw->props->dict);
 		pw_stream_update_params(pw->stream, params, 1);
-		pw_stream_set_active(pw->stream, true);
 		goto done;
 	}
 
@@ -571,6 +570,7 @@ static int snd_pcm_pipewire_prepare(snd_pcm_ioplug_t *io)
 				PW_DIRECTION_OUTPUT :
 				PW_DIRECTION_INPUT,
 				PW_ID_ANY,
+				PW_STREAM_FLAG_INACTIVE |
 				PW_STREAM_FLAG_AUTOCONNECT |
 				PW_STREAM_FLAG_MAP_BUFFERS |
 				PW_STREAM_FLAG_RT_PROCESS,
@@ -581,11 +581,14 @@ done:
 	pw->now = 0;
 	pw->drained = false;
 	pw->draining = false;
+	pw->activated = false;
 
 	while (!pw->negotiated && pw->error >= 0)
 		pw_thread_loop_wait(pw->main_loop);
 	if (pw->error < 0)
 		goto error;
+
+	pw_log_debug("prepared");
 
 	pw_thread_loop_unlock(pw->main_loop);
 

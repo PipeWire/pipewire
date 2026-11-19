@@ -15,6 +15,7 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
 
+#include <spa/utils/atomic.h>
 #include <spa/utils/cleanup.h>
 #include <spa/utils/list.h>
 #include <spa/buffer/buffer.h>
@@ -580,18 +581,21 @@ struct pw_memblock * pw_mempool_alloc(struct pw_mempool *pool, enum pw_memblock_
 	shm_unlink(filename);
 	fcntl(b->this.fd, F_SETFD, FD_CLOEXEC);
 #else
+	static uint32_t serial;
 	char filename[128];
-	snprintf(filename, sizeof(filename),
-		 "/dev/shm/pipewire-tmpfile:flags=0x%08x,type=%" PRIu32 ",size=%zu:XXXXXX",
-		 (unsigned int) flags, type, size);
 
-	b->this.fd = mkostemp(filename, O_CLOEXEC);
+	do {
+		snprintf(filename, sizeof(filename),
+			 "/pipewire-shm:pid=%d,serial=%u,flags=0x%08x,type=%" PRIu32 ",size=%zu",
+			 (int) getpid(), SPA_ATOMIC_INC(serial), (unsigned int) flags, type, size);
+		b->this.fd = shm_open(filename, O_CREAT | O_EXCL | O_RDWR, 0600);
+	} while (b->this.fd == -1 && errno == EEXIST);
 	if (b->this.fd == -1) {
 		res = -errno;
-		pw_log_error("%p: Failed to create temporary file: %m", pool);
+		pw_log_error("%p: Failed to create shm fd: %m", pool);
 		goto error_free;
 	}
-	unlink(filename);
+	shm_unlink(filename);
 #endif
 	pw_log_debug("%p: new fd:%d", pool, b->this.fd);
 

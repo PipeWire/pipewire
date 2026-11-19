@@ -513,15 +513,16 @@ need_alsa = get_option('pipewire-alsa').enabled() or 'media-session' in get_opti
 alsa_dep = dependency('alsa', version : '>=1.2.6', required: need_alsa)
 summary({'pipewire-alsa': alsa_dep.found()}, bool_yn: true)
 
-if host_machine.system() == 'freebsd' or host_machine.system() == 'midnightbsd'
-# On FreeBSD and MidnightBSD the OpenSSL library may come from base or a package.
-# Check for a package first and fallback to the base library if we can't find it via pkgconfig
-    openssl_lib = dependency('openssl', required: false)
-    if not openssl_lib.found()
-        openssl_lib = declare_dependency(link_args : [ '-lssl', '-lcrypto'])
+openssl_lib = dependency('openssl', required: false)
+if not openssl_lib.found()
+    # OpenSSL may be in the base system without a pkg-config file, e.g. FreeBSD
+    ssl_lib = cc.find_library('ssl', has_headers: ['openssl/ssl.h'], required: false)
+    crypto_lib = cc.find_library('crypto', required: false)
+    if ssl_lib.found() and crypto_lib.found()
+        openssl_lib = declare_dependency(dependencies: [ssl_lib, crypto_lib])
+    elif get_option('raop').enabled()
+        error('OpenSSL is required for raop')
     endif
-else
-    openssl_lib = dependency('openssl', required: get_option('raop'))
 endif
 summary({'OpenSSL (for raop-sink)': openssl_lib.found()}, bool_yn: true)
 

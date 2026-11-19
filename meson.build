@@ -491,10 +491,10 @@ else
   endif
 endif
 
-# On FreeBSD and MidnightBSD, epoll-shim library is required for eventfd() and timerfd()
-epoll_shim_dep = (host_machine.system() == 'freebsd' or host_machine.system() == 'midnightbsd'
-    ? dependency('epoll-shim', required: true)
-    : dependency('', required: false))
+# epoll-shim provides epoll, eventfd() and timerfd() where the system lacks them
+epoll_shim_dep = (cc.has_function('epoll_create1', prefix: '#include <sys/epoll.h>')
+    ? dependency('', required: false)
+    : dependency('epoll-shim', required: true))
 
 libinotify_dep = (host_machine.system() == 'freebsd' or host_machine.system() == 'midnightbsd'
     ? dependency('libinotify', required: true)

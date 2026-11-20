@@ -1137,6 +1137,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
 
   GST_DEBUG_OBJECT (basesrc, "have common caps (sanitized): %" GST_PTR_FORMAT, possible_caps);
 
+  pw_thread_loop_lock (pwsrc->stream->core->loop);
   if (pw_stream_get_state(pwsrc->stream->pwstream, NULL) == PW_STREAM_STATE_STREAMING) {
     g_autoptr (GstCaps) current_caps = NULL;
     g_autoptr (GstCaps) preferred_new_caps = NULL;
@@ -1148,6 +1149,7 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
       GST_DEBUG_OBJECT (pwsrc,
                         "Stream running and new caps equal current ones. "
                         "Skipping renegotiation.");
+      pw_thread_loop_unlock (pwsrc->stream->core->loop);
       goto no_nego_needed;
     }
   }
@@ -1156,7 +1158,6 @@ gst_pipewire_src_negotiate (GstBaseSrc * basesrc)
   possible = gst_caps_to_format_all (possible_caps);
 
   /* first disconnect */
-  pw_thread_loop_lock (pwsrc->stream->core->loop);
   if (pw_stream_get_state(pwsrc->stream->pwstream, &error) != PW_STREAM_STATE_UNCONNECTED) {
     GST_DEBUG_OBJECT (basesrc, "disconnect capture");
     pw_stream_disconnect (pwsrc->stream->pwstream);

@@ -895,6 +895,10 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
   spa_dll_set_bw(&pwsink->stream->dll, SPA_DLL_BW_MIN, 4096, rate);
 
   possible = gst_caps_to_format_all (caps);
+  if (possible->len == 0) {
+    GST_ERROR_OBJECT (pwsink, "no usable formats in %" GST_PTR_FORMAT, caps);
+    return FALSE;
+  }
 
   pw_thread_loop_lock (pwsink->stream->core->loop);
   state = pw_stream_get_state (pwsink->stream->pwstream, &error);

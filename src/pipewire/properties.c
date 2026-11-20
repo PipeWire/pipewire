@@ -288,7 +288,7 @@ static int update_string(struct pw_properties *props, const char *str, size_t si
 	if (count)
 		*count = cnt;
 
-	return !err;
+	return err ? -EINVAL : 0;
 }
 
 /** Update the properties from the given string, overwriting any
@@ -329,9 +329,9 @@ SPA_EXPORT
 int pw_properties_update_string_checked(struct pw_properties *props,
 		const char *str, size_t size, struct spa_error_location *loc)
 {
-	int count = 0;
-	if (!update_string(props, str, size, &count, loc))
-		return -EINVAL;
+	int count = 0, res;
+	if ((res = update_string(props, str, size, &count, loc)) < 0)
+		return res;
 	return count;
 }
 

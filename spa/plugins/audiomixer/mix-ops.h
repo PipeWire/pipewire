@@ -3,6 +3,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include <spa/utils/defs.h>
+#include <spa/utils/endian.h>
 
 typedef struct {
 #if __BYTE_ORDER == __LITTLE_ENDIAN

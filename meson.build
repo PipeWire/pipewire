@@ -552,6 +552,12 @@ summary({'Gio-2.0 (Snap support)': gio2_snap_dep.found()}, bool_yn: true, sectio
 summary({'Apparmor (Snap support)': apparmor_snap_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 summary({'Snapd-glib (Snap support)': snap_dep.found()}, bool_yn: true, section: 'Misc dependencies')
 
+# FreeBSD declares pthread_setaffinity_np() in <pthread_np.h>
+pthread_affinity_prefix = '#include <pthread.h>'
+if cdata.get('HAVE_PTHREAD_NP_H')
+  pthread_affinity_prefix += '\n#include <pthread_np.h>'
+endif
+
 check_functions = [
   ['gettid', '#include <unistd.h>', ['-D_GNU_SOURCE'], []],
   ['memfd_create', '#include <sys/mman.h>', ['-D_GNU_SOURCE'], []],
@@ -564,7 +570,7 @@ check_functions = [
   ['sigabbrev_np', '#include <string.h>', ['-D_GNU_SOURCE'], []],
   ['pthread_setname_np', '#include <pthread.h>', ['-D_GNU_SOURCE'], [pthread_lib]],
   ['pthread_set_name_np', '#include <pthread.h>\n#include <pthread_np.h>', [], [pthread_lib]],
-  ['pthread_setaffinity_np', '#include <pthread.h>', ['-D_GNU_SOURCE'], [pthread_lib]],
+  ['pthread_setaffinity_np', pthread_affinity_prefix, ['-D_GNU_SOURCE'], [pthread_lib]],
   ['XSetIOErrorExitHandler', '#include <X11/Xlib.h>', [], [x11_dep]],
   ['malloc_trim', '#include <malloc.h>', [], []],
   ['malloc_info', '#include <malloc.h>', [], []],

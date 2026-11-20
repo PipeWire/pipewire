@@ -965,6 +965,7 @@ static int do_exec(struct pw_context *context, char *const *argv)
 		char buf[1024];
 		char *const *p;
 		struct spa_strbuf s;
+		sigset_t mask;
 
 		/* Double fork to avoid zombies; we don't want to set SIGCHLD handler */
 		pid = fork();
@@ -983,6 +984,11 @@ static int do_exec(struct pw_context *context, char *const *argv)
 #ifdef CLOSE_RANGE_UNSHARE
 		close_range(3, ~0U, CLOSE_RANGE_UNSHARE);
 #endif
+
+		/* The signal mask survives execve(), so unblock the signals
+		 * the daemon blocked for its signalfds */
+		sigemptyset(&mask);
+		sigprocmask(SIG_SETMASK, &mask, NULL);
 
 		pw_log_info("exec%s", s.buffer);
 		res = execvp(argv[0], argv);

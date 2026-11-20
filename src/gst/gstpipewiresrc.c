@@ -206,7 +206,7 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
       pwsrc->on_disconnect = g_value_get_enum (value);
       break;
 
-    case PROP_PROVIDE_CLOCK:
+    case PROP_PROVIDE_CLOCK: {
       gboolean provide = g_value_get_boolean (value);
       GST_OBJECT_LOCK (pwsrc);
       if (provide)
@@ -215,6 +215,7 @@ gst_pipewire_src_set_property (GObject * object, guint prop_id,
         GST_OBJECT_FLAG_UNSET (pwsrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
       GST_OBJECT_UNLOCK (pwsrc);
       break;
+    }
 
     case PROP_SYNC:
       pwsrc->sync = g_value_get_boolean (value);
@@ -293,13 +294,14 @@ gst_pipewire_src_get_property (GObject * object, guint prop_id,
       g_value_set_enum (value, pwsrc->on_disconnect);
       break;
 
-    case PROP_PROVIDE_CLOCK:
+    case PROP_PROVIDE_CLOCK: {
       gboolean result;
       GST_OBJECT_LOCK (pwsrc);
       result = GST_OBJECT_FLAG_IS_SET (pwsrc, GST_ELEMENT_FLAG_PROVIDE_CLOCK);
       GST_OBJECT_UNLOCK (pwsrc);
       g_value_set_boolean (value, result);
       break;
+    }
 
     case PROP_SYNC:
       g_value_set_boolean (value, !!pwsrc->sync);

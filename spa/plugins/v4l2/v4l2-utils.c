@@ -385,9 +385,10 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 
 
 
+/* Compare the frame rate of the V4L2 frame interval f1 with the frame rate f2. */
 static int compare_fraction(struct v4l2_fract *f1, const struct spa_fraction *f2)
 {
-	return spa_fraction_cmp(&SPA_FRACTION(f1->numerator, f1->denominator), f2);
+	return spa_fraction_cmp(&SPA_FRACTION(f1->denominator, f1->numerator), f2);
 }
 
 

@@ -1186,7 +1186,10 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 		res = -ENOTSUP;
 		if (rlimits_enabled) {
 			res = 0;
-			if (setpriority(PRIO_PROCESS, impl->main_tid, impl->nice_level) < 0)
+			/* 0 is the calling thread on Linux, where nice levels
+			 * are per thread, and the process elsewhere. Elsewhere
+			 * main_tid is a thread id, not a process id. */
+			if (setpriority(PRIO_PROCESS, 0, impl->nice_level) < 0)
 				res = -errno;
 		}
 

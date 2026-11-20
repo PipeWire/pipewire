@@ -31,7 +31,8 @@ struct port_info {
 	int result;
 	struct spa_hook port_listener;
 	struct spa_hook node_listener;
-	struct spa_hook global_listener;
+	struct spa_hook global_port_listener;
+	struct spa_hook global_node_listener;
 	struct pw_impl_port *port;
 	struct pw_impl_node *node;
 	struct pw_impl_port_mix *mix;
@@ -940,7 +941,8 @@ static void input_remove(struct pw_impl_link *this)
 
 	spa_hook_remove(&info->port_listener);
 	spa_hook_remove(&info->node_listener);
-	spa_hook_remove(&info->global_listener);
+	spa_hook_remove(&info->global_port_listener);
+	spa_hook_remove(&info->global_node_listener);
 
 	spa_list_remove(&this->input_link);
 	pw_impl_port_emit_link_removed(port, this);
@@ -973,7 +975,8 @@ static void output_remove(struct pw_impl_link *this)
 
 	spa_hook_remove(&info->port_listener);
 	spa_hook_remove(&info->node_listener);
-	spa_hook_remove(&info->global_listener);
+	spa_hook_remove(&info->global_port_listener);
+	spa_hook_remove(&info->global_node_listener);
 
 	spa_list_remove(&this->output_link);
 	pw_impl_port_emit_link_removed(port, this);
@@ -1351,20 +1354,18 @@ static void try_unlink_controls(struct impl *impl, struct pw_impl_port *output, 
 	}
 }
 
-static int check_owner_permissions(struct pw_context *context,
-		struct pw_impl_node *node, struct pw_global *other, uint32_t permissions)
+static int get_owner_client(struct pw_context *context,
+		struct pw_impl_node *node, struct pw_impl_client **client)
 {
 	const char *str;
-	struct pw_impl_client *client;
 	struct pw_global *global;
-	uint32_t perms;
 	uint32_t client_id;
 
+	*client = NULL;
 	str = pw_properties_get(node->properties, PW_KEY_CLIENT_ID);
 	if (str == NULL)
-		/* node not owned by client */
+		/* node not owned by any client */
 		return 0;
-
 	if (!spa_atou32(str, &client_id, 0))
 		/* invalid client_id, something is wrong */
 		return -EIO;
@@ -1372,14 +1373,9 @@ static int check_owner_permissions(struct pw_context *context,
 		/* current client can't see the owner client */
 		return -errno;
 	if (!pw_global_is_type(global, PW_TYPE_INTERFACE_Client) ||
-	    (client = global->object) == NULL)
+	    (*client = global->object) == NULL)
 		/* not the right object, something wrong */
 		return -EIO;
-
-	perms = pw_global_get_permissions(other, client);
-	if ((perms & permissions) != permissions)
-		/* owner client can't see other node */
-		return -EPERM;
 
 	return 0;
 }
@@ -1392,35 +1388,54 @@ check_permission(struct pw_context *context,
 {
 	int res;
 	uint32_t in_perms, out_perms;
-	struct pw_global *in_global, *out_global;
+	struct pw_global *in_node_global, *out_node_global;
+	struct pw_global *in_port_global, *out_port_global;
+	struct pw_impl_client *client;
 
-	if ((in_global = input->node->global) == NULL)
-		return -ENOENT;
-	if ((out_global = output->node->global) == NULL)
+	if ((in_node_global = input->node->global) == NULL ||
+	    (out_node_global = output->node->global) == NULL ||
+	    (in_port_global = input->global) == NULL ||
+	    (out_port_global = output->global) == NULL)
 		return -ENOENT;
 
 	in_perms = out_perms = PW_PERM_R | PW_PERM_L;
 	if (context->current_client != NULL) {
-		in_perms = pw_global_get_permissions(in_global, context->current_client);
-		out_perms = pw_global_get_permissions(out_global, context->current_client);
+		in_perms = pw_global_get_permissions(in_node_global, context->current_client);
+		in_perms &= pw_global_get_permissions(in_port_global, context->current_client);
+		out_perms = pw_global_get_permissions(out_node_global, context->current_client);
+		out_perms &= pw_global_get_permissions(out_port_global, context->current_client);
 	}
-	/* current client can't see input node or output node */
+	/* current client making the link can't see input node/port or output node/port */
 	if (!PW_PERM_IS_R(in_perms) || !PW_PERM_IS_R(out_perms))
 		return -ENOENT;
 
-	if ((res = check_owner_permissions(context, output->node,
-					in_global, PW_PERM_R)) < 0) {
-		/* output node owner can't see input node, check if the current
-		 * client has universal link permissions for the output node */
-		if (!PW_PERM_IS_L(out_perms))
-			return res;
+	/* the node owner owns both the node and ports */
+	if ((res = get_owner_client(context, output->node, &client)) < 0)
+		return res;
+	if (client) {
+		uint32_t perms;
+		perms = pw_global_get_permissions(in_port_global, client);
+		perms &= pw_global_get_permissions(in_node_global, client);
+		if ((perms & PW_PERM_R) != PW_PERM_R) {
+			/* output node owner can't see input node/port, check if the current
+			 * client has universal link permissions for the output node */
+			if (!PW_PERM_IS_L(out_perms))
+				return -EPERM;
+		}
 	}
-	if ((res = check_owner_permissions(context, input->node,
-					out_global, PW_PERM_R)) < 0) {
-		/* input node owner can't see output node, check if the current
-		 * client has universal link permissions for the input node */
-		if (!PW_PERM_IS_L(in_perms))
-			return res;
+
+	if ((res = get_owner_client(context, input->node, &client)) < 0)
+		return res;
+	if (client) {
+		uint32_t perms;
+		perms = pw_global_get_permissions(out_port_global, client);
+		perms &= pw_global_get_permissions(out_node_global, client);
+		if ((perms & PW_PERM_R) != PW_PERM_R) {
+			/* input node owner can't see output node/port, check if the current
+			 * client has universal link permissions for the input node */
+			if (!PW_PERM_IS_L(in_perms))
+				return -EPERM;
+		}
 	}
 	return 0;
 }
@@ -1571,10 +1586,12 @@ struct pw_impl_link *pw_context_create_link(struct pw_context *context,
 
 	pw_impl_port_add_listener(input, &impl->input.port_listener, &input_port_events, impl);
 	pw_impl_node_add_listener(input_node, &impl->input.node_listener, &input_node_events, impl);
-	pw_global_add_listener(input->global, &impl->input.global_listener, &input_global_events, impl);
+	pw_global_add_listener(input->global, &impl->input.global_port_listener, &input_global_events, impl);
+	pw_global_add_listener(input_node->global, &impl->input.global_node_listener, &input_global_events, impl);
 	pw_impl_port_add_listener(output, &impl->output.port_listener, &output_port_events, impl);
 	pw_impl_node_add_listener(output_node, &impl->output.node_listener, &output_node_events, impl);
-	pw_global_add_listener(output->global, &impl->output.global_listener, &output_global_events, impl);
+	pw_global_add_listener(output->global, &impl->output.global_port_listener, &output_global_events, impl);
+	pw_global_add_listener(output_node->global, &impl->output.global_node_listener, &output_global_events, impl);
 
 	input_node->live = output_node->live;
 

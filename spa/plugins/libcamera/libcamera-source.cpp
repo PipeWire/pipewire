@@ -1087,6 +1087,8 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 		b->h->dts_offset = 0;
 	}
 
+	const auto& fmd_planes = fmd.planes();
+
 	for (std::size_t i = 0; i < b->outbuf->n_datas; i++) {
 		auto *d = &b->outbuf->datas[i];
 
@@ -1094,6 +1096,21 @@ void handle_completed_request(struct impl *impl, libcamera::Request *request)
 
 		if (fmd.status != libcamera::FrameMetadata::Status::FrameSuccess)
 			d->chunk->flags |= SPA_CHUNK_FLAG_CORRUPTED;
+
+		/* Report the size of the data the camera produced, which for
+		 * compressed formats such as MJPEG is much smaller than the
+		 * buffer. The last data holds any remaining folded planes.
+		 * Keep the current size if the pipeline handler does not
+		 * report bytesused. */
+		if (i < fmd_planes.size()) {
+			uint32_t size = fmd_planes[i].bytesused;
+
+			if (i == b->outbuf->n_datas - 1)
+				for (std::size_t k = i + 1; k < fmd_planes.size(); k++)
+					size += fmd_planes[k].bytesused;
+			if (size != 0)
+				d->chunk->size = size;
+		}
 	}
 
 	spa_list_append(&port->queue, &b->link);

@@ -385,10 +385,12 @@ static const struct format_info *find_format_info_by_media_type(uint32_t type,
 
 
 
-/* Compare the frame rate of the V4L2 frame interval f1 with the frame rate f2. */
-static int compare_fraction(struct v4l2_fract *f1, const struct spa_fraction *f2)
+static int compare_fraction(struct v4l2_fract *f1, const struct v4l2_fract *f2)
 {
-	return spa_fraction_cmp(&SPA_FRACTION(f1->denominator, f1->numerator), f2);
+	return spa_fraction_cmp(
+		&SPA_FRACTION(f1->numerator, f1->denominator),
+		&SPA_FRACTION(f2->numerator, f2->denominator)
+	);
 }
 
 
@@ -828,17 +830,13 @@ do_frminterval_filter:
 		} else if (port->frmival.type == V4L2_FRMIVAL_TYPE_CONTINUOUS ||
 			   port->frmival.type == V4L2_FRMIVAL_TYPE_STEPWISE) {
 			if (n_fractions == 0) {
-				struct spa_fraction f = { 25, 1 };
-				if (compare_fraction(&port->frmival.stepwise.max, &f) > 0) {
-					f.denom = port->frmival.stepwise.max.numerator;
-					f.num = port->frmival.stepwise.max.denominator;
-				}
-				if (compare_fraction(&port->frmival.stepwise.min, &f) < 0) {
-					f.denom = port->frmival.stepwise.min.numerator;
-					f.num = port->frmival.stepwise.min.denominator;
-				}
+				struct v4l2_fract f = { 1, 25 };
+				if (compare_fraction(&f, &port->frmival.stepwise.max) > 0)
+					f = port->frmival.stepwise.max;
+				if (compare_fraction(&f, &port->frmival.stepwise.min) < 0)
+					f = port->frmival.stepwise.min;
 
-				spa_pod_builder_fraction(&b.b, f.num, f.denom);
+				spa_pod_builder_fraction(&b.b, f.denominator, f.numerator);
 			}
 			spa_pod_builder_fraction(&b.b,
 						 port->frmival.stepwise.max.denominator,

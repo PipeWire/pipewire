@@ -879,9 +879,10 @@ gst_pipewire_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
     pwsink->rate = rate = 0;
     pwsink->rate_match = false;
 
-    gst_video_info_from_caps (&video_info, caps);
-
-    if (GST_VIDEO_FORMAT_INFO_IS_VALID_RAW (video_info.finfo)
+    /* fails, leaving video_info uninitialized, for caps that are not
+     * video, such as compressed audio */
+    if (gst_video_info_from_caps (&video_info, caps) &&
+        GST_VIDEO_FORMAT_INFO_IS_VALID_RAW (video_info.finfo)
 #ifdef HAVE_GSTREAMER_DMA_DRM
         && GST_VIDEO_FORMAT_INFO_FORMAT (video_info.finfo) != GST_VIDEO_FORMAT_DMA_DRM
 #endif

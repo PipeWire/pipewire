@@ -1147,11 +1147,7 @@ static int make_socket(const struct sockaddr_storage* sa, socklen_t salen,
 		static const uint32_t ipv4_mcast_mask = 0xe0000000;
 		struct sockaddr_in *sa4 = (struct sockaddr_in*)&src;
 		if ((ntohl(sa4->sin_addr.s_addr) & ipv4_mcast_mask) == ipv4_mcast_mask) {
-			struct ip_mreqn mr4;
-			memset(&mr4, 0, sizeof(mr4));
-			mr4.imr_multiaddr = sa4->sin_addr;
-			mr4.imr_ifindex = ifindex;
-			res = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr4, sizeof(mr4));
+			res = pw_net_ipv4_membership(fd, IP_ADD_MEMBERSHIP, sa4->sin_addr, ifindex);
 			is_multicast = true;
 		} else {
 			sa4->sin_addr.s_addr = INADDR_ANY;

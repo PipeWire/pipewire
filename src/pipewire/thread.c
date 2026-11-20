@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <pthread.h>
+#include <sched.h>
 #ifdef HAVE_PTHREAD_NP_H
 #include <pthread_np.h>
 #endif
@@ -46,6 +47,23 @@ static int parse_affinity(const char *affinity, cpu_set_t *set)
 		if (v >= 0 && v < CPU_SETSIZE)
 			CPU_SET(v, set);
         }
+	return 0;
+}
+#elif defined(HAVE_CPUSET_CREATE)
+static int parse_affinity(const char *affinity, cpuset_t *set)
+{
+	struct spa_json it[1];
+	int v;
+
+	cpuset_zero(set);
+	if (spa_json_begin_array_relax(&it[0], affinity, strlen(affinity)) <= 0)
+		return 0;
+
+	/* cpuset_set() fails for CPUs past the end of the set */
+	while (spa_json_get_int(&it[0], &v) > 0) {
+		if (v >= 0)
+			cpuset_set(v, set);
+	}
 	return 0;
 }
 #endif
@@ -91,6 +109,16 @@ static int thread_setaffinity(pthread_t thread, const char *affinity)
 	cpu_set_t set;
 	parse_affinity(affinity, &set);
 	return -pthread_setaffinity_np(thread, sizeof(set), &set);
+#elif defined(HAVE_CPUSET_CREATE)
+	cpuset_t *set;
+	int res;
+
+	if ((set = cpuset_create()) == NULL)
+		return -ENOMEM;
+	parse_affinity(affinity, set);
+	res = -pthread_setaffinity_np(thread, cpuset_size(set), set);
+	cpuset_destroy(set);
+	return res;
 #else
 	return -ENOTSUP;
 #endif

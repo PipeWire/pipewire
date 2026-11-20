@@ -581,10 +581,12 @@ foreach f : check_functions
 endforeach
 
 # pthread_setaffinity_np() is only usable with cpu_set_t, e.g. NetBSD
-# has it but takes its own cpuset_t
+# has it but takes its own cpuset_t, made with cpuset_create()
 if cdata.get('HAVE_PTHREAD_SETAFFINITY_NP') and not cc.has_type('cpu_set_t',
     prefix: '#include <sched.h>\n#include <pthread.h>', args: ['-D_GNU_SOURCE'])
   cdata.set('HAVE_PTHREAD_SETAFFINITY_NP', false)
+  # cpuset_create() is a macro on NetBSD, which has_function() misses
+  cdata.set('HAVE_CPUSET_CREATE', cc.has_header_symbol('sched.h', 'cpuset_create'))
 endif
 
 installed_tests_metadir = pipewire_datadir / 'installed-tests' / pipewire_name

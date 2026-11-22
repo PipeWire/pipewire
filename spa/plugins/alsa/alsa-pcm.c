@@ -1293,6 +1293,8 @@ int spa_alsa_open(struct state *state, const char *params)
 	}
 
 	state->opened = true;
+	spa_scnprintf(state->open_params, sizeof(state->open_params), "%s",
+			params ? params : "");
 	state->sample_count = 0;
 
 	probe_pitch_ctl(state);
@@ -1352,6 +1354,7 @@ int spa_alsa_close(struct state *state)
 
 	state->have_format = false;
 	state->opened = false;
+	state->open_params[0] = '\0';
 	state->linked = false;
 
 	if (state->pitch_elem) {
@@ -2103,7 +2106,8 @@ spa_alsa_enum_format(struct state *state, int seq, uint32_t start, uint32_t num,
 			state->have_format, state->started);
 
 	opened = state->opened;
-	if (!state->started && state->have_format)
+	if (!state->started && (state->have_format ||
+	    (state->opened && state->open_params[0] != '\0')))
 		spa_alsa_close(state);
 	if ((err = spa_alsa_open(state, NULL)) < 0)
 		return err;
@@ -2339,7 +2343,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		return -EINVAL;
 	}
 
-	if (!state->started && state->have_format)
+	if (!state->started && (state->have_format ||
+	    (state->opened && !spa_streq(state->open_params, spdif_params))))
 		spa_alsa_close(state);
 	if ((err = spa_alsa_open(state, spdif_params)) < 0)
 		return err;

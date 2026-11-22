@@ -1188,7 +1188,9 @@ static void recalc_latencies(struct impl *this, enum spa_direction direction)
 static void recalc_graph_latency(struct impl *impl)
 {
 	struct filter_graph *g;
+	struct dir *dir = &impl->dir[SPA_DIRECTION_REVERSE(impl->direction)];
 	int32_t latency = impl->resample_report_latency ? impl->resample_latency : 0;
+	uint32_t rate = dir->format.info.raw.rate;
 
 	if (latency > 0 && impl->direction == SPA_DIRECTION_INPUT && impl->resample.i_rate != 0)
 		latency = SPA_SCALE32(latency, impl->resample.o_rate, impl->resample.i_rate);
@@ -1196,12 +1198,11 @@ static void recalc_graph_latency(struct impl *impl)
 	spa_list_for_each(g, &impl->active_graphs, link)
 		latency += g->latency;
 
+	impl->latency_time = rate != 0 ?
+		SPA_SCALE32(latency, SPA_NSEC_PER_SEC, rate) : 0;
+
 	if (latency != impl->latency.rate) {
 		impl->latency.rate = latency;
-		impl->latency_time = SPA_SCALE32(latency, SPA_NSEC_PER_SEC,
-				impl->direction == SPA_DIRECTION_INPUT ?
-					impl->resample.o_rate :
-					impl->resample.i_rate);
 		recalc_latencies(impl, SPA_DIRECTION_INPUT);
 		recalc_latencies(impl, SPA_DIRECTION_OUTPUT);
 	}

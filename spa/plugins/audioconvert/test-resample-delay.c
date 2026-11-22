@@ -53,7 +53,7 @@ static double difference(double delay, const float *a, size_t len_a, const float
 
 		c += (a[i] - bv) * (a[i] - bv);
 		wa += a[i]*a[i];
-		wb = bv*bv;
+		wb += bv*bv;
 	}
 
 	if (wa == 0 || wb == 0)

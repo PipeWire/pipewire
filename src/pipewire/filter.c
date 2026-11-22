@@ -975,7 +975,7 @@ static int impl_port_reuse_buffer(void *object, uint32_t port_id, uint32_t buffe
 		return -EINVAL;
 
 	pw_log_trace("%p: recycle buffer %d", impl, buffer_id);
-	push_queue(port, &port->queued, &port->buffers[buffer_id]);
+	push_queue(port, &port->dequeued, &port->buffers[buffer_id]);
 	return 0;
 }
 

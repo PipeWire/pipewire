@@ -14,6 +14,7 @@
 #include <spa/pod/builder.h>
 
 #include <pipewire/pipewire.h>
+#include <pipewire/filter.h>
 
 #define WIDTH		320
 #define HEIGHT		240
@@ -52,9 +53,13 @@ struct data {
 	struct pw_registry *registry;
 	struct spa_hook registry_listener;
 
+	/* the producer is either a pw_stream or a pw_filter with one output port */
 	struct pw_stream *producer;
+	struct pw_filter *filter;
+	void *filter_port;
 	struct spa_hook producer_listener;
 	enum pw_stream_state producer_state;
+	enum pw_filter_state filter_state;
 	uint32_t n_buffers;
 	uint32_t uses[N_BUFFERS_MAX];
 	uint32_t seq;
@@ -76,43 +81,59 @@ struct data {
 	enum pw_link_state link_states[2];
 };
 
-static void producer_process(void *userdata)
+/* write the next sequence number into a dequeued buffer; returns the buffer
+ * index, or N_BUFFERS_MAX when the buffer can't be used */
+static uint32_t fill_frame(struct data *d, struct pw_buffer *b)
 {
-	struct data *d = userdata;
-	struct pw_buffer *b;
-	struct spa_data *sd;
+	uint32_t index = (uint32_t)(uintptr_t)b->user_data;
+	struct spa_data *sd = &b->buffer->datas[0];
 
-	uint32_t index;
-	bool reuse;
-
-	if ((b = pw_stream_dequeue_buffer(d->producer)) == NULL)
-		return;
-
-	index = (uint32_t)(uintptr_t)b->user_data;
-	sd = &b->buffer->datas[0];
-	if (index >= N_BUFFERS_MAX || sd->data == NULL || sd->maxsize < sizeof(d->seq)) {
-		pw_stream_queue_buffer(d->producer, b);
-		return;
-	}
-	reuse = d->uses[index] > 0;
+	if (index >= N_BUFFERS_MAX || sd->data == NULL || sd->maxsize < sizeof(d->seq))
+		return N_BUFFERS_MAX;
 
 	memcpy(sd->data, &d->seq, sizeof(d->seq));
 	sd->chunk->offset = 0;
 	sd->chunk->size = SPA_MIN(sd->maxsize, (uint32_t)(WIDTH * HEIGHT * 2));
 	sd->chunk->stride = WIDTH * 2;
+	return index;
+}
 
-	/* a frame only counts once it is queued */
-	if (pw_stream_queue_buffer(d->producer, b) < 0)
-		return;
-
-	d->uses[index]++;
-	if (reuse) {
+/* a frame only counts once it is queued */
+static void frame_queued(struct data *d, uint32_t index)
+{
+	if (d->uses[index]++ > 0) {
 		d->reused++;
 		if (d->seq >= d->n_buffers && d->seq < MAX_SEQ)
 			d->in_reused[d->seq] = 1;
 	}
 	d->seq++;
 	d->produced++;
+}
+
+static const struct spa_pod *build_buffers(struct spa_pod_builder *b)
+{
+	return spa_pod_builder_add_object(b,
+		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+		SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(N_BUFFERS),
+		SPA_PARAM_BUFFERS_blocks, SPA_POD_Int(1),
+		SPA_PARAM_BUFFERS_size, SPA_POD_Int(WIDTH * HEIGHT * 2),
+		SPA_PARAM_BUFFERS_stride, SPA_POD_Int(WIDTH * 2),
+		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
+			(1 << SPA_DATA_MemPtr) | (1 << SPA_DATA_MemFd)));
+}
+
+static void producer_process(void *userdata)
+{
+	struct data *d = userdata;
+	struct pw_buffer *b;
+	uint32_t index;
+
+	if ((b = pw_stream_dequeue_buffer(d->producer)) == NULL)
+		return;
+
+	index = fill_frame(d, b);
+	if (pw_stream_queue_buffer(d->producer, b) >= 0 && index < N_BUFFERS_MAX)
+		frame_queued(d, index);
 }
 
 static void producer_param_changed(void *userdata, uint32_t id, const struct spa_pod *param)
@@ -125,14 +146,7 @@ static void producer_param_changed(void *userdata, uint32_t id, const struct spa
 	if (param == NULL || id != SPA_PARAM_Format)
 		return;
 
-	params[0] = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_Int(N_BUFFERS),
-		SPA_PARAM_BUFFERS_blocks, SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size, SPA_POD_Int(WIDTH * HEIGHT * 2),
-		SPA_PARAM_BUFFERS_stride, SPA_POD_Int(WIDTH * 2),
-		SPA_PARAM_BUFFERS_dataType, SPA_POD_CHOICE_FLAGS_Int(
-			(1 << SPA_DATA_MemPtr) | (1 << SPA_DATA_MemFd)));
+	params[0] = build_buffers(&b);
 	pw_stream_update_params(d->producer, params, 1);
 }
 
@@ -155,6 +169,56 @@ static const struct pw_stream_events producer_events = {
 	.param_changed = producer_param_changed,
 	.add_buffer = producer_add_buffer,
 	.process = producer_process,
+};
+
+static void filter_process(void *userdata, struct spa_io_position *position)
+{
+	struct data *d = userdata;
+	struct pw_buffer *b;
+	uint32_t index;
+
+	if ((b = pw_filter_dequeue_buffer(d->filter_port)) == NULL)
+		return;
+
+	index = fill_frame(d, b);
+	if (pw_filter_queue_buffer(d->filter_port, b) >= 0 && index < N_BUFFERS_MAX)
+		frame_queued(d, index);
+}
+
+static void filter_param_changed(void *userdata, void *port_data, uint32_t id,
+		const struct spa_pod *param)
+{
+	struct data *d = userdata;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const struct spa_pod *params[1];
+
+	if (param == NULL || id != SPA_PARAM_Format)
+		return;
+
+	params[0] = build_buffers(&b);
+	pw_filter_update_params(d->filter, port_data, params, 1);
+}
+
+static void filter_add_buffer(void *userdata, void *port_data, struct pw_buffer *buffer)
+{
+	struct data *d = userdata;
+	buffer->user_data = (void *)(uintptr_t)d->n_buffers++;
+}
+
+static void filter_state_changed(void *userdata, enum pw_filter_state old,
+		enum pw_filter_state state, const char *error)
+{
+	struct data *d = userdata;
+	d->filter_state = state;
+}
+
+static const struct pw_filter_events filter_events = {
+	PW_VERSION_FILTER_EVENTS,
+	.state_changed = filter_state_changed,
+	.param_changed = filter_param_changed,
+	.add_buffer = filter_add_buffer,
+	.process = filter_process,
 };
 
 static void consumer_process(void *userdata)
@@ -264,17 +328,28 @@ static const struct port *find_output_port(struct data *d, uint32_t node_id)
 	return NULL;
 }
 
+static uint32_t producer_node_id(struct data *d)
+{
+	return d->filter ? pw_filter_get_node_id(d->filter) : pw_stream_get_node_id(d->producer);
+}
+
+static bool producer_in(struct data *d, enum pw_stream_state stream_state,
+		enum pw_filter_state filter_state)
+{
+	return d->filter ? d->filter_state == filter_state : d->producer_state == stream_state;
+}
+
 static bool streams_ready(struct data *d)
 {
-	return d->producer_state == PW_STREAM_STATE_PAUSED &&
+	return producer_in(d, PW_STREAM_STATE_PAUSED, PW_FILTER_STATE_PAUSED) &&
 		d->consumers[0].state == PW_STREAM_STATE_PAUSED &&
 		d->consumers[1].state == PW_STREAM_STATE_PAUSED &&
-		find_output_port(d, pw_stream_get_node_id(d->producer)) != NULL;
+		find_output_port(d, producer_node_id(d)) != NULL;
 }
 
 static bool streaming(struct data *d)
 {
-	return d->producer_state == PW_STREAM_STATE_STREAMING &&
+	return producer_in(d, PW_STREAM_STATE_STREAMING, PW_FILTER_STATE_STREAMING) &&
 		d->consumers[0].state == PW_STREAM_STATE_STREAMING &&
 		d->consumers[1].state == PW_STREAM_STATE_STREAMING &&
 		d->link_states[0] == PW_LINK_STATE_ACTIVE &&
@@ -310,50 +385,50 @@ static const struct spa_pod *build_format(struct spa_pod_builder *b)
 				.framerate = SPA_FRACTION(25, 1)));
 }
 
+
+static struct pw_properties *producer_props(void)
+{
+	return pw_properties_new(
+			PW_KEY_MEDIA_TYPE, "Video",
+			PW_KEY_MEDIA_CATEGORY, "Capture",
+			PW_KEY_MEDIA_CLASS, "Video/Source",
+			PW_KEY_NODE_OUTPUT_MODE, "refcounted",
+			PW_KEY_NODE_AUTOCONNECT, "false",
+			NULL);
+}
+
+static void setup(struct data *d)
+{
+	pw_init(0, NULL);
+	d->loop = pw_loop_new(NULL);
+	pwtest_ptr_notnull(d->loop);
+	d->context = pw_context_new(d->loop, NULL, 0);
+	pwtest_ptr_notnull(d->context);
+	d->core = pw_context_connect(d->context, NULL, 0);
+	pwtest_ptr_notnull(d->core);
+
+	pw_loop_enter(d->loop);
+
+	d->registry = pw_core_get_registry(d->core, PW_VERSION_REGISTRY, 0);
+	pw_registry_add_listener(d->registry, &d->registry_listener, &registry_events, d);
+}
+
 /* A refcounted output port hands buffers back to the producer with
  * port_reuse_buffer. These must become available to the producer again. */
-PWTEST(stream_output_reuse_refcounted)
+static void check_reuse(struct data *d)
 {
-	static struct data d;
 	uint8_t buffer[1024];
-	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	struct spa_pod_builder b;
 	const struct spa_pod *params[1];
 	const struct port *out;
 	uint32_t src_id, last_produced;
 	uint64_t start, next, last_progress;
 
-	pw_init(0, NULL);
-	d.loop = pw_loop_new(NULL);
-	pwtest_ptr_notnull(d.loop);
-	d.context = pw_context_new(d.loop, NULL, 0);
-	pwtest_ptr_notnull(d.context);
-	d.core = pw_context_connect(d.context, NULL, 0);
-	pwtest_ptr_notnull(d.core);
-
-	pw_loop_enter(d.loop);
-
-	d.registry = pw_core_get_registry(d.core, PW_VERSION_REGISTRY, 0);
-	pw_registry_add_listener(d.registry, &d.registry_listener, &registry_events, &d);
-
-	d.producer = pw_stream_new(d.core, "reuse-src",
-			pw_properties_new(
-				PW_KEY_MEDIA_TYPE, "Video",
-				PW_KEY_MEDIA_CATEGORY, "Capture",
-				PW_KEY_MEDIA_CLASS, "Video/Source",
-				PW_KEY_NODE_OUTPUT_MODE, "refcounted",
-				PW_KEY_NODE_AUTOCONNECT, "false",
-				NULL));
-	pwtest_ptr_notnull(d.producer);
-	pw_stream_add_listener(d.producer, &d.producer_listener, &producer_events, &d);
-	params[0] = build_format(&b);
-	pwtest_neg_errno_ok(pw_stream_connect(d.producer, PW_DIRECTION_OUTPUT, PW_ID_ANY,
-			PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_MAP_BUFFERS, params, 1));
-
 	for (int i = 0; i < 2; i++) {
-		struct consumer *c = &d.consumers[i];
+		struct consumer *c = &d->consumers[i];
 
-		c->data = &d;
-		c->stream = pw_stream_new(d.core, "reuse-sink",
+		c->data = d;
+		c->stream = pw_stream_new(d->core, "reuse-sink",
 				pw_properties_new(
 					PW_KEY_MEDIA_TYPE, "Video",
 					PW_KEY_MEDIA_CATEGORY, "Capture",
@@ -367,13 +442,13 @@ PWTEST(stream_output_reuse_refcounted)
 				PW_STREAM_FLAG_MAP_BUFFERS, params, 1));
 	}
 
-	pwtest_bool_true(iterate_until(&d, streams_ready, 5000));
+	pwtest_bool_true(iterate_until(d, streams_ready, 5000));
 
-	src_id = pw_stream_get_node_id(d.producer);
-	out = find_output_port(&d, src_id);
-	d.out_port = pw_registry_bind(d.registry, out->id, PW_TYPE_INTERFACE_Port,
+	src_id = producer_node_id(d);
+	out = find_output_port(d, src_id);
+	d->out_port = pw_registry_bind(d->registry, out->id, PW_TYPE_INTERFACE_Port,
 			PW_VERSION_PORT, 0);
-	pw_proxy_add_object_listener(d.out_port, &d.out_port_listener, &port_events, &d);
+	pw_proxy_add_object_listener(d->out_port, &d->out_port_listener, &port_events, d);
 
 	for (int i = 0; i < 2; i++) {
 		struct pw_properties *props = pw_properties_new(NULL, NULL);
@@ -381,66 +456,120 @@ PWTEST(stream_output_reuse_refcounted)
 		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%u", src_id);
 		pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%u", out->id);
 		pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%u",
-				pw_stream_get_node_id(d.consumers[i].stream));
-		d.links[i] = pw_core_create_object(d.core, "link-factory",
+				pw_stream_get_node_id(d->consumers[i].stream));
+		d->links[i] = pw_core_create_object(d->core, "link-factory",
 				PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, &props->dict, 0);
-		pwtest_ptr_notnull(d.links[i]);
-		pw_proxy_add_object_listener(d.links[i], &d.link_listeners[i], &link_events[i], &d);
+		pwtest_ptr_notnull(d->links[i]);
+		pw_proxy_add_object_listener(d->links[i], &d->link_listeners[i], &link_events[i], d);
 		pw_properties_free(props);
 	}
 
-	pwtest_bool_true(iterate_until(&d, streaming, 5000));
-	pwtest_str_eq(d.output_mode, "refcounted");
-	pwtest_int_gt(d.n_buffers, 0u);
+	pwtest_bool_true(iterate_until(d, streaming, 5000));
+	pwtest_str_eq(d->output_mode, "refcounted");
+	pwtest_int_gt(d->n_buffers, 0u);
 
 	/* drive the graph from the producer, one cycle every PERIOD_MS, until
 	 * both consumers got a frame that was published in a reused buffer */
 	start = last_progress = next = now_ms();
-	last_produced = d.produced;
-	while (!reuse_seen(&d)) {
+	last_produced = d->produced;
+	while (!reuse_seen(d)) {
 		uint64_t t = now_ms();
 
 		if (t >= start + PROGRESS_TIMEOUT_MS || t >= last_progress + STALL_TIMEOUT_MS)
 			break;
 		if (t >= next) {
-			pw_stream_trigger_process(d.producer);
+			if (d->filter)
+				pw_filter_trigger_process(d->filter);
+			else
+				pw_stream_trigger_process(d->producer);
 			next += PERIOD_MS;
 		}
-		pw_loop_iterate(d.loop, 5);
-		if (d.produced != last_produced) {
-			last_produced = d.produced;
+		pw_loop_iterate(d->loop, 5);
+		if (d->produced != last_produced) {
+			last_produced = d->produced;
 			last_progress = now_ms();
 		}
 	}
 
 	fprintf(stderr, "buffers:%u produced:%u reused:%u consumer0 new:%u repeats:%u invalid:%u consumer1 new:%u repeats:%u invalid:%u\n",
-			d.n_buffers, d.produced, d.reused,
-			d.consumers[0].new_frames, d.consumers[0].repeats, d.consumers[0].invalid,
-			d.consumers[1].new_frames, d.consumers[1].repeats, d.consumers[1].invalid);
+			d->n_buffers, d->produced, d->reused,
+			d->consumers[0].new_frames, d->consumers[0].repeats, d->consumers[0].invalid,
+			d->consumers[1].new_frames, d->consumers[1].repeats, d->consumers[1].invalid);
 
 	/* the central check: a buffer the consumers returned was handed back to
 	 * the producer, filled again and delivered to both consumers */
-	if (!reuse_seen(&d))
+	if (!reuse_seen(d))
 		pwtest_fail_with_msg("no frame in a reused buffer reached both consumers: "
 				"%u frames published with %u buffers, %u in reused buffers",
-				d.produced, d.n_buffers, d.reused);
+				d->produced, d->n_buffers, d->reused);
 	for (int i = 0; i < 2; i++) {
-		pwtest_int_eq(d.consumers[i].repeats, 0u);
-		pwtest_int_eq(d.consumers[i].invalid, 0u);
+		pwtest_int_eq(d->consumers[i].repeats, 0u);
+		pwtest_int_eq(d->consumers[i].invalid, 0u);
 	}
+}
 
+static void teardown(struct data *d)
+{
 	for (int i = 0; i < 2; i++) {
-		pw_proxy_destroy(d.links[i]);
-		pw_stream_destroy(d.consumers[i].stream);
+		pw_proxy_destroy(d->links[i]);
+		pw_stream_destroy(d->consumers[i].stream);
 	}
-	pw_proxy_destroy(d.out_port);
-	pw_stream_destroy(d.producer);
-	pw_proxy_destroy((struct pw_proxy *)d.registry);
-	pw_loop_leave(d.loop);
-	pw_core_disconnect(d.core);
-	pw_context_destroy(d.context);
-	pw_loop_destroy(d.loop);
+	pw_proxy_destroy(d->out_port);
+	if (d->filter)
+		pw_filter_destroy(d->filter);
+	else
+		pw_stream_destroy(d->producer);
+	pw_proxy_destroy((struct pw_proxy *)d->registry);
+	pw_loop_leave(d->loop);
+	pw_core_disconnect(d->core);
+	pw_context_destroy(d->context);
+	pw_loop_destroy(d->loop);
 	pw_deinit();
+}
+
+PWTEST(stream_output_reuse_refcounted)
+{
+	static struct data d;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const struct spa_pod *params[1];
+
+	setup(&d);
+
+	d.producer = pw_stream_new(d.core, "reuse-src", producer_props());
+	pwtest_ptr_notnull(d.producer);
+	pw_stream_add_listener(d.producer, &d.producer_listener, &producer_events, &d);
+	params[0] = build_format(&b);
+	pwtest_neg_errno_ok(pw_stream_connect(d.producer, PW_DIRECTION_OUTPUT, PW_ID_ANY,
+			PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_MAP_BUFFERS, params, 1));
+
+	check_reuse(&d);
+	teardown(&d);
+
+	return PWTEST_PASS;
+}
+
+PWTEST(filter_output_reuse_refcounted)
+{
+	static struct data d;
+	uint8_t buffer[1024];
+	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const struct spa_pod *params[1];
+
+	setup(&d);
+
+	d.filter = pw_filter_new(d.core, "reuse-src", producer_props());
+	pwtest_ptr_notnull(d.filter);
+	pw_filter_add_listener(d.filter, &d.producer_listener, &filter_events, &d);
+	params[0] = build_format(&b);
+	d.filter_port = pw_filter_add_port(d.filter, PW_DIRECTION_OUTPUT,
+			PW_FILTER_PORT_FLAG_MAP_BUFFERS, 0,
+			pw_properties_new(PW_KEY_PORT_NAME, "output", NULL), params, 1);
+	pwtest_ptr_notnull(d.filter_port);
+	pwtest_neg_errno_ok(pw_filter_connect(d.filter, PW_FILTER_FLAG_DRIVER, NULL, 0));
+
+	check_reuse(&d);
+	teardown(&d);
 
 	return PWTEST_PASS;
 }
@@ -448,6 +577,7 @@ PWTEST(stream_output_reuse_refcounted)
 PWTEST_SUITE(stream_reuse)
 {
 	pwtest_add(stream_output_reuse_refcounted, PWTEST_ARG_DAEMON);
+	pwtest_add(filter_output_reuse_refcounted, PWTEST_ARG_DAEMON);
 
 	return PWTEST_PASS;
 }

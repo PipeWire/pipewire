@@ -2273,7 +2273,9 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		default:
 			return -ENOTSUP;
 		}
-		switch (rrate) {
+		/* 8-channel HBR carries 4 IEC 60958 frames per sample frame
+		 * (e.g. 4 * 192kHz = 768kHz). */
+		switch (rchannels == 8 && rrate <= 192000 ? rrate * 4 : rrate) {
 		case 22050: aes3 = IEC958_AES3_CON_FS_22050; break;
 		case 24000: aes3 = IEC958_AES3_CON_FS_24000; break;
 		case 32000: aes3 = IEC958_AES3_CON_FS_32000; break;
@@ -2288,7 +2290,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 		}
 		spa_scnprintf(spdif_params, sizeof(spdif_params),
 				",AES0=0x%x,AES1=0x%x,AES2=0x%x,AES3=0x%x",
-				IEC958_AES0_CON_EMPHASIS_NONE | IEC958_AES0_NONAUDIO,
+				IEC958_AES0_CON_EMPHASIS_NONE | IEC958_AES0_NONAUDIO |
+				IEC958_AES0_CON_NOT_COPYRIGHT,
 				IEC958_AES1_CON_ORIGINAL | IEC958_AES1_CON_PCM_CODER,
 				0, aes3);
 		state->force_quantum = true;

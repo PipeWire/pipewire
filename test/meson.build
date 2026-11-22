@@ -83,6 +83,14 @@ test('test-stream-reuse',
                link_with: pwtest_lib)
 )
 
+test('test-stream-dequeue',
+    executable('test-stream-dequeue',
+               'test-stream-dequeue.c',
+               include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
+               link_with: pwtest_lib)
+)
+
 test('test-loop',
     executable('test-loop',
                'test-loop.c',

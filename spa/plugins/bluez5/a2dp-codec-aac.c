@@ -10,8 +10,12 @@
 #include <spa/param/audio/format.h>
 #include <spa/utils/dict.h>
 
+#if defined(HAVE_FDK_AAC)
 #include <fdk-aac/aacenc_lib.h>
 #include <fdk-aac/aacdecoder_lib.h>
+#else
+#error No AAC library
+#endif
 
 #include "rtp.h"
 #include "media-codecs.h"
@@ -26,8 +30,10 @@ struct props {
 };
 
 struct impl {
+#if defined(HAVE_FDK_AAC)
 	HANDLE_AACENCODER aacenc;
 	HANDLE_AACDECODER aacdec;
+#endif
 
 	struct rtp_header *header;
 
@@ -48,10 +54,12 @@ struct impl {
 static bool eld_supported(void)
 {
 	static bool supported = false, checked = false;
-	HANDLE_AACENCODER aacenc = NULL;
 
 	if (checked)
 		return supported;
+
+#if defined(HAVE_FDK_AAC)
+	HANDLE_AACENCODER aacenc = NULL;
 
 	if (aacEncOpen(&aacenc, 0, 2) != AACENC_OK)
 		goto done;
@@ -65,6 +73,7 @@ static bool eld_supported(void)
 done:
 	if (aacenc)
 		aacEncClose(&aacenc);
+#endif
 	checked = true;
 	spa_log_debug(log, "FDK-AAC AAC-ELD support:%d", (int)supported);
 	return supported;
@@ -340,38 +349,20 @@ static void codec_clear_props(void *props)
 	free(props);
 }
 
-static void *codec_init(const struct media_codec *codec, uint32_t flags,
-		void *config, size_t config_len, const struct spa_audio_info *info,
-		void *props, size_t mtu)
+#if defined(HAVE_FDK_AAC)
+
+/* Initialize this->aacenc/aacdec/codesize/max_bitrate/cur_bitrate. \return 0 on success, <0 on error */
+static int init_aac(struct impl *this, const struct media_codec *codec,
+		const a2dp_aac_t *conf, struct props *p)
 {
-	struct impl *this;
-	a2dp_aac_t *conf = config;
-	struct props *p = props;
 	UINT bitratemode;
 	int res;
-
-	this = calloc(1, sizeof(struct impl));
-	if (this == NULL) {
-		res = -errno;
-		goto error;
-	}
-	this->mtu = mtu;
-	this->rate = info->info.raw.rate;
-	this->channels = info->info.raw.channels;
-
-	if (info->media_type != SPA_MEDIA_TYPE_audio ||
-	    info->media_subtype != SPA_MEDIA_SUBTYPE_raw ||
-	    info->info.raw.format != SPA_AUDIO_FORMAT_S16) {
-		res = -EINVAL;
-		goto error;
-	}
-	this->samplesize = 2;
 
 	bitratemode = p ? p->bitratemode : 0;
 
 	res = aacEncOpen(&this->aacenc, 0, this->channels);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	/* If object type has multiple bits set (invalid per spec, see above),
 	 * the validate_config step is gated by codec->id so we trust the
@@ -379,57 +370,54 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	 * prefer MPEG2 AAC LC which is mandatory.
 	 */
 	if (codec->id == SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD) {
-		if (!(conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD)) {
-			res = -EINVAL;
-			goto error;
-		}
+		if (!(conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_ELD))
+			return -EINVAL;
 		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_ER_AAC_ELD);
 		if (res != AACENC_OK)
-			goto error;
+			return -EINVAL;
 
 		res = aacEncoder_SetParam(this->aacenc,  AACENC_SBR_MODE, 1);
 		if (res != AACENC_OK)
-			goto error;
+			return -EINVAL;
 	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC) {
 		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_MP2_AAC_LC);
 		if (res != AACENC_OK)
-			goto error;
+			return -EINVAL;
 	} else if (conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC) {
 		res = aacEncoder_SetParam(this->aacenc, AACENC_AOT, AOT_AAC_LC);
 		if (res != AACENC_OK)
-			goto error;
+			return -EINVAL;
 	} else {
-		res = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_SAMPLERATE, this->rate);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_CHANNELMODE, this->channels);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	if (conf->vbr) {
 		res = aacEncoder_SetParam(this->aacenc, AACENC_BITRATEMODE,
 				bitratemode);
 		if (res != AACENC_OK)
-			goto error;
+			return -EINVAL;
 	}
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_AUDIOMUXVER, 2);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_SIGNALING_MODE, 1);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	// Fragmentation is not implemented yet,
 	// so make sure every encoded AAC frame fits in (mtu - header)
 	this->max_bitrate = ((this->mtu - sizeof(struct rtp_header)) * 8 * this->rate) / 1024;
-	this->cur_bitrate = SPA_MIN(this->max_bitrate, get_valid_aac_bitrate(conf));
+	this->cur_bitrate = SPA_MIN(this->max_bitrate, get_valid_aac_bitrate((a2dp_aac_t *)conf));
 	spa_log_debug(log, "AAC: max (peak) bitrate: %d, cur bitrate: %d, mode: %d (vbr: %d)",
 			this->max_bitrate,
 			this->cur_bitrate,
@@ -438,11 +426,11 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_BITRATE, this->cur_bitrate);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_PEAK_BITRATE, this->max_bitrate);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	// Assume >110 kbit/s as a "high bitrate" CBR and increase the
 	// band pass cutout up to 19.3 kHz (as in mode 5 VBR).
@@ -450,112 +438,75 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 		res = aacEncoder_SetParam(this->aacenc, AACENC_BANDWIDTH,
 				19293);
 		if (res != AACENC_OK)
-			goto error;
+			return -EINVAL;
 	}
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_TRANSMUX, TT_MP4_LATM_MCP1);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_HEADER_PERIOD, 1);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	res = aacEncoder_SetParam(this->aacenc, AACENC_AFTERBURNER, 1);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	res = aacEncEncode(this->aacenc, NULL, NULL, NULL, NULL);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	AACENC_InfoStruct enc_info = {};
 	res = aacEncInfo(this->aacenc, &enc_info);
 	if (res != AACENC_OK)
-		goto error;
+		return -EINVAL;
 
 	this->enc_delay = enc_info.nDelay;
 
 	this->codesize = enc_info.frameLength * this->channels * this->samplesize;
 
 	this->aacdec = aacDecoder_Open(TT_MP4_LATM_MCP1, 1);
-	if (!this->aacdec) {
-		res = -EINVAL;
-		goto error;
-	}
+	if (!this->aacdec)
+		return -EINVAL;
 
 #ifdef AACDECODER_LIB_VL0
 	res = aacDecoder_SetParam(this->aacdec, AAC_PCM_MIN_OUTPUT_CHANNELS, this->channels);
 	if (res != AAC_DEC_OK) {
 		spa_log_debug(log, "Couldn't set min output channels: 0x%04X", res);
-		goto error;
+		return -EINVAL;
 	}
 
 	res = aacDecoder_SetParam(this->aacdec, AAC_PCM_MAX_OUTPUT_CHANNELS, this->channels);
 	if (res != AAC_DEC_OK) {
 		spa_log_debug(log, "Couldn't set max output channels: 0x%04X", res);
-		goto error;
+		return -EINVAL;
 	}
 #else
 	res = aacDecoder_SetParam(this->aacdec, AAC_PCM_OUTPUT_CHANNELS, this->channels);
 	if (res != AAC_DEC_OK) {
 		spa_log_debug(log, "Couldn't set output channels: 0x%04X", res);
-		goto error;
+		return -EINVAL;
 	}
 #endif
 
 	this->dec_delay = 0;
 
-	return this;
-
-error:
-	if (this && this->aacenc)
-		aacEncClose(&this->aacenc);
-	if (this && this->aacdec)
-		aacDecoder_Close(this->aacdec);
-	free(this);
-	errno = -res;
-	return NULL;
+	return 0;
 }
 
-static void codec_deinit(void *data)
+static void clear_aac(struct impl *this)
 {
-	struct impl *this = data;
 	if (this->aacenc)
 		aacEncClose(&this->aacenc);
 	if (this->aacdec)
 		aacDecoder_Close(this->aacdec);
-	free(this);
 }
 
-static int codec_get_block_size(void *data)
+/* \return number of bytes consumed, or <0 on error */
+static int encode_aac(struct impl *this, const void *src, size_t src_size,
+		void *dst, size_t dst_size, size_t *dst_out, int *need_flush)
 {
-	struct impl *this = data;
-	return this->codesize;
-}
-
-static int codec_start_encode (void *data,
-		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
-{
-	struct impl *this = data;
-
-	this->header = (struct rtp_header *)dst;
-	memset(this->header, 0, sizeof(struct rtp_header));
-
-	this->header->v = 2;
-	this->header->pt = 96;
-	this->header->sequence_number = htons(seqnum);
-	this->header->timestamp = htonl(timestamp);
-	this->header->ssrc = htonl(1);
-	return sizeof(struct rtp_header);
-}
-
-static int codec_encode(void *data,
-		const void *src, size_t src_size,
-		void *dst, size_t dst_size,
-		size_t *dst_out, int *need_flush)
-{
-	struct impl *this = data;
 	int res;
 
 	void *in_bufs[] = {(void *) src};
@@ -593,36 +544,13 @@ static int codec_encode(void *data,
 	*dst_out = out_args.numOutBytes;
 	*need_flush = NEED_FLUSH_ALL;
 
-	/* RFC6416: It is set to 1 to indicate that the RTP packet contains a complete
-   	 * audioMuxElement or the last fragment of an audioMuxElement */
-	this->header->m = 1;
-
 	return out_args.numInSamples * this->samplesize;
 }
 
-static int codec_start_decode (void *data,
-		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
+/* \return number of bytes consumed, or <0 on error */
+static int decode_aac(struct impl *this, const void *src, size_t src_size,
+		void *dst, size_t dst_size, size_t *dst_out)
 {
-	const struct rtp_header *header = src;
-	size_t header_size = sizeof(struct rtp_header);
-
-	if (src_size <= header_size)
-		return -EINVAL;
-
-	if (seqnum)
-		*seqnum = ntohs(header->sequence_number);
-	if (timestamp)
-		*timestamp = ntohl(header->timestamp);
-
-	return header_size;
-}
-
-static int codec_decode(void *data,
-		const void *src, size_t src_size,
-		void *dst, size_t dst_size,
-		size_t *dst_out)
-{
-	struct impl *this = data;
 	uint data_size = (uint)src_size;
 	uint bytes_valid = data_size;
 	CStreamInfo *aacinf;
@@ -650,6 +578,143 @@ static int codec_decode(void *data,
 	return src_size - bytes_valid;
 }
 
+static int change_bitrate_aac(struct impl *this, int bitrate)
+{
+	int res = aacEncoder_SetParam(this->aacenc, AACENC_BITRATE, bitrate);
+	if (res != AACENC_OK)
+		return -EINVAL;
+	return 0;
+}
+
+static void get_delay_aac(struct impl *this, uint32_t *encoder, uint32_t *decoder)
+{
+	if (encoder)
+		*encoder = this->enc_delay;
+
+	if (decoder) {
+		CStreamInfo *info = aacDecoder_GetStreamInfo(this->aacdec);
+		if (info)
+			this->dec_delay = info->outputDelay;
+		*decoder = this->dec_delay;
+	}
+}
+
+#endif
+
+static void *codec_init(const struct media_codec *codec, uint32_t flags,
+		void *config, size_t config_len, const struct spa_audio_info *info,
+		void *props, size_t mtu)
+{
+	struct impl *this;
+	a2dp_aac_t *conf = config;
+	int res;
+
+	this = calloc(1, sizeof(struct impl));
+	if (this == NULL) {
+		res = -errno;
+		goto error;
+	}
+	this->mtu = mtu;
+	this->rate = info->info.raw.rate;
+	this->channels = info->info.raw.channels;
+
+	if (info->media_type != SPA_MEDIA_TYPE_audio ||
+	    info->media_subtype != SPA_MEDIA_SUBTYPE_raw ||
+	    info->info.raw.format != SPA_AUDIO_FORMAT_S16) {
+		res = -EINVAL;
+		goto error;
+	}
+	this->samplesize = 2;
+
+	if ((res = init_aac(this, codec, conf, props)) < 0)
+		goto error;
+
+	return this;
+
+error:
+	if (this)
+		clear_aac(this);
+	free(this);
+	errno = -res;
+	return NULL;
+}
+
+static void codec_deinit(void *data)
+{
+	struct impl *this = data;
+	clear_aac(this);
+	free(this);
+}
+
+static int codec_get_block_size(void *data)
+{
+	struct impl *this = data;
+	return this->codesize;
+}
+
+static int codec_start_encode (void *data,
+		void *dst, size_t dst_size, uint16_t seqnum, uint32_t timestamp)
+{
+	struct impl *this = data;
+
+	this->header = (struct rtp_header *)dst;
+	memset(this->header, 0, sizeof(struct rtp_header));
+
+	this->header->v = 2;
+	this->header->pt = 96;
+	this->header->sequence_number = htons(seqnum);
+	this->header->timestamp = htonl(timestamp);
+	this->header->ssrc = htonl(1);
+	return sizeof(struct rtp_header);
+}
+
+static int codec_encode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out, int *need_flush)
+{
+	struct impl *this = data;
+	int res;
+
+	res = encode_aac(this, src, src_size, dst, dst_size, dst_out, need_flush);
+	if (res < 0)
+		return res;
+
+	/* RFC6416: It is set to 1 to indicate that the RTP packet contains a complete
+	 * audioMuxElement or the last fragment of an audioMuxElement */
+	if (*need_flush)
+		this->header->m = 1;
+
+	return res;
+}
+
+static int codec_start_decode (void *data,
+		const void *src, size_t src_size, uint16_t *seqnum, uint32_t *timestamp)
+{
+	const struct rtp_header *header = src;
+	size_t header_size = sizeof(struct rtp_header);
+
+	if (src_size <= header_size)
+		return -EINVAL;
+
+	if (seqnum)
+		*seqnum = ntohs(header->sequence_number);
+	if (timestamp)
+		*timestamp = ntohl(header->timestamp);
+
+	return header_size;
+}
+
+static int codec_decode(void *data,
+		const void *src, size_t src_size,
+		void *dst, size_t dst_size,
+		size_t *dst_out)
+{
+	struct impl *this = data;
+
+	return decode_aac(this, src, src_size, dst, dst_size, dst_out);
+}
+
 static int codec_abr_process (void *data, size_t unsent)
 {
 	return -ENOTSUP;
@@ -667,9 +732,9 @@ static int codec_change_bitrate(struct impl *this, int new_bitrate)
 
 	this->cur_bitrate = new_bitrate;
 
-	res = aacEncoder_SetParam(this->aacenc, AACENC_BITRATE, this->cur_bitrate);
-	if (res != AACENC_OK)
-		return -EINVAL;
+	res = change_bitrate_aac(this, this->cur_bitrate);
+	if (res < 0)
+		return res;
 
 	return this->cur_bitrate;
 }
@@ -690,15 +755,7 @@ static void codec_get_delay(void *data, uint32_t *encoder, uint32_t *decoder)
 {
 	struct impl *this = data;
 
-	if (encoder)
-		*encoder = this->enc_delay;
-
-	if (decoder) {
-		CStreamInfo *info = aacDecoder_GetStreamInfo(this->aacdec);
-		if (info)
-			this->dec_delay = info->outputDelay;
-		*decoder = this->dec_delay;
-	}
+	get_delay_aac(this, encoder, decoder);
 }
 
 static void codec_set_log(struct spa_log *global_log)
@@ -734,6 +791,7 @@ const struct media_codec a2dp_codec_aac = {
 	.get_delay = codec_get_delay,
 };
 
+#if defined(HAVE_FDK_AAC)
 const struct media_codec a2dp_codec_aac_eld = {
 	.id = SPA_BLUETOOTH_AUDIO_CODEC_AAC_ELD,
 	.kind = MEDIA_CODEC_A2DP,
@@ -761,9 +819,14 @@ const struct media_codec a2dp_codec_aac_eld = {
 	.set_log = codec_set_log,
 	.get_delay = codec_get_delay,
 };
+#endif
 
 MEDIA_CODEC_EXPORT_DEF(
 	"aac",
+#if defined(HAVE_FDK_AAC)
 	&a2dp_codec_aac,
 	&a2dp_codec_aac_eld
+#else
+	&a2dp_codec_aac
+#endif
 );

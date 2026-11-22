@@ -114,12 +114,12 @@ bluez_codec_hfp_msbc = shared_library('spa-codec-bluez5-hfp-msbc',
   install : true,
   install_dir : spa_plugindir / 'bluez5')
 
-if fdk_aac_dep.found()
+if aac_dep.found()
   bluez_codec_aac = shared_library('spa-codec-bluez5-aac',
     [ 'a2dp-codec-aac.c', 'media-codecs.c' ],
     include_directories : [ configinc ],
     c_args : codec_args,
-    dependencies : [ spa_dep, fdk_aac_dep ],
+    dependencies : [ spa_dep, aac_dep ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
 endif

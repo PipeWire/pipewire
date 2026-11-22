@@ -400,6 +400,8 @@ struct impl {
 	struct spa_source *timing_source;
 
 	uint16_t events_port;
+	int events_fd;
+	struct spa_source *events_source;
 	uint16_t data_port;
 	uint16_t server_port;
 	int server_fd;
@@ -1618,6 +1620,34 @@ static int rtsp_do_ap2_setup_stream(struct impl *impl)
 	return res;
 }
 
+
+static void
+on_events_source_io(void *data, int fd, uint32_t mask)
+{
+	struct impl *impl = data;
+	uint8_t buf[256];
+	ssize_t n;
+
+	if (mask & (SPA_IO_ERR | SPA_IO_HUP)) {
+		pw_log_debug("event connection closed");
+		if (impl->events_source != NULL)
+			pw_loop_update_io(impl->loop, impl->events_source, 0);
+		close(impl->events_fd);
+		impl->events_fd = -1;
+		return;
+	}
+	if (mask & SPA_IO_IN) {
+		while ((n = read(fd, buf, sizeof(buf))) > 0)
+			; /* drain; event handling can be added later */
+		if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+			if (impl->events_source != NULL)
+				pw_loop_update_io(impl->loop, impl->events_source, 0);
+			close(impl->events_fd);
+			impl->events_fd = -1;
+		}
+	}
+}
+
 static int rtsp_ap2_setup_session_reply(void *data, int status, const struct spa_dict *headers, const struct pw_array *content)
 {
 	struct impl *impl = data;
@@ -1650,6 +1680,29 @@ static int rtsp_ap2_setup_session_reply(void *data, int status, const struct spa
 
 	pw_log_info("Session SETUP response: eventPort=%u timingPort=%u",
 			impl->events_port, remote_timing_port);
+
+	/* AirPlay 2 receivers can require the sender to attach the event
+	 * channel before the stream is started. Keep it open and drain it. */
+	if (impl->events_port != 0 && impl->events_fd < 0) {
+		int fd = connect_socket(impl, SOCK_STREAM, -1, impl->events_port);
+		if (fd < 0) {
+			pw_log_warn("Could not connect to event port %u: %d",
+					impl->events_port, fd);
+		} else {
+			impl->events_fd = fd;
+			impl->events_source = pw_loop_add_io(impl->loop, fd,
+					SPA_IO_IN | SPA_IO_ERR | SPA_IO_HUP, false,
+					on_events_source_io, impl);
+			if (impl->events_source == NULL) {
+				pw_log_warn("Could not watch event connection");
+				close(fd);
+				impl->events_fd = -1;
+			} else {
+				pw_log_info("Opened event connection to port %u",
+						impl->events_port);
+			}
+		}
+	}
 
 	plist_free(response);
 
@@ -4104,6 +4157,14 @@ static void connection_cleanup(struct impl *impl)
 		close(impl->control_fd);
 		impl->control_fd = -1;
 	}
+	if (impl->events_source != NULL) {
+		pw_loop_destroy_source(impl->loop, impl->events_source);
+		impl->events_source = NULL;
+	}
+	if (impl->events_fd >= 0) {
+		close(impl->events_fd);
+		impl->events_fd = -1;
+	}
 	if (impl->timing_source != NULL) {
 		pw_loop_destroy_source(impl->loop, impl->timing_source);
 		impl->timing_source = NULL;
@@ -4514,6 +4575,7 @@ int pipewire__module_init(struct pw_impl_module *module, const char *args)
 	impl->server_fd = -1;
 	impl->control_fd = -1;
 	impl->timing_fd = -1;
+	impl->events_fd = -1;
 	impl->ctx = EVP_CIPHER_CTX_new();
 	if (impl->ctx == NULL) {
 		res = -errno;

@@ -92,6 +92,8 @@ static int codec_fill_caps(const struct media_codec *codec, uint32_t flags,
 		.bidirect_link = codec->duplex_codec ? true : false,
 		.has_new_caps = false,
 	};
+
+	memset(caps, 0, actual_conf_size);
 	if (codec_is_ll(codec))
 		memcpy(caps, &a2dp_aptx_ll, sizeof(a2dp_aptx_ll));
 	else
@@ -139,6 +141,7 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 	else
 		return -ENOTSUP;
 
+	memset(config, 0, actual_conf_size);
 	memcpy(config, &conf, sizeof(conf));
 
 	return actual_conf_size;

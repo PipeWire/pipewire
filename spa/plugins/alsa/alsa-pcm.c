@@ -2206,6 +2206,35 @@ static void recalc_headroom(struct state *state)
 	recalc_delay(state);
 }
 
+static inline bool is_passthrough_format(struct state *state)
+{
+	return state->have_format &&
+		state->current_format.media_subtype != SPA_MEDIA_SUBTYPE_raw;
+}
+
+static bool need_resample(struct state *state)
+{
+	if (is_passthrough_format(state))
+		return false;
+
+	return !state->pitch_elem &&
+		((state->rate != 0 && state->driver_rate.denom != 0 &&
+		 (uint32_t)state->rate != state->driver_rate.denom) || state->matching);
+}
+
+static void update_matching(struct state *state)
+{
+	state->matching = state->following;
+
+	if (is_passthrough_format(state))
+		state->matching = false;
+	else if (state->position != NULL &&
+	    spa_streq(state->position->clock.name, state->clock_name))
+		state->matching = false;
+
+	state->resample = need_resample(state);
+}
+
 int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_t flags)
 {
 	unsigned int rrate, rchannels, val, rscale = 1, period_scale = 1;
@@ -2477,6 +2506,8 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 	state->driver_rate.denom = 0;
 
 	state->have_format = true;
+	state->current_format = *fmt;
+	update_matching(state);
 	if (state->card && state->card->format_ref++ == 0)
 		state->card->rate = rrate;
 
@@ -2600,13 +2631,14 @@ int spa_alsa_set_format(struct state *state, struct spa_audio_info *fmt, uint32_
 
 	spa_log_info(state->log, "%s: format:%s access:%s-%s rate:%d channels:%d chmap:'%s' "
 			"buffer frames %lu, period frames %lu (min:%lu), periods %u, frame_size %zd "
-			"headroom %u start-delay:%u batch:%u tsched:%u resample:%u",
+			"headroom %u start-delay:%u batch:%u tsched:%u matching:%u resample:%u",
 			state->name, snd_pcm_format_name(state->format),
 			state->use_mmap ? "mmap" : "rw",
 			planar ? "planar" : "interleaved",
 			state->rate, state->channels, alsa_chmap_str, state->buffer_frames, state->period_frames,
 			state->period_size_min, periods, state->frame_size, state->headroom,
-			state->start_delay, state->is_batch, !state->disable_tsched, state->resample);
+			state->start_delay, state->is_batch, !state->disable_tsched, state->matching,
+			state->resample);
 
 	/* write the parameters to device */
 	CHECK(snd_pcm_hw_params(hndl, params), "set_hw_params");
@@ -3208,27 +3240,15 @@ static int update_time(struct state *state, uint64_t current_time, snd_pcm_sfram
 	return 0;
 }
 
-static bool need_resample(struct state *state)
-{
-	return !state->pitch_elem &&
-		((state->rate != 0 && state->driver_rate.denom != 0 &&
-		 (uint32_t)state->rate != state->driver_rate.denom) || state->matching);
-}
-
 static int setup_matching(struct state *state)
 {
-	state->matching = state->following;
+	update_matching(state);
 
 	if (state->position == NULL)
 		return -ENOTSUP;
 
 	spa_log_debug(state->log, "driver clock:'%s' our clock:'%s'",
 			state->position->clock.name, state->clock_name);
-
-	if (spa_streq(state->position->clock.name, state->clock_name))
-		state->matching = false;
-
-	state->resample = need_resample(state);
 
 	check_position_config(state, false);
 
@@ -3325,7 +3345,7 @@ static int alsa_write_sync(struct state *state, uint64_t current_time)
 		if (SPA_UNLIKELY(state->alsa_sync)) {
 			enum spa_log_level lev;
 
-			if (!state->linked) {
+			if (!state->linked && !is_passthrough_format(state)) {
 				if (SPA_UNLIKELY(state->alsa_sync_warning))
 					lev = SPA_LOG_LEVEL_WARN;
 				else

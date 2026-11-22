@@ -518,8 +518,6 @@ static int port_set_format(void *object,
 
 		if ((err = spa_alsa_set_format(this, &info, flags)) < 0)
 			return err;
-
-		this->current_format = info;
 	}
 
 	this->info.change_mask |= SPA_NODE_CHANGE_MASK_PROPS;

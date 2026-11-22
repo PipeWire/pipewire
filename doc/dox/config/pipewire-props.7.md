@@ -1420,6 +1420,8 @@ lower fixed value if audio is unstable.
 AAC variable bitrate mode.
 Available values: 0 (cbr, default), 1-5 (quality level)
 
+Only used with the FDK-AAC encoder. The FAAC encoder always uses CBR.
+
 @PAR@ device-prop  bluez5.a2dp.opus.pro.application = "audio"   # string
 PipeWire Opus Pro Audio encoding mode: audio, voip, lowdelay
 

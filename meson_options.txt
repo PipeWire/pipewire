@@ -138,9 +138,18 @@ option('bluez5-codec-lhdc',
         type: 'feature',
         value: 'auto')
 option('bluez5-codec-aac',
-        description: 'Enable Fraunhofer FDK AAC open source codec implementation',
+        description: 'Enable AAC codec implementation (Fraunhofer FDK AAC, or FAAC and FAAD)',
         type: 'feature',
         value: 'auto')
+option('bluez5-codec-aac-libs',
+        description: 'AAC libraries to try, in order of preference. FAAC needs FAAD3, or FAAD2 with bluez5-codec-aac-faad2',
+        type: 'array',
+        choices: ['fdk-aac', 'faac'],
+        value: ['fdk-aac', 'faac'])
+option('bluez5-codec-aac-faad2',
+        description: 'Allow FAAD2 as the AAC decoder together with FAAC. FAAD2 is GPL-2.0+, which makes the AAC codec plugin GPL-licensed',
+        type: 'boolean',
+        value: false)
 option('bluez5-codec-lc3plus',
         description: 'Enable LC3plus open source codec implementation',
         type: 'feature',

@@ -122,6 +122,16 @@ if aac_dep.found()
     dependencies : [ spa_dep, aac_dep ],
     install : true,
     install_dir : spa_plugindir / 'bluez5')
+
+  if get_option('tests').enabled()
+    test('test-a2dp-codec-aac',
+      executable('test-a2dp-codec-aac',
+        [ 'test-a2dp-codec-aac.c', 'a2dp-codec-aac.c', 'media-codecs.c' ],
+        include_directories : [ configinc ],
+        c_args : codec_args,
+        dependencies : [ spa_dep, aac_dep, mathlib ]),
+      timeout : 120)
+  endif
 endif
 
 if aptx_dep.found()
@@ -238,6 +248,7 @@ endif
 
 test_apps = [
   'test-midi',
+  'test-aac-latm',
 ]
 bluez5_test_sources = [ 'midi-parser.c' ]
 if get_option('bluez5-codec-g722').allowed()

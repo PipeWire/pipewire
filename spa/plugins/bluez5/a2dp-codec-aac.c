@@ -13,6 +13,16 @@
 #if defined(HAVE_FDK_AAC)
 #include <fdk-aac/aacenc_lib.h>
 #include <fdk-aac/aacdecoder_lib.h>
+#elif defined(HAVE_FAAC)
+#include <faac.h>
+#if defined(HAVE_FAAD3)
+#include <faad3.h>
+#elif defined(HAVE_NEAACDEC_H)
+#include <neaacdec.h>
+#else
+#include <faad.h>
+#endif
+#include "aac-latm.h"
 #else
 #error No AAC library
 #endif
@@ -33,6 +43,22 @@ struct impl {
 #if defined(HAVE_FDK_AAC)
 	HANDLE_AACENCODER aacenc;
 	HANDLE_AACDECODER aacdec;
+#elif defined(HAVE_FAAC)
+	faac_encoder *aacenc;
+	uint8_t *outbuf;
+	uint32_t outbuf_size;
+	uint32_t frame_samples;
+	uint32_t n_dropped;
+	uint32_t n_bad_format;
+	struct latm_enc mux;
+#if defined(HAVE_FAAD3)
+	faad_decoder *aacdec;
+	uint32_t dec_max_output;
+#else
+	NeAACDecHandle aacdec;
+#endif
+	struct latm_dec demux;
+	uint8_t dec_asc[2];
 #endif
 
 	struct rtp_header *header;
@@ -75,7 +101,7 @@ done:
 		aacEncClose(&aacenc);
 #endif
 	checked = true;
-	spa_log_debug(log, "FDK-AAC AAC-ELD support:%d", (int)supported);
+	spa_log_debug(log, "AAC-ELD support:%d", (int)supported);
 	return supported;
 }
 
@@ -202,10 +228,18 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		else
 			return -ENOTSUP;
 	} else {
-		if (conf.object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC)
-			conf.object_type = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
-		else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC)
-			conf.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
+		uint8_t first = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
+		uint8_t second = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
+
+#if defined(HAVE_FAAC)
+		/* PNS is only allowed with MPEG-4 AAC */
+		first = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
+		second = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
+#endif
+		if (conf.object_type & first)
+			conf.object_type = first;
+		else if (conf.object_type & second)
+			conf.object_type = second;
 		else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LTP)
 			return -ENOTSUP;  /* Not supported by FDK-AAC */
 		else if (conf.object_type & AAC_OBJECT_TYPE_MPEG4_AAC_SCA)
@@ -599,6 +633,385 @@ static void get_delay_aac(struct impl *this, uint32_t *encoder, uint32_t *decode
 	}
 }
 
+#elif defined(HAVE_FAAC)
+
+/* Without a per-frame limit in the encoder, keep the average low enough that
+ * frames rarely exceed the MTU; those that do are dropped. */
+#define FAAC_UNLIMITED_MAX_BITRATE	128000
+#define FAAC_UNLIMITED_MARGIN_PCT	60
+
+/*
+ * Share of the peak bitrate used as the CBR target. At the peak itself the
+ * rate control and the limiter fight and quality collapses on small MTUs.
+ * FAAC 3.0 has a hard limiter; the older limiters are best effort.
+ */
+#ifndef FAAC_PEAK_MARGIN_PCT
+#if defined(HAVE_FAAC_PEAK_BIT_RATE)
+#define FAAC_PEAK_MARGIN_PCT		95
+#else
+#define FAAC_PEAK_MARGIN_PCT		90
+#endif
+#endif
+
+static void close_decoder(struct impl *this)
+{
+	if (this->aacdec == NULL)
+		return;
+#if defined(HAVE_FAAD3)
+	faad_decoder_close(&this->aacdec);
+#else
+	NeAACDecClose(this->aacdec);
+#endif
+	this->aacdec = NULL;
+}
+
+/* (Re)open the decoder for the given AudioSpecificConfig */
+static int open_decoder(struct impl *this, const uint8_t asc[2])
+{
+	close_decoder(this);
+
+#if defined(HAVE_FAAD3)
+	faad_config cfg;
+	faad_stream_info info = { .struct_size = sizeof(info) };
+
+	if (faad_config_init(&cfg, sizeof(cfg)) < 0)
+		return -EINVAL;
+	cfg.stream_format = FAAD_STREAM_RAW;
+	cfg.output_format = FAAD_OUTPUT_16BIT;
+	cfg.downmix_mode = FAAD_DOWNMIX_NONE;
+
+	if (faad_decoder_open(&cfg, asc, 2, &this->aacdec) < 0) {
+		this->aacdec = NULL;
+		return -EINVAL;
+	}
+	if (faad_decoder_get_info(this->aacdec, &info) < 0) {
+		close_decoder(this);
+		return -EINVAL;
+	}
+	this->dec_max_output = info.max_output_bytes;
+#else
+	NeAACDecConfigurationPtr cfg;
+	unsigned long rate;
+	unsigned char channels;
+	signed char res;
+
+	this->aacdec = NeAACDecOpen();
+	if (this->aacdec == NULL)
+		return -ENOMEM;
+
+	cfg = NeAACDecGetCurrentConfiguration(this->aacdec);
+	if (cfg == NULL) {
+		close_decoder(this);
+		return -EINVAL;
+	}
+	cfg->outputFormat = FAAD_FMT_16BIT;
+	/* the stream is AAC-LC: don't assume implicit SBR at low sampling rates */
+	cfg->dontUpSampleImplicitSBR = 1;
+	if (!NeAACDecSetConfiguration(this->aacdec, cfg)) {
+		close_decoder(this);
+		return -EINVAL;
+	}
+	/* plain char, unsigned on some architectures */
+	res = (signed char)NeAACDecInit2(this->aacdec, (unsigned char *)asc, 2, &rate, &channels);
+	if (res < 0) {
+		close_decoder(this);
+		return -EINVAL;
+	}
+	/* Mono is reported as stereo with PS support, and the rate doubled up to
+	 * 24 kHz when assuming implicit SBR. The decoded frames are checked later. */
+	if ((rate != this->rate && !(this->rate <= 24000 && rate == 2 * this->rate)) ||
+	    (channels != this->channels && !(this->channels == 1 && channels == 2))) {
+		spa_log_warn(log, "AAC: decoder format %lu Hz %u ch differs from the negotiated one",
+				rate, channels);
+		close_decoder(this);
+		return -EINVAL;
+	}
+#endif
+	memcpy(this->dec_asc, asc, sizeof(this->dec_asc));
+	return 0;
+}
+
+static int init_aac(struct impl *this, const struct media_codec *codec,
+		const a2dp_aac_t *conf, struct props *p)
+{
+	faac_params fp;
+	faac_encoder_info info = { .struct_size = sizeof(info) };
+	const uint8_t *asc = NULL;
+	uint32_t asc_len = 0;
+	uint8_t asc0[2];
+	size_t budget, overhead;
+	bool mpeg4;
+
+	/* If the object type has multiple bits set (invalid per spec), prefer
+	 * MPEG-2 AAC LC, which is mandatory and does not allow PNS. */
+	if (conf->object_type & AAC_OBJECT_TYPE_MPEG2_AAC_LC)
+		mpeg4 = false;
+	else if (conf->object_type & AAC_OBJECT_TYPE_MPEG4_AAC_LC)
+		mpeg4 = true;
+	else
+		return -EINVAL;
+
+	if (latm_make_asc(this->rate, this->channels, asc0) < 0 ||
+	    latm_enc_init(&this->mux, asc0, sizeof(asc0)) < 0)
+		return -EINVAL;
+
+	/* Fragmentation is not supported by headsets, so every LATM packet
+	 * must fit in (mtu - rtp header). */
+	budget = this->mtu - sizeof(struct rtp_header);
+	overhead = latm_enc_maxsize(&this->mux);
+	if (budget <= overhead)
+		return -EINVAL;
+
+	this->max_bitrate = (int)SPA_MIN(((uint64_t)(budget - overhead) * 8 * this->rate) / 1024,
+			/* ISO/IEC 14496-3: at most 6144 bits per channel in a frame */
+			(uint64_t)this->channels * 6144 * this->rate / 1024);
+	this->cur_bitrate = SPA_MIN(get_valid_aac_bitrate((a2dp_aac_t *)conf),
+			this->max_bitrate / 100 * FAAC_PEAK_MARGIN_PCT);
+#if !defined(HAVE_FAAC_PEAK_BIT_RATE) && !defined(HAVE_FAAC_MAX_BIT_RATE)
+	this->cur_bitrate = SPA_MIN(this->cur_bitrate, FAAC_UNLIMITED_MAX_BITRATE);
+	this->cur_bitrate = SPA_MIN(this->cur_bitrate,
+			this->max_bitrate / 100 * FAAC_UNLIMITED_MARGIN_PCT);
+#endif
+	spa_log_debug(log, "AAC: max (peak) bitrate: %d, cur bitrate: %d, mpeg4: %d",
+			this->max_bitrate, this->cur_bitrate, (int)mpeg4);
+
+#if defined(HAVE_FAAC_PARAMS_INIT_SIZE)
+	if (faac_params_init(&fp, sizeof(fp)) < 0)
+#else
+	if (faac_params_init(&fp) < 0)
+#endif
+		return -EINVAL;
+#if defined(HAVE_FAAC_CHANNELS)
+	fp.channels = this->channels;
+#else
+	fp.num_channels = this->channels;
+#endif
+	fp.sample_rate = this->rate;
+#if defined(HAVE_FAAC_OBJ_LC)
+	fp.object_type = FAAC_OBJ_LC;
+#else
+	fp.object_type = FAAC_OBJ_LOW;
+#endif
+	fp.input_format = FAAC_INPUT_16BIT;
+
+#if defined(HAVE_FAAC_PEAK_BIT_RATE)
+	/* FAAC 3.0 API: bit rates are for the whole stream */
+	fp.stream_format = FAAC_STREAM_RAW;
+	fp.rate_control = FAAC_RC_CBR;
+	fp.bit_rate = this->cur_bitrate;
+	fp.peak_bit_rate = this->max_bitrate;
+	if (mpeg4)
+		fp.flags |= FAAC_FLAG_PNS;
+	else
+		fp.flags &= ~(uint32_t)FAAC_FLAG_PNS;
+#else
+	/* FAAC 2.x API: bit_rate is per channel. MPEG-2 is signalled by the
+	 * A2DP object type only; the stream is the same minus PNS, and an
+	 * MPEG-2 encoder has no AudioSpecificConfig. */
+	fp.mpeg_version = FAAC_MPEG4;
+	fp.output_format = FAAC_STREAM_RAW;
+	fp.bit_rate = this->cur_bitrate / this->channels;
+#if defined(HAVE_FAAC_RATE_CONTROL)
+	fp.rate_control = FAAC_RC_CBR;
+#endif
+#if defined(HAVE_FAAC_MAX_BIT_RATE)
+	fp.max_bit_rate = this->max_bitrate;
+#endif
+#if defined(HAVE_FAAC_USE_PNS)
+	fp.use_pns = mpeg4;
+#else
+	if (!mpeg4)
+		fp.pns_level = 0;
+#endif
+#endif
+
+	if (faac_encoder_open(&fp, &this->aacenc) < 0) {
+		this->aacenc = NULL;
+		return -EINVAL;
+	}
+	if (faac_encoder_get_info(this->aacenc, &info) < 0 ||
+	    faac_encoder_asc(this->aacenc, &asc, &asc_len) < 0)
+		return -EINVAL;
+
+	if (info.object_type != fp.object_type || asc_len != sizeof(asc0) ||
+	    memcmp(asc, asc0, sizeof(asc0)) != 0) {
+		spa_log_warn(log, "AAC: unexpected encoder configuration");
+		return -EINVAL;
+	}
+
+	this->frame_samples = info.frame_samples;
+	this->codesize = info.frame_samples * this->channels * this->samplesize;
+#if defined(HAVE_FAAC_ENCODER_DELAY)
+	this->enc_delay = info.encoder_delay;
+#else
+	/* no delay reported before FAAC 2.2: one frame */
+	this->enc_delay = info.frame_samples;
+#endif
+
+	this->outbuf_size = info.max_output_bytes;
+	this->outbuf = malloc(this->outbuf_size);
+	if (this->outbuf == NULL)
+		return -errno;
+
+	latm_dec_init(&this->demux);
+	this->dec_delay = 0;
+
+	return open_decoder(this, asc0);
+}
+
+static void clear_aac(struct impl *this)
+{
+	if (this->aacenc)
+		faac_encoder_close(&this->aacenc);
+	close_decoder(this);
+	free(this->outbuf);
+	this->outbuf = NULL;
+}
+
+/* \return number of bytes consumed, or <0 on error */
+static int encode_aac(struct impl *this, const void *src, size_t src_size,
+		void *dst, size_t dst_size, size_t *dst_out, int *need_flush)
+{
+	uint32_t written = 0;
+	int res;
+
+	*dst_out = 0;
+	*need_flush = NEED_FLUSH_NO;
+
+	if (faac_encoder_encode(this->aacenc, src, src_size / this->samplesize,
+				this->outbuf, this->outbuf_size, &written) < 0)
+		return -EINVAL;
+
+	if (written > 0) {
+		res = latm_enc_write(&this->mux, this->outbuf, written, dst, dst_size);
+		if (res < 0 || (size_t)res > this->mtu - sizeof(struct rtp_header)) {
+			/* A frame that doesn't fit the MTU can't be sent */
+			this->n_dropped++;
+			if ((this->n_dropped & (this->n_dropped - 1)) == 0)
+				spa_log_warn(log, "AAC: dropped %u frame(s) not fitting the MTU (%u bytes)",
+						this->n_dropped, written);
+		} else {
+			*dst_out = res;
+			*need_flush = NEED_FLUSH_ALL;
+		}
+	}
+
+	if (*dst_out == 0) {
+		/* The block was consumed without producing a packet (encoder
+		 * priming or dropped frame): keep the RTP timestamp in step. */
+		this->header->timestamp = htonl(ntohl(this->header->timestamp) + this->frame_samples);
+	}
+
+	return src_size;
+}
+
+/* \return number of bytes consumed, or <0 on error */
+static int decode_aac(struct impl *this, const void *src, size_t src_size,
+		void *dst, size_t dst_size, size_t *dst_out)
+{
+	uint8_t frame[LATM_FRAME_MAXSIZE];
+	bool changed;
+	int res;
+
+	*dst_out = 0;
+
+	res = latm_dec_read(&this->demux, src, src_size, frame, sizeof(frame), &changed);
+	if (res < 0) {
+		spa_log_debug(log, "AAC LATM demux error: %d", res);
+		return -EINVAL;
+	}
+	/* The port format is fixed: checked for every packet, not only on a config change */
+	if ((uint32_t)latm_rates[this->demux.rate_index] != this->rate ||
+	    (uint32_t)this->demux.channel_config != this->channels) {
+		this->n_bad_format++;
+		if ((this->n_bad_format & (this->n_bad_format - 1)) == 0)
+			spa_log_warn(log, "AAC: dropped %u packet(s) with stream format %u Hz %d ch, expected %u Hz %u ch",
+					this->n_bad_format, latm_rates[this->demux.rate_index],
+					this->demux.channel_config, this->rate, this->channels);
+		return -EINVAL;
+	}
+	if (changed && memcmp(this->dec_asc, this->demux.asc, sizeof(this->dec_asc)) != 0 &&
+	    open_decoder(this, this->demux.asc) < 0)
+		return -EINVAL;
+	if (res == 0)
+		return src_size;
+
+#if defined(HAVE_FAAD3)
+	faad_stream_info info = { .struct_size = sizeof(info) };
+	uint32_t consumed = 0, written = 0, frame_flags = 0;
+
+	if (dst_size < this->dec_max_output)
+		return -ENOSPC;
+
+	if (faad_decode_frame(this->aacdec, frame, res, &consumed,
+				dst, dst_size, &written, &frame_flags) < 0) {
+		spa_log_debug(log, "AAC decode frame error");
+		return -EINVAL;
+	}
+	if (written > 0 && (frame_flags & FAAD_FRAME_FORMAT_CHANGED)) {
+		if (faad_decoder_get_info(this->aacdec, &info) < 0 ||
+		    info.sample_rate != this->rate || info.channels != this->channels) {
+			spa_log_warn(log, "AAC: decoded format differs from the negotiated one");
+			return -EINVAL;
+		}
+	}
+	*dst_out = written;
+#else
+	NeAACDecFrameInfo info;
+	void *pcm;
+	size_t size;
+
+	pcm = NeAACDecDecode(this->aacdec, &info, frame, res);
+	if (info.error != 0 || pcm == NULL || info.channels == 0) {
+		spa_log_debug(log, "AAC decode frame error: %u", (unsigned)info.error);
+		return -EINVAL;
+	}
+	if (info.samplerate != this->rate ||
+	    (info.channels != this->channels && !(this->channels == 1 && info.channels == 2))) {
+		spa_log_warn(log, "AAC: decoded format differs from the negotiated one");
+		return -EINVAL;
+	}
+	size = (size_t)info.samples / info.channels * this->channels * this->samplesize;
+	if (size > dst_size)
+		return -ENOSPC;
+	if (info.channels == this->channels) {
+		memcpy(dst, pcm, size);
+	} else {
+		/* mono reported as stereo: keep the first channel */
+		const int16_t *s = pcm;
+		int16_t *d = dst;
+		size_t i;
+
+		for (i = 0; i < size / this->samplesize; i++)
+			d[i] = s[2 * i];
+	}
+	*dst_out = size;
+#endif
+
+	return src_size;
+}
+
+static int change_bitrate_aac(struct impl *this, int bitrate)
+{
+	return -EOPNOTSUPP;
+}
+
+static void get_delay_aac(struct impl *this, uint32_t *encoder, uint32_t *decoder)
+{
+	if (encoder)
+		*encoder = this->enc_delay;
+	if (decoder) {
+#if defined(HAVE_FAAD3)
+		faad_stream_info info = { .struct_size = sizeof(info) };
+
+		if (this->aacdec && faad_decoder_get_info(this->aacdec, &info) >= 0)
+			this->dec_delay = info.decoder_delay;
+#endif
+		/* FAAD2 reports none, and AAC-LC adds none */
+		*decoder = this->dec_delay;
+	}
+}
+
 #endif
 
 static void *codec_init(const struct media_codec *codec, uint32_t flags,
@@ -730,11 +1143,11 @@ static int codec_change_bitrate(struct impl *this, int new_bitrate)
 	if (new_bitrate == this->cur_bitrate)
 		return 0;
 
-	this->cur_bitrate = new_bitrate;
-
-	res = change_bitrate_aac(this, this->cur_bitrate);
+	res = change_bitrate_aac(this, new_bitrate);
 	if (res < 0)
 		return res;
+
+	this->cur_bitrate = new_bitrate;
 
 	return this->cur_bitrate;
 }

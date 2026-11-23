@@ -142,7 +142,7 @@ option('bluez5-codec-aac',
         type: 'feature',
         value: 'auto')
 option('bluez5-codec-aac-libs',
-        description: 'AAC libraries to try, in order of preference. FAAC needs FAAD3, or FAAD2 with bluez5-codec-aac-faad2',
+        description: 'AAC libraries to try, in order of preference. FAAC needs version 3.0 and FAAD3, or FAAD2 with bluez5-codec-aac-faad2',
         type: 'array',
         choices: ['fdk-aac', 'faac'],
         value: ['fdk-aac', 'faac'])

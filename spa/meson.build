@@ -119,9 +119,9 @@ if get_option('spa-plugins').allowed()
           if not faac_dep.found()
             faac_dep = cc.find_library('faac', has_headers : ['faac.h'], required : false)
           endif
-          if not faac_dep.found() or not cc.has_member('faac_params', 'sample_rate',
+          if not faac_dep.found() or not cc.has_member('faac_params', 'peak_bit_rate',
                 prefix : '#include <faac.h>', dependencies : faac_dep)
-            # missing, or older than FAAC 2.0 which lacks the faac_params API
+            # missing, or older than FAAC 3.0 which cannot limit the frame size
             continue
           endif
 
@@ -146,33 +146,7 @@ if get_option('spa-plugins').allowed()
             endif
           endif
 
-          # The faac_params fields differ between FAAC versions
-          faac_prefix = '#include <faac.h>'
           faac_args = ['-DHAVE_FAAC']
-          if cc.has_member('faac_params', 'peak_bit_rate', prefix : faac_prefix, dependencies : faac_dep)
-            faac_args += '-DHAVE_FAAC_PEAK_BIT_RATE'
-          elif cc.has_member('faac_params', 'max_bit_rate', prefix : faac_prefix, dependencies : faac_dep)
-            faac_args += '-DHAVE_FAAC_MAX_BIT_RATE'
-          endif
-          if cc.has_member('faac_params', 'channels', prefix : faac_prefix, dependencies : faac_dep)
-            faac_args += '-DHAVE_FAAC_CHANNELS'
-          endif
-          if cc.has_header_symbol('faac.h', 'FAAC_OBJ_LC', dependencies : faac_dep)
-            faac_args += '-DHAVE_FAAC_OBJ_LC'
-          endif
-          if cc.compiles(faac_prefix + '\nvoid f(faac_params *p) { faac_params_init(p, sizeof(*p)); }',
-                dependencies : faac_dep, name : 'faac_params_init() with a size argument')
-            faac_args += '-DHAVE_FAAC_PARAMS_INIT_SIZE'
-          endif
-          if cc.has_member('faac_encoder_info', 'encoder_delay', prefix : faac_prefix, dependencies : faac_dep)
-            faac_args += '-DHAVE_FAAC_ENCODER_DELAY'
-          endif
-          if cc.has_member('faac_params', 'rate_control', prefix : faac_prefix, dependencies : faac_dep)
-            faac_args += '-DHAVE_FAAC_RATE_CONTROL'
-          endif
-          if cc.has_member('faac_params', 'use_pns', prefix : faac_prefix, dependencies : faac_dep)
-            faac_args += '-DHAVE_FAAC_USE_PNS'
-          endif
 
           aac_dep = declare_dependency(compile_args : faac_args + faad_args,
                                        dependencies : [ faac_dep, faad_dep ])
@@ -181,7 +155,7 @@ if get_option('spa-plugins').allowed()
         endif
       endforeach
       if not aac_dep.found() and get_option('bluez5-codec-aac').enabled()
-        error('bluez5-codec-aac enabled, but none of the libraries in bluez5-codec-aac-libs were found (FAAC needs FAAD3, or FAAD2 with bluez5-codec-aac-faad2)')
+        error('bluez5-codec-aac enabled, but none of the libraries in bluez5-codec-aac-libs were found (FAAC needs version 3.0 and FAAD3, or FAAD2 with bluez5-codec-aac-faad2)')
       endif
     endif
     summary({'AAC' + aac_found_lib: aac_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')

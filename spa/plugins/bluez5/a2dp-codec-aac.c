@@ -635,22 +635,12 @@ static void get_delay_aac(struct impl *this, uint32_t *encoder, uint32_t *decode
 
 #elif defined(HAVE_FAAC)
 
-/* Without a per-frame limit in the encoder, keep the average low enough that
- * frames rarely exceed the MTU; those that do are dropped. */
-#define FAAC_UNLIMITED_MAX_BITRATE	128000
-#define FAAC_UNLIMITED_MARGIN_PCT	60
-
 /*
  * Share of the peak bitrate used as the CBR target. At the peak itself the
  * rate control and the limiter fight and quality collapses on small MTUs.
- * FAAC 3.0 has a hard limiter; the older limiters are best effort.
  */
 #ifndef FAAC_PEAK_MARGIN_PCT
-#if defined(HAVE_FAAC_PEAK_BIT_RATE)
 #define FAAC_PEAK_MARGIN_PCT		95
-#else
-#define FAAC_PEAK_MARGIN_PCT		90
-#endif
 #endif
 
 static void close_decoder(struct impl *this)
@@ -767,35 +757,17 @@ static int init_aac(struct impl *this, const struct media_codec *codec,
 			(uint64_t)this->channels * 6144 * this->rate / 1024);
 	this->cur_bitrate = SPA_MIN(get_valid_aac_bitrate((a2dp_aac_t *)conf),
 			this->max_bitrate / 100 * FAAC_PEAK_MARGIN_PCT);
-#if !defined(HAVE_FAAC_PEAK_BIT_RATE) && !defined(HAVE_FAAC_MAX_BIT_RATE)
-	this->cur_bitrate = SPA_MIN(this->cur_bitrate, FAAC_UNLIMITED_MAX_BITRATE);
-	this->cur_bitrate = SPA_MIN(this->cur_bitrate,
-			this->max_bitrate / 100 * FAAC_UNLIMITED_MARGIN_PCT);
-#endif
 	spa_log_debug(log, "AAC: max (peak) bitrate: %d, cur bitrate: %d, mpeg4: %d",
 			this->max_bitrate, this->cur_bitrate, (int)mpeg4);
 
-#if defined(HAVE_FAAC_PARAMS_INIT_SIZE)
 	if (faac_params_init(&fp, sizeof(fp)) < 0)
-#else
-	if (faac_params_init(&fp) < 0)
-#endif
 		return -EINVAL;
-#if defined(HAVE_FAAC_CHANNELS)
 	fp.channels = this->channels;
-#else
-	fp.num_channels = this->channels;
-#endif
 	fp.sample_rate = this->rate;
-#if defined(HAVE_FAAC_OBJ_LC)
 	fp.object_type = FAAC_OBJ_LC;
-#else
-	fp.object_type = FAAC_OBJ_LOW;
-#endif
 	fp.input_format = FAAC_INPUT_16BIT;
 
-#if defined(HAVE_FAAC_PEAK_BIT_RATE)
-	/* FAAC 3.0 API: bit rates are for the whole stream */
+	/* bit rates are for the whole stream */
 	fp.stream_format = FAAC_STREAM_RAW;
 	fp.rate_control = FAAC_RC_CBR;
 	fp.bit_rate = this->cur_bitrate;
@@ -804,26 +776,6 @@ static int init_aac(struct impl *this, const struct media_codec *codec,
 		fp.flags |= FAAC_FLAG_PNS;
 	else
 		fp.flags &= ~(uint32_t)FAAC_FLAG_PNS;
-#else
-	/* FAAC 2.x API: bit_rate is per channel. MPEG-2 is signalled by the
-	 * A2DP object type only; the stream is the same minus PNS, and an
-	 * MPEG-2 encoder has no AudioSpecificConfig. */
-	fp.mpeg_version = FAAC_MPEG4;
-	fp.output_format = FAAC_STREAM_RAW;
-	fp.bit_rate = this->cur_bitrate / this->channels;
-#if defined(HAVE_FAAC_RATE_CONTROL)
-	fp.rate_control = FAAC_RC_CBR;
-#endif
-#if defined(HAVE_FAAC_MAX_BIT_RATE)
-	fp.max_bit_rate = this->max_bitrate;
-#endif
-#if defined(HAVE_FAAC_USE_PNS)
-	fp.use_pns = mpeg4;
-#else
-	if (!mpeg4)
-		fp.pns_level = 0;
-#endif
-#endif
 
 	if (faac_encoder_open(&fp, &this->aacenc) < 0) {
 		this->aacenc = NULL;
@@ -841,12 +793,7 @@ static int init_aac(struct impl *this, const struct media_codec *codec,
 
 	this->frame_samples = info.frame_samples;
 	this->codesize = info.frame_samples * this->channels * this->samplesize;
-#if defined(HAVE_FAAC_ENCODER_DELAY)
 	this->enc_delay = info.encoder_delay;
-#else
-	/* no delay reported before FAAC 2.2: one frame */
-	this->enc_delay = info.frame_samples;
-#endif
 
 	this->outbuf_size = info.max_output_bytes;
 	this->outbuf = malloc(this->outbuf_size);

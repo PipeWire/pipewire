@@ -699,10 +699,10 @@ static void test_bitrates(void)
 		printf("negotiated %3.0f kbit/s%s: audio %6.1f kbit/s (%+5.1f%%), max packet %zu bytes, dropped %u, SNR %.1f dB\n",
 				target, cases[i].harsh ? ", noise bursts" : "", kbps,
 				100.0 * (kbps - target) / target, st.max_size, st.gaps, st.snr);
-#if defined(HAVE_FDK_AAC) || defined(HAVE_FAAC_PEAK_BIT_RATE)
+#if defined(HAVE_FDK_AAC) || defined(HAVE_FAAC)
 		CHECK(st.gaps == 0);
 #endif
-#if defined(HAVE_FAAC_PEAK_BIT_RATE)
+#if defined(HAVE_FAAC)
 		/* CBR with a hard frame limit tracks the target */
 		if (!cases[i].harsh || cases[i].negotiated < 300000)
 			CHECK(kbps > 0.9 * target && kbps < 1.1 * target);
@@ -748,7 +748,7 @@ int main(void)
 				types[t] == AAC_OBJECT_TYPE_MPEG2_AAC_LC ? 2 : 4,
 				st.rate, st.channels, mtus[m], st.n_packets, st.max_size,
 				kbps, st.gaps, st.pns_sections, st.corr, st.lag, st.delay);
-#if defined(HAVE_FDK_AAC) || defined(HAVE_FAAC_PEAK_BIT_RATE)
+#if defined(HAVE_FDK_AAC) || defined(HAVE_FAAC)
 		/* the encoder enforces the frame size limit */
 		CHECK(st.gaps == 0);
 #endif

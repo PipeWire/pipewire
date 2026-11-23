@@ -878,6 +878,9 @@ static int encode_aac(struct impl *this, const void *src, size_t src_size,
 	*dst_out = 0;
 	*need_flush = NEED_FLUSH_NO;
 
+	/* FAAC takes at most one frame per call; the caller loops over the rest */
+	src_size = SPA_MIN(src_size, (size_t)this->codesize);
+
 	if (faac_encoder_encode(this->aacenc, src, src_size / this->samplesize,
 				this->outbuf, this->outbuf_size, &written) < 0)
 		return -EINVAL;

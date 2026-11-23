@@ -503,6 +503,51 @@ static void test_format_mismatch(void)
 #endif
 }
 
+/* The sink passes everything it has: the encoder must consume at most one block per call */
+static void test_multi_block_input(void)
+{
+	const struct media_codec *codec = &a2dp_codec_aac;
+	struct spa_dict settings = SPA_DICT_INIT(NULL, 0);
+	a2dp_aac_t conf = {
+		.object_type = AAC_OBJECT_TYPE_MPEG4_AAC_LC,
+		AAC_INIT_FREQUENCY(AAC_SAMPLING_FREQ_48000)
+		.channels = AAC_CHANNELS_2,
+		AAC_INIT_BITRATE(320000)
+	};
+	struct spa_audio_info info;
+	uint8_t pkt[MAX_PACKET_SIZE];
+	void *props, *enc;
+	int16_t *pcm;
+	int block, total, left;
+	unsigned int calls = 0;
+
+	CHECK(codec->validate_config(codec, 0, &conf, sizeof(conf), &info) == 0);
+	props = codec->init_props(codec, 0, &settings);
+	enc = codec->init(codec, 0, &conf, sizeof(conf), &info, props, 672);
+	CHECK(enc != NULL);
+	block = codec->get_block_size(enc);
+	total = 4 * block;
+	pcm = calloc(4, block);
+	CHECK(pcm);
+	make_signal(pcm, 48000, 2, total / 4, false);
+
+	for (left = total; left > 0; calls++) {
+		size_t hdr = codec->start_encode(enc, pkt, sizeof(pkt), calls, calls * 1024);
+		size_t out_size = 0;
+		int need_flush = 0;
+		int res = codec->encode(enc, (uint8_t *)pcm + (total - left), left,
+				pkt + hdr, sizeof(pkt) - hdr, &out_size, &need_flush);
+
+		CHECK(res > 0 && res <= left);
+		left -= res;
+	}
+	CHECK(calls >= 4);
+	free(pcm);
+	codec->deinit(enc);
+	codec->clear_props(props);
+	printf("input of several blocks is consumed in %u calls\n", calls);
+}
+
 static const struct { uint32_t rate, flag; } all_rates[] = {
 	{ 8000, AAC_SAMPLING_FREQ_8000 },
 	{ 11025, AAC_SAMPLING_FREQ_11025 },
@@ -720,6 +765,7 @@ int main(void)
 
 	test_select_config();
 	test_format_mismatch();
+	test_multi_block_input();
 	test_all_rates();
 	test_bitrates();
 	return 0;

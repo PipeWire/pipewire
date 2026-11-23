@@ -208,7 +208,6 @@ struct dir {
 
 	struct convert conv;
 	unsigned int need_remap:1;
-	unsigned int is_passthrough:1;
 	unsigned int control:1;
 };
 
@@ -3358,6 +3357,7 @@ static int port_set_format_audio(struct impl *this,
 		struct spa_audio_info *info)
 {
 	int res;
+	struct dir *dir = &this->dir[port->direction];
 
 	if (info->media_type != SPA_MEDIA_TYPE_audio) {
 		spa_log_error(this->log, "unexpected type %d",
@@ -3392,8 +3392,8 @@ static int port_set_format_audio(struct impl *this,
 				info->media_subtype);
 		return -EINVAL;
 	}
-	this->dir[port->direction].format = *info;
-	this->dir[port->direction].have_format = true;
+	dir->format = *info;
+	dir->have_format = true;
 	this->setup = false;
 	return 0;
 }
@@ -4117,9 +4117,10 @@ static void run_dst_convert_stage(struct stage *s, struct stage_context *c)
 static void add_dst_convert_stage(struct impl *impl, struct stage_context *ctx)
 {
 	struct stage *s = &impl->stages[impl->n_stages];
+	SPA_FLAG_CLEAR(ctx->bits, DST_CONVERT_BIT);
 	s->impl = impl;
 	s->in_idx = ctx->src_idx;
-	s->out_idx = ctx->final_idx;
+	s->out_idx = get_dst_idx(ctx);
 	s->data = NULL;
 	s->run = run_dst_convert_stage;
 	spa_log_trace(impl->log, "%p: stage %d", impl, impl->n_stages);

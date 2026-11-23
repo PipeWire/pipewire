@@ -137,11 +137,9 @@ if get_option('spa-plugins').allowed()
             faad_name = 'FAAD2 (GPL)'
             faad_dep = dependency('faad2', required : false)
             if not faad_dep.found()
-              faad_dep = cc.find_library('faad', required : false)
+              faad_dep = cc.find_library('faad', has_headers : ['neaacdec.h'], required : false)
             endif
-            if faad_dep.found() and cc.has_header('neaacdec.h', dependencies : faad_dep)
-              faad_args += '-DHAVE_NEAACDEC_H'
-            elif not faad_dep.found() or not cc.has_header('faad.h', dependencies : faad_dep)
+            if not faad_dep.found()
               continue
             endif
           endif

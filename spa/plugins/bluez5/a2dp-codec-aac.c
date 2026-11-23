@@ -17,10 +17,8 @@
 #include <faac.h>
 #if defined(HAVE_FAAD3)
 #include <faad3.h>
-#elif defined(HAVE_NEAACDEC_H)
-#include <neaacdec.h>
 #else
-#include <faad.h>
+#include <neaacdec.h>
 #endif
 #include "aac-latm.h"
 #else

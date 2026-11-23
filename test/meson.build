@@ -91,6 +91,14 @@ test('test-stream-dequeue',
                link_with: pwtest_lib)
 )
 
+test('test-stream-busy',
+    executable('test-stream-busy',
+               'test-stream-busy.c',
+               include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
+               link_with: pwtest_lib)
+)
+
 test('test-loop',
     executable('test-loop',
                'test-loop.c',

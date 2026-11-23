@@ -2650,8 +2650,8 @@ int pw_stream_return_buffer(struct pw_stream *stream, struct pw_buffer *buffer)
 
 	pw_log_trace_fp("%p: %p id: %d", impl, buffer, b->id);
 
-	/* dequeue increments the busy count, so undo that */
-	if (b->busy) {
+	/* dequeue of an output buffer increments the busy count, so undo that */
+	if (b->busy && impl->direction == SPA_DIRECTION_OUTPUT) {
 		SPA_ATOMIC_DEC(b->busy->count);
 		pw_log_trace_fp("%p: %p: %p busy count %u", impl, b, b->busy, SPA_ATOMIC_LOAD(b->busy->count));
 	}
@@ -2678,8 +2678,12 @@ do_flush(struct spa_loop *loop,
 	}
 	do {
 		b = queue_pop(impl, from);
-		if (b != NULL)
+		if (b != NULL) {
+			/* recycled input buffers are no longer busy, as in clear_buffers() */
+			if (impl->direction == SPA_DIRECTION_INPUT && b->busy)
+				SPA_ATOMIC_DEC(b->busy->count);
 			queue_push(impl, to, b);
+		}
 	}
 	while (b);
 

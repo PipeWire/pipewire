@@ -2551,7 +2551,8 @@ struct pw_buffer *pw_stream_dequeue_buffer(struct pw_stream *stream)
 	if (impl->direction == SPA_DIRECTION_OUTPUT && stream->node->reliable) {
 		struct spa_io_buffers *io = impl->io;
 
-		if (!queue_is_empty(impl, &impl->queued) || io->status == SPA_STATUS_HAVE_DATA) {
+		if (!queue_is_empty(impl, &impl->queued) ||
+		    (io != NULL && io->status == SPA_STATUS_HAVE_DATA)) {
 			errno = EAGAIN;
 			return NULL;
 		}

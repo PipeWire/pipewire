@@ -1,4 +1,5 @@
 /* Spa A2DP AAC MPEG-4 LATM minimal mux/demux */
+/* SPDX-FileCopyrightText: Copyright © 2024 Pauli Virtanen */
 /* SPDX-FileCopyrightText: Copyright © 2026 Nils Schimmelmann */
 /* SPDX-License-Identifier: MIT */
 

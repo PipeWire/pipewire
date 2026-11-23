@@ -226,14 +226,10 @@ static int codec_select_config(const struct media_codec *codec, uint32_t flags,
 		else
 			return -ENOTSUP;
 	} else {
-		uint8_t first = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
-		uint8_t second = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
-
-#if defined(HAVE_FAAC)
 		/* PNS is only allowed with MPEG-4 AAC */
-		first = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
-		second = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
-#endif
+		uint8_t first = AAC_OBJECT_TYPE_MPEG4_AAC_LC;
+		uint8_t second = AAC_OBJECT_TYPE_MPEG2_AAC_LC;
+
 		if (conf.object_type & first)
 			conf.object_type = first;
 		else if (conf.object_type & second)

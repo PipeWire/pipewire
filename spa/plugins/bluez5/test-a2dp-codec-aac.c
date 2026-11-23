@@ -656,11 +656,7 @@ static void test_select_config(void)
 	size = codec->select_config(codec, 0, &caps, sizeof(caps), &audio, NULL, config, &config_data);
 	CHECK(size == (int)sizeof(sel));
 	memcpy(&sel, config, sizeof(sel));
-#if defined(HAVE_FAAC)
 	CHECK(sel.object_type == AAC_OBJECT_TYPE_MPEG4_AAC_LC);
-#else
-	CHECK(sel.object_type == AAC_OBJECT_TYPE_MPEG2_AAC_LC);
-#endif
 
 	/* with only one of them offered, that one is selected */
 	caps.object_type = AAC_OBJECT_TYPE_MPEG2_AAC_LC;

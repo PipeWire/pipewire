@@ -80,7 +80,6 @@ struct impl {
 	struct spa_node node;
 
 	struct spa_log *log;
-	struct spa_loop *data_loop;
 	struct spa_loop_utils *loop_utils;
 
 	uint64_t info_all;
@@ -806,13 +805,6 @@ static int impl_get_interface(struct spa_handle *handle, const char *type, void 
 	return 0;
 }
 
-static int do_remove_timer(struct spa_loop *loop, bool async, uint32_t seq, const void *data, size_t size, void *user_data)
-{
-	struct impl *this = user_data;
-	spa_loop_remove_source(this->data_loop, this->timer_source);
-	return 0;
-}
-
 static int impl_clear(struct spa_handle *handle)
 {
 	struct impl *this;
@@ -821,8 +813,6 @@ static int impl_clear(struct spa_handle *handle)
 
 	this = (struct impl *) handle;
 
-	if (this->data_loop)
-		spa_loop_locked(this->data_loop, do_remove_timer, 0, NULL, 0, this);
 	spa_loop_utils_destroy_source(this->loop_utils, this->timer_source);
 
 	return 0;
@@ -854,7 +844,6 @@ impl_init(const struct spa_handle_factory *factory,
 	this = (struct impl *) handle;
 
 	this->log = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_Log);
-	this->data_loop = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_DataLoop);
 	this->loop_utils = spa_support_find(support, n_support, SPA_TYPE_INTERFACE_LoopUtils);
 
 	spa_hook_list_init(&this->hooks);

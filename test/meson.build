@@ -132,6 +132,16 @@ test('test-support',
                dependencies: [spa_dep, systemd_dep, spa_support_dep, spa_journal_dep],
                link_with: [pwtest_lib])
 )
+
+if get_option('videotestsrc').allowed()
+test('test-videotestsrc',
+    executable('test-videotestsrc',
+               'test-videotestsrc.c',
+               include_directories: pwtest_inc,
+               dependencies: [ spa_dep ],
+               link_with: pwtest_lib)
+)
+endif
 endif
 test('test-spa',
     executable('test-spa',

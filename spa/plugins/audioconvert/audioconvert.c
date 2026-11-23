@@ -2887,74 +2887,110 @@ impl_node_remove_port(void *object, enum spa_direction direction, uint32_t port_
 	return -ENOTSUP;
 }
 
-static int port_param_enum_formats(struct impl *impl, struct port *port, uint32_t id,
+static int port_param_enum_formats_dsp(struct impl *impl, struct port *port, uint32_t id,
 		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
 {
 	switch (index) {
 	case 0:
-		if (port->is_dsp) {
-			struct spa_audio_info_dsp info;
-			info.format = SPA_AUDIO_FORMAT_DSP_F32;
-			*param = spa_format_audio_dsp_build(b, id, &info);
-		} else if (port->is_control) {
-			*param = spa_pod_builder_add_object(b,
-				SPA_TYPE_OBJECT_Format, id,
-				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
-				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
-		} else {
-			struct spa_pod_frame f[1];
-			uint32_t rate = impl->io_position ?
-				impl->io_position->clock.target_rate.denom : DEFAULT_RATE;
+	{
+		struct spa_audio_info_dsp info;
+		info.format = SPA_AUDIO_FORMAT_DSP_F32;
+		*param = spa_format_audio_dsp_build(b, id, &info);
+		break;
+	}
+	default:
+		return 0;
+	}
+	return 1;
+}
 
-			spa_pod_builder_push_object(b, &f[0],
-					SPA_TYPE_OBJECT_Format, id);
-			spa_pod_builder_add(b,
-				SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
-				SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-				SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(25,
-							SPA_AUDIO_FORMAT_F32P,
-							SPA_AUDIO_FORMAT_F32P,
-							SPA_AUDIO_FORMAT_F32,
-							SPA_AUDIO_FORMAT_F32_OE,
-							SPA_AUDIO_FORMAT_F64P,
-							SPA_AUDIO_FORMAT_F64,
-							SPA_AUDIO_FORMAT_F64_OE,
-							SPA_AUDIO_FORMAT_S32P,
-							SPA_AUDIO_FORMAT_S32,
-							SPA_AUDIO_FORMAT_S32_OE,
-							SPA_AUDIO_FORMAT_S24_32P,
-							SPA_AUDIO_FORMAT_S24_32,
-							SPA_AUDIO_FORMAT_S24_32_OE,
-							SPA_AUDIO_FORMAT_S24P,
-							SPA_AUDIO_FORMAT_S24,
-							SPA_AUDIO_FORMAT_S24_OE,
-							SPA_AUDIO_FORMAT_S16P,
-							SPA_AUDIO_FORMAT_S16,
-							SPA_AUDIO_FORMAT_S16_OE,
-							SPA_AUDIO_FORMAT_S8P,
-							SPA_AUDIO_FORMAT_S8,
-							SPA_AUDIO_FORMAT_U8P,
-							SPA_AUDIO_FORMAT_U8,
-							SPA_AUDIO_FORMAT_ULAW,
-							SPA_AUDIO_FORMAT_ALAW),
-				0);
-			if (!impl->props.resample_disabled) {
-				spa_pod_builder_add(b,
-					SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
-						rate, 1, INT32_MAX),
-					0);
-			}
-			spa_pod_builder_add(b,
-				SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
-					DEFAULT_CHANNELS, 1, MAX_CHANNELS),
-				0);
-			*param = spa_pod_builder_pop(b, &f[0]);
-		}
+static int port_param_enum_formats_control(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0:
+		*param = spa_pod_builder_add_object(b,
+			SPA_TYPE_OBJECT_Format, id,
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_application),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 		break;
 	default:
 		return 0;
 	}
 	return 1;
+}
+
+static int port_param_enum_formats_audio(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	switch (index) {
+	case 0:
+	{
+		struct spa_pod_frame f[1];
+		uint32_t rate = impl->io_position ?
+			impl->io_position->clock.target_rate.denom : DEFAULT_RATE;
+
+		spa_pod_builder_push_object(b, &f[0],
+				SPA_TYPE_OBJECT_Format, id);
+		spa_pod_builder_add(b,
+			SPA_FORMAT_mediaType,      SPA_POD_Id(SPA_MEDIA_TYPE_audio),
+			SPA_FORMAT_mediaSubtype,   SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
+			SPA_FORMAT_AUDIO_format,   SPA_POD_CHOICE_ENUM_Id(25,
+						SPA_AUDIO_FORMAT_F32P,
+						SPA_AUDIO_FORMAT_F32P,
+						SPA_AUDIO_FORMAT_F32,
+						SPA_AUDIO_FORMAT_F32_OE,
+						SPA_AUDIO_FORMAT_F64P,
+						SPA_AUDIO_FORMAT_F64,
+						SPA_AUDIO_FORMAT_F64_OE,
+						SPA_AUDIO_FORMAT_S32P,
+						SPA_AUDIO_FORMAT_S32,
+						SPA_AUDIO_FORMAT_S32_OE,
+						SPA_AUDIO_FORMAT_S24_32P,
+						SPA_AUDIO_FORMAT_S24_32,
+						SPA_AUDIO_FORMAT_S24_32_OE,
+						SPA_AUDIO_FORMAT_S24P,
+						SPA_AUDIO_FORMAT_S24,
+						SPA_AUDIO_FORMAT_S24_OE,
+						SPA_AUDIO_FORMAT_S16P,
+						SPA_AUDIO_FORMAT_S16,
+						SPA_AUDIO_FORMAT_S16_OE,
+						SPA_AUDIO_FORMAT_S8P,
+						SPA_AUDIO_FORMAT_S8,
+						SPA_AUDIO_FORMAT_U8P,
+						SPA_AUDIO_FORMAT_U8,
+						SPA_AUDIO_FORMAT_ULAW,
+						SPA_AUDIO_FORMAT_ALAW),
+			0);
+		if (!impl->props.resample_disabled) {
+			spa_pod_builder_add(b,
+				SPA_FORMAT_AUDIO_rate,     SPA_POD_CHOICE_RANGE_Int(
+					rate, 1, INT32_MAX),
+				0);
+		}
+		spa_pod_builder_add(b,
+			SPA_FORMAT_AUDIO_channels, SPA_POD_CHOICE_RANGE_Int(
+				DEFAULT_CHANNELS, 1, MAX_CHANNELS),
+			0);
+		*param = spa_pod_builder_pop(b, &f[0]);
+		break;
+	}
+	default:
+		return 0;
+	}
+	return 1;
+}
+
+static int port_param_enum_formats(struct impl *impl, struct port *port, uint32_t id,
+		uint32_t index, struct spa_pod **param, struct spa_pod_builder *b)
+{
+	if (port->is_dsp) {
+		return port_param_enum_formats_dsp(impl, port, id, index, param, b);
+	} else if (port->is_control) {
+		return port_param_enum_formats_control(impl, port, id, index, param, b);
+	} else {
+		return port_param_enum_formats_audio(impl, port, id, index, param, b);
+	}
 }
 
 static int port_param_format(struct impl *impl, struct port *port, uint32_t id,
@@ -2973,7 +3009,7 @@ static int port_param_format(struct impl *impl, struct port *port, uint32_t id,
 			SPA_FORMAT_mediaType,    SPA_POD_Id(SPA_MEDIA_TYPE_application),
 			SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_control));
 	else
-		*param = spa_format_audio_raw_build(b, id, &port->format.info.raw);
+		*param = spa_format_audio_build(b, id, &port->format);
 
 	return 1;
 }
@@ -3277,6 +3313,90 @@ static int port_set_tag(void *object,
 	return 0;
 }
 
+static int port_set_format_dsp(struct impl *this,
+		struct port *port, uint32_t flags, const struct spa_pod *format,
+		struct spa_audio_info *info)
+{
+	int res;
+	if (info->media_type != SPA_MEDIA_TYPE_audio ||
+	    info->media_subtype != SPA_MEDIA_SUBTYPE_dsp) {
+		spa_log_error(this->log, "unexpected types %d/%d",
+				info->media_type, info->media_subtype);
+		return -EINVAL;
+	}
+	if ((res = spa_format_audio_dsp_parse(format, &info->info.dsp)) < 0) {
+		spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
+		return res;
+	}
+	if (info->info.dsp.format != SPA_AUDIO_FORMAT_DSP_F32) {
+		spa_log_error(this->log, "unexpected format %d<->%d",
+			info->info.dsp.format, SPA_AUDIO_FORMAT_DSP_F32);
+		return -EINVAL;
+	}
+	port->blocks = 1;
+	port->stride = 4;
+	return 0;
+}
+
+static int port_set_format_control(struct impl *this,
+		struct port *port, uint32_t flags, const struct spa_pod *format,
+		struct spa_audio_info *info)
+{
+	if (info->media_type != SPA_MEDIA_TYPE_application ||
+	    info->media_subtype != SPA_MEDIA_SUBTYPE_control) {
+		spa_log_error(this->log, "unexpected types %d/%d",
+				info->media_type, info->media_subtype);
+		return -EINVAL;
+	}
+	port->blocks = 1;
+	port->stride = 1;
+	return 0;
+}
+
+static int port_set_format_audio(struct impl *this,
+		struct port *port, uint32_t flags, const struct spa_pod *format,
+		struct spa_audio_info *info)
+{
+	int res;
+
+	if (info->media_type != SPA_MEDIA_TYPE_audio) {
+		spa_log_error(this->log, "unexpected type %d",
+				info->media_type);
+		return -EINVAL;
+	}
+	switch (info->media_subtype) {
+	case SPA_MEDIA_SUBTYPE_raw:
+		if ((res = spa_format_audio_raw_parse(format, &info->info.raw)) < 0) {
+			spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
+			return res;
+		}
+		if (info->info.raw.format == 0 ||
+		    (!this->props.resample_disabled && info->info.raw.rate == 0) ||
+		    info->info.raw.channels == 0 ||
+		    info->info.raw.channels > MAX_CHANNELS) {
+			spa_log_error(this->log, "invalid format:%d rate:%d channels:%d",
+					info->info.raw.format, info->info.raw.rate,
+					info->info.raw.channels);
+			return -EINVAL;
+		}
+		port->stride = calc_width(info);
+		if (SPA_AUDIO_FORMAT_IS_PLANAR(info->info.raw.format)) {
+			port->blocks = info->info.raw.channels;
+		} else {
+			port->stride *= info->info.raw.channels;
+			port->blocks = 1;
+		}
+		break;
+	default:
+		spa_log_error(this->log, "unexpected audio subtype %d",
+				info->media_subtype);
+		return -EINVAL;
+	}
+	this->dir[port->direction].format = *info;
+	this->dir[port->direction].have_format = true;
+	this->setup = false;
+	return 0;
+}
 static int port_set_format(void *object,
 			   enum spa_direction direction,
 			   uint32_t port_id,
@@ -3302,65 +3422,17 @@ static int port_set_format(void *object,
 			return res;
 		}
 		if (PORT_IS_DSP(this, direction, port_id)) {
-			if (info.media_type != SPA_MEDIA_TYPE_audio ||
-			    info.media_subtype != SPA_MEDIA_SUBTYPE_dsp) {
-				spa_log_error(this->log, "unexpected types %d/%d",
-						info.media_type, info.media_subtype);
-				return -EINVAL;
-			}
-			if ((res = spa_format_audio_dsp_parse(format, &info.info.dsp)) < 0) {
-				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
-				return res;
-			}
-			if (info.info.dsp.format != SPA_AUDIO_FORMAT_DSP_F32) {
-				spa_log_error(this->log, "unexpected format %d<->%d",
-					info.info.dsp.format, SPA_AUDIO_FORMAT_DSP_F32);
-				return -EINVAL;
-			}
-			port->blocks = 1;
-			port->stride = 4;
+			res = port_set_format_dsp(this, port, flags, format, &info);
 		}
 		else if (PORT_IS_CONTROL(this, direction, port_id)) {
-			if (info.media_type != SPA_MEDIA_TYPE_application ||
-			    info.media_subtype != SPA_MEDIA_SUBTYPE_control) {
-				spa_log_error(this->log, "unexpected types %d/%d",
-						info.media_type, info.media_subtype);
-				return -EINVAL;
-			}
-			port->blocks = 1;
-			port->stride = 1;
+			res = port_set_format_control(this, port, flags, format, &info);
 		}
 		else {
-			if (info.media_type != SPA_MEDIA_TYPE_audio ||
-			    info.media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-				spa_log_error(this->log, "unexpected types %d/%d",
-						info.media_type, info.media_subtype);
-				return -EINVAL;
-			}
-			if ((res = spa_format_audio_raw_parse(format, &info.info.raw)) < 0) {
-				spa_log_error(this->log, "can't parse format %s", spa_strerror(res));
-				return res;
-			}
-			if (info.info.raw.format == 0 ||
-			    (!this->props.resample_disabled && info.info.raw.rate == 0) ||
-			    info.info.raw.channels == 0 ||
-			    info.info.raw.channels > MAX_CHANNELS) {
-				spa_log_error(this->log, "invalid format:%d rate:%d channels:%d",
-						info.info.raw.format, info.info.raw.rate,
-						info.info.raw.channels);
-				return -EINVAL;
-			}
-			port->stride = calc_width(&info);
-			if (SPA_AUDIO_FORMAT_IS_PLANAR(info.info.raw.format)) {
-				port->blocks = info.info.raw.channels;
-			} else {
-				port->stride *= info.info.raw.channels;
-				port->blocks = 1;
-			}
-			this->dir[direction].format = info;
-			this->dir[direction].have_format = true;
-			this->setup = false;
+			res = port_set_format_audio(this, port, flags, format, &info);
 		}
+		if (res < 0)
+			return res;
+
 		port->format = info;
 		port->have_format = true;
 

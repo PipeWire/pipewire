@@ -751,7 +751,11 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 
 			def->permissions = new_perm;
 
-			spa_list_for_each(global, &context->global_list, link) {
+			struct pw_global cursor;
+			/* using a cursor because updating permissions might remove this
+			 * or other globals while we iterate the list */
+			spa_list_cursor_start(cursor, &context->global_list, link);
+			spa_list_for_each_cursor(global, cursor, &context->global_list, link) {
 				if (global->id == client->info.id)
 					continue;
 				p = find_permission(client, global->id);
@@ -759,6 +763,7 @@ int pw_impl_client_update_permissions(struct pw_impl_client *client,
 					continue;
 				pw_global_update_permissions(global, client, old_perm, new_perm);
 			}
+			spa_list_cursor_end(cursor, link);
 		}
 		else  {
 			struct pw_global *global;

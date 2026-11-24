@@ -63,7 +63,7 @@ struct stream *stream_new(struct client *client, enum stream_type type, uint32_t
 	struct defs *defs = &client->impl->defs;
 	const char *str;
 
-	if (pw_map_get_size(&client->streams) >= defs->max_streams) {
+	if (client->n_streams >= defs->max_streams) {
 		errno = ENOSPC;
 		return NULL;
 	}
@@ -75,6 +75,8 @@ struct stream *stream_new(struct client *client, enum stream_type type, uint32_t
 	stream->channel = pw_map_insert_new(&client->streams, stream);
 	if (stream->channel == SPA_ID_INVALID)
 		goto error_errno;
+
+	client->n_streams++;
 
 	stream->impl = client->impl;
 	stream->client = client;
@@ -158,8 +160,11 @@ void stream_free(struct stream *stream)
 
 		pw_stream_destroy(stream->stream);
 	}
-	if (stream->channel != SPA_ID_INVALID)
+	if (stream->channel != SPA_ID_INVALID) {
 		pw_map_remove(&client->streams, stream->channel);
+		if (client->n_streams > 0)
+			client->n_streams--;
+	}
 
 	pw_work_queue_cancel(impl->work_queue, stream, SPA_ID_INVALID);
 

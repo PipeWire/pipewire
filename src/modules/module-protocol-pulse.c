@@ -254,7 +254,8 @@
  *     pulse.max-streams = 64
  *\endcode
  *
- * The maximum number of streams a single client can create. Default is 64.
+ * The maximum number of streams a single client can have open concurrently.
+ * Default is 64.
  *
  *\code{.unparsed}
  *     pulse.max-sample-cache = 67108864

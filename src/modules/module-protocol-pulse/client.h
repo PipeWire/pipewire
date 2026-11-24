@@ -80,6 +80,7 @@ struct client {
 	struct message *message;
 
 	struct pw_map streams;
+	uint32_t n_streams;		/**< number of live streams, see pulse.max-streams */
 	struct spa_list out_messages;
 
 	struct spa_list operations;

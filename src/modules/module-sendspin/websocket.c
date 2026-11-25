@@ -660,6 +660,8 @@ static int handle_input(struct pw_websocket_connection *conn)
 			if (spa_overflow_add(conn->data_wanted, (size_t)res, &conn->data_wanted))
 				return -EOVERFLOW;
 		}
+		if (conn->data_wanted > (size_t)conn->ws->max_msg_size)
+			return -EMSGSIZE;
 	}
 	return 0;
 }

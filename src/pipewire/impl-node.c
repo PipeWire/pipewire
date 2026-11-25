@@ -2186,7 +2186,7 @@ again:
 	spa_list_for_each(t, &driver->rt.target_list, link) {
 		struct pw_node_activation *ta = t->activation;
 		pw_node_activation_state_reset(&ta->state[0]);
-		pw_log_debug("%p: reset state:%s-%d:%p pending:%d/%d",
+		pw_log_trace_fp("%p: reset state:%s-%d:%p pending:%d/%d",
 				driver, t->name, t->id, &ta->state[0], ta->state[0].pending, ta->state[0].required);
 	}
 

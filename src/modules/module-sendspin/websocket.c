@@ -33,6 +33,7 @@
 #define pw_websocket_connection_emit_message(w,...)	pw_websocket_connection_emit(w, message, 0, __VA_ARGS__)
 
 #define MAX_CONNECTIONS		64
+#define MAX_MSG_SIZE		(4*1024*1024)
 
 struct message {
 	struct spa_list link;
@@ -115,6 +116,8 @@ struct pw_websocket {
 	char *user_agent;
 	char *server_name;
 
+	int max_msg_size;
+
 	struct spa_list connections;
 	struct spa_list servers;
 };
@@ -182,6 +185,7 @@ struct pw_websocket *pw_websocket_new(struct pw_loop *main_loop, struct spa_dict
 	if ((ws = calloc(1, sizeof(*ws))) == NULL)
 		return NULL;
 
+	ws->max_msg_size = MAX_MSG_SIZE;
 	for (i = 0; props && i < props->n_items; i++) {
 		const char *k = props->items[i].key;
 		const char *s = props->items[i].value;
@@ -193,6 +197,8 @@ struct pw_websocket *pw_websocket_new(struct pw_loop *main_loop, struct spa_dict
 			ws->user_agent = s ? strdup(s) : NULL;
 		if (spa_streq(k, "http.server-name"))
 			ws->server_name = s ? strdup(s) : NULL;
+		if (spa_streq(k, "message.max-size"))
+			ws->max_msg_size = atoi(s);
 	}
 	if (ws->user_agent == NULL)
 		ws->user_agent = spa_aprintf("PipeWire/%s", PACKAGE_VERSION);
@@ -311,8 +317,10 @@ static int receive_websocket(struct pw_websocket_connection *conn,
 		for (i = 0; i < header; i++)
 			payload_len = (payload_len << 8) | d[i + 2];
 		if (payload_len > (size_t)(INT_MAX - need))
-		        return -EMSGSIZE;
+		        return -EOVERFLOW;
 		need += (int)payload_len;
+		if (need > conn->ws->max_msg_size)
+		        return -EMSGSIZE;
 		conn->data_state++;
 	}
 	if (need == 0) {

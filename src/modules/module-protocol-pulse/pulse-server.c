@@ -1483,8 +1483,10 @@ static void stream_process(void *data)
 						p, avail);
 					empty = false;
 				}
-				index += size;
+				if (-avail < INT32_MAX - (int32_t)size)
+					index += size;
 				pd.read_inc = size;
+
 				spa_ringbuffer_read_update(&stream->ring, index);
 
 				pd.playing_for = size;
@@ -1550,7 +1552,8 @@ static void stream_process(void *data)
 				SPA_PTROFF(p, offs, void),
 				SPA_MIN(size, MAXLENGTH));
 
-		index += size;
+		if (filled < INT32_MAX - (int32_t)size)
+			index += size;
 		pd.write_inc = size;
 		spa_ringbuffer_write_update(&stream->ring, index);
 	}

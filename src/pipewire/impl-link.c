@@ -1399,9 +1399,9 @@ check_permission(struct pw_context *context,
 	in_perms = out_perms = PW_PERM_R | PW_PERM_L;
 	if (context->current_client != NULL) {
 		in_perms = pw_global_get_permissions(in_node_global, context->current_client);
-		in_perms &= pw_global_get_permissions(in_port_global, context->current_client);
+		//in_perms &= pw_global_get_permissions(in_port_global, context->current_client);
 		out_perms = pw_global_get_permissions(out_node_global, context->current_client);
-		out_perms &= pw_global_get_permissions(out_port_global, context->current_client);
+		//out_perms &= pw_global_get_permissions(out_port_global, context->current_client);
 	}
 	/* current client making the link can't see input node/port or output node/port */
 	if (!PW_PERM_IS_R(in_perms) || !PW_PERM_IS_R(out_perms))
@@ -1412,8 +1412,8 @@ check_permission(struct pw_context *context,
 		return res;
 	if (client) {
 		uint32_t perms;
-		perms = pw_global_get_permissions(in_port_global, client);
-		perms &= pw_global_get_permissions(in_node_global, client);
+		perms = pw_global_get_permissions(in_node_global, client);
+		//perms &= pw_global_get_permissions(in_port_global, client);
 		if ((perms & PW_PERM_R) != PW_PERM_R) {
 			/* output node owner can't see input node/port, check if the current
 			 * client has universal link permissions for the output node */
@@ -1426,8 +1426,8 @@ check_permission(struct pw_context *context,
 		return res;
 	if (client) {
 		uint32_t perms;
-		perms = pw_global_get_permissions(out_port_global, client);
-		perms &= pw_global_get_permissions(out_node_global, client);
+		perms = pw_global_get_permissions(out_node_global, client);
+		//perms &= pw_global_get_permissions(out_port_global, client);
 		if ((perms & PW_PERM_R) != PW_PERM_R) {
 			/* input node owner can't see output node/port, check if the current
 			 * client has universal link permissions for the input node */

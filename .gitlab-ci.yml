@@ -284,6 +284,8 @@ include:
     when: always
     paths:
       - build-*/meson-logs
+      - build-*/build.ninja
+      - build-*/compile_commands.json
   variables:
     MESON_TEST_COND: '1'
 
@@ -435,6 +437,8 @@ build_on_fedora:
     when: always
     paths:
       - build-*/meson-logs
+      - build-*/build.ninja
+      - build-*/compile_commands.json
       - prefix-*
 
 build_on_fedora_html_docs:

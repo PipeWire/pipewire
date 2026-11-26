@@ -375,6 +375,7 @@ build_on_debian:
       -D bluez5-backend-native-mm=enabled
       -D bluez5-codec-lhdc=disabled
       -D bluez5-codec-lc3plus=disabled
+      -D bluez5-codec-ssc=disabled
       -D bluez5-codec-ldac=disabled
       -D bluez5-codec-ldac-dec=disabled
       -D libcamera=disabled
@@ -557,6 +558,7 @@ build_all:
         -Dbluez5-codec-lhdc=disabled
         -Dbluez5-codec-lc3plus=disabled
         -Dbluez5-codec-ldac-dec=disabled
+        -Dbluez5-codec-ssc=disabled
         -Droc=disabled
         -Dlibcamera=disabled
         -Dsndio=disabled

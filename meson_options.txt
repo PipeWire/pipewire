@@ -137,6 +137,10 @@ option('bluez5-codec-lhdc',
         description: 'Enable LHDC v5 open source codec implementation',
         type: 'feature',
         value: 'auto')
+option('bluez5-codec-ssc',
+        description: 'Enable Scalable open source codec implementation',
+        type: 'feature',
+        value: 'auto')
 option('bluez5-codec-aac',
         description: 'Enable AAC codec implementation (Fraunhofer FDK AAC, or FAAC and FAAD)',
         type: 'feature',

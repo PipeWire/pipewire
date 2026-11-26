@@ -221,6 +221,20 @@
 #define LHDC_V5_FRAME_LEN_5MS		0x10
 #define LHDC_V5_FEATURE_LL		0x40
 
+#define SSC_VENDOR_ID		0x00000075
+#define SSC_CODEC_ID		0x0103
+
+/* not shipped in production by vendor */
+#define SSC_FLAG_SUPPORTS_96KHZ_UHQ1	(1 << 7)
+/* not shipped in production by vendor */
+#define SSC_FLAG_SUPPORTS_32KHZ		(1 << 6)
+#define SSC_FLAG_SUPPORTS_44_1KHZ	(1 << 5)
+#define SSC_FLAG_SUPPORTS_48KHZ		(1 << 4)
+#define SSC_FLAG_SUPPORTS_192KBPS	(1 << 3)
+#define SSC_FLAG_SUPPORTS_48KHZ_24BIT	(1 << 2)
+#define SSC_FLAG_SUPPORTS_96KHZ_UHQ2	(1 << 1)
+#define SSC_FLAG_DISABLE_96KHZ		(1 << 0)
+
 #define FASTSTREAM_VENDOR_ID            0x0000000a
 #define FASTSTREAM_CODEC_ID             0x0001
 
@@ -490,6 +504,11 @@ typedef struct {
         uint8_t good_working_level2;
         uint8_t good_working_level1;
 } __attribute__ ((packed)) a2dp_aptx_ll_ext_t;
+
+typedef struct {
+	a2dp_vendor_codec_t info;
+	uint8_t data;
+} __attribute__ ((packed)) a2dp_ssc_t;
 
 typedef struct {
         a2dp_vendor_codec_t info;

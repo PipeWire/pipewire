@@ -172,6 +172,16 @@ if lhdc_dep.found()
     install_dir : spa_plugindir / 'bluez5')
 endif
 
+if ssc_dep.found()
+  bluez_codec_ssc = shared_library('spa-codec-bluez5-ssc',
+    [ 'a2dp-codec-ssc.c', 'media-codecs.c' ],
+    include_directories : [ configinc ],
+    c_args : codec_args,
+    dependencies : [ spa_dep, ssc_dep, mathlib ],
+    install : true,
+    install_dir : spa_plugindir / 'bluez5')
+endif
+
 if get_option('bluez5-codec-lc3plus').allowed() and lc3plus_dep.found()
   bluez_codec_lc3plus = shared_library('spa-codec-bluez5-lc3plus',
     [ 'a2dp-codec-lc3plus.c', 'media-codecs.c' ],

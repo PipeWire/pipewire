@@ -464,6 +464,18 @@ static void get_ranges(struct impl *impl, struct spa_fga_port *p,
 	}
 }
 
+static void port_get_name(struct port *port, char *name, size_t size)
+{
+	struct node *node = port->node;
+	const struct spa_fga_descriptor *d = node->desc->desc;
+	struct spa_fga_port *p = &d->ports[port->p];
+
+	if (node->name[0] != '\0')
+		snprintf(name, size, "%s:%s", node->name, p->name);
+	else
+		snprintf(name, size, "%s", p->name);
+}
+
 static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builder *b,
 		struct spa_pod **param)
 {
@@ -490,10 +502,7 @@ static int impl_enum_prop_info(void *object, uint32_t idx, struct spa_pod_builde
 
 	get_ranges(impl, p, &def, &min, &max);
 
-	if (node->name[0] != '\0')
-		snprintf(name, sizeof(name), "%s:%s", node->name, p->name);
-	else
-		snprintf(name, sizeof(name), "%s", p->name);
+	port_get_name(port, name, sizeof(name));
 
 	spa_pod_builder_push_object(b, &f[0],
 			SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo);
@@ -565,10 +574,7 @@ static int impl_get_props(void *object, struct spa_pod_builder *b, struct spa_po
 		struct spa_fga_port *p = &d->ports[port->p];
 		float v, min, max;
 
-		if (node->name[0] != '\0')
-			snprintf(name, sizeof(name), "%s:%s", node->name, p->name);
-		else
-			snprintf(name, sizeof(name), "%s", p->name);
+		port_get_name(port, name, sizeof(name));
 
 		if (port->control_initialized)
 			v = port->control_current;

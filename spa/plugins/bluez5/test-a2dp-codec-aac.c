@@ -706,6 +706,48 @@ static void test_bitrates(void)
 	}
 }
 
+/* Adaptive bitrate changes stay within the negotiated bitrate; only the
+ * encoder peak may use the whole MTU */
+static void test_abr_ceiling(void)
+{
+	const struct media_codec *codec = &a2dp_codec_aac;
+	const uint32_t negotiated = 256000;
+	a2dp_aac_t conf = {
+		.object_type = AAC_OBJECT_TYPE_MPEG2_AAC_LC,
+		AAC_INIT_FREQUENCY(AAC_SAMPLING_FREQ_48000)
+		.channels = AAC_CHANNELS_2,
+		.vbr = 0,
+		AAC_INIT_BITRATE(negotiated)
+	};
+	struct spa_audio_info info;
+	struct spa_dict settings = SPA_DICT_INIT(NULL, 0);
+	void *props, *data;
+	int i, res, top = 0;
+
+	CHECK(codec->validate_config(codec, 0, &conf, sizeof(conf), &info) == 0);
+	props = codec->init_props(codec, 0, &settings);
+	/* 1022 bytes: MTU limit ~383 kbit/s, well above the negotiated bitrate */
+	data = codec->init(codec, 0, &conf, sizeof(conf), &info, props, 1022);
+	CHECK(data != NULL);
+
+	res = codec->reduce_bitpool(data);
+	if (res == -EOPNOTSUPP || res == -ENOTSUP) {
+		printf("adaptive bitrate not supported by this backend\n");
+	} else {
+		CHECK(res > 0 && res < (int)negotiated);
+		for (i = 0; i < 8; i++) {
+			res = codec->increase_bitpool(data);
+			CHECK(res >= 0 && res <= (int)negotiated);
+			top = SPA_MAX(top, res);
+		}
+		CHECK(top == (int)negotiated);
+		printf("adaptive bitrate ceiling %d kbit/s (negotiated %u)\n", top / 1000, negotiated / 1000);
+	}
+
+	codec->deinit(data);
+	codec->clear_props(props);
+}
+
 int main(void)
 {
 	static const struct { uint32_t rate, flag; } rates[] = {
@@ -764,5 +806,6 @@ int main(void)
 	test_multi_block_input();
 	test_all_rates();
 	test_bitrates();
+	test_abr_ceiling();
 	return 0;
 }

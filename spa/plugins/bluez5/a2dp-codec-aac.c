@@ -66,6 +66,7 @@ struct impl {
 
 	int max_bitrate;
 	int cur_bitrate;
+	int sink_bitrate;
 
 	uint32_t rate;
 	uint32_t channels;
@@ -986,6 +987,10 @@ static void *codec_init(const struct media_codec *codec, uint32_t flags,
 	if ((res = init_aac(this, codec, conf, props)) < 0)
 		goto error;
 
+	/* Adaptive bitrate must not exceed the negotiated bitrate; only the
+	 * encoder peak may go up to the MTU limit. */
+	this->sink_bitrate = this->cur_bitrate;
+
 	return this;
 
 error:
@@ -1081,7 +1086,7 @@ static int codec_change_bitrate(struct impl *this, int new_bitrate)
 {
 	int res;
 
-	new_bitrate = SPA_MIN(new_bitrate, this->max_bitrate);
+	new_bitrate = SPA_MIN(new_bitrate, this->sink_bitrate);
 	new_bitrate = SPA_MAX(new_bitrate, 64000);
 
 	if (new_bitrate == this->cur_bitrate)

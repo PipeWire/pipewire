@@ -352,7 +352,7 @@ static inline void set_info(struct stream *s, uint32_t nframes,
 			midi[n_m].data = data;
 			midi[n_m].id = i;
 			midi[n_m++].filled = false;
-		} else if (data != NULL) {
+		} else {
 			audio[n_a].data = data;
 			audio[n_a].id = i;
 			audio[n_a++].filled = false;

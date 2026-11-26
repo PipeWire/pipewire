@@ -548,12 +548,16 @@ static int netjack2_send_float(struct netjack2_peer *peer, uint32_t nframes,
 		uint32_t is_last = (i == num_packets - 1) ? 1 : 0;
 		uint32_t packet_size = sizeof(header) + active_ports * sub_period_bytes;
 		int32_t *ap = SPA_PTROFF(buffer, sizeof(header), int32_t);
-		float *src;
 
 		for (j = 0; j < active_ports; j++) {
+			float *src;
+
+			if (j >= n_info || (src = info[j].data) == NULL)
+				continue;
+
 			ap[0] = htonl(info[j].id);
 
-			src = SPA_PTROFF(info[j].data, i * sub_period_size * sizeof(float), float);
+			src = SPA_PTROFF(src, i * sub_period_size * sizeof(float), float);
 			do_volume((float*)&ap[1], src, peer->send_volume, info[j].id, sub_period_size, false);
 
 			ap = SPA_PTROFF(ap, sub_period_bytes, int32_t);
@@ -914,20 +918,17 @@ static int netjack2_recv_float(struct netjack2_peer *peer, struct nj2_packet_hea
 	for (i = 0; i < active_ports; i++) {
 		int32_t *ap = SPA_PTROFF(buffer, sizeof(*header) + i * sub_period_bytes, int32_t);
 		uint32_t active_port = ntohl(ap[0]);
-		void *data;
+		void *data, *dst;
 
 		pw_log_trace_fp("%u/%u %u %u", active_port, n_info,
 				sub_cycle, sub_period_size);
-		if (active_port >= n_info)
+
+		if (active_port >= n_info || (data = info[active_port].data) == NULL)
 			continue;
 
-		if ((data = info[active_port].data) != NULL) {
-			float *dst = SPA_PTROFF(data,
-					sub_cycle * sub_period_size * sizeof(float),
-					float);
-			do_volume(dst, (float*)&ap[1], peer->recv_volume, active_port, sub_period_size, true);
-			info[active_port].filled = true;
-		}
+		dst = SPA_PTROFF(data, sub_cycle * sub_period_size * sizeof(float), float);
+		do_volume(dst, (float*)&ap[1], peer->recv_volume, active_port, sub_period_size, true);
+		info[active_port].filled = true;
 	}
 	return 0;
 }

@@ -1878,6 +1878,13 @@ static int device_enable(pa_card *impl, pa_alsa_mapping *mapping, pa_alsa_device
 		p->port.priority = p->priority;
 	}
 
+	/* A device whose mapping is in the old and the new profile is not
+	 * disabled on a profile switch, so it still has its active port: clear
+	 * that port's flag as device_disable() does, or it stays set beside the
+	 * one chosen next and find_port_for_device() can report the old port. */
+	if (dev->active_port)
+		dev->active_port->port.flags &= ~ACP_PORT_ACTIVE;
+
 	if (impl->auto_port)
 		port_index = acp_device_find_best_port_index(&dev->device, NULL);
 	else

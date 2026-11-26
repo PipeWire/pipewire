@@ -102,7 +102,7 @@ if get_option('spa-plugins').allowed()
     summary({'LHDC v5': lhdc_dep.found()}, bool_yn: true, section: 'Bluetooth audio codecs')
 
     ssc_codec_option = get_option('bluez5-codec-ssc')
-    ssc_dep = dependency('libssc', required : get_option('bluez5-codec-ssc'))
+    ssc_dep = dependency('libscalablecodec', required : get_option('bluez5-codec-ssc'))
     summary({'SSC': ssc_codec_option.allowed()}, bool_yn: true, section: 'Bluetooth audio codecs')
 
     aptx_dep = dependency('libfreeaptx', required : get_option('bluez5-codec-aptx'))

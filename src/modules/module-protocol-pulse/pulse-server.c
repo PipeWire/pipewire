@@ -1521,10 +1521,13 @@ static void stream_process(void *data)
 		size = SPA_MIN(d->chunk->size, d->maxsize - offs);
 
 		if (SPA_UNLIKELY(filled < 0)) {
+			int suppressed;
 			/* underrun, can't really happen because we never read more
 			 * than what's available on the other side  */
-			pw_log_warn("%p: [%s] underrun write:%u filled:%d",
-					stream, client->name, index, filled);
+			if ((suppressed = spa_ratelimit_test(&impl->rate_limit, stream->timestamp)) >= 0) {
+				pw_log_warn("%p: [%s] underrun write:%u filled:%d",
+						stream, client->name, index, filled);
+			}
 		} else if (SPA_UNLIKELY((uint32_t)filled + size > stream->attr.maxlength)) {
 			/* overrun, can happen when the other side is not
 			 * reading fast enough. We still write our data into the

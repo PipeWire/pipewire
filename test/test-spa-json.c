@@ -727,6 +727,44 @@ PWTEST(json_float_check)
 	return PWTEST_PASS;
 }
 
+PWTEST(json_string_check)
+{
+	struct {
+		const char *str;
+		int jsonres;
+	} val[] = {
+		{ "\"\"", 1 },
+		{ "\"a\"", 1 },
+		{ "\"hello world\"", 1 },
+		{ "\"\\n\"", 1 },
+		{ "\"\\\"\"", 1 },
+		{ "\"\\\\\"", 1 },
+		{ "\"\\/\"", 1 },
+		{ "\"\\b\\f\\n\\r\\t\"", 1 },
+		{ "\"\\u00e9\"", 1 },
+		{ "\"\\uABCD\"", 1 },
+		{ "\"a\\u0041b\"", 1 },
+		{ "\"\xc3\xa9\"", 1 },		/* UTF-8 */
+
+		{ "", 0 },
+		{ "\"", 0 },
+		{ "abc", 0 },			/* bare word */
+		{ "\"abc", 0 },			/* unterminated */
+		{ "\"ab\"c", 0 },		/* trailing junk */
+		{ "\"\\x\"", 0 },		/* bad escape */
+		{ "\"\\u12\"", 0 },		/* short \u */
+		{ "\"\\u12zz\"", 0 },		/* bad \u hex */
+		{ "\"\\\"", 0 },		/* dangling escape */
+		{ "\"\x01\"", 0 },		/* raw control char */
+	};
+	unsigned i;
+
+	for (i = 0; i < SPA_N_ELEMENTS(val); i++) {
+		pwtest_int_eq(spa_json_is_json_string(val[i].str, strlen(val[i].str)), val[i].jsonres);
+	}
+	return PWTEST_PASS;
+}
+
 PWTEST(json_int)
 {
 	int v;
@@ -1115,6 +1153,7 @@ PWTEST_SUITE(spa_json)
 	pwtest_add(json_overflow, PWTEST_NOARG);
 	pwtest_add(json_float, PWTEST_NOARG);
 	pwtest_add(json_float_check, PWTEST_NOARG);
+	pwtest_add(json_string_check, PWTEST_NOARG);
 	pwtest_add(json_int, PWTEST_NOARG);
 	pwtest_add(json_data, PWTEST_NOARG);
 	pwtest_add(json_object_find, PWTEST_NOARG);

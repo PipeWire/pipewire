@@ -366,7 +366,7 @@ static void publish_pending(struct module_zeroconf_publish_data *data)
 
 static void manager_removed(void *d, struct pw_manager_object *o)
 {
-	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
+	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source_not_monitor(o))
 		return;
 
 	struct service *s = pw_manager_object_get_data(o, SERVICE_DATA_ID);
@@ -381,7 +381,7 @@ static void manager_added(void *d, struct pw_manager_object *o)
 	struct service *s;
 	struct module_zeroconf_publish_data *data = d;
 
-	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source(o))
+	if (!pw_manager_object_is_sink(o) && !pw_manager_object_is_source_not_monitor(o))
 		return;
 
 	if (pw_manager_object_is_network(o))

@@ -444,7 +444,7 @@ static int do_announce(struct pw_zeroconf *zc, struct entry *e)
 
 	if (res < 0) {
 		res = avahi_client_errno(zc->client);
-		pw_log_error("can't add service: %s", avahi_strerror(res));
+		pw_log_error("can't add service '%s': %s", name, avahi_strerror(res));
 		pw_zeroconf_emit_error(zc, res, avahi_strerror(res));
 		return -EIO;
 	}

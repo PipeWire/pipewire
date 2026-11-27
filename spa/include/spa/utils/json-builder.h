@@ -171,8 +171,6 @@ void spa_json_builder_add_simple(struct spa_json_builder *b, const char *key, in
 	if (type == 0) {
 		if (spa_json_is_container(val, val_len))
 			type = simple ? 'C' : 'S';
-		else if (val_len > 0 && (*val == '}'  || *val == ']'))
-			type = 'e';
 		else if (spa_json_is_null(val, val_len) ||
 			 spa_json_is_bool(val, val_len))
 			type = 'l';

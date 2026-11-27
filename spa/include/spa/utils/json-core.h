@@ -501,7 +501,8 @@ SPA_API_JSON bool spa_json_is_json_number(const char *val, int len)
 	int i, state = 4;
 
 	for (i = 0; i < len; i++) {
-		if ((state = trans[state][char_class[val[i]&0x7f]]) < 0)
+		unsigned char c = (unsigned char)val[i];
+		if ((state = trans[state][c & 0x80 ? 6 : char_class[c]]) < 0)
 			return false;
 	}
 	return state < 4;

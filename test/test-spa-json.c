@@ -754,6 +754,11 @@ PWTEST(json_float_check)
 		{ "-.0", 1, 0 },
 		{ "-1E10", 1, 1 },
 
+		{ "\xb1", 0, 0 },	/* high byte aliases to '1' under &0x7f */
+		{ "\xb0", 0, 0 },	/* high byte aliases to '0' */
+		{ "1\xb0", 0, 0 },
+		{ "1\xae\x35", 0, 0 },	/* 0xae aliases to '.' */
+
 	};
 	unsigned i;
 	float v;

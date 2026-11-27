@@ -931,7 +931,6 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 		fprintf(f, "%c", enc[0]);
 
 	spa_dict_for_each(it, dict) {
-		char key[1024];
 		int len;
 		const char *value;
 		struct spa_json sub;
@@ -939,10 +938,10 @@ int pw_properties_serialize_dict(FILE *f, const struct spa_dict *dict, uint32_t 
 		fprintf(f, "%s%s%*s", count == 0 ? "" : ",", c->sep, c->indent, "");
 
 		if (!(flags & PW_PROPERTIES_FLAG_ARRAY)) {
-			if (spa_json_encode_string(key, sizeof(key)-1, it->key) >= (int)sizeof(key)-1)
-				continue;
-			fprintf(f, "%s%s%s: ", KEY(c), key, NORMAL(c));
+			encode_string(c, KEY(c), it->key, strlen(it->key), NORMAL(c));
+			fprintf(f, ": ");
 		}
+
 		value = it->value;
 		len = value ? strlen(value) : 0;
 		spa_json_init(&sub, value, len);

@@ -538,6 +538,40 @@ SPA_API_JSON bool spa_json_is_string(const char *val, int len)
 {
 	return len > 1 && *val == '"';
 }
+SPA_API_JSON bool spa_json_is_json_string(const char *val, int len)
+{
+	static const int8_t trans[8][9] = {
+	/*       '"'   '\'  'u'  '/' 'nrt' 'bf' hex  other ctrl */
+	/* 0 */ { 1,   -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1 },  /* start */
+	/* 1 */ { 7,    2,   1,   1,   1,   1,   1,   1,  -1 },  /* in string body */
+	/* 2 */ { 1,    1,   3,   1,   1,   1,  -1,  -1,  -1 },  /* after '\' */
+	/* 3 */ {-1,   -1,  -1,  -1,  -1,   4,   4,  -1,  -1 },  /* \u hex 1 */
+	/* 4 */ {-1,   -1,  -1,  -1,  -1,   5,   5,  -1,  -1 },  /* \u hex 2 */
+	/* 5 */ {-1,   -1,  -1,  -1,  -1,   6,   6,  -1,  -1 },  /* \u hex 3 */
+	/* 6 */ {-1,   -1,  -1,  -1,  -1,   1,   1,  -1,  -1 },  /* \u hex 4 */
+	/* 7 */ {-1,   -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1 },  /* after closing '"' */
+	};
+	static const int8_t char_class[128] = {
+		8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,  /* 0-15: control */
+		8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,  /* 16-31: control */
+		7,7,0,7,7,7,7,7,7,7,7,7,7,7,7,3,  /* 32-47: '"' '/' */
+		6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,  /* 48-63: 0-9 */
+		7,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,  /* 64-79: A-F */
+		7,7,7,7,7,7,7,7,7,7,7,7,1,7,7,7,  /* 80-95: '\' */
+		7,6,5,6,6,6,5,7,7,7,7,7,7,7,4,7,  /* 96-111: a c-e / b f / n */
+		7,7,4,7,4,2,7,7,7,7,7,7,7,7,7,7,  /* 112-127: r t u */
+	};
+	int i, state = 0;
+
+	for (i = 0; i < len; i++) {
+		unsigned char c = (unsigned char)val[i];
+		/* pass high bytes through as body content; UTF-8 not validated */
+		int cls = (c & 0x80) ? 7 : char_class[c];
+		if ((state = trans[state][cls]) < 0)
+			return false;
+	}
+	return state == 7;
+}
 SPA_API_JSON bool spa_json_is_simple_string(const char *val, int size)
 {
 	int i;

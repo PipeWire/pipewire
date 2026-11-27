@@ -174,12 +174,12 @@ void spa_json_builder_add_simple(struct spa_json_builder *b, const char *key, in
 		else if (spa_json_is_null(val, val_len) ||
 			 spa_json_is_bool(val, val_len))
 			type = 'l';
-		else if (spa_json_is_string(val, val_len))
+		else if (spa_json_is_json_string(val, val_len) ||
+				(simple && (spa_json_is_simple_string(val, val_len))))
 			type = 's';
-		else if (spa_json_is_json_number(val, val_len))
-			type = 'd';
-		else if (simple && (spa_json_is_float(val, val_len) ||
-			 spa_json_is_int(val, val_len)))
+		else if (spa_json_is_json_number(val, val_len) ||
+				(simple && (spa_json_is_float(val, val_len) ||
+					    spa_json_is_int(val, val_len))))
 			type = 'd';
 		else
 			type = 'S';
